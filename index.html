@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b3257" />
+  <meta name="description" content="CRM comercial TaskFlow — pipeline, levantamiento e implementación." />
+  <title>TaskFlow CRM</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><img src="assets/isotipo-taskflow-trim.png" alt="Isotipo TaskFlow" /></div>
+        <div>
+          <div class="brand-name">TaskFlow</div>
+          <div class="brand-sub">CRM · By 4R Labs</div>
+        </div>
+      </div>
+
+      <nav id="nav" class="nav" aria-label="Secciones">
+        <button class="nav-item active" data-view="dashboard">Resumen</button>
+        <button class="nav-item" data-view="leads">Leads</button>
+        <button class="nav-item" data-view="pipeline">Pipeline</button>
+        <button class="nav-item" data-view="implementation">Implementación</button>
+        <button class="nav-item" data-view="activities">Actividades</button>
+        <button class="nav-item" data-view="templates">Plantillas</button>
+        <button class="nav-item" data-view="files">Archivos</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button id="syncStatus" class="sync-pill" type="button" title="Estado de sincronización">
+          <span class="dot"></span><span id="syncStatusText">Solo local</span>
+        </button>
+        <div class="sidebar-row">
+          <button id="themeToggle" class="icon-btn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
+          <button id="dataBtn" class="text-btn">Datos y respaldo</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="viewTitle">Resumen</h1>
+          <p id="viewSubtitle">Gestión comercial y seguimiento de oportunidades TaskFlow.</p>
+        </div>
+        <div class="top-actions">
+          <button id="seedBtn" class="ghost-btn">Cargar ejemplo</button>
+          <button id="newLeadBtn" class="primary-btn">+ Nuevo lead</button>
+        </div>
+      </header>
+
+      <section id="viewRoot"></section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Lead -->
+  <dialog id="leadDialog" class="modal">
+    <form id="leadForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2 id="leadDialogTitle">Nuevo lead</h2>
+          <p>Empresa, contacto y contexto comercial.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="leadDialog" aria-label="Cerrar">×</button>
+      </div>
+
+      <input type="hidden" id="leadId" />
+      <div class="form-grid">
+        <label>Empresa<input id="company" required autocomplete="organization" /></label>
+        <label>RUT<input id="rut" placeholder="Opcional" /></label>
+        <label>Rubro<select id="industry"></select></label>
+        <label>Origen<select id="source"></select></label>
+        <label>Contacto<input id="contact" autocomplete="name" /></label>
+        <label>Cargo<input id="role" /></label>
+        <label>Email<input id="email" type="email" autocomplete="email" /></label>
+        <label>Teléfono<input id="phone" inputmode="tel" /></label>
+        <label>Etapa<select id="stage"></select></label>
+        <label>Prioridad<select id="priority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
+        <label>Valor estimado CLP<input id="value" type="number" min="0" step="10000" inputmode="numeric" /></label>
+        <label>Probabilidad %<input id="probability" type="number" min="0" max="100" inputmode="numeric" /></label>
+        <label>Cierre estimado<input id="expectedCloseDate" type="date" /></label>
+        <label>Responsable<input id="owner" placeholder="Ej. Francisco" /></label>
+        <label class="span-2">Próxima acción<input id="nextAction" /></label>
+        <label>Fecha próxima acción<input id="nextDate" type="date" /></label>
+        <label id="lossReasonField" hidden>Motivo de pérdida<select id="lossReason"></select></label>
+        <label class="span-2">Notas<textarea id="notes" rows="4"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="leadDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Levantamiento -->
+  <dialog id="discoveryDialog" class="modal">
+    <form id="discoveryForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Levantamiento comercial</h2>
+          <p id="discoverySubtitle">Información para construir una propuesta alineada a la operación.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="discoveryDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="discoveryLeadId" />
+      <div class="form-grid">
+        <label class="span-2">Dolor principal<textarea id="pain" rows="3"></textarea></label>
+        <label>Gestión actual<select id="currentManagement"></select></label>
+        <label>Nº técnicos / usuarios<input id="technicians" type="number" min="0" inputmode="numeric" /></label>
+        <label>Nº sucursales / zonas<input id="locations" type="number" min="0" inputmode="numeric" /></label>
+        <label>Gatillo de compra<select id="buyTrigger"></select></label>
+        <fieldset class="span-2 module-fieldset">
+          <legend>Módulos / capacidades de interés</legend>
+          <div id="moduleChecks" class="check-grid"></div>
+        </fieldset>
+        <label class="span-2">Integraciones requeridas<input id="integrations" placeholder="Ej. ERP, BI, API, SSO" /></label>
+        <label class="span-2">Criterio de éxito<textarea id="successCriteria" rows="3"></textarea></label>
+        <label class="span-2">Observaciones técnicas<textarea id="technicalNotes" rows="3"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="discoveryDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar levantamiento</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Actividad -->
+  <dialog id="activityDialog" class="modal">
+    <form id="activityForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div><h2>Nueva actividad</h2><p>Registra una interacción o compromiso comercial.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="activityDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="form-grid">
+        <label>Empresa<select id="activityLeadId" required></select></label>
+        <label>Contacto<select id="activityContactId"></select></label>
+        <label>Tipo<select id="activityType"></select></label>
+        <label>Fecha<input id="activityDate" type="datetime-local" required /></label>
+        <label>Responsable<input id="activityOwner" /></label>
+        <label class="span-2">Detalle<textarea id="activityDetail" rows="4" required></textarea></label>
+        <label class="span-2">Compromiso / siguiente paso<input id="activityCommitment" /></label>
+        <label class="span-2 inline"><input type="checkbox" id="activityUpdatesNext" checked /> Usar el compromiso como próxima acción del lead</label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="activityDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar actividad</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Archivo -->
+  <dialog id="fileDialog" class="modal">
+    <form id="fileForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div><h2 id="fileDialogTitle">Registrar archivo</h2><p>Guarda el enlace al documento en Drive, OneDrive u otro repositorio.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="fileDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="fileId" />
+      <div class="form-grid">
+        <label>Empresa<select id="fileLeadId" required></select></label>
+        <label>Tipo<select id="fileType"></select></label>
+        <label class="span-2">Nombre<input id="fileName" required /></label>
+        <label class="span-2">Enlace<input id="fileUrl" type="url" placeholder="https://" /></label>
+        <label>Fecha<input id="fileDate" type="date" /></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="fileDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Contacto -->
+  <dialog id="contactDialog" class="modal">
+    <form id="contactForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Nuevo contacto</h2>
+          <p>Otra persona de contacto en esta empresa.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="contactDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="contactLeadId" />
+      <div class="form-grid">
+        <label class="span-2">Nombre<input id="contactName" required /></label>
+        <label>Cargo<input id="contactRole" /></label>
+        <label>Teléfono<input id="contactPhone" inputmode="tel" /></label>
+        <label class="span-2">Email<input id="contactEmail" type="email" /></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="contactDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar contacto</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Comunicación -->
+  <dialog id="commDialog" class="modal">
+    <form id="commForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2 id="commDialogTitle">Escribir mensaje</h2>
+          <p id="commDialogSubtitle"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="commDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="commLeadId" />
+      <input type="hidden" id="commContactKey" />
+      <input type="hidden" id="commChannel" />
+      <div class="form-grid">
+        <label class="span-2">Plantilla<select id="commTemplate"></select></label>
+        <label class="span-2" id="commSubjectField">Asunto<input id="commSubject" /></label>
+        <label class="span-2">Mensaje<textarea id="commBody" rows="10"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" id="commCopyBtn">Copiar</button>
+        <button type="button" class="ghost-btn" data-close-dialog="commDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="commSendBtn">Abrir</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Mover de etapa -->
+  <dialog id="stageDialog" class="modal">
+    <form id="stageForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2>Mover oportunidad</h2><p id="stageDialogLead"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="stageDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="stageLeadId" />
+      <div class="form-grid">
+        <div class="span-2 stage-options" id="stageOptions"></div>
+        <label class="span-2" id="stageLossField" hidden>Motivo de pérdida<select id="stageLossReason"></select></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="stageDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Mover</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Ficha -->
+  <dialog id="detailDialog" class="modal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <div><h2 id="detailTitle">Ficha</h2><p id="detailSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="detailDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="detailBody" class="detail-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="danger-btn" id="detailDeleteBtn" data-action="delete-lead">Eliminar</button>
+        <button type="button" class="ghost-btn" data-close-dialog="detailDialog">Cerrar</button>
+        <button type="button" class="primary-btn" id="detailEditBtn">Editar oportunidad</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Gestionar pendientes -->
+  <dialog id="manageDialog" class="modal">
+    <form id="manageForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Gestionar pendientes</h2>
+          <p id="manageCounter"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="manageDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="detail-body manage-lead">
+        <h3 id="manageCompany"></h3>
+        <span class="badge" id="manageStage"></span>
+        <p class="muted" id="manageContact"></p>
+        <div class="manage-current">
+          <span class="muted">Próxima acción actual:</span>
+          <strong id="manageCurrentAction"></strong>
+          <span class="badge" id="manageCurrentDate"></span>
+        </div>
+        <div class="button-row">
+          <button type="button" class="small-btn" id="manageCallBtn" data-action="call-contact">Llamar</button>
+          <button type="button" class="small-btn" id="manageWhatsappBtn" data-action="open-whatsapp">WhatsApp</button>
+          <button type="button" class="small-btn" id="manageEmailBtn" data-action="open-email">Correo</button>
+          <button type="button" class="small-btn" id="manageOpenFichaBtn" data-action="open-detail">Ver ficha completa</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label class="span-2">Registrar avance / nota<textarea id="manageNote" rows="3" placeholder="¿Qué hiciste o qué pasó? (opcional)"></textarea></label>
+        <label>Próxima acción<input id="manageNextAction" /></label>
+        <label>Fecha próxima acción<input id="manageNextDate" type="date" /></label>
+      </div>
+      <div class="modal-actions manage-actions">
+        <button type="button" class="icon-btn" id="managePrevBtn" aria-label="Anterior">←</button>
+        <button type="submit" class="primary-btn">Guardar y continuar</button>
+        <button type="button" class="icon-btn" id="manageNextBtn" aria-label="Siguiente">→</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Datos y respaldo -->
+  <dialog id="dataDialog" class="modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div><h2>Datos y respaldo</h2><p id="dataSummary"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="dataDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="data-panel">
+        <section>
+          <h4>Respaldo local</h4>
+          <div class="button-row">
+            <button id="exportBtn" class="ghost-btn">Exportar JSON</button>
+            <label class="ghost-btn file-label">Importar JSON<input id="importInput" type="file" accept="application/json" hidden></label>
+            <button id="exportCsvBtn" class="ghost-btn">Exportar leads CSV</button>
+          </div>
+        </section>
+        <section id="syncSection">
+          <h4>Google Sheets</h4>
+          <p id="syncHint" class="muted"></p>
+          <div class="button-row">
+            <button id="pullBtn" class="ghost-btn">Descargar de Sheets</button>
+            <button id="pushBtn" class="ghost-btn">Subir a Sheets</button>
+          </div>
+          <label class="inline"><input type="checkbox" id="autoSyncToggle" /> Sincronizar automáticamente al guardar</label>
+        </section>
+        <section>
+          <h4>Zona sensible</h4>
+          <button id="resetBtn" class="danger-btn">Borrar todos los datos locales</button>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
