@@ -225,7 +225,7 @@ export const DEFAULT_TEMPLATES = [
     channel: 'both',
     subject: 'TaskFlow — gestión de OTs, inventario y operación técnica',
     body:
-      'Hola {{contacto}},\n\nQuisiera presentarte TaskFlow, una plataforma modular para centralizar órdenes de trabajo, técnicos en terreno, equipos, inventario, checklists, evidencias y trazabilidad operativa.\n\nPodemos revisar la operación de {{empresa}} en una demo breve y enfocada en sus procesos.\n\nSaludos,\n{{responsable}}'
+      'Hola {{nombre}},\n\nQuisiera presentarte TaskFlow, una plataforma modular para centralizar órdenes de trabajo, técnicos en terreno, equipos, inventario, checklists, evidencias y trazabilidad operativa.\n\nPodemos revisar la operación de {{empresa}} en una demo breve y enfocada en sus procesos.\n\nSaludos,\n{{responsable}}'
   },
   {
     id: 'demo',
@@ -233,7 +233,7 @@ export const DEFAULT_TEMPLATES = [
     channel: 'both',
     subject: 'Coordinemos una demo de TaskFlow',
     body:
-      'Hola {{contacto}},\n\nComo conversamos, propongo coordinar una demo de TaskFlow enfocada en {{dolor}}. La idea es revisar el flujo real de su operación y mostrar solo los módulos que les aportan valor: {{modulos}}.\n\nQuedo atento a día y horario.\n\n{{responsable}}'
+      'Hola {{nombre}},\n\nComo conversamos, propongo coordinar una demo de TaskFlow enfocada en {{dolor}}. La idea es revisar el flujo real de su operación y mostrar solo los módulos que les aportan valor: {{modulos}}.\n\nQuedo atento a día y horario.\n\n{{responsable}}'
   },
   {
     id: 'followup',
@@ -241,23 +241,23 @@ export const DEFAULT_TEMPLATES = [
     channel: 'both',
     subject: 'Seguimiento propuesta TaskFlow — {{empresa}}',
     body:
-      'Hola {{contacto}},\n\nQuería hacer seguimiento a la propuesta de TaskFlow enviada para {{empresa}}. ¿Pudieron revisarla?\n\nSi hay observaciones técnicas, comerciales o de alcance, las revisamos juntos.\n\n{{responsable}}'
+      'Hola {{nombre}},\n\nQuería hacer seguimiento a la propuesta de TaskFlow enviada para {{empresa}}. ¿Pudieron revisarla?\n\nSi hay observaciones técnicas, comerciales o de alcance, las revisamos juntos.\n\n{{responsable}}'
   },
   {
     id: 'reactivation',
     name: 'Reactivación de contacto frío',
     channel: 'both',
-    subject: '¿Retomamos la conversación, {{contacto}}?',
+    subject: '¿Retomamos la conversación, {{nombre}}?',
     body:
-      'Hola {{contacto}},\n\nQuedamos en pausa con el proyecto de {{empresa}}. Desde entonces sumamos mejoras en {{modulos}}.\n\nSi el tema sigue vigente, puedo mostrarte en 20 minutos qué cambia hoy respecto a lo que viste.\n\n{{responsable}}'
+      'Hola {{nombre}},\n\nQuedamos en pausa con el proyecto de {{empresa}}. Desde entonces sumamos mejoras en {{modulos}}.\n\nSi el tema sigue vigente, puedo mostrarte en 20 minutos qué cambia hoy respecto a lo que viste.\n\n{{responsable}}'
   },
   {
     id: 'remarketing1',
     name: 'Remarketing — Seguimiento 1',
     channel: 'both',
-    subject: '¿Seguimos en contacto, {{contacto}}?',
+    subject: '¿Seguimos en contacto, {{nombre}}?',
     body:
-      'Hola {{contacto}},\n\nSé que por ahora no era el momento para avanzar con TaskFlow en {{empresa}}. Quería dejar la puerta abierta: si la situación cambia o surge una nueva necesidad, quedo disponible para retomar la conversación cuando les acomode.\n\nUn saludo,\n{{responsable}}'
+      'Hola {{nombre}},\n\nSé que por ahora no era el momento para avanzar con TaskFlow en {{empresa}}. Quería dejar la puerta abierta: si la situación cambia o surge una nueva necesidad, quedo disponible para retomar la conversación cuando les acomode.\n\nUn saludo,\n{{responsable}}'
   },
   {
     id: 'remarketing2',
@@ -265,16 +265,16 @@ export const DEFAULT_TEMPLATES = [
     channel: 'both',
     subject: 'Novedades de TaskFlow para {{empresa}}',
     body:
-      'Hola {{contacto}},\n\nTe escribo para contarte que seguimos sumando mejoras en {{modulos}}. Si el contexto en {{empresa}} cambió, me encantaría mostrarte qué hay de nuevo.\n\n¿Tenés unos minutos esta semana?\n\n{{responsable}}'
+      'Hola {{nombre}},\n\nTe escribo para contarte que seguimos sumando mejoras en {{modulos}}. Si el contexto en {{empresa}} cambió, me encantaría mostrarte qué hay de nuevo.\n\n¿Tenés unos minutos esta semana?\n\n{{responsable}}'
   },
   {
     id: 'remarketing3',
     name: 'Remarketing — Seguimiento 3',
     channel: 'both',
-    subject: 'Última consulta, {{contacto}}',
+    subject: 'Última consulta, {{nombre}}',
     body:
-      'Hola {{contacto}},\n\nNo quiero ser insistente, así que este es mi último mensaje por ahora. Si en algún momento {{empresa}} necesita retomar el tema de {{dolor}}, sabés dónde encontrarme.\n\n¡Éxito con todo!\n\n{{responsable}}'
+      'Hola {{nombre}},\n\nNo quiero ser insistente, así que este es mi último mensaje por ahora. Si en algún momento {{empresa}} necesita retomar el tema de {{dolor}}, sabés dónde encontrarme.\n\n¡Éxito con todo!\n\n{{responsable}}'
   }
 ];
 
-export const TEMPLATE_VARIABLES = ['{{contacto}}', '{{empresa}}', '{{cargo}}', '{{dolor}}', '{{modulos}}', '{{responsable}}'];
+export const TEMPLATE_VARIABLES = ['{{nombre}}', '{{nombreCompleto}}', '{{empresa}}', '{{cargo}}', '{{dolor}}', '{{modulos}}', '{{responsable}}'];

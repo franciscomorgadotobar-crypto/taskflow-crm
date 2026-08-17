@@ -541,15 +541,24 @@ export function renderRemarketing() {
 
 /* ---------------- Plantillas ---------------- */
 
+/** Un saludo se escribe con el nombre de pila, no con nombre y apellido. */
+const firstName = (full) => String(full || '').trim().split(/\s+/)[0] || '';
+
 export function fillTemplate(text, leadId, contact = null) {
   const lead = getLead(leadId);
   const d = lead ? getDiscovery(lead.id) || {} : {};
+  const fullName = contact?.name || lead?.contact || '';
+  const name = firstName(fullName) || 'equipo';
   const map = {
-    '{{contacto}}': contact?.name || lead?.contact || 'equipo',
+    '{{nombre}}': name,
+    '{{nombreCompleto}}': fullName || 'equipo',
+    // Alias de la versión anterior: las plantillas ya guardadas siguen funcionando.
+    '{{contacto}}': name,
     '{{empresa}}': lead?.company || 'su empresa',
     '{{cargo}}': contact?.role || lead?.role || '',
     '{{dolor}}': d.pain || 'la operación en terreno',
     '{{modulos}}': (d.modules || []).join(', ') || 'órdenes de trabajo y trazabilidad',
+    // La firma sí va completa: uno se despide con nombre y apellido.
     '{{responsable}}': lead?.owner || ''
   };
   return Object.entries(map).reduce((acc, [k, v]) => acc.split(k).join(v), text);

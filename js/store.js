@@ -62,7 +62,15 @@ export function migrate(raw) {
     lead.nextDate = a.commitmentDate || '';
   });
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
-  data.templates = data.templates.map((t) => ({ channel: 'both', ...t }));
+  // {{contacto}} pasó a llamarse {{nombre}} (y ahora resuelve al nombre de pila).
+  // Se renombra en las plantillas guardadas para que coincidan con la lista de variables.
+  const renameVar = (s) => String(s || '').split('{{contacto}}').join('{{nombre}}');
+  data.templates = data.templates.map((t) => ({
+    channel: 'both',
+    ...t,
+    subject: renameVar(t.subject),
+    body: renameVar(t.body)
+  }));
 
   const rawSettings = data.settings || {};
   data.settings = { ...base.settings, ...rawSettings };
