@@ -56,16 +56,11 @@ button, input, select, textarea { font: inherit; }
   padding: 22px 16px; display: flex; flex-direction: column;
 }
 
-.brand { display: flex; gap: 12px; align-items: center; padding: 2px 8px 22px; }
-.brand-mark {
-  width: 42px; height: 42px; border-radius: 12px; flex: none;
-  background: #fff; display: grid; place-items: center; padding: 6px;
-}
-.brand-mark img { height: 30px; width: auto; display: block; }
-.brand-logo { display: block; width: 100%; max-width: 190px; min-width: 165px; height: auto; }
-.brand-logo.on-dark { background: #fff; border-radius: 10px; padding: 8px 10px; }
-.brand-name { font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-.brand-sub { font-size: 12px; opacity: .7; margin-top: 2px; }
+.brand { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 2px 8px 22px; min-width: 0; }
+/* El logotipo es azul marino, así que sobre la barra oscura va en una placa blanca. */
+.brand-logo { display: block; width: 100%; max-width: 190px; height: auto; }
+.brand-logo.on-dark { background: #fff; border-radius: 10px; padding: 9px 11px; }
+.brand-sub { font-size: 12px; opacity: .7; padding-left: 2px; }
 
 .nav { display: flex; flex-direction: column; gap: 6px; }
 .nav-item {
@@ -433,7 +428,9 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 @media (max-width: 760px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { position: sticky; top: 0; height: auto; z-index: 10; padding: 14px; }
-  .brand { padding-bottom: 12px; }
+  .brand { flex-direction: row; align-items: center; gap: 10px; padding: 0 0 12px; }
+  .brand-logo { max-width: 150px; }
+  .brand-sub { padding-left: 0; }
   .nav { flex-direction: row; overflow-x: auto; gap: 8px; padding-bottom: 4px; scrollbar-width: none; }
   .nav::-webkit-scrollbar { display: none; }
   .nav-item { white-space: nowrap; padding: 10px 14px; }
