@@ -296,6 +296,18 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .next-highlight.overdue-box { border-left-color: var(--danger); }
 .next-highlight strong { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
 .next-task-origin { margin: 8px 0 0; }
+
+.task-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0 12px; }
+.task-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.task-form input, .task-form select, .task-form textarea {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px; min-height: 42px; font: inherit; outline: none;
+}
+.task-form textarea { min-height: 72px; resize: vertical; }
+.task-form input:focus, .task-form select:focus, .task-form textarea:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29, 113, 184, .12);
+}
+.task-form-actions { justify-content: flex-end; }
 .detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
 .detail-row span { color: var(--muted); flex: none; }
 .detail-row strong { text-align: right; overflow-wrap: anywhere; min-width: 0; }
@@ -464,6 +476,7 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   .detail-row strong { text-align: left; }
   .stage-cell { justify-content: flex-start; }
   .activity-peek { display: none; }
+  .task-form { grid-template-columns: 1fr; }
   .manage-actions { flex-wrap: wrap; }
 }
 

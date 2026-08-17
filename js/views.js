@@ -1,4 +1,4 @@
-import { CRM_CROSS, CRM_FLOW, PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES, USER_ROLES } from './catalog.js';
+import { ACTIVITY_TYPES, CRM_CROSS, CRM_FLOW, PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES, USER_ROLES } from './catalog.js';
 import {
   activitiesOf,
   avgDaysPerStage,
@@ -12,7 +12,17 @@ import {
   state,
   taskOf
 } from './store.js';
-import { addDaysISO, daysBetween, escapeHtml as e, fmtDate, fmtDateTime, fmtMoney, fmtNumber, todayISO } from './utils.js';
+import {
+  addDaysISO,
+  daysBetween,
+  escapeHtml as e,
+  fmtDate,
+  fmtDateTime,
+  fmtMoney,
+  fmtNumber,
+  localDateTimeInput,
+  todayISO
+} from './utils.js';
 
 const stageBadge = (stage) =>
   `<span class="badge ${stage === 'Ganado' ? 'success' : stage === 'Perdido' ? 'danger' : stage === 'Remarketing' ? 'warning' : ''}">${e(stage)}</span>`;
@@ -802,13 +812,36 @@ export function renderLeadDetail(id) {
   const task = taskOf(l);
   const taskOverdue = Boolean(task && (!task.date || task.date < today));
 
+  const primary = contacts[0] || null;
   const nextTaskBody = task
     ? `<div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
         <strong>${e(task.title)}</strong>
         <span class="badge ${taskOverdue ? 'danger' : ''}">${e(task.date ? fmtDate(task.date) : 'Sin fecha')}</span>
         ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
       </div>
-      <div class="actions">${taskActions(l.id, { includeFicha: false })}</div>`
+      ${
+        primary?.phone || primary?.email
+          ? `<div class="actions">
+              ${primary.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary.key}">Llamar</button>` : ''}
+              ${primary.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary.key}">WhatsApp</button>` : ''}
+              ${primary.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary.key}">Correo</button>` : ''}
+            </div>`
+          : ''
+      }
+      <div class="task-form">
+        <label>¿Qué tipo de actividad fue?
+          <select id="fichaType">${ACTIVITY_TYPES.map((t) => `<option>${e(t)}</option>`).join('')}</select>
+        </label>
+        <label>Fecha en que ocurrió<input id="fichaDate" type="datetime-local" value="${e(localDateTimeInput())}" /></label>
+        <label class="span-2">¿Cómo resultó?<textarea id="fichaResult" rows="3" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
+        <label class="span-2">Siguiente tarea<input id="fichaNextAction" placeholder="Qué hay que hacer después" /></label>
+        <label>Fecha de la siguiente<input id="fichaNextDate" type="date" /></label>
+        <p class="span-2 muted form-note">¿No lograste hacerla? Usa <strong>Reagendar</strong> y queda pendiente con otra fecha, sin cerrarla.</p>
+      </div>
+      <div class="actions task-form-actions">
+        <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
+        <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Marcar realizada</button>
+      </div>`
     : `<p class="muted">Sin tarea agendada para este prospecto.</p>
        <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
 

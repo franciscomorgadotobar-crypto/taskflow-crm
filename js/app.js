@@ -131,6 +131,20 @@ function fillStaticSelects() {
   ).join('');
 }
 
+/**
+ * Responsables disponibles: yo y los usuarios activos configurados. Si el lead
+ * ya tenía un responsable que ya no está activo, se conserva para no perderlo.
+ */
+function fillOwnerSelect(selected = '') {
+  const { profile, users } = state.settings;
+  const names = [profile.name, ...users.filter((u) => u.active && u.name).map((u) => u.name)].filter(Boolean);
+  const unique = [...new Set(names)];
+  if (selected && !unique.includes(selected)) unique.push(selected);
+  $('owner').innerHTML =
+    `<option value="">Sin asignar</option>` +
+    unique.map((n) => `<option ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+}
+
 const leadOptions = (selected = '', placeholder = 'Selecciona una empresa') =>
   `<option value="">${placeholder}</option>` +
   state.leads
@@ -152,6 +166,7 @@ function openLead(id) {
   const editing = Boolean(id);
   $('leadDialogTitle').textContent = editing ? 'Editar datos de la empresa' : 'Nuevo lead';
   $('leadId').value = l.id || '';
+  fillOwnerSelect(l.owner || '');
   LEAD_FIELDS.forEach((k) => {
     const el = $(k);
     if (!el) return;
@@ -715,6 +730,20 @@ const ACTIONS = {
     render();
   },
   'complete-task': (id) => openComplete(id),
+  // Misma gestión que el diálogo, pero resuelta dentro de la propia ficha.
+  'complete-task-inline': (id) => {
+    const result = $('fichaResult').value.trim();
+    if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
+    const nextAction = $('fichaNextAction').value.trim();
+    completeTask(id, {
+      type: $('fichaType').value,
+      date: $('fichaDate').value || localDateTimeInput(),
+      result,
+      nextAction,
+      nextDate: $('fichaNextDate').value
+    });
+    toast(nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
+  },
   'reschedule-task': (id) => openTask(id),
   'open-manage': () => openManage(),
   'qualify-lead': (id) => {
