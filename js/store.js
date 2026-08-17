@@ -67,9 +67,11 @@ export function migrate(raw) {
   const rawSettings = data.settings || {};
   data.settings = { ...base.settings, ...rawSettings };
   data.settings.profile = { ...base.settings.profile, ...(rawSettings.profile || {}) };
-  // El equipo se precarga una sola vez; si después lo editan o lo vacían, se respeta.
-  const rawUsers = Array.isArray(rawSettings.users) ? rawSettings.users : null;
-  const users = rawUsers ?? (rawSettings.seeded ? [] : base.settings.users);
+  // El equipo se precarga una sola vez. Ojo: las versiones anteriores ya dejaban
+  // `users: []` guardado, así que la marca `seeded` es la única señal fiable de que
+  // la precarga ya ocurrió; si hay usuarios propios, tampoco se toca.
+  const existing = Array.isArray(rawSettings.users) ? rawSettings.users : [];
+  const users = rawSettings.seeded || existing.length ? existing : base.settings.users;
   data.settings.users = users.map((u) => ({
     id: u.id || uid('user'),
     name: '',
