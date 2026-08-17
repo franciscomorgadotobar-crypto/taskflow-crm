@@ -1,4 +1,4 @@
-import { PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES } from './catalog.js';
+import { PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES, USER_ROLES } from './catalog.js';
 import {
   activitiesOf,
   avgDaysPerStage,
@@ -289,7 +289,9 @@ export function renderLeads(ui) {
               </table></div>`
             : empty(
                 pool.length ? 'Ningún lead coincide con el filtro' : 'Aún no hay leads sin calificar',
-                pool.length ? 'Ajusta la búsqueda o limpia los filtros.' : 'Crea el primero con “Nuevo lead” o carga el ejemplo.'
+                pool.length
+                  ? 'Ajusta la búsqueda o limpia los filtros.'
+                  : 'Crea el primero con “Nuevo lead”, o carga los datos demo desde Configuración.'
               )
         }
       </div>
@@ -458,6 +460,7 @@ export function renderRemarketing() {
                         <button class="small-btn" data-action="remarketing-email" data-id="${l.id}" data-template="remarketing1">Correo 1</button>
                         <button class="small-btn" data-action="remarketing-email" data-id="${l.id}" data-template="remarketing2">Correo 2</button>
                         <button class="small-btn" data-action="remarketing-email" data-id="${l.id}" data-template="remarketing3">Correo 3</button>
+                        <button class="small-btn" data-action="back-to-pipeline" data-id="${l.id}">Pasar a prospecto</button>
                         <button class="small-btn" data-action="move-stage" data-id="${l.id}">Mover</button>
                       </div></td>
                     </tr>`
@@ -592,6 +595,91 @@ export function renderTemplates(ui) {
     </div>`;
 }
 
+/* ---------------- Configuración ---------------- */
+
+export function renderSettings() {
+  const { profile, users } = state.settings;
+
+  return `
+    <div class="card">
+      <div class="card-head"><h3>Mi usuario</h3></div>
+      <div class="card-body">
+        <div class="settings-grid">
+          <label>Nombre<input id="profileName" value="${e(profile.name)}" placeholder="Tu nombre" /></label>
+          <label>Correo<input id="profileEmail" type="email" value="${e(profile.email)}" placeholder="nombre@taskflow.cl" /></label>
+          <label>Teléfono<input id="profilePhone" inputmode="tel" value="${e(profile.phone)}" placeholder="+56 9 ..." /></label>
+          <label>Contraseña
+            <span class="pass-field">
+              <input id="profilePassword" type="password" value="${e(profile.password)}" placeholder="Contraseña" />
+              <button class="small-btn" data-action="toggle-password" data-target="profilePassword">Ver</button>
+            </span>
+          </label>
+        </div>
+        <div class="button-row" style="margin-top:14px">
+          <button class="primary-btn" data-action="save-profile">Guardar mis datos</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-head">
+        <h3>Usuarios invitados</h3>
+        <button class="primary-btn" data-action="new-user">+ Invitar usuario</button>
+      </div>
+      <div class="card-body">
+        <div class="notice warn">
+          <strong>Importante:</strong> este CRM funciona solo en el navegador, sin servidor. Los usuarios y contraseñas
+          quedan guardados en este equipo y <strong>sin cifrar</strong>: sirven para dejar definidos los accesos y permisos,
+          pero todavía no son un inicio de sesión real. Para que lo sean hay que conectar un backend.
+        </div>
+        ${
+          users.length
+            ? `<div class="table-wrap"><table class="data-table">
+                <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Contraseña</th><th>Permiso</th><th>Estado</th><th></th></tr></thead>
+                <tbody>${users
+                  .map(
+                    (u) => `<tr>
+                      <td><input class="cell-input" id="u_${u.id}_name" data-user-field="name" data-id="${u.id}" value="${e(u.name)}" placeholder="Nombre" /></td>
+                      <td><input class="cell-input" id="u_${u.id}_email" data-user-field="email" data-id="${u.id}" type="email" value="${e(u.email)}" placeholder="correo@taskflow.cl" /></td>
+                      <td><input class="cell-input" id="u_${u.id}_phone" data-user-field="phone" data-id="${u.id}" value="${e(u.phone)}" placeholder="+56 9 ..." /></td>
+                      <td><span class="pass-field">
+                        <input class="cell-input" id="pass-${u.id}" data-user-field="password" data-id="${u.id}" type="password" value="${e(u.password)}" placeholder="Clave" />
+                        <button class="small-btn" data-action="toggle-password" data-target="pass-${u.id}">Ver</button>
+                      </span></td>
+                      <td><select class="cell-input" id="u_${u.id}_role" data-user-field="role" data-id="${u.id}">
+                        ${USER_ROLES.map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`).join('')}
+                      </select></td>
+                      <td><label class="inline-check"><input type="checkbox" id="u_${u.id}_active" data-user-field="active" data-id="${u.id}" ${u.active ? 'checked' : ''} /> Activo</label></td>
+                      <td><button class="small-btn danger" data-action="delete-user" data-id="${u.id}">Eliminar</button></td>
+                    </tr>`
+                  )
+                  .join('')}</tbody>
+              </table></div>`
+            : empty('Sin usuarios invitados', 'Usa “Invitar usuario” para sumar a alguien del equipo y asignarle un permiso.')
+        }
+
+        <h4 class="settings-subtitle">Qué puede hacer cada permiso</h4>
+        <div class="role-list">
+          ${USER_ROLES.map((r) => `<div class="role-row"><strong>${e(r.label)}</strong><span class="muted">${e(r.detail)}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-head"><h3>Datos de demostración</h3></div>
+      <div class="card-body">
+        <p class="muted settings-hint">
+          Carga un set de ejemplo para probar el CRM: leads por calificar, oportunidades en el embudo comercial,
+          prospectos en remarketing y clientes ganados en implementación. Es el único lugar desde donde se cargan.
+        </p>
+        <div class="button-row">
+          <button class="ghost-btn" data-action="load-demo">Cargar datos demo</button>
+          <button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 /* ---------------- Ficha de la oportunidad ---------------- */
 
 /** Sección plegable de la ficha. `count` se muestra como badge en el encabezado. */
@@ -606,23 +694,6 @@ const section = (title, body, { open = false, count = null, tone = '' } = {}) =>
 
 const detailRow = (label, value) =>
   value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '';
-
-/** Un compromiso pendiente, con su fecha y los botones para cerrarlo o reagendarlo. */
-function commitmentItem(a, overdue) {
-  return `<div class="list-item">
-    <div>
-      <strong>${e(a.commitment)}</strong>
-      <div class="muted">${e(a.type)} · ${e(fmtDateTime(a.date))}${a.detail ? ` · ${e(a.detail)}` : ''}</div>
-    </div>
-    <div class="list-side">
-      <span class="badge ${overdue ? 'danger' : ''}">${a.commitmentDate ? e(fmtDate(a.commitmentDate)) : 'Sin fecha'}</span>
-      <div class="actions">
-        <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
-        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Reagendar</button>
-      </div>
-    </div>
-  </div>`;
-}
 
 /** Actividad del historial: se expande para ver todo y editarla sin salir de la ficha. */
 function activityItem(a, lead) {
@@ -664,34 +735,48 @@ export function renderLeadDetail(id) {
   const sendable = contacts.filter((c) => c.email || c.phone);
   const today = todayISO();
 
-  const pending = pendingCommitments(id);
-  const upcoming = pending.filter((a) => a.commitmentDate && a.commitmentDate >= today);
-  const overdue = pending.filter((a) => !a.commitmentDate || a.commitmentDate < today);
-  const nextScheduled = l.nextAction || l.nextDate;
-
   const row = detailRow;
 
-  const upcomingBody = `
-    ${
-      nextScheduled
-        ? `<div class="next-highlight ${l.nextDate && l.nextDate < today ? 'overdue-box' : ''}">
-            <span class="muted">Próxima acción del prospecto</span>
-            <strong>${e(l.nextAction || 'Sin detalle')}</strong>
-            <span class="badge ${l.nextDate && l.nextDate < today ? 'danger' : ''}">${e(fmtDate(l.nextDate)) || 'Sin fecha'}</span>
-          </div>`
-        : '<p class="muted">Este prospecto no tiene una próxima acción agendada.</p>'
-    }
-    ${upcoming.length ? `<div class="list">${upcoming.map((a) => commitmentItem(a, false)).join('')}</div>` : ''}
-    <button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Agendar actividad</button>`;
+  // Una sola tarea a la vista: la más urgente. Si ya pasó su fecha se marca vencida, sin sacarla de acá.
+  const pending = pendingCommitments(id);
+  const nextTask = pending[0] || null;
+  const others = Math.max(0, pending.length - 1);
+  const taskOverdue = nextTask
+    ? !nextTask.commitmentDate || nextTask.commitmentDate < today
+    : Boolean(l.nextDate && l.nextDate < today);
 
-  const overdueBody = overdue.length
-    ? `<div class="list">${overdue.map((a) => commitmentItem(a, Boolean(a.commitmentDate))).join('')}</div>`
-    : '<p class="muted">Sin compromisos pendientes. Todo al día.</p>';
+  const taskBox = (title, dateLabel, origin, actions) => `
+    <div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
+      <strong>${title}</strong>
+      <span class="badge ${taskOverdue ? 'danger' : ''}">${e(dateLabel)}</span>
+      ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
+    </div>
+    <p class="muted next-task-origin">${origin}</p>
+    <div class="actions">${actions}</div>`;
+
+  const newActivityBtn = `<button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Nueva actividad</button>`;
+
+  const nextTaskBody = nextTask
+    ? taskBox(
+        e(nextTask.commitment),
+        nextTask.commitmentDate ? fmtDate(nextTask.commitmentDate) : 'Sin fecha',
+        `Comprometida en ${e(nextTask.type)} del ${e(fmtDateTime(nextTask.date))}${nextTask.detail ? ` · ${e(nextTask.detail)}` : ''}`,
+        `<button class="small-btn" data-action="toggle-commitment" data-id="${nextTask.id}">Marcar realizada</button>
+         <button class="small-btn" data-action="edit-activity" data-id="${nextTask.id}">Reagendar</button>
+         ${newActivityBtn}`
+      ) + (others ? `<p class="muted">Hay ${others} tarea(s) pendiente(s) más — las ves en el historial y en el Resumen.</p>` : '')
+    : l.nextAction || l.nextDate
+      ? taskBox(
+          e(l.nextAction || 'Sin detalle'),
+          fmtDate(l.nextDate) || 'Sin fecha',
+          'Próxima acción definida en la oportunidad.',
+          newActivityBtn
+        )
+      : `<p class="muted">Sin tarea agendada para este prospecto.</p>${newActivityBtn}`;
 
   return `
     <div class="detail-grid">
-      ${section('Próximas actividades', upcomingBody, { open: true, count: upcoming.length + (nextScheduled ? 1 : 0) })}
-      ${section('Actividades pendientes', overdueBody, { open: overdue.length > 0, count: overdue.length, tone: overdue.length ? 'danger' : '' })}
+      ${section('Próxima tarea', nextTaskBody, { open: true })}
 
       ${section(
         'Datos comerciales',

@@ -104,6 +104,14 @@ export const ACTIVITY_TYPES = ['Llamada', 'Reunión', 'Demo', 'Correo', 'WhatsAp
 
 export const CURRENT_MANAGEMENT = ['WhatsApp / papel', 'Excel / formularios', 'Software parcial', 'ERP / CMMS integrado'];
 
+/** Perfiles de acceso. El detalle describe qué puede hacer cada uno dentro del CRM. */
+export const USER_ROLES = [
+  { id: 'super', label: 'Súper administrador', detail: 'Control total: configuración, usuarios, datos y borrado.' },
+  { id: 'admin', label: 'Administrador', detail: 'Gestiona oportunidades, plantillas y respaldos. No administra usuarios.' },
+  { id: 'comercial', label: 'Comercial', detail: 'Trabaja sus leads, actividades y comunicación. Sin acceso a configuración.' },
+  { id: 'visita', label: 'Visita', detail: 'Solo lectura: puede mirar el embudo y los reportes, sin editar.' }
+];
+
 export const TEMPLATE_CHANNELS = [
   { id: 'both', label: 'WhatsApp + Correo' },
   { id: 'whatsapp', label: 'WhatsApp' },

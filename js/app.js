@@ -15,6 +15,10 @@ import {
   addActivity,
   addContact,
   addTemplate,
+  addUser,
+  deleteUser,
+  saveProfile,
+  updateUser,
   contactsOf,
   deleteActivity,
   deleteContact,
@@ -49,6 +53,7 @@ import {
   renderLeads,
   renderPipeline,
   renderRemarketing,
+  renderSettings,
   renderTemplates,
   templatePreviewHtml
 } from './views.js';
@@ -73,7 +78,8 @@ const VIEWS = {
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
-  templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates]
+  templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
+  settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
 
 /* ---------- Render ---------- */
@@ -688,6 +694,39 @@ const ACTIONS = {
     toast('Plantilla eliminada.');
   },
   'insert-var': (id, btn) => insertVariable(id, btn.dataset.var),
+  'back-to-pipeline': (id) => {
+    const lead = getLead(id);
+    if (!lead) return;
+    setStage(id, 'Contactado');
+    toast(`${lead.company} volvió al embudo comercial.`);
+  },
+  'save-profile': () => {
+    saveProfile({
+      name: $('profileName').value.trim(),
+      email: $('profileEmail').value.trim(),
+      phone: $('profilePhone').value.trim(),
+      password: $('profilePassword').value
+    });
+    toast('Datos guardados.');
+  },
+  'new-user': () => {
+    addUser();
+    toast('Usuario creado. Completa sus datos y su permiso.');
+  },
+  'delete-user': (id) => {
+    if (!confirm('¿Eliminar este usuario?')) return;
+    deleteUser(id);
+    toast('Usuario eliminado.');
+  },
+  'toggle-password': (id, btn) => {
+    const input = $(btn.dataset.target);
+    if (!input) return;
+    const shown = input.type === 'text';
+    input.type = shown ? 'password' : 'text';
+    btn.textContent = shown ? 'Ver' : 'Ocultar';
+  },
+  'load-demo': () => seedExample(),
+  'clear-demo': () => resetAll(),
   'copy-template': async (id) => {
     const draft = templateDraft(id);
     if (!draft) return;
@@ -720,6 +759,13 @@ function handleViewInput(ev) {
   const el = ev.target;
   const tplId = el.dataset.templateName || el.dataset.templateChannel || el.dataset.templateSubject || el.dataset.templateBody;
   if (tplId) return onTemplateEdit(tplId, el);
+
+  // Los usuarios se guardan al salir del campo, no en cada tecla.
+  if (el.dataset.userField) {
+    if (ev.type !== 'change') return;
+    updateUser(el.dataset.id, { [el.dataset.userField]: el.type === 'checkbox' ? el.checked : el.value });
+    return;
+  }
 
   const id = el.id;
   const value = el.type === 'checkbox' ? el.checked : el.value;
@@ -801,9 +847,21 @@ function resetAll() {
 function seedExample() {
   if (state.leads.length && !confirm('Ya existen datos. ¿Agregar ejemplos igualmente?')) return;
   const base = [
+    // Leads por calificar
+    { company: 'Refrigeración Austral', industry: 'HVAC / Climatización', contact: 'Marcela Fuentes', role: 'Administradora', email: 'marcela@ejemplo.cl', phone: '+56 9 5555 1010', stage: 'Lead', priority: 'Media', value: 420000, probability: 5, nextAction: 'Primer contacto telefónico', source: 'Web' },
+    { company: 'Montajes del Maipo', industry: 'Construcción / Instalaciones', contact: 'Javier Núñez', role: 'Jefe de Obra', email: 'javier@ejemplo.cl', phone: '+56 9 5555 1011', stage: 'Lead', priority: 'Baja', value: 350000, probability: 5, nextAction: 'Validar tamaño de cuadrilla', source: 'Google Ads' },
+    // Embudo comercial
+    { company: 'PowerGen Chile', industry: 'Grupos electrógenos', contact: 'Carolina Díaz', role: 'Jefa de Servicio Técnico', email: 'carolina@ejemplo.cl', phone: '+56 9 5555 1003', stage: 'Contactado', priority: 'Media', value: 690000, probability: 15, nextAction: 'Coordinar reunión de descubrimiento', source: 'LinkedIn' },
     { company: 'ClimaSur Servicios', industry: 'HVAC / Climatización', contact: 'Paula Rojas', role: 'Jefa de Mantenimiento', email: 'paula@ejemplo.cl', phone: '+56 9 5555 1001', stage: 'Reunión / Demo', priority: 'Alta', value: 890000, probability: 35, nextAction: 'Demo enfocada en preventivos e inventario', source: 'Prospección en frío' },
     { company: 'VerticalTech', industry: 'Ascensores / Transporte vertical', contact: 'Andrés Silva', role: 'Gerente de Operaciones', email: 'andres@ejemplo.cl', phone: '+56 9 5555 1002', stage: 'Propuesta', priority: 'Alta', value: 1250000, probability: 55, nextAction: 'Seguimiento propuesta y alcance de certificación', source: 'Referido' },
-    { company: 'PowerGen Chile', industry: 'Grupos electrógenos', contact: 'Carolina Díaz', role: 'Jefa de Servicio Técnico', email: 'carolina@ejemplo.cl', phone: '+56 9 5555 1003', stage: 'Contactado', priority: 'Media', value: 690000, probability: 15, nextAction: 'Coordinar reunión de descubrimiento', source: 'LinkedIn' },
+    { company: 'Hidráulica Centro', industry: 'Arriendo de maquinaria', contact: 'Ignacio Bravo', role: 'Gerente Comercial', email: 'ignacio@ejemplo.cl', phone: '+56 9 5555 1012', stage: 'Negociación', priority: 'Alta', value: 1680000, probability: 75, nextAction: 'Cerrar condiciones de licencia anual', source: 'Referido' },
+    // Remarketing
+    { company: 'Ascensores del Sur', industry: 'Ascensores / Transporte vertical', contact: 'Daniela Vera', role: 'Gerente de Operaciones', email: 'daniela@ejemplo.cl', phone: '+56 9 5555 1013', stage: 'Remarketing', priority: 'Media', value: 780000, probability: 10, remarketingReason: 'Revisar el próximo año', nextAction: 'Retomar en enero', source: 'Evento / Feria' },
+    { company: 'Servicios Bío Bío', industry: 'Facility Management', contact: 'Cristián Soto', role: 'Jefe de Contratos', email: 'cristian@ejemplo.cl', phone: '+56 9 5555 1014', stage: 'Remarketing', priority: 'Baja', value: 460000, probability: 10, remarketingReason: 'Sin presupuesto por ahora', nextAction: 'Reconsultar tras cierre de presupuesto', source: 'Base de datos' },
+    // Implementación (ganados)
+    { company: 'TecnoFrío Ltda.', industry: 'HVAC / Climatización', contact: 'Loreto Cáceres', role: 'Gerente de Servicio', email: 'loreto@ejemplo.cl', phone: '+56 9 5555 1015', stage: 'Ganado', priority: 'Alta', value: 1420000, probability: 100, nextAction: 'Coordinar kick-off e implementación', source: 'Referido' },
+    { company: 'Electro Andina', industry: 'Grupos electrógenos', contact: 'Felipe Ortiz', role: 'Subgerente Técnico', email: 'felipe@ejemplo.cl', phone: '+56 9 5555 1016', stage: 'Ganado', priority: 'Media', value: 980000, probability: 100, nextAction: 'Capacitar a técnicos en terreno', source: 'Cliente existente' },
+    // Perdido
     { company: 'Andes Facility', industry: 'Facility Management', contact: 'Rodrigo Pérez', role: 'Subgerente', email: 'rodrigo@ejemplo.cl', phone: '+56 9 5555 1004', stage: 'Perdido', priority: 'Baja', value: 540000, probability: 0, lossReason: 'Eligió a un competidor', nextAction: '', source: 'Web' }
   ].map((x) => ({
     id: uid('lead'),
@@ -819,7 +877,9 @@ function seedExample() {
   }));
 
   state.leads.push(...base);
-  state.discoveries[base[0].id] = {
+  const byName = (name) => base.find((l) => l.company === name);
+
+  state.discoveries[byName('ClimaSur Servicios').id] = {
     pain: 'Preventivos vencidos, historial incompleto y poca visibilidad de repuestos.',
     currentManagement: 'Excel / formularios',
     technicians: '18',
@@ -831,17 +891,57 @@ function seedExample() {
     technicalNotes: '',
     updatedAt: nowISO()
   };
-  state.activities.push({
-    id: uid('act'),
-    leadId: base[0].id,
-    type: 'Reunión',
-    date: localDateTimeInput(),
-    owner: 'Comercial TaskFlow',
-    detail: 'Levantamiento inicial con jefatura de mantenimiento.',
-    commitment: 'Enviar agenda de demo con casos de preventivos'
-  });
+  state.discoveries[byName('TecnoFrío Ltda.').id] = {
+    pain: 'Sin trazabilidad de las visitas ni respaldo fotográfico ante reclamos.',
+    currentManagement: 'WhatsApp / papel',
+    technicians: '26',
+    locations: '5',
+    buyTrigger: 'Auditoría o certificación',
+    modules: ['Órdenes de trabajo', 'Checklists / Formularios', 'Fotografías / Firmas', 'Geolocalización'],
+    integrations: 'ERP propio',
+    successCriteria: 'Evidencia firmada por visita y reportes mensuales automáticos.',
+    technicalNotes: '',
+    updatedAt: nowISO()
+  };
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  state.activities.push(
+    {
+      id: uid('act'),
+      leadId: byName('ClimaSur Servicios').id,
+      type: 'Reunión',
+      date: localDateTimeInput(),
+      owner: 'Comercial TaskFlow',
+      detail: 'Levantamiento inicial con jefatura de mantenimiento.',
+      commitment: 'Enviar agenda de demo con casos de preventivos',
+      commitmentDate: yesterday,
+      commitmentDone: false
+    },
+    {
+      id: uid('act'),
+      leadId: byName('Hidráulica Centro').id,
+      type: 'Propuesta',
+      date: localDateTimeInput(),
+      owner: 'Comercial TaskFlow',
+      detail: 'Propuesta de licencia anual enviada a gerencia.',
+      commitment: 'Confirmar condiciones comerciales',
+      commitmentDate: todayISO(),
+      commitmentDone: false
+    },
+    {
+      id: uid('act'),
+      leadId: byName('TecnoFrío Ltda.').id,
+      type: 'Demo',
+      date: localDateTimeInput(),
+      owner: 'Comercial TaskFlow',
+      detail: 'Demo de checklists y evidencia fotográfica con el equipo técnico.',
+      commitment: 'Agendar kick-off de implementación',
+      commitmentDate: '',
+      commitmentDone: true
+    }
+  );
   persist();
-  toast('Datos de ejemplo cargados.');
+  toast('Datos demo cargados en leads, embudo, remarketing e implementación.');
 }
 
 /* ---------- Sincronización ---------- */
@@ -895,7 +995,6 @@ function bindEvents() {
     })
   );
 
-  $('seedBtn').addEventListener('click', seedExample);
   $('dataBtn').addEventListener('click', openDataDialog);
   $('syncStatus').addEventListener('click', openDataDialog);
 

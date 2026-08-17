@@ -14,6 +14,12 @@ export function emptyData() {
     discoveries: {},
     activities: [],
     templates: structuredClone(DEFAULT_TEMPLATES),
+    // La contraseña se deja vacía a propósito: el sitio es público y todo lo
+    // que viva en el código queda a la vista de cualquiera. Se define en Configuración.
+    settings: {
+      profile: { name: 'Francisco Morgado', email: 'franciscomorgado@taskflow.cl', phone: '', password: '' },
+      users: []
+    },
     meta: { version: SCHEMA_VERSION, updatedAt: nowISO(), lastSyncAt: '' }
   };
 }
@@ -47,6 +53,19 @@ export function migrate(raw) {
   data.activities = (data.activities || []).map((a) => ({ commitmentDone: false, ...a, id: a.id || uid('act') }));
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
   data.templates = data.templates.map((t) => ({ channel: 'both', ...t }));
+
+  data.settings = { ...base.settings, ...(data.settings || {}) };
+  data.settings.profile = { ...base.settings.profile, ...(data.settings.profile || {}) };
+  data.settings.users = (Array.isArray(data.settings.users) ? data.settings.users : []).map((u) => ({
+    id: u.id || uid('user'),
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'comercial',
+    active: true,
+    ...u
+  }));
   data.meta.version = SCHEMA_VERSION;
   return data;
 }
@@ -258,6 +277,34 @@ export function deleteTemplate(id) {
   state.templates = state.templates.filter((t) => t.id !== id);
   persist();
   return true;
+}
+
+/* ---------- Configuración ---------- */
+
+export function saveProfile(patch) {
+  state.settings.profile = { ...state.settings.profile, ...patch };
+  persist();
+  return state.settings.profile;
+}
+
+export function addUser(user = {}) {
+  const record = { id: uid('user'), name: '', email: '', phone: '', password: '', role: 'comercial', active: true, ...user };
+  state.settings.users.push(record);
+  persist();
+  return record;
+}
+
+export function updateUser(id, patch) {
+  const user = state.settings.users.find((u) => u.id === id);
+  if (!user) return null;
+  Object.assign(user, patch);
+  persist();
+  return user;
+}
+
+export function deleteUser(id) {
+  state.settings.users = state.settings.users.filter((u) => u.id !== id);
+  persist();
 }
 
 /* ---------- Métricas ---------- */
