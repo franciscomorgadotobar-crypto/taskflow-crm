@@ -114,6 +114,16 @@ export const TASK_TYPES = [
 
 export const CURRENT_MANAGEMENT = ['WhatsApp / papel', 'Excel / formularios', 'Software parcial', 'ERP / CMMS integrado'];
 
+/** Dimensiones que puede mostrar cada gráfico del resumen. */
+export const CHART_DIMENSIONS = [
+  { id: 'stage', label: 'Etapa', title: 'Prospectos por etapa' },
+  { id: 'taskState', label: 'Estado de la tarea', title: 'Prospectos por estado de la tarea' },
+  { id: 'taskType', label: 'Tipo de tarea', title: 'Tareas por tipo' },
+  { id: 'industry', label: 'Rubro', title: 'Prospectos por rubro' },
+  { id: 'owner', label: 'Responsable', title: 'Prospectos por responsable' },
+  { id: 'source', label: 'Origen', title: 'Prospectos por origen' }
+];
+
 /** Perfiles de acceso. El detalle describe qué puede hacer cada uno dentro del CRM. */
 export const USER_ROLES = [
   { id: 'super', label: 'Súper administrador', detail: 'Control total: configuración, usuarios, datos y borrado.' },

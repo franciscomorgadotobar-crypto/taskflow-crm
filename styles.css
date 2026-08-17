@@ -20,6 +20,8 @@
   --danger: #b42318;
   --shadow: 0 10px 35px rgba(27, 50, 87, .08);
   --radius: 14px;
+  /* Serie única de los gráficos. Validado: 5.11:1 sobre el panel claro. */
+  --chart-series: #1D71B8;
 }
 
 :root[data-theme="dark"] {
@@ -29,6 +31,8 @@
   --muted: #a9b5c4;
   --border: #2c3b50;
   --shadow: none;
+  /* Paso más claro para el panel oscuro. Validado: 6.70:1. */
+  --chart-series: #6caaf4;
 }
 
 * { box-sizing: border-box; }
@@ -138,10 +142,26 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .card-head h3 { margin: 0; font-size: 16px; }
 .card-body { padding: 18px; }
 
-.funnel-row { margin-bottom: 14px; }
-.funnel-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
-.progress { height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; }
-.progress > span { display: block; height: 100%; background: var(--blue); }
+/* ---------- Gráficos de barras ---------- */
+
+.chart-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 9px; padding: 7px 10px; font-size: 13px; }
+.chart-empty { padding: 40px 0; text-align: center; }
+.chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 160px; border-bottom: 1px solid var(--border); }
+.chart-col {
+  flex: 1 1 0; min-width: 0; height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 5px;
+}
+.chart-bar { width: 100%; max-width: 24px; border-radius: 4px 4px 0 0; background: var(--chart-series); transition: opacity .12s ease; }
+.chart-col:hover .chart-bar { opacity: .78; }
+.chart-value { font-size: 12px; font-weight: 700; color: var(--text); }
+.chart-labels { display: flex; gap: 2px; margin-top: 8px; align-items: flex-start; }
+/* Dos líneas antes de recortar: los nombres largos (rubros, responsables) no caben en una. */
+.chart-label {
+  flex: 1 1 0; min-width: 0; text-align: center; font-size: 10px; line-height: 1.25; color: var(--muted);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+}
+
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 12px; }
@@ -448,6 +468,9 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 @media (max-width: 1100px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .grid-2 { grid-template-columns: 1fr; }
+  .chart-grid { grid-template-columns: 1fr; }
+  /* Columnas más angostas: una línea más antes de recortar el nombre. */
+  .chart-label { -webkit-line-clamp: 3; font-size: 9px; }
 }
 
 @media (max-width: 760px) {

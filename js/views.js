@@ -1,12 +1,20 @@
-import { ACTIVITY_TYPES, CRM_CROSS, CRM_FLOW, PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES, USER_ROLES } from './catalog.js';
+import {
+  ACTIVITY_TYPES,
+  CHART_DIMENSIONS,
+  CRM_CROSS,
+  CRM_FLOW,
+  PIPELINE_STAGES,
+  TEMPLATE_CHANNELS,
+  TEMPLATE_VARIABLES,
+  USER_ROLES
+} from './catalog.js';
 import {
   activitiesOf,
-  avgDaysPerStage,
   contactsOf,
   findContact,
   getDiscovery,
   getLead,
-  leadsByIndustry,
+  groupLeads,
   metrics,
   openTasks,
   state,
@@ -49,14 +57,56 @@ function taskDot(lead) {
   return `<span class="task-dot ${tone}" title="${e(label)}"></span>`;
 }
 
+/* ---------------- Gráficos ---------------- */
+
+/**
+ * Barras verticales de una sola serie: la altura lleva la magnitud y el eje X la
+ * identidad, así que todas las barras van del mismo tono (colorear por valor sería
+ * repetir lo que la altura ya dice). El valor va sobre cada barra en vez de rejilla.
+ */
+function barChart(rows) {
+  if (!rows.length) return `<p class="muted chart-empty">Sin datos para esta vista.</p>`;
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  const PLOT = 132;
+
+  return `
+    <div class="chart">
+      <div class="chart-bars">
+        ${rows
+          .map((r) => {
+            const h = r.value ? Math.max(3, Math.round((r.value / max) * PLOT)) : 0;
+            return `<div class="chart-col" title="${e(r.label)}: ${r.value}">
+              <span class="chart-value">${r.value}</span>
+              <div class="chart-bar" style="height:${h}px"></div>
+            </div>`;
+          })
+          .join('')}
+      </div>
+      <div class="chart-labels">
+        ${rows.map((r) => `<span class="chart-label" title="${e(r.label)}">${e(r.label)}</span>`).join('')}
+      </div>
+    </div>`;
+}
+
+/** Tarjeta de gráfico con su selector de dimensión. */
+function chartCard(selectId, dimension) {
+  const dim = CHART_DIMENSIONS.find((d) => d.id === dimension) || CHART_DIMENSIONS[0];
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3>${e(dim.title)}</h3>
+        <select id="${selectId}" class="chart-select" aria-label="Cambiar datos del gráfico">
+          ${CHART_DIMENSIONS.map((d) => `<option value="${d.id}" ${d.id === dim.id ? 'selected' : ''}>${e(d.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="card-body">${barChart(groupLeads(dim.id))}</div>
+    </div>`;
+}
+
 /* ---------------- Resumen ---------------- */
 
 export function renderDashboard(ui) {
   const m = metrics();
-  const stageDays = avgDaysPerStage();
-  const maxStage = Math.max(1, ...m.stageCounts.map((x) => x.count));
-  const industries = leadsByIndustry();
-  const maxIndustry = Math.max(1, ...industries.map((x) => x.total));
   const tasks = openTasks();
   const overdueCount = tasks.filter((t) => !t.date || t.date < todayISO()).length;
 
@@ -73,40 +123,10 @@ export function renderDashboard(ui) {
 
     ${renderPendingTasks(ui, tasks)}
 
-    <div class="card">
-      <div class="card-head"><h3>Embudo</h3></div>
-      <div class="card-body">
-        ${m.stageCounts
-          .map((x) => {
-            const days = stageDays.find((d) => d.stage === x.stage)?.days;
-            return `<div class="funnel-row">
-              <div class="funnel-top"><span>${e(x.stage)}</span><strong>${x.count}</strong></div>
-              <div class="progress"><span style="width:${(x.count / maxStage) * 100}%"></span></div>
-              <div class="muted">${days == null ? 'sin historial' : `${days} días promedio en etapa`}</div>
-            </div>`;
-          })
-          .join('')}
-      </div>
+    <div class="chart-grid">
+      ${chartCard('chartA', ui?.chartA || 'stage')}
+      ${chartCard('chartB', ui?.chartB || 'industry')}
     </div>
-
-    ${
-      industries.length
-        ? `<div class="card" style="margin-top:16px">
-            <div class="card-head"><h3>Rubros con mayor recepción</h3><span class="muted">${industries.length} rubro(s)</span></div>
-            <div class="card-body">
-              ${industries
-                .map(
-                  (g) => `<div class="funnel-row">
-                    <div class="funnel-top"><span>${e(g.industry)}</span><strong>${g.total}</strong></div>
-                    <div class="progress"><span style="width:${(g.total / maxIndustry) * 100}%"></span></div>
-                    <div class="muted">${g.won} ganada(s) · ${g.winRate.toFixed(0)}% de cierre</div>
-                  </div>`
-                )
-                .join('')}
-            </div>
-          </div>`
-        : ''
-    }
 
     ${
       m.lost.length

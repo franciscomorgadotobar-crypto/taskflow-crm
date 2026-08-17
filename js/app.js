@@ -68,6 +68,8 @@ const CFG = window.TASKFLOW_CRM_CONFIG;
 const ui = {
   view: 'dashboard',
   taskTab: 'overdue',
+  chartA: 'stage',
+  chartB: 'industry',
   leadFilters: { query: '', owner: '', sort: 'updated' },
   pipelineView: 'kanban',
   pipelineFilters: { query: '', stage: '', owner: '' },
@@ -934,6 +936,8 @@ function handleViewInput(ev) {
   const id = el.id;
   const value = el.type === 'checkbox' ? el.checked : el.value;
   const map = {
+    chartA: () => (ui.chartA = value),
+    chartB: () => (ui.chartB = value),
     leadQuery: () => (ui.leadFilters.query = value),
     leadOwner: () => (ui.leadFilters.owner = value),
     leadSort: () => (ui.leadFilters.sort = value),
@@ -1068,14 +1072,14 @@ function seedExample() {
     updatedAt: nowISO()
   };
 
-  // Tareas repartidas: una vencida, una para hoy y una más adelante.
-  const set = (name, action, date) => Object.assign(byName(name), { nextAction: action, nextDate: date });
-  set('ClimaSur Servicios', 'Enviar agenda de demo con casos de preventivos', addDaysISO(todayISO(), -3));
-  set('VerticalTech', 'Llamar para revisar observaciones de la propuesta', addDaysISO(todayISO(), -1));
-  set('Hidráulica Centro', 'Confirmar condiciones comerciales', todayISO());
-  set('PowerGen Chile', 'Coordinar reunión de descubrimiento', addDaysISO(todayISO(), 1));
-  set('Refrigeración Austral', 'Primer contacto telefónico', addDaysISO(todayISO(), 4));
-  set('Montajes del Maipo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9));
+  // Tareas repartidas entre vencidas, por vencer y agendadas, con tipos variados.
+  const set = (name, type, action, date) => Object.assign(byName(name), { nextType: type, nextAction: action, nextDate: date });
+  set('ClimaSur Servicios', 'Correo', 'Enviar agenda de demo con casos de preventivos', addDaysISO(todayISO(), -3));
+  set('VerticalTech', 'Llamada', 'Revisar observaciones de la propuesta', addDaysISO(todayISO(), -1));
+  set('Hidráulica Centro', 'Llamada', 'Confirmar condiciones comerciales', todayISO());
+  set('PowerGen Chile', 'WhatsApp', 'Coordinar reunión de descubrimiento', addDaysISO(todayISO(), 1));
+  set('Refrigeración Austral', 'Llamada', 'Primer contacto', addDaysISO(todayISO(), 4));
+  set('Montajes del Maipo', 'Correo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9));
 
   state.activities.push(
     {

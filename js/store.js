@@ -1,5 +1,5 @@
 import { CLOSED_STAGES, DEFAULT_TEMPLATES, DEFAULT_PROBABILITY, STAGES } from './catalog.js';
-import { daysBetween, nowISO, todayISO, uid } from './utils.js';
+import { addDaysISO, daysBetween, nowISO, todayISO, uid } from './utils.js';
 
 const CFG = window.TASKFLOW_CRM_CONFIG;
 const SCHEMA_VERSION = 2;
@@ -432,37 +432,47 @@ export function metrics() {
   };
 }
 
-/** Días promedio que las oportunidades permanecen en cada etapa. */
-export function avgDaysPerStage() {
-  const totals = {};
-  state.leads.forEach((lead) => {
-    const history = lead.stageHistory || [];
-    history.forEach((entry, i) => {
-      const next = history[i + 1];
-      const end = next ? next.at : CLOSED_STAGES.includes(lead.stage) && i === history.length - 1 ? null : nowISO();
-      if (!end) return;
-      const days = daysBetween(entry.at, end);
-      totals[entry.stage] = totals[entry.stage] || { days: 0, n: 0 };
-      totals[entry.stage].days += days;
-      totals[entry.stage].n += 1;
+/** Agrupa los prospectos según la dimensión elegida en el gráfico. */
+export function groupLeads(dimension) {
+  const today = todayISO();
+  const limit = addDaysISO(today, 1);
+
+  if (dimension === 'stage') {
+    return STAGES.map((s) => ({ label: s, value: state.leads.filter((l) => l.stage === s).length }));
+  }
+
+  if (dimension === 'taskState') {
+    const order = ['Vencidas', 'Vencen hoy o mañana', 'Agendadas', 'Sin tarea'];
+    const counts = Object.fromEntries(order.map((k) => [k, 0]));
+    state.leads.forEach((lead) => {
+      const task = taskOf(lead);
+      if (!task) counts['Sin tarea'] += 1;
+      else if (!task.date || task.date < today) counts['Vencidas'] += 1;
+      else if (task.date <= limit) counts['Vencen hoy o mañana'] += 1;
+      else counts['Agendadas'] += 1;
     });
-  });
-  return STAGES.map((stage) => ({
-    stage,
-    days: totals[stage]?.n ? Math.round(totals[stage].days / totals[stage].n) : null
-  }));
+    return order.map((k) => ({ label: k, value: counts[k] }));
+  }
+
+  const tally = new Map();
+  if (dimension === 'taskType') {
+    state.leads.forEach((lead) => {
+      const task = taskOf(lead);
+      if (!task) return;
+      const key = task.type || 'Sin tipo';
+      tally.set(key, (tally.get(key) || 0) + 1);
+    });
+  } else {
+    const field = { industry: 'industry', owner: 'owner', source: 'source' }[dimension];
+    if (!field) return [];
+    state.leads.forEach((lead) => {
+      const key = lead[field] || 'Sin definir';
+      tally.set(key, (tally.get(key) || 0) + 1);
+    });
+  }
+  return [...tally]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 }
 
-/** Volumen y tasa de cierre por rubro, para ver qué sectores responden mejor. */
-export function leadsByIndustry() {
-  const groups = {};
-  state.leads.forEach((l) => {
-    const key = l.industry || 'Sin rubro';
-    groups[key] = groups[key] || { industry: key, total: 0, won: 0 };
-    groups[key].total += 1;
-    if (l.stage === 'Ganado') groups[key].won += 1;
-  });
-  return Object.values(groups)
-    .map((g) => ({ ...g, winRate: g.total ? (g.won / g.total) * 100 : 0 }))
-    .sort((a, b) => b.total - a.total);
-}
