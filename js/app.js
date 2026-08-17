@@ -3,6 +3,7 @@ import {
   BUY_TRIGGERS,
   CURRENT_MANAGEMENT,
   DEFAULT_PROBABILITY,
+  DEFAULT_PROFILE,
   INDUSTRIES,
   LOSS_REASONS,
   MODULES,
@@ -38,6 +39,7 @@ import {
   metrics,
   openTasks,
   onChange,
+  ownerNames,
   persist,
   replaceState,
   saveDiscovery,
@@ -140,13 +142,11 @@ function fillStaticSelects() {
  * ya tenía un responsable que ya no está activo, se conserva para no perderlo.
  */
 function fillOwnerSelect(selected = '') {
-  const { profile, users } = state.settings;
-  const names = [profile.name, ...users.filter((u) => u.active && u.name).map((u) => u.name)].filter(Boolean);
-  const unique = [...new Set(names)];
-  if (selected && !unique.includes(selected)) unique.push(selected);
+  const names = ownerNames();
+  if (selected && !names.includes(selected)) names.push(selected);
   $('owner').innerHTML =
     `<option value="">Sin asignar</option>` +
-    unique.map((n) => `<option ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+    names.map((n) => `<option ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
 }
 
 const leadOptions = (selected = '', placeholder = 'Selecciona una empresa') =>
@@ -1035,7 +1035,7 @@ function seedExample() {
     id: uid('lead'),
     rut: '',
     notes: '',
-    owner: 'Comercial TaskFlow',
+    owner: DEFAULT_PROFILE.name,
     nextDate: todayISO(),
     expectedCloseDate: '',
     createdAt: nowISO(),
@@ -1087,7 +1087,7 @@ function seedExample() {
       leadId: byName('ClimaSur Servicios').id,
       type: 'Reunión',
       date: localDateTimeInput(new Date(Date.now() - 4 * 86400000)),
-      owner: 'Comercial TaskFlow',
+      owner: DEFAULT_PROFILE.name,
       detail: 'Levantamiento inicial con jefatura de mantenimiento.',
       task: ''
     },
@@ -1096,7 +1096,7 @@ function seedExample() {
       leadId: byName('TecnoFrío Ltda.').id,
       type: 'Demo',
       date: localDateTimeInput(new Date(Date.now() - 2 * 86400000)),
-      owner: 'Comercial TaskFlow',
+      owner: DEFAULT_PROFILE.name,
       detail: 'Mostraron interés en checklists y firma digital. Aprueban avanzar.',
       task: 'Presentar demo de checklists al equipo técnico'
     }

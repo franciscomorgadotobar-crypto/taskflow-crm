@@ -1,4 +1,4 @@
-import { CLOSED_STAGES, DEFAULT_TEMPLATES, DEFAULT_PROBABILITY, STAGES } from './catalog.js';
+import { CLOSED_STAGES, DEFAULT_PROBABILITY, DEFAULT_PROFILE, DEFAULT_TEMPLATES, DEFAULT_USERS, STAGES } from './catalog.js';
 import { addDaysISO, daysBetween, nowISO, todayISO, uid } from './utils.js';
 
 const CFG = window.TASKFLOW_CRM_CONFIG;
@@ -14,11 +14,10 @@ export function emptyData() {
     discoveries: {},
     activities: [],
     templates: structuredClone(DEFAULT_TEMPLATES),
-    // La contraseña se deja vacía a propósito: el sitio es público y todo lo
-    // que viva en el código queda a la vista de cualquiera. Se define en Configuración.
     settings: {
-      profile: { name: 'Francisco Morgado', email: 'franciscomorgado@taskflow.cl', phone: '', password: '' },
-      users: []
+      profile: { ...DEFAULT_PROFILE },
+      users: DEFAULT_USERS.map((u) => ({ id: uid('user'), password: '', ...u })),
+      seeded: true
     },
     meta: { version: SCHEMA_VERSION, updatedAt: nowISO(), lastSyncAt: '' }
   };
@@ -65,9 +64,13 @@ export function migrate(raw) {
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
   data.templates = data.templates.map((t) => ({ channel: 'both', ...t }));
 
-  data.settings = { ...base.settings, ...(data.settings || {}) };
-  data.settings.profile = { ...base.settings.profile, ...(data.settings.profile || {}) };
-  data.settings.users = (Array.isArray(data.settings.users) ? data.settings.users : []).map((u) => ({
+  const rawSettings = data.settings || {};
+  data.settings = { ...base.settings, ...rawSettings };
+  data.settings.profile = { ...base.settings.profile, ...(rawSettings.profile || {}) };
+  // El equipo se precarga una sola vez; si después lo editan o lo vacían, se respeta.
+  const rawUsers = Array.isArray(rawSettings.users) ? rawSettings.users : null;
+  const users = rawUsers ?? (rawSettings.seeded ? [] : base.settings.users);
+  data.settings.users = users.map((u) => ({
     id: u.id || uid('user'),
     name: '',
     email: '',
@@ -77,6 +80,7 @@ export function migrate(raw) {
     active: true,
     ...u
   }));
+  data.settings.seeded = true;
   data.meta.version = SCHEMA_VERSION;
   return data;
 }
@@ -359,6 +363,20 @@ export function deleteTemplate(id) {
 }
 
 /* ---------- Configuración ---------- */
+
+/**
+ * Responsables seleccionables: mi usuario, los invitados activos y cualquiera que
+ * ya esté asignado a un prospecto (para no perder responsables antiguos).
+ */
+export function ownerNames() {
+  const { profile, users } = state.settings;
+  const names = [
+    profile.name,
+    ...users.filter((u) => u.active && u.name).map((u) => u.name),
+    ...state.leads.map((l) => l.owner)
+  ].filter(Boolean);
+  return [...new Set(names)];
+}
 
 export function saveProfile(patch) {
   state.settings.profile = { ...state.settings.profile, ...patch };

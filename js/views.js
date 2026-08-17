@@ -17,6 +17,7 @@ import {
   groupLeads,
   metrics,
   openTasks,
+  ownerNames,
   state,
   taskOf
 } from './store.js';
@@ -263,7 +264,7 @@ export function filterLeads({ query = '', owner = '', sort = 'updated' }, pool =
 export function renderLeads(ui) {
   const pool = state.leads.filter((l) => l.stage === 'Lead');
   const rows = filterLeads(ui.leadFilters, pool);
-  const owners = [...new Set(state.leads.map((l) => l.owner).filter(Boolean))];
+  const owners = ownerNames();
   const total = rows.reduce((s, l) => s + Number(l.value || 0), 0);
 
   return `
@@ -404,7 +405,7 @@ const sortableTh = (label, key, sort) => {
 function renderPipelineList(ui) {
   const sort = ui.pipelineSort || { key: 'company', dir: 'asc' };
   const rows = sortPipeline(filterPipeline(ui.pipelineFilters), sort);
-  const owners = [...new Set(state.leads.map((l) => l.owner).filter(Boolean))];
+  const owners = ownerNames();
   const total = rows.reduce((s, l) => s + Number(l.value || 0), 0);
 
   return `
