@@ -862,6 +862,7 @@ export function renderLeadDetail(id) {
                         ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
                         ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
                         ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
+                        <button class="small-btn" data-action="edit-contact" data-id="${l.id}" data-contact="${c.key}">Editar</button>
                         ${c.primary ? '' : `<button class="small-btn danger" data-action="delete-contact" data-id="${l.id}" data-contact="${c.key}">Eliminar</button>`}
                       </div>
                     </div>

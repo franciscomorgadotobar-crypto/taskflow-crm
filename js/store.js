@@ -208,6 +208,22 @@ export function addContact(leadId, contact) {
   return record;
 }
 
+/** Edita un contacto. El principal vive en los campos del lead, los demás en lead.contacts. */
+export function updateContact(leadId, key, patch) {
+  const lead = getLead(leadId);
+  if (!lead) return null;
+  if (key === 'primary') {
+    Object.assign(lead, { contact: patch.name, role: patch.role, email: patch.email, phone: patch.phone });
+  } else {
+    const contact = (lead.contacts || []).find((c) => c.id === key);
+    if (!contact) return null;
+    Object.assign(contact, patch);
+  }
+  lead.updatedAt = nowISO();
+  persist();
+  return lead;
+}
+
 export function deleteContact(leadId, contactId) {
   const lead = getLead(leadId);
   if (!lead) return;

@@ -196,12 +196,13 @@
     <form id="contactForm" class="modal-card narrow" novalidate>
       <div class="modal-head">
         <div>
-          <h2>Nuevo contacto</h2>
-          <p>Otra persona de contacto en esta empresa.</p>
+          <h2 id="contactDialogTitle">Nuevo contacto</h2>
+          <p id="contactDialogSubtitle">Otra persona de contacto en esta empresa.</p>
         </div>
         <button type="button" class="icon-btn" data-close-dialog="contactDialog" aria-label="Cerrar">×</button>
       </div>
       <input type="hidden" id="contactLeadId" />
+      <input type="hidden" id="contactKey" />
       <div class="form-grid">
         <label class="span-2">Nombre<input id="contactName" required /></label>
         <label>Cargo<input id="contactRole" /></label>
@@ -210,7 +211,7 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="contactDialog">Cancelar</button>
-        <button type="submit" class="primary-btn">Guardar contacto</button>
+        <button type="submit" class="primary-btn" id="contactSubmitBtn">Guardar contacto</button>
       </div>
     </form>
   </dialog>

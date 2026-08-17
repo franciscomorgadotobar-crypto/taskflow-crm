@@ -22,6 +22,7 @@ import {
   contactsOf,
   deleteActivity,
   deleteContact,
+  updateContact,
   deleteLead,
   completeTask,
   deleteTemplate,
@@ -142,9 +143,13 @@ const LEAD_FIELDS = [
   'value', 'probability', 'expectedCloseDate', 'owner', 'nextAction', 'nextDate', 'lossReason', 'notes'
 ];
 
+/** Al editar, la etapa y la tarea se cambian con sus propios botones en la ficha, no acá. */
+const OWNED_ELSEWHERE = ['stage', 'lossReason', 'nextAction', 'nextDate'];
+
 function openLead(id) {
   const l = getLead(id) || {};
-  $('leadDialogTitle').textContent = id ? 'Editar oportunidad' : 'Nuevo lead';
+  const editing = Boolean(id);
+  $('leadDialogTitle').textContent = editing ? 'Editar datos de la empresa' : 'Nuevo lead';
   $('leadId').value = l.id || '';
   LEAD_FIELDS.forEach((k) => {
     const el = $(k);
@@ -153,6 +158,12 @@ function openLead(id) {
     el.value = l[k] ?? fallback;
   });
   toggleLossField();
+  // En edición se ocultan los campos que ya tienen su propio flujo en la ficha.
+  OWNED_ELSEWHERE.forEach((k) => {
+    const field = $(k)?.closest('label');
+    if (field) field.hidden = editing;
+  });
+  if (editing) $('lossReasonField').hidden = true;
   $('leadDialog').showModal();
   setTimeout(() => $('company').focus(), 50);
 }
@@ -171,10 +182,11 @@ function submitLead(e) {
   if (dup && !confirm(`Ya existe “${dup.company}”. ¿Guardar de todos modos?`)) return;
 
   const payload = { id: id || undefined };
-  LEAD_FIELDS.forEach((k) => (payload[k] = $(k).value.trim ? $(k).value.trim() : $(k).value));
+  const fields = id ? LEAD_FIELDS.filter((k) => !OWNED_ELSEWHERE.includes(k)) : LEAD_FIELDS;
+  fields.forEach((k) => (payload[k] = $(k).value.trim ? $(k).value.trim() : $(k).value));
   upsertLead(payload);
   $('leadDialog').close();
-  toast(id ? 'Oportunidad actualizada.' : 'Lead creado.');
+  toast(id ? 'Datos actualizados.' : 'Lead creado.');
 }
 
 /* ---------- Diálogo: levantamiento ---------- */
@@ -270,30 +282,45 @@ function submitActivity(e) {
 
 /* ---------- Diálogo: contacto ---------- */
 
-function openContact(leadId) {
+/** Sin `key` crea uno nuevo; con `key` edita el existente (incluido el principal). */
+function openContact(leadId, key = '') {
   const lead = getLead(leadId);
   if (!lead) return;
+  const contact = key ? findContact(lead, key) : null;
+
   $('contactLeadId').value = leadId;
-  $('contactName').value = '';
-  $('contactRole').value = '';
-  $('contactPhone').value = '';
-  $('contactEmail').value = '';
+  $('contactKey').value = key;
+  $('contactDialogTitle').textContent = contact ? 'Editar contacto' : 'Nuevo contacto';
+  $('contactDialogSubtitle').textContent = contact
+    ? `${contact.primary ? 'Contacto principal' : 'Contacto'} de ${lead.company}`
+    : `Otra persona de contacto en ${lead.company}.`;
+  $('contactSubmitBtn').textContent = contact ? 'Guardar cambios' : 'Guardar contacto';
+  $('contactName').value = contact?.name || '';
+  $('contactRole').value = contact?.role || '';
+  $('contactPhone').value = contact?.phone || '';
+  $('contactEmail').value = contact?.email || '';
   $('contactDialog').showModal();
+  setTimeout(() => $('contactName').focus(), 50);
 }
 
 function submitContact(e) {
   e.preventDefault();
   const leadId = $('contactLeadId').value;
+  const key = $('contactKey').value;
   const name = $('contactName').value.trim();
   if (!name) return toast('El nombre es obligatorio.', 'error');
-  addContact(leadId, {
+
+  const payload = {
     name,
     role: $('contactRole').value.trim(),
     phone: $('contactPhone').value.trim(),
     email: $('contactEmail').value.trim()
-  });
+  };
+  if (key) updateContact(leadId, key, payload);
+  else addContact(leadId, payload);
+
   $('contactDialog').close();
-  toast('Contacto agregado.');
+  toast(key ? 'Contacto actualizado.' : 'Contacto agregado.');
 }
 
 /* ---------- Diálogo: comunicación ---------- */
@@ -688,6 +715,7 @@ const ACTIONS = {
     toast(`${lead.company} calificado → Contactado.`);
   },
   'add-contact': (id) => openContact(id),
+  'edit-contact': (id, btn) => openContact(id, btn.dataset.contact),
   'delete-contact': (id, btn) => {
     if (confirm('¿Eliminar este contacto?')) {
       deleteContact(id, btn.dataset.contact);
