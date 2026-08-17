@@ -1,4 +1,4 @@
-import { PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES, USER_ROLES } from './catalog.js';
+import { CRM_CROSS, CRM_FLOW, PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES, USER_ROLES } from './catalog.js';
 import {
   activitiesOf,
   avgDaysPerStage,
@@ -8,10 +8,11 @@ import {
   getLead,
   leadsByIndustry,
   metrics,
+  openTasks,
   pendingCommitments,
   state
 } from './store.js';
-import { daysBetween, escapeHtml as e, fmtDate, fmtDateTime, fmtMoney, fmtNumber, todayISO } from './utils.js';
+import { addDaysISO, daysBetween, escapeHtml as e, fmtDate, fmtDateTime, fmtMoney, fmtNumber, todayISO } from './utils.js';
 
 const stageBadge = (stage) =>
   `<span class="badge ${stage === 'Ganado' ? 'success' : stage === 'Perdido' ? 'danger' : stage === 'Remarketing' ? 'warning' : ''}">${e(stage)}</span>`;
@@ -27,12 +28,10 @@ export function renderDashboard(ui) {
   const m = metrics();
   const stageDays = avgDaysPerStage();
   const maxStage = Math.max(1, ...m.stageCounts.map((x) => x.count));
-  const next = [...m.open]
-    .filter((l) => l.nextDate)
-    .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
-    .slice(0, 8);
   const industries = leadsByIndustry();
   const maxIndustry = Math.max(1, ...industries.map((x) => x.total));
+  const tasks = openTasks();
+  const overdueCount = tasks.filter((t) => !t.date || t.date < todayISO()).length;
 
   return `
     <div class="kpi-grid">
@@ -40,52 +39,26 @@ export function renderDashboard(ui) {
       ${kpi('Pipeline', fmtMoney(m.pipelineValue), `Ponderado ${fmtMoney(m.weighted)}`)}
       ${kpi('Tasa de cierre', `${m.winRate.toFixed(0)}%`, `${m.won.length} ganadas · ${m.lost.length} perdidas`)}
       ${kpi('Ticket promedio', fmtMoney(m.avgTicket), m.avgCycleDays ? `Ciclo ${m.avgCycleDays} días` : 'Sin cierres aún')}
-      ${kpi('Seguimientos vencidos', fmtNumber(m.overdue.length), m.overdue.length ? 'Requieren acción hoy' : 'Al día', m.overdue.length ? 'alert' : '')}
+      ${kpi('Tareas vencidas', fmtNumber(overdueCount), overdueCount ? 'Requieren acción hoy' : 'Al día', overdueCount ? 'alert' : '')}
     </div>
 
     ${m.stale.length ? `<div class="notice warn">${m.stale.length} oportunidad(es) sin próxima acción y sin movimiento hace más de 14 días.</div>` : ''}
 
-    ${renderPendingTasks(ui)}
+    ${renderPendingTasks(ui, tasks)}
 
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-head">
-          <h3>Próximas acciones</h3>
-          <div class="actions"><span class="muted">${next.length} programadas</span><button class="small-btn" data-action="open-manage">Gestionar</button></div>
-        </div>
-        <div class="card-body">
-          ${
-            next.length
-              ? `<div class="list">${next
-                  .map(
-                    (l) => `<div class="list-item">
-                      <div>
-                        <button class="link-btn" data-action="open-detail" data-id="${l.id}">${e(l.company)}</button>
-                        <div class="muted">${e(l.nextAction || 'Sin detalle')} · ${e(l.stage)}</div>
-                      </div>
-                      <span class="badge ${l.nextDate < todayISO() ? 'danger' : ''}">${e(fmtDate(l.nextDate))}</span>
-                    </div>`
-                  )
-                  .join('')}</div>`
-              : empty('Sin acciones programadas', 'Agenda un siguiente paso desde la ficha de cada oportunidad.')
-          }
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h3>Embudo</h3></div>
-        <div class="card-body">
-          ${m.stageCounts
-            .map((x) => {
-              const days = stageDays.find((d) => d.stage === x.stage)?.days;
-              return `<div class="funnel-row">
-                <div class="funnel-top"><span>${e(x.stage)}</span><strong>${x.count}</strong></div>
-                <div class="progress"><span style="width:${(x.count / maxStage) * 100}%"></span></div>
-                <div class="muted">${days == null ? 'sin historial' : `${days} días promedio en etapa`}</div>
-              </div>`;
-            })
-            .join('')}
-        </div>
+    <div class="card">
+      <div class="card-head"><h3>Embudo</h3></div>
+      <div class="card-body">
+        ${m.stageCounts
+          .map((x) => {
+            const days = stageDays.find((d) => d.stage === x.stage)?.days;
+            return `<div class="funnel-row">
+              <div class="funnel-top"><span>${e(x.stage)}</span><strong>${x.count}</strong></div>
+              <div class="progress"><span style="width:${(x.count / maxStage) * 100}%"></span></div>
+              <div class="muted">${days == null ? 'sin historial' : `${days} días promedio en etapa`}</div>
+            </div>`;
+          })
+          .join('')}
       </div>
     </div>
 
@@ -122,55 +95,68 @@ export function renderDashboard(ui) {
     ${renderRecentActivities()}`;
 }
 
-/** Una tarea pendiente en el resumen: se gestiona sin salir del home. */
-function taskRow(a, isOverdue) {
-  const l = getLead(a.leadId);
-  if (!l) return '';
-  const contact = a.contactId ? findContact(l, a.contactId) : null;
+/** Una tarea en el resumen: se gestiona sin salir del home. */
+function taskRow(t, isOverdue) {
+  const contact = t.activity?.contactId ? findContact(t.lead, t.activity.contactId) : null;
   return `<div class="list-item">
     <div>
-      <strong>${e(a.commitment)}</strong>
-      <div class="muted">${e(l.company)} · ${e(l.stage)}${contact?.name ? ` · ${e(contact.name)}` : ''}${l.owner ? ` · ${e(l.owner)}` : ''}</div>
+      <strong>${e(t.title)}</strong>
+      <div class="muted">${e(t.lead.company)} · ${e(t.lead.stage)}${contact?.name ? ` · ${e(contact.name)}` : ''}${t.lead.owner ? ` · ${e(t.lead.owner)}` : ''}</div>
     </div>
     <div class="list-side">
-      <span class="badge ${isOverdue ? 'danger' : ''}">${a.commitmentDate ? e(fmtDate(a.commitmentDate)) : 'Sin fecha'}</span>
+      <span class="badge ${isOverdue ? 'danger' : ''}">${t.date ? e(fmtDate(t.date)) : 'Sin fecha'}</span>
       <div class="actions">
-        <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
-        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Reagendar</button>
-        <button class="small-btn" data-action="open-detail" data-id="${l.id}">Ver ficha</button>
+        ${
+          t.kind === 'commitment'
+            ? `<button class="small-btn" data-action="complete-task" data-id="${t.activityId}">Marcar realizada</button>
+               <button class="small-btn" data-action="edit-activity" data-id="${t.activityId}">Reagendar</button>`
+            : `<button class="small-btn" data-action="new-activity" data-id="${t.lead.id}">Registrar avance</button>`
+        }
+        <button class="small-btn" data-action="open-detail" data-id="${t.lead.id}">Ver ficha</button>
       </div>
     </div>
   </div>`;
 }
 
 /**
- * Tareas por gestionar. Por defecto solo las vencidas (lo que exige acción hoy);
- * las que aún tienen fecha por delante quedan en la pestaña "Próximas a vencer".
+ * Próximas tareas: junta los compromisos de actividades y las próximas acciones
+ * de cada prospecto. Vencidas = ya pasó su fecha (o no tiene);
+ * Próximas a vencer = vencen hoy o mañana; Agendadas = el resto, más adelante.
  */
-function renderPendingTasks(ui) {
+function renderPendingTasks(ui, all = openTasks()) {
   const today = todayISO();
-  const pending = pendingCommitments().filter((a) => getLead(a.leadId));
-  const overdue = pending.filter((a) => !a.commitmentDate || a.commitmentDate < today);
-  const upcoming = pending.filter((a) => a.commitmentDate && a.commitmentDate >= today);
-  const tab = ui?.taskTab === 'upcoming' ? 'upcoming' : 'overdue';
-  const rows = tab === 'upcoming' ? upcoming : overdue;
+  const limit = addDaysISO(today, 1);
+
+  const overdue = all.filter((t) => !t.date || t.date < today);
+  const soon = all.filter((t) => t.date && t.date >= today && t.date <= limit);
+  const scheduled = all.filter((t) => t.date && t.date > limit);
+
+  const tabs = [
+    { id: 'overdue', label: 'Vencidas', rows: overdue, emptyTitle: 'Sin tareas vencidas', emptyHint: 'Todo al día. Acá caen las tareas que pasaron su fecha o que quedaron sin fecha.' },
+    { id: 'soon', label: 'Próximas a vencer', rows: soon, emptyTitle: 'Nada vence hoy ni mañana', emptyHint: 'Acá aparecen las tareas con fecha para hoy o mañana.' },
+    { id: 'scheduled', label: 'Agendadas', rows: scheduled, emptyTitle: 'Sin tareas agendadas', emptyHint: 'Acá aparecen las tareas con fecha de pasado mañana en adelante.' }
+  ];
+  const active = tabs.find((t) => t.id === ui?.taskTab) || tabs[0];
 
   return `
     <div class="card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
       <div class="card-head">
-        <h3>Tareas por gestionar</h3>
+        <h3>Próximas tareas</h3>
         <div class="button-row">
-          <button class="small-btn ${tab === 'overdue' ? 'active-view' : ''}" data-action="tasks-tab-overdue">Vencidas (${overdue.length})</button>
-          <button class="small-btn ${tab === 'upcoming' ? 'active-view' : ''}" data-action="tasks-tab-upcoming">Próximas a vencer (${upcoming.length})</button>
+          ${tabs
+            .map(
+              (t) =>
+                `<button class="small-btn ${t.id === active.id ? 'active-view' : ''}" data-action="tasks-tab" data-tab="${t.id}">${e(t.label)} (${t.rows.length})</button>`
+            )
+            .join('')}
+          <button class="small-btn" data-action="open-manage">Gestionar</button>
         </div>
       </div>
       <div class="card-body">
         ${
-          rows.length
-            ? `<div class="list">${rows.map((a) => taskRow(a, tab === 'overdue' && Boolean(a.commitmentDate))).join('')}</div>`
-            : tab === 'overdue'
-              ? empty('Sin tareas vencidas', 'Todo al día. Los compromisos que pasen su fecha de seguimiento aparecen acá.')
-              : empty('Sin tareas próximas a vencer', 'Los compromisos con fecha futura aparecen acá hasta que llegue el día.')
+          active.rows.length
+            ? `<div class="list">${active.rows.map((t) => taskRow(t, active.id === 'overdue' && Boolean(t.date))).join('')}</div>`
+            : empty(active.emptyTitle, active.emptyHint)
         }
       </div>
     </div>`;
@@ -666,6 +652,53 @@ export function renderSettings() {
     </div>
 
     <div class="card" style="margin-top:16px">
+      <div class="card-head"><h3>Cómo funciona el CRM</h3><span class="muted">Toca cada paso para ver el detalle</span></div>
+      <div class="card-body">
+        <div class="flow-map">
+          ${CRM_FLOW.map(
+            (n, i) => `
+            <details class="flow-node" ${i === 0 ? 'open' : ''}>
+              <summary>
+                <span class="flow-step">${e(n.step)}</span>
+                <span class="flow-heading">
+                  <strong>${e(n.title)}</strong>
+                  <span class="muted">${e(n.tagline)}</span>
+                </span>
+              </summary>
+              <div class="flow-body">
+                <p class="flow-detail">${e(n.detail)}</p>
+                <div class="flow-cols">
+                  <div>
+                    <h5>Qué se hace acá</h5>
+                    <ul>${n.does.map((d) => `<li>${e(d)}</li>`).join('')}</ul>
+                  </div>
+                  <div>
+                    <h5>Hacia dónde sigue</h5>
+                    <ul>${n.goes.map((g) => `<li>${g}</li>`).join('')}</ul>
+                  </div>
+                </div>
+              </div>
+            </details>
+            ${i < CRM_FLOW.length - 1 ? '<div class="flow-arrow" aria-hidden="true">↓</div>' : ''}`
+          ).join('')}
+        </div>
+
+        <h4 class="settings-subtitle">Piezas que cruzan todo el flujo</h4>
+        <div class="flow-map">
+          ${CRM_CROSS.map(
+            (c) => `
+            <details class="flow-node cross">
+              <summary>
+                <span class="flow-heading"><strong>${e(c.title)}</strong></span>
+              </summary>
+              <div class="flow-body"><p class="flow-detail">${c.detail}</p></div>
+            </details>`
+          ).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
       <div class="card-head"><h3>Datos de demostración</h3></div>
       <div class="card-body">
         <p class="muted settings-hint">
@@ -710,14 +743,15 @@ function activityItem(a, lead) {
       ${detailRow('Contacto', contactName)}
       ${detailRow('Responsable', a.owner)}
       ${detailRow('Detalle', a.detail)}
-      ${detailRow('Compromiso', a.commitment)}
-      ${detailRow('Fecha de seguimiento', fmtDate(a.commitmentDate))}
-      ${a.commitment ? detailRow('Estado', a.commitmentDone ? 'Realizado' : 'Pendiente') : ''}
+      ${detailRow('Próxima acción', a.commitment)}
+      ${detailRow('Fecha de la próxima acción', fmtDate(a.commitmentDate))}
+      ${a.commitment ? detailRow('Estado', a.commitmentDone ? 'Realizada' : 'Pendiente') : ''}
+      ${detailRow('Resultado', a.result)}
       <div class="actions">
         <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
         ${
           a.commitment
-            ? `<button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">${a.commitmentDone ? 'Reabrir' : 'Marcar realizado'}</button>`
+            ? `<button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">${a.commitmentDone ? 'Reabrir' : 'Marcar realizada'}</button>`
             : ''
         }
         <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
@@ -761,7 +795,7 @@ export function renderLeadDetail(id) {
         e(nextTask.commitment),
         nextTask.commitmentDate ? fmtDate(nextTask.commitmentDate) : 'Sin fecha',
         `Comprometida en ${e(nextTask.type)} del ${e(fmtDateTime(nextTask.date))}${nextTask.detail ? ` · ${e(nextTask.detail)}` : ''}`,
-        `<button class="small-btn" data-action="toggle-commitment" data-id="${nextTask.id}">Marcar realizada</button>
+        `<button class="small-btn" data-action="complete-task" data-id="${nextTask.id}">Marcar realizada</button>
          <button class="small-btn" data-action="edit-activity" data-id="${nextTask.id}">Reagendar</button>
          ${newActivityBtn}`
       ) + (others ? `<p class="muted">Hay ${others} tarea(s) pendiente(s) más — las ves en el historial y en el Resumen.</p>` : '')

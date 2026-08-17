@@ -112,6 +112,69 @@ export const USER_ROLES = [
   { id: 'visita', label: 'Visita', detail: 'Solo lectura: puede mirar el embudo y los reportes, sin editar.' }
 ];
 
+/**
+ * Mapa del flujo comercial: cada nodo es una parada del proceso, con lo que se
+ * hace ahí y hacia dónde puede seguir. Alimenta el diagrama de Configuración.
+ */
+export const CRM_FLOW = [
+  {
+    id: 'leads',
+    step: '1',
+    title: 'Leads',
+    tagline: 'Empresas sin calificar',
+    detail: 'Puerta de entrada. Todo contacto nuevo nace acá con la etapa “Lead” y todavía no cuenta como oportunidad del embudo.',
+    does: ['Crear la empresa con su contacto principal', 'Sumar más contactos de la misma empresa', 'Registrar actividades y llamar, escribir o mandar WhatsApp', 'Completar el levantamiento comercial'],
+    goes: ['<strong>Calificar</strong> → entra al Embudo Comercial en “Contactado”', 'Eliminar si no aplica']
+  },
+  {
+    id: 'pipeline',
+    step: '2',
+    title: 'Embudo Comercial',
+    tagline: 'Contactado → Reunión / Demo → Propuesta → Negociación',
+    detail: 'El tablero de las oportunidades vivas. Se ve como embudo (arrastrando tarjetas) o como lista con filtros y exportación a Excel.',
+    does: ['Mover de etapa arrastrando o desde la ficha', 'Registrar actividades con su próxima acción', 'Enviar mensajes con plantillas', 'Exportar la vista filtrada a Excel'],
+    goes: ['<strong>Ganado</strong> → pasa a Implementación', '<strong>Perdido</strong> → pide motivo y queda archivado', '<strong>Remarketing</strong> → si el “no” es temporal']
+  },
+  {
+    id: 'remarketing',
+    step: '3',
+    title: 'Remarketing',
+    tagline: 'El “no” temporal',
+    detail: 'Prospectos que dijeron “ahora no”, “el próximo año” o “sin presupuesto”. No se pierden: quedan en lista con su motivo para retomarlos cuando corresponda.',
+    does: ['Guardar el motivo del “no” temporal', 'Enviar los correos de seguimiento 1, 2 y 3', 'Agendar cuándo retomar'],
+    goes: ['<strong>Pasar a prospecto</strong> → vuelve al Embudo en “Contactado”', 'Mover a cualquier otra etapa']
+  },
+  {
+    id: 'implementation',
+    step: '4',
+    title: 'Implementación',
+    tagline: 'Clientes ganados',
+    detail: 'Las oportunidades ganadas pasan a puesta en marcha, con el alcance que quedó registrado en el levantamiento.',
+    does: ['Ver el alcance y las integraciones levantadas', 'Coordinar el kick-off', 'Seguir registrando actividades'],
+    goes: ['Se mantiene como cliente activo']
+  }
+];
+
+/** Piezas que cruzan todo el flujo, no una etapa puntual. */
+export const CRM_CROSS = [
+  {
+    title: 'Actividades y tareas',
+    detail: 'Cada actividad (llamada, reunión, demo, correo…) puede dejar una <strong>próxima acción con fecha</strong>. Esa fecha es la que agenda la tarea y define si está vencida. Al marcarla realizada el CRM pide el resultado y cuál es la siguiente.'
+  },
+  {
+    title: 'Resumen',
+    detail: 'Junta todas las tareas abiertas del CRM en tres pestañas: <strong>Vencidas</strong> (ya pasó su fecha o no tienen), <strong>Próximas a vencer</strong> (hoy o mañana) y <strong>Agendadas</strong> (más adelante). “Gestionar” las recorre una por una.'
+  },
+  {
+    title: 'Comunicación y plantillas',
+    detail: 'Las plantillas se escriben en su propia sección con variables que se completan solas. El envío siempre ocurre en la ficha de la empresa, eligiendo contacto y canal (llamada, WhatsApp o correo), y queda registrado como actividad.'
+  },
+  {
+    title: 'Levantamiento',
+    detail: 'Vive dentro de cada ficha: dolor, gestión actual, tamaño del equipo, módulos de interés e integraciones. Alimenta las variables de las plantillas y el alcance que se ve en Implementación.'
+  }
+];
+
 export const TEMPLATE_CHANNELS = [
   { id: 'both', label: 'WhatsApp + Correo' },
   { id: 'whatsapp', label: 'WhatsApp' },

@@ -11,6 +11,13 @@ export const fmtNumber = (n) => new Intl.NumberFormat('es-CL').format(Number(n |
 
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
+/** Suma días a una fecha ISO (YYYY-MM-DD). */
+export function addDaysISO(iso, days) {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export const uid = (p = 'id') => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 export const nowISO = () => new Date().toISOString();

@@ -33,6 +33,7 @@ import {
   getDiscovery,
   getLead,
   metrics,
+  openTasks,
   onChange,
   persist,
   replaceState,
@@ -57,7 +58,7 @@ import {
   renderTemplates,
   templatePreviewHtml
 } from './views.js';
-import { $, $$, copyText, escapeHtml, fmtDate, fmtDateTime, localDateTimeInput, nowISO, todayISO, toast, uid } from './utils.js';
+import { $, $$, addDaysISO, copyText, escapeHtml, fmtDate, fmtDateTime, localDateTimeInput, nowISO, todayISO, toast, uid } from './utils.js';
 
 const CFG = window.TASKFLOW_CRM_CONFIG;
 
@@ -377,44 +378,54 @@ function submitComm(e) {
   toast(channel === 'whatsapp' ? 'WhatsApp abierto.' : 'Correo abierto.');
 }
 
-/* ---------- Gestionar pendientes ---------- */
+/* ---------- Gestionar pendientes, una por una ---------- */
 
 let manageQueue = [];
 let manageIndex = 0;
 
+/** Cola de tareas de la pestaña activa del Resumen, en el mismo orden que se ven. */
+function tasksForTab() {
+  const today = todayISO();
+  const limit = addDaysISO(today, 1);
+  const all = openTasks();
+  if (ui.taskTab === 'soon') return all.filter((t) => t.date && t.date >= today && t.date <= limit);
+  if (ui.taskTab === 'scheduled') return all.filter((t) => t.date && t.date > limit);
+  return all.filter((t) => !t.date || t.date < today);
+}
+
 function openManage() {
-  manageQueue = metrics()
-    .open.filter((l) => l.nextDate)
-    .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
-    .map((l) => l.id);
-  if (!manageQueue.length) return toast('No hay próximas acciones pendientes.', 'info');
+  manageQueue = tasksForTab().map((t) => t.key);
+  if (!manageQueue.length) return toast('No hay tareas en esta pestaña.', 'info');
   manageIndex = 0;
   renderManage();
   $('manageDialog').showModal();
 }
 
+const currentTask = () => openTasks().find((t) => t.key === manageQueue[manageIndex]) || null;
+
 function renderManage() {
-  const lead = getLead(manageQueue[manageIndex]);
-  if (!lead) {
+  const task = currentTask();
+  if (!task) {
     manageQueue.splice(manageIndex, 1);
     if (!manageQueue.length) return $('manageDialog').close();
     manageIndex = Math.min(manageIndex, manageQueue.length - 1);
     return renderManage();
   }
+  const lead = task.lead;
   const contact = contactsOf(lead)[0] || null;
 
-  $('manageCounter').textContent = `${manageIndex + 1} / ${manageQueue.length} pendientes`;
+  $('manageCounter').textContent = `${manageIndex + 1} / ${manageQueue.length} tareas`;
   $('manageCompany').textContent = lead.company;
   $('manageStage').textContent = lead.stage;
   $('manageContact').textContent = contact
     ? [contact.name, contact.phone, contact.email].filter(Boolean).join(' · ')
     : 'Sin contacto registrado';
-  $('manageCurrentAction').textContent = lead.nextAction || 'Sin próxima acción';
-  $('manageCurrentDate').textContent = fmtDate(lead.nextDate);
-  $('manageCurrentDate').classList.toggle('danger', Boolean(lead.nextDate && lead.nextDate < todayISO()));
+  $('manageCurrentAction').textContent = task.title || 'Sin próxima acción';
+  $('manageCurrentDate').textContent = task.date ? fmtDate(task.date) : 'Sin fecha';
+  $('manageCurrentDate').classList.toggle('danger', !task.date || task.date < todayISO());
   $('manageNote').value = '';
-  $('manageNextAction').value = lead.nextAction || '';
-  $('manageNextDate').value = lead.nextDate || '';
+  $('manageNextAction').value = task.title || '';
+  $('manageNextDate').value = task.date || '';
 
   $('managePrevBtn').disabled = manageIndex === 0;
   $('manageNextBtn').disabled = manageIndex === manageQueue.length - 1;
@@ -435,23 +446,62 @@ function manageStep(delta) {
 
 function submitManage(e) {
   e.preventDefault();
-  const id = manageQueue[manageIndex];
-  const lead = getLead(id);
-  if (!lead) return;
+  const task = currentTask();
+  if (!task) return;
+  const lead = task.lead;
   const note = $('manageNote').value.trim();
+  const nextAction = $('manageNextAction').value.trim();
+  const nextDate = $('manageNextDate').value;
+
   if (note) {
     addActivity(
-      { leadId: id, type: 'Seguimiento', date: localDateTimeInput(), owner: lead.owner || '', detail: note, commitment: '' },
+      { leadId: lead.id, type: 'Seguimiento', date: localDateTimeInput(), owner: lead.owner || '', detail: note, commitment: '' },
       { updateNextAction: false }
     );
   }
-  updateLead(id, { nextAction: $('manageNextAction').value.trim(), nextDate: $('manageNextDate').value });
+  // Reprograma la tarea donde vive: en el compromiso de la actividad o en el prospecto.
+  if (task.kind === 'commitment') updateActivity(task.activityId, { commitment: nextAction, commitmentDate: nextDate });
+  updateLead(lead.id, { nextAction, nextDate });
+
   toast('Guardado.');
   if (manageIndex < manageQueue.length - 1) manageStep(1);
   else {
     $('manageDialog').close();
-    toast('Terminaste la lista de pendientes.');
+    toast('Terminaste la lista de tareas.');
   }
+}
+
+/* ---------- Cerrar tarea: resultado + siguiente actividad ---------- */
+
+function openComplete(activityId) {
+  const act = getActivity(activityId);
+  const lead = act && getLead(act.leadId);
+  if (!act || !lead) return;
+  $('completeActivityId').value = activityId;
+  $('completeSubtitle').textContent = `${act.commitment} · ${lead.company}`;
+  $('completeResult').value = '';
+  $('completeNextAction').value = '';
+  $('completeNextDate').value = '';
+  $('completeDialog').showModal();
+  setTimeout(() => $('completeResult').focus(), 50);
+}
+
+function submitComplete(e) {
+  e.preventDefault();
+  const id = $('completeActivityId').value;
+  const act = getActivity(id);
+  if (!act) return;
+  const result = $('completeResult').value.trim();
+  if (!result) return toast('Cuenta cómo resultó la actividad.', 'error');
+
+  const nextAction = $('completeNextAction').value.trim();
+  const nextDate = $('completeNextDate').value;
+
+  updateActivity(id, { commitmentDone: true, result });
+  updateLead(act.leadId, { nextAction, nextDate: nextAction ? nextDate : '' });
+
+  $('completeDialog').close();
+  toast(nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada.');
 }
 
 /* ---------- Diálogo: mover de etapa ---------- */
@@ -616,14 +666,11 @@ const ACTIONS = {
     render();
   },
   'export-pipeline-csv': () => exportPipelineCsv(),
-  'tasks-tab-overdue': () => {
-    ui.taskTab = 'overdue';
+  'tasks-tab': (id, btn) => {
+    ui.taskTab = btn.dataset.tab;
     render();
   },
-  'tasks-tab-upcoming': () => {
-    ui.taskTab = 'upcoming';
-    render();
-  },
+  'complete-task': (id) => openComplete(id),
   'open-manage': () => openManage(),
   'qualify-lead': (id) => {
     const lead = getLead(id);
@@ -657,9 +704,13 @@ const ACTIONS = {
       toast('Actividad eliminada.');
     }
   },
+  // Cerrar una tarea pide resultado y siguiente paso; reabrirla es directo.
   'toggle-commitment': (id) => {
-    const act = toggleCommitmentDone(id);
-    if (act) toast(act.commitmentDone ? 'Compromiso marcado como hecho.' : 'Compromiso reabierto.');
+    const act = getActivity(id);
+    if (!act) return;
+    if (!act.commitmentDone) return openComplete(id);
+    toggleCommitmentDone(id);
+    toast('Tarea reabierta.');
   },
   'delete-lead': (id) => {
     const lead = getLead(id);
@@ -1017,6 +1068,7 @@ function bindEvents() {
   $('commForm').addEventListener('submit', submitComm);
   $('commTemplate').addEventListener('change', fillCommFields);
   $('commCopyBtn').addEventListener('click', copyComm);
+  $('completeForm').addEventListener('submit', submitComplete);
   $('manageForm').addEventListener('submit', submitManage);
   $('managePrevBtn').addEventListener('click', () => manageStep(-1));
   $('manageNextBtn').addEventListener('click', () => manageStep(1));

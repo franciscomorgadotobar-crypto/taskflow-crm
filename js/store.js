@@ -247,6 +247,31 @@ export const pendingCommitments = (leadId) =>
     .filter((a) => (!leadId || a.leadId === leadId) && a.commitment && !a.commitmentDone)
     .sort((a, b) => (a.commitmentDate || '9999-12-31').localeCompare(b.commitmentDate || '9999-12-31'));
 
+/**
+ * Todas las tareas abiertas del CRM, vengan de un compromiso de actividad o de
+ * la próxima acción del prospecto. Si un prospecto ya tiene compromisos abiertos
+ * no se duplica con su próxima acción: manda el compromiso.
+ */
+export function openTasks() {
+  const tasks = [];
+  const withCommitment = new Set();
+
+  pendingCommitments().forEach((a) => {
+    const lead = getLead(a.leadId);
+    if (!lead) return;
+    withCommitment.add(lead.id);
+    tasks.push({ key: a.id, kind: 'commitment', activityId: a.id, lead, title: a.commitment, date: a.commitmentDate || '', activity: a });
+  });
+
+  state.leads.forEach((lead) => {
+    if (lead.stage === 'Perdido' || withCommitment.has(lead.id)) return;
+    if (!lead.nextAction && !lead.nextDate) return;
+    tasks.push({ key: lead.id, kind: 'lead', activityId: '', lead, title: lead.nextAction || 'Sin detalle', date: lead.nextDate || '', activity: null });
+  });
+
+  return tasks.sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31'));
+}
+
 export function toggleCommitmentDone(id) {
   const act = state.activities.find((a) => a.id === id);
   if (!act) return null;
