@@ -184,7 +184,7 @@ function renderRecentActivities() {
     <div class="card" style="margin-top:16px">
       <div class="card-head">
         <h3>Últimos movimientos</h3>
-        <span class="muted">${recent.length ? `${recent.length} más recientes` : ''}</span>
+        <span class="muted">${recent.length ? 'Registro de solo lectura' : ''}</span>
       </div>
       <div class="card-body">
         ${
@@ -203,14 +203,6 @@ function renderRecentActivities() {
                     </div>
                     <div class="list-side">
                       <span class="badge">${e(fmtDateTime(a.date))}</span>
-                      ${
-                        editableActivity(a)
-                          ? `<div class="actions">
-                              <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
-                              <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
-                            </div>`
-                          : ''
-                      }
                     </div>
                   </div>`;
                 })
