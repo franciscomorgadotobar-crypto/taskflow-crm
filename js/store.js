@@ -50,7 +50,17 @@ export function migrate(raw) {
   });
 
   data.discoveries = data.discoveries || {};
-  data.activities = (data.activities || []).map((a) => ({ commitmentDone: false, ...a, id: a.id || uid('act') }));
+  data.activities = (data.activities || []).map((a) => ({ task: '', ...a, id: a.id || uid('act') }));
+
+  // v2: las tareas dejaron de vivir en los compromisos de cada actividad y pasaron
+  // a ser la única próxima acción del prospecto. Rescatamos los que quedaron abiertos.
+  data.activities.forEach((a) => {
+    if (!a.commitment || a.commitmentDone) return;
+    const lead = data.leads.find((l) => l.id === a.leadId);
+    if (!lead || lead.nextAction) return;
+    lead.nextAction = a.commitment;
+    lead.nextDate = a.commitmentDate || '';
+  });
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
   data.templates = data.templates.map((t) => ({ channel: 'both', ...t }));
 
@@ -203,30 +213,19 @@ export function saveDiscovery(leadId, payload) {
 
 /* ---------- Actividades ---------- */
 
-export function addActivity(activity, { updateNextAction = true } = {}) {
-  const record = { id: uid('act'), commitmentDone: false, ...activity };
+/** Registra lo que ocurrió. No agenda nada: la próxima acción se define al cerrar una tarea. */
+export function addActivity(activity, { silent = false } = {}) {
+  const record = { id: uid('act'), task: '', ...activity };
   state.activities.push(record);
-  const lead = getLead(record.leadId);
-  if (lead && record.commitment && updateNextAction) {
-    lead.nextAction = record.commitment;
-    lead.nextDate = record.commitmentDate || todayISO();
-    lead.updatedAt = nowISO();
-  }
-  persist();
+  if (!silent) persist();
   return record;
 }
 
 /** Edita una actividad ya registrada (fecha, detalle, compromiso o su estado). */
-export function updateActivity(id, patch, { updateNextAction = false } = {}) {
+export function updateActivity(id, patch) {
   const act = state.activities.find((a) => a.id === id);
   if (!act) return null;
   Object.assign(act, patch);
-  const lead = getLead(act.leadId);
-  if (lead && act.commitment && !act.commitmentDone && updateNextAction) {
-    lead.nextAction = act.commitment;
-    lead.nextDate = act.commitmentDate || todayISO();
-    lead.updatedAt = nowISO();
-  }
   persist();
   return act;
 }
@@ -241,43 +240,38 @@ export function deleteActivity(id) {
 export const activitiesOf = (leadId) =>
   state.activities.filter((a) => a.leadId === leadId).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
-/** Compromisos registrados en actividades que todavía no se marcan como hechos. */
-export const pendingCommitments = (leadId) =>
-  state.activities
-    .filter((a) => (!leadId || a.leadId === leadId) && a.commitment && !a.commitmentDone)
-    .sort((a, b) => (a.commitmentDate || '9999-12-31').localeCompare(b.commitmentDate || '9999-12-31'));
-
-/**
- * Todas las tareas abiertas del CRM, vengan de un compromiso de actividad o de
- * la próxima acción del prospecto. Si un prospecto ya tiene compromisos abiertos
- * no se duplica con su próxima acción: manda el compromiso.
+/* ---------- Tareas ----------
+ * Cada prospecto tiene como máximo UNA tarea abierta: su próxima acción con
+ * fecha. Se define al crear el prospecto y se renueva al cerrar la anterior.
  */
-export function openTasks() {
-  const tasks = [];
-  const withCommitment = new Set();
 
-  pendingCommitments().forEach((a) => {
-    const lead = getLead(a.leadId);
-    if (!lead) return;
-    withCommitment.add(lead.id);
-    tasks.push({ key: a.id, kind: 'commitment', activityId: a.id, lead, title: a.commitment, date: a.commitmentDate || '', activity: a });
-  });
-
-  state.leads.forEach((lead) => {
-    if (lead.stage === 'Perdido' || withCommitment.has(lead.id)) return;
-    if (!lead.nextAction && !lead.nextDate) return;
-    tasks.push({ key: lead.id, kind: 'lead', activityId: '', lead, title: lead.nextAction || 'Sin detalle', date: lead.nextDate || '', activity: null });
-  });
-
-  return tasks.sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31'));
+/** La tarea abierta de un prospecto, o null si no tiene. */
+export function taskOf(lead) {
+  if (!lead || lead.stage === 'Perdido') return null;
+  if (!lead.nextAction && !lead.nextDate) return null;
+  return { key: lead.id, lead, title: lead.nextAction || 'Sin detalle', date: lead.nextDate || '' };
 }
 
-export function toggleCommitmentDone(id) {
-  const act = state.activities.find((a) => a.id === id);
-  if (!act) return null;
-  act.commitmentDone = !act.commitmentDone;
+/** Todas las tareas abiertas del CRM, la más urgente primero. */
+export const openTasks = () =>
+  state.leads
+    .map((lead) => taskOf(lead))
+    .filter(Boolean)
+    .sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31'));
+
+/** Cierra la tarea del prospecto: deja constancia de lo ocurrido y agenda la siguiente. */
+export function completeTask(leadId, { type, result, nextAction = '', nextDate = '' }) {
+  const lead = getLead(leadId);
+  if (!lead) return null;
+  const record = addActivity(
+    { leadId, type, date: nowISO(), owner: lead.owner || '', detail: result, task: lead.nextAction || '' },
+    { silent: true }
+  );
+  lead.nextAction = nextAction;
+  lead.nextDate = nextAction ? nextDate : '';
+  lead.updatedAt = nowISO();
   persist();
-  return act;
+  return record;
 }
 
 /* ---------- Plantillas ---------- */

@@ -206,7 +206,13 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .deal-card:hover, .deal-card:focus-visible { border-color: var(--blue); box-shadow: 0 4px 14px rgba(11, 20, 33, .1); outline: none; }
 .deal-card:active { cursor: grabbing; }
 .deal-card.dragging { opacity: .45; }
-.deal-card .deal-company { font-weight: 700; font-size: 14px; }
+.deal-card .deal-company { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+
+.task-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.task-dot.overdue { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent); }
+.task-dot.soon { background: var(--warning); }
+.task-dot.ok { background: var(--success); }
+.task-dot.none { background: transparent; border: 1px dashed var(--border); }
 .deal-card .meta { color: var(--muted); font-size: 12px; margin-top: 5px; }
 .deal-card .money { font-weight: 700; margin-top: 8px; }
 .card-actions { display: flex; gap: 6px; margin-top: 10px; }
@@ -283,6 +289,10 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .activity-body { padding: 4px 12px 12px; }
 .activity-body .actions { margin-top: 10px; }
 
+.history-stage { display: flex; align-items: center; gap: 10px; padding: 9px 12px; font-size: 13px; color: var(--muted); }
+.history-stage-mark { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--blue); margin-left: 2px; }
+.history-stage .badge { margin-left: auto; }
+
 .next-highlight {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--blue);
@@ -295,13 +305,6 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .detail-row span { color: var(--muted); flex: none; }
 .detail-row strong { text-align: right; overflow-wrap: anywhere; min-width: 0; }
 .detail-notes { font-size: 14px; background: var(--bg); border-radius: 10px; padding: 12px; }
-.timeline { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
-.timeline li { border-left: 2px solid var(--blue); padding-left: 12px; display: grid; gap: 2px; font-size: 14px; }
-
-.comm-list { display: flex; flex-direction: column; }
-.comm-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.comm-row:last-child { border: 0; }
-.comm-who { flex: 1 1 140px; font-size: 13px; }
 
 .manage-lead h3 { margin: 0 0 6px; font-size: 18px; }
 .manage-current { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 13px; flex-wrap: wrap; }
@@ -465,7 +468,6 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   .stage-cell { justify-content: flex-start; }
   .activity-peek { display: none; }
   .manage-actions { flex-wrap: wrap; }
-  .comm-row { flex-direction: column; align-items: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

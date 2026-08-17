@@ -23,10 +23,11 @@ import {
   deleteActivity,
   deleteContact,
   deleteLead,
+  completeTask,
   deleteTemplate,
   emptyData,
   findContact,
-  toggleCommitmentDone,
+  taskOf,
   updateActivity,
   findDuplicate,
   getActivity,
@@ -122,6 +123,7 @@ function fillStaticSelects() {
   $('buyTrigger').innerHTML = options(BUY_TRIGGERS);
   $('currentManagement').innerHTML = options(CURRENT_MANAGEMENT);
   $('activityType').innerHTML = options(ACTIVITY_TYPES);
+  $('completeType').innerHTML = options(ACTIVITY_TYPES);
   $('moduleChecks').innerHTML = MODULES.map(
     (v) => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`
   ).join('');
@@ -213,11 +215,6 @@ function openActivity(leadId = '') {
   $('activityDate').value = localDateTimeInput();
   $('activityOwner').value = getLead(leadId)?.owner || '';
   $('activityDetail').value = '';
-  $('activityCommitment').value = '';
-  $('activityCommitmentDate').value = '';
-  $('activityUpdatesNext').checked = true;
-  $('activityCommitmentDone').checked = false;
-  $('activityDoneField').hidden = true;
   $('activityDialog').showModal();
 }
 
@@ -235,11 +232,6 @@ function editActivity(id) {
   $('activityDate').value = act.date || localDateTimeInput();
   $('activityOwner').value = act.owner || '';
   $('activityDetail').value = act.detail || '';
-  $('activityCommitment').value = act.commitment || '';
-  $('activityCommitmentDate').value = act.commitmentDate || '';
-  $('activityUpdatesNext').checked = false;
-  $('activityCommitmentDone').checked = Boolean(act.commitmentDone);
-  $('activityDoneField').hidden = false;
   $('activityDialog').showModal();
 }
 
@@ -266,14 +258,11 @@ function submitActivity(e) {
     type: $('activityType').value,
     date: $('activityDate').value,
     owner: $('activityOwner').value.trim(),
-    detail,
-    commitment: $('activityCommitment').value.trim(),
-    commitmentDate: $('activityCommitmentDate').value
+    detail
   };
-  const updateNextAction = $('activityUpdatesNext').checked;
 
-  if (id) updateActivity(id, { ...payload, commitmentDone: $('activityCommitmentDone').checked }, { updateNextAction });
-  else addActivity(payload, { updateNextAction });
+  if (id) updateActivity(id, payload);
+  else addActivity(payload);
 
   $('activityDialog').close();
   toast(id ? 'Actividad actualizada.' : 'Actividad registrada.');
@@ -361,17 +350,11 @@ function submitComm(e) {
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
     const digits = contact.phone.replace(/\D/g, '');
     if (!digits) return toast('El teléfono no es válido.', 'error');
-    addActivity(
-      { leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por WhatsApp a ${contact.name || contact.phone}.`, commitment: '' },
-      { updateNextAction: false }
-    );
+    addActivity({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por WhatsApp a ${contact.name || contact.phone}.` });
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(body)}`, '_blank', 'noopener');
   } else {
     if (!contact?.email) return toast('Ese contacto no tiene email.', 'error');
-    addActivity(
-      { leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por correo a ${contact.name || contact.email}.`, commitment: '' },
-      { updateNextAction: false }
-    );
+    addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por correo a ${contact.name || contact.email}.` });
     window.location.href = `mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent($('commSubject').value)}&body=${encodeURIComponent(body)}`;
   }
   $('commDialog').close();
@@ -454,14 +437,9 @@ function submitManage(e) {
   const nextDate = $('manageNextDate').value;
 
   if (note) {
-    addActivity(
-      { leadId: lead.id, type: 'Seguimiento', date: localDateTimeInput(), owner: lead.owner || '', detail: note, commitment: '' },
-      { updateNextAction: false }
-    );
+    addActivity({ leadId: lead.id, type: 'Seguimiento', date: localDateTimeInput(), owner: lead.owner || '', detail: note });
   }
-  // Reprograma la tarea donde vive: en el compromiso de la actividad o en el prospecto.
-  if (task.kind === 'commitment') updateActivity(task.activityId, { commitment: nextAction, commitmentDate: nextDate });
-  updateLead(lead.id, { nextAction, nextDate });
+  updateLead(lead.id, { nextAction, nextDate: nextAction ? nextDate : '' });
 
   toast('Guardado.');
   if (manageIndex < manageQueue.length - 1) manageStep(1);
@@ -471,14 +449,16 @@ function submitManage(e) {
   }
 }
 
-/* ---------- Cerrar tarea: resultado + siguiente actividad ---------- */
+/* ---------- Cerrar tarea: resultado + siguiente tarea ---------- */
 
-function openComplete(activityId) {
-  const act = getActivity(activityId);
-  const lead = act && getLead(act.leadId);
-  if (!act || !lead) return;
-  $('completeActivityId').value = activityId;
-  $('completeSubtitle').textContent = `${act.commitment} · ${lead.company}`;
+function openComplete(leadId) {
+  const lead = getLead(leadId);
+  const task = taskOf(lead);
+  if (!task) return toast('Este prospecto no tiene una tarea abierta.', 'error');
+  $('completeLeadId').value = leadId;
+  $('completeSubtitle').textContent = `${task.title} · ${lead.company}`;
+  $('completeType').value = ACTIVITY_TYPES[0];
+  $('completeDate').value = localDateTimeInput();
   $('completeResult').value = '';
   $('completeNextAction').value = '';
   $('completeNextDate').value = '';
@@ -488,20 +468,45 @@ function openComplete(activityId) {
 
 function submitComplete(e) {
   e.preventDefault();
-  const id = $('completeActivityId').value;
-  const act = getActivity(id);
-  if (!act) return;
+  const leadId = $('completeLeadId').value;
   const result = $('completeResult').value.trim();
-  if (!result) return toast('Cuenta cómo resultó la actividad.', 'error');
+  if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
 
   const nextAction = $('completeNextAction').value.trim();
-  const nextDate = $('completeNextDate').value;
-
-  updateActivity(id, { commitmentDone: true, result });
-  updateLead(act.leadId, { nextAction, nextDate: nextAction ? nextDate : '' });
+  completeTask(leadId, {
+    type: $('completeType').value,
+    date: $('completeDate').value || localDateTimeInput(),
+    result,
+    nextAction,
+    nextDate: $('completeNextDate').value
+  });
 
   $('completeDialog').close();
-  toast(nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada.');
+  toast(nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
+}
+
+/* ---------- Agendar / reagendar la tarea ---------- */
+
+function openTask(leadId) {
+  const lead = getLead(leadId);
+  if (!lead) return;
+  const task = taskOf(lead);
+  $('taskLeadId').value = leadId;
+  $('taskDialogTitle').textContent = task ? 'Reagendar tarea' : 'Agendar tarea';
+  $('taskSubtitle').textContent = lead.company;
+  $('taskAction').value = task?.title === 'Sin detalle' ? '' : task?.title || '';
+  $('taskDate').value = task?.date || '';
+  $('taskDialog').showModal();
+  setTimeout(() => $('taskAction').focus(), 50);
+}
+
+function submitTask(e) {
+  e.preventDefault();
+  const action = $('taskAction').value.trim();
+  if (!action) return toast('Escribe qué hay que hacer.', 'error');
+  updateLead($('taskLeadId').value, { nextAction: action, nextDate: $('taskDate').value });
+  $('taskDialog').close();
+  toast('Tarea agendada.');
 }
 
 /* ---------- Diálogo: mover de etapa ---------- */
@@ -671,6 +676,7 @@ const ACTIONS = {
     render();
   },
   'complete-task': (id) => openComplete(id),
+  'reschedule-task': (id) => openTask(id),
   'open-manage': () => openManage(),
   'qualify-lead': (id) => {
     const lead = getLead(id);
@@ -689,10 +695,7 @@ const ACTIONS = {
     const lead = getLead(id);
     const contact = findContact(lead, btn.dataset.contact);
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
-    addActivity(
-      { leadId: id, contactId: btn.dataset.contact, type: 'Llamada', date: localDateTimeInput(), owner: lead.owner || '', detail: `Llamada iniciada a ${contact.name || contact.phone}.`, commitment: '' },
-      { updateNextAction: false }
-    );
+    addActivity({ leadId: id, contactId: btn.dataset.contact, type: 'Llamada', date: localDateTimeInput(), owner: lead.owner || '', detail: `Llamada iniciada a ${contact.name || contact.phone}.` });
     window.location.href = `tel:${contact.phone.replace(/[^\d+]/g, '')}`;
   },
   'open-whatsapp': (id, btn) => openComm(id, btn.dataset.contact, 'whatsapp'),
@@ -703,14 +706,6 @@ const ACTIONS = {
       deleteActivity(id);
       toast('Actividad eliminada.');
     }
-  },
-  // Cerrar una tarea pide resultado y siguiente paso; reabrirla es directo.
-  'toggle-commitment': (id) => {
-    const act = getActivity(id);
-    if (!act) return;
-    if (!act.commitmentDone) return openComplete(id);
-    toggleCommitmentDone(id);
-    toast('Tarea reabierta.');
   },
   'delete-lead': (id) => {
     const lead = getLead(id);
@@ -955,40 +950,33 @@ function seedExample() {
     updatedAt: nowISO()
   };
 
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  // Tareas repartidas: una vencida, una para hoy y una más adelante.
+  const set = (name, action, date) => Object.assign(byName(name), { nextAction: action, nextDate: date });
+  set('ClimaSur Servicios', 'Enviar agenda de demo con casos de preventivos', addDaysISO(todayISO(), -3));
+  set('VerticalTech', 'Llamar para revisar observaciones de la propuesta', addDaysISO(todayISO(), -1));
+  set('Hidráulica Centro', 'Confirmar condiciones comerciales', todayISO());
+  set('PowerGen Chile', 'Coordinar reunión de descubrimiento', addDaysISO(todayISO(), 1));
+  set('Refrigeración Austral', 'Primer contacto telefónico', addDaysISO(todayISO(), 4));
+  set('Montajes del Maipo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9));
+
   state.activities.push(
     {
       id: uid('act'),
       leadId: byName('ClimaSur Servicios').id,
       type: 'Reunión',
-      date: localDateTimeInput(),
+      date: localDateTimeInput(new Date(Date.now() - 4 * 86400000)),
       owner: 'Comercial TaskFlow',
       detail: 'Levantamiento inicial con jefatura de mantenimiento.',
-      commitment: 'Enviar agenda de demo con casos de preventivos',
-      commitmentDate: yesterday,
-      commitmentDone: false
-    },
-    {
-      id: uid('act'),
-      leadId: byName('Hidráulica Centro').id,
-      type: 'Propuesta',
-      date: localDateTimeInput(),
-      owner: 'Comercial TaskFlow',
-      detail: 'Propuesta de licencia anual enviada a gerencia.',
-      commitment: 'Confirmar condiciones comerciales',
-      commitmentDate: todayISO(),
-      commitmentDone: false
+      task: ''
     },
     {
       id: uid('act'),
       leadId: byName('TecnoFrío Ltda.').id,
       type: 'Demo',
-      date: localDateTimeInput(),
+      date: localDateTimeInput(new Date(Date.now() - 2 * 86400000)),
       owner: 'Comercial TaskFlow',
-      detail: 'Demo de checklists y evidencia fotográfica con el equipo técnico.',
-      commitment: 'Agendar kick-off de implementación',
-      commitmentDate: '',
-      commitmentDone: true
+      detail: 'Mostraron interés en checklists y firma digital. Aprueban avanzar.',
+      task: 'Presentar demo de checklists al equipo técnico'
     }
   );
   persist();
@@ -1069,6 +1057,7 @@ function bindEvents() {
   $('commTemplate').addEventListener('change', fillCommFields);
   $('commCopyBtn').addEventListener('click', copyComm);
   $('completeForm').addEventListener('submit', submitComplete);
+  $('taskForm').addEventListener('submit', submitTask);
   $('manageForm').addEventListener('submit', submitManage);
   $('managePrevBtn').addEventListener('click', () => manageStep(-1));
   $('manageNextBtn').addEventListener('click', () => manageStep(1));

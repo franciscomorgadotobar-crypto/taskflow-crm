@@ -9,8 +9,8 @@ import {
   leadsByIndustry,
   metrics,
   openTasks,
-  pendingCommitments,
-  state
+  state,
+  taskOf
 } from './store.js';
 import { addDaysISO, daysBetween, escapeHtml as e, fmtDate, fmtDateTime, fmtMoney, fmtNumber, todayISO } from './utils.js';
 
@@ -21,6 +21,17 @@ const kpi = (label, value, sub, tone = '') =>
   `<div class="kpi ${tone}"><div class="label">${e(label)}</div><div class="value">${e(value)}</div><div class="sub">${e(sub)}</div></div>`;
 
 const empty = (title, hint) => `<div class="empty"><strong>${e(title)}</strong><p>${e(hint)}</p></div>`;
+
+/** Semáforo de la tarea del prospecto, para verlo sin abrir la ficha. */
+function taskDot(lead) {
+  const task = taskOf(lead);
+  if (!task) return `<span class="task-dot none" title="Sin tarea agendada"></span>`;
+  const overdue = !task.date || task.date < todayISO();
+  const soon = task.date && task.date <= addDaysISO(todayISO(), 1);
+  const tone = overdue ? 'overdue' : soon ? 'soon' : 'ok';
+  const label = overdue ? `Tarea vencida: ${task.title}` : `${task.title} · ${fmtDate(task.date)}`;
+  return `<span class="task-dot ${tone}" title="${e(label)}"></span>`;
+}
 
 /* ---------------- Resumen ---------------- */
 
@@ -95,25 +106,24 @@ export function renderDashboard(ui) {
     ${renderRecentActivities()}`;
 }
 
+/** Las acciones de una tarea son siempre las mismas, esté donde esté. */
+export function taskActions(leadId, { includeFicha = true } = {}) {
+  return `
+    <button class="small-btn" data-action="complete-task" data-id="${leadId}">Marcar realizada</button>
+    <button class="small-btn" data-action="reschedule-task" data-id="${leadId}">Reagendar</button>
+    ${includeFicha ? `<button class="small-btn" data-action="open-detail" data-id="${leadId}">Ver ficha</button>` : ''}`;
+}
+
 /** Una tarea en el resumen: se gestiona sin salir del home. */
 function taskRow(t, isOverdue) {
-  const contact = t.activity?.contactId ? findContact(t.lead, t.activity.contactId) : null;
   return `<div class="list-item">
     <div>
       <strong>${e(t.title)}</strong>
-      <div class="muted">${e(t.lead.company)} · ${e(t.lead.stage)}${contact?.name ? ` · ${e(contact.name)}` : ''}${t.lead.owner ? ` · ${e(t.lead.owner)}` : ''}</div>
+      <div class="muted">${e(t.lead.company)} · ${e(t.lead.stage)}${t.lead.owner ? ` · ${e(t.lead.owner)}` : ''}</div>
     </div>
     <div class="list-side">
       <span class="badge ${isOverdue ? 'danger' : ''}">${t.date ? e(fmtDate(t.date)) : 'Sin fecha'}</span>
-      <div class="actions">
-        ${
-          t.kind === 'commitment'
-            ? `<button class="small-btn" data-action="complete-task" data-id="${t.activityId}">Marcar realizada</button>
-               <button class="small-btn" data-action="edit-activity" data-id="${t.activityId}">Reagendar</button>`
-            : `<button class="small-btn" data-action="new-activity" data-id="${t.lead.id}">Registrar avance</button>`
-        }
-        <button class="small-btn" data-action="open-detail" data-id="${t.lead.id}">Ver ficha</button>
-      </div>
+      <div class="actions">${taskActions(t.lead.id)}</div>
     </div>
   </div>`;
 }
@@ -168,7 +178,7 @@ function renderRecentActivities() {
     <div class="card" style="margin-top:16px">
       <div class="card-head">
         <h3>Últimas actividades</h3>
-        <button class="small-btn" data-action="new-activity">+ Nueva actividad</button>
+        <span class="muted">${recent.length ? `${recent.length} más recientes` : ''}</span>
       </div>
       <div class="card-body">
         ${
@@ -314,10 +324,10 @@ function renderPipelineKanban() {
                 (l) => `<article class="deal-card" draggable="true" data-id="${l.id}"
                   data-action="open-detail" role="button" tabindex="0"
                   aria-label="Abrir ficha de ${e(l.company)}">
-                  <div class="deal-company">${e(l.company)}</div>
+                  <div class="deal-company">${taskDot(l)}${e(l.company)}</div>
                   <div class="meta">${e(l.contact || 'Sin contacto')}</div>
                   <div class="money">${fmtMoney(l.value)}</div>
-                  <div class="meta ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(l.nextAction || 'Sin próxima acción')}</div>
+                  <div class="meta ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(l.nextAction || 'Sin tarea agendada')}</div>
                   <div class="card-actions">
                     <button class="small-btn" data-action="move-stage" data-id="${l.id}">Mover</button>
                     <button class="small-btn" data-action="new-activity" data-id="${l.id}">Actividad</button>
@@ -731,33 +741,44 @@ const detailRow = (label, value) =>
 /** Actividad del historial: se expande para ver todo y editarla sin salir de la ficha. */
 function activityItem(a, lead) {
   const contactName = a.contactId ? findContact(lead, a.contactId)?.name : '';
-  const openCommitment = a.commitment && !a.commitmentDone;
   return `<details class="activity-item">
     <summary>
       <span class="activity-type">${e(a.type)}</span>
-      <span class="activity-peek">${e(a.detail)}</span>
-      <span class="badge ${openCommitment ? 'warning' : ''}">${e(fmtDateTime(a.date))}</span>
+      <span class="activity-peek">${e(a.task ? `Cerró: ${a.task} — ${a.detail}` : a.detail)}</span>
+      <span class="badge ${a.task ? 'success' : ''}">${e(fmtDateTime(a.date))}</span>
     </summary>
     <div class="activity-body">
       ${detailRow('Fecha', fmtDateTime(a.date))}
       ${detailRow('Contacto', contactName)}
       ${detailRow('Responsable', a.owner)}
-      ${detailRow('Detalle', a.detail)}
-      ${detailRow('Próxima acción', a.commitment)}
-      ${detailRow('Fecha de la próxima acción', fmtDate(a.commitmentDate))}
-      ${a.commitment ? detailRow('Estado', a.commitmentDone ? 'Realizada' : 'Pendiente') : ''}
-      ${detailRow('Resultado', a.result)}
+      ${detailRow('Tarea cerrada', a.task)}
+      ${detailRow(a.task ? 'Resultado' : 'Detalle', a.detail)}
       <div class="actions">
         <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
-        ${
-          a.commitment
-            ? `<button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">${a.commitmentDone ? 'Reabrir' : 'Marcar realizada'}</button>`
-            : ''
-        }
         <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
       </div>
     </div>
   </details>`;
+}
+
+/** Un cambio de etapa dentro del historial. */
+const stageItem = (h) => `
+  <div class="history-stage">
+    <span class="history-stage-mark" aria-hidden="true"></span>
+    <span>Pasó a <strong>${e(h.stage)}</strong></span>
+    <span class="badge">${e(fmtDateTime(h.at))}</span>
+  </div>`;
+
+/** Historial unificado: actividades, tareas cerradas y movimientos de etapa en una sola línea de tiempo. */
+function renderHistory(lead, acts) {
+  const entries = [
+    ...acts.map((a) => ({ at: a.date, html: activityItem(a, lead) })),
+    ...(lead.stageHistory || []).map((h) => ({ at: h.at, html: stageItem(h) }))
+  ].sort((x, y) => String(y.at).localeCompare(String(x.at)));
+
+  return entries.length
+    ? `<div class="activity-list">${entries.map((x) => x.html).join('')}</div>`
+    : '<p class="muted">Sin movimientos registrados.</p>';
 }
 
 export function renderLeadDetail(id) {
@@ -771,42 +792,19 @@ export function renderLeadDetail(id) {
 
   const row = detailRow;
 
-  // Una sola tarea a la vista: la más urgente. Si ya pasó su fecha se marca vencida, sin sacarla de acá.
-  const pending = pendingCommitments(id);
-  const nextTask = pending[0] || null;
-  const others = Math.max(0, pending.length - 1);
-  const taskOverdue = nextTask
-    ? !nextTask.commitmentDate || nextTask.commitmentDate < today
-    : Boolean(l.nextDate && l.nextDate < today);
+  // Una única tarea abierta por prospecto. Si pasó su fecha se marca vencida, sin salir de acá.
+  const task = taskOf(l);
+  const taskOverdue = Boolean(task && (!task.date || task.date < today));
 
-  const taskBox = (title, dateLabel, origin, actions) => `
-    <div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
-      <strong>${title}</strong>
-      <span class="badge ${taskOverdue ? 'danger' : ''}">${e(dateLabel)}</span>
-      ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
-    </div>
-    <p class="muted next-task-origin">${origin}</p>
-    <div class="actions">${actions}</div>`;
-
-  const newActivityBtn = `<button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Nueva actividad</button>`;
-
-  const nextTaskBody = nextTask
-    ? taskBox(
-        e(nextTask.commitment),
-        nextTask.commitmentDate ? fmtDate(nextTask.commitmentDate) : 'Sin fecha',
-        `Comprometida en ${e(nextTask.type)} del ${e(fmtDateTime(nextTask.date))}${nextTask.detail ? ` · ${e(nextTask.detail)}` : ''}`,
-        `<button class="small-btn" data-action="complete-task" data-id="${nextTask.id}">Marcar realizada</button>
-         <button class="small-btn" data-action="edit-activity" data-id="${nextTask.id}">Reagendar</button>
-         ${newActivityBtn}`
-      ) + (others ? `<p class="muted">Hay ${others} tarea(s) pendiente(s) más — las ves en el historial y en el Resumen.</p>` : '')
-    : l.nextAction || l.nextDate
-      ? taskBox(
-          e(l.nextAction || 'Sin detalle'),
-          fmtDate(l.nextDate) || 'Sin fecha',
-          'Próxima acción definida en la oportunidad.',
-          newActivityBtn
-        )
-      : `<p class="muted">Sin tarea agendada para este prospecto.</p>${newActivityBtn}`;
+  const nextTaskBody = task
+    ? `<div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
+        <strong>${e(task.title)}</strong>
+        <span class="badge ${taskOverdue ? 'danger' : ''}">${e(task.date ? fmtDate(task.date) : 'Sin fecha')}</span>
+        ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
+      </div>
+      <div class="actions">${taskActions(l.id, { includeFicha: false })}</div>`
+    : `<p class="muted">Sin tarea agendada para este prospecto.</p>
+       <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
 
   return `
     <div class="detail-grid">
@@ -829,28 +827,8 @@ export function renderLeadDetail(id) {
         ${row('Rubro', l.industry)}
         ${row('Origen', l.source)}
         ${row('Responsable', l.owner)}
-        ${row('Próxima acción', [l.nextAction, fmtDate(l.nextDate)].filter(Boolean).join(' · '))}
         ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}`,
         { open: true }
-      )}
-
-      ${section(
-        'Comunicación',
-        sendable.length
-          ? `<div class="comm-list">${sendable
-              .map(
-                (c) => `<div class="comm-row">
-                  <div class="comm-who"><strong>${e(c.name || 'Sin nombre')}</strong>${c.role ? `<span class="muted"> · ${e(c.role)}</span>` : ''}</div>
-                  <div class="actions">
-                    ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
-                    ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
-                    ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
-                  </div>
-                </div>`
-              )
-              .join('')}</div>`
-          : '<p class="muted">Agrega un email o teléfono a algún contacto para poder escribirle o llamarlo.</p>',
-        { open: true, count: sendable.length }
       )}
 
       ${section(
@@ -864,14 +842,22 @@ export function renderLeadDetail(id) {
                       <strong>${e(c.name || 'Sin nombre')}</strong>${c.role ? `<span class="muted"> · ${e(c.role)}</span>` : ''}
                       <div class="muted">${e(c.email || '—')}${c.phone ? ` · ${e(c.phone)}` : ''}</div>
                     </div>
-                    ${c.primary ? '<span class="badge">Principal</span>' : `<button class="small-btn danger" data-action="delete-contact" data-id="${l.id}" data-contact="${c.key}">Eliminar</button>`}
+                    <div class="list-side">
+                      <div class="actions">
+                        ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
+                        ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
+                        ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
+                        ${c.primary ? '' : `<button class="small-btn danger" data-action="delete-contact" data-id="${l.id}" data-contact="${c.key}">Eliminar</button>`}
+                      </div>
+                    </div>
                   </div>`
                 )
                 .join('')}</div>`
             : '<p class="muted">Sin contactos registrados.</p>'
         }
+        ${sendable.length ? '' : '<p class="muted">Agrega un email o teléfono a algún contacto para poder escribirle o llamarlo.</p>'}
         <button class="small-btn" data-action="add-contact" data-id="${l.id}">+ Agregar contacto</button>`,
-        { count: contacts.length }
+        { open: true, count: contacts.length }
       )}
 
       ${section(
@@ -892,26 +878,10 @@ export function renderLeadDetail(id) {
       )}
 
       ${section(
-        'Historial de actividades',
-        `${
-          acts.length
-            ? `<div class="activity-list">${acts.map((a) => activityItem(a, l)).join('')}</div>`
-            : '<p class="muted">Sin actividades registradas.</p>'
-        }
+        'Historial',
+        `${renderHistory(l, acts)}
         <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>`,
-        { count: acts.length }
-      )}
-
-      ${section(
-        'Recorrido por etapas',
-        `<ol class="timeline">
-          ${(l.stageHistory || [])
-            .map((h, i, arr) => {
-              const end = arr[i + 1]?.at;
-              return `<li><strong>${e(h.stage)}</strong><span class="muted">${e(fmtDate(h.at))}${end ? ` · ${daysBetween(h.at, end)} días` : ''}</span></li>`;
-            })
-            .join('')}
-        </ol>`
+        { count: acts.length + (l.stageHistory || []).length }
       )}
     </div>`;
 }

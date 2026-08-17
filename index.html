@@ -130,7 +130,7 @@
   <dialog id="activityDialog" class="modal">
     <form id="activityForm" class="modal-card" novalidate>
       <div class="modal-head">
-        <div><h2 id="activityDialogTitle">Nueva actividad</h2><p>Registra una interacción o compromiso comercial.</p></div>
+        <div><h2 id="activityDialogTitle">Nueva actividad</h2><p>Deja constancia de una interacción con el prospecto.</p></div>
         <button type="button" class="icon-btn" data-close-dialog="activityDialog" aria-label="Cerrar">×</button>
       </div>
       <input type="hidden" id="activityId" />
@@ -141,11 +141,7 @@
         <label>Fecha de la actividad<input id="activityDate" type="datetime-local" required /></label>
         <label>Responsable<input id="activityOwner" /></label>
         <label class="span-2">Detalle<textarea id="activityDetail" rows="4" required></textarea></label>
-        <label class="span-2">Próxima acción<input id="activityCommitment" placeholder="Qué hay que hacer después" /></label>
-        <label>Fecha de la próxima acción<input id="activityCommitmentDate" type="date" /></label>
-        <label class="span-2 inline"><input type="checkbox" id="activityUpdatesNext" checked /> Usar esta próxima acción como la del prospecto</label>
-        <p class="span-2 muted form-note">La <strong>fecha de la próxima acción</strong> es la que agenda la tarea y define si está vencida. La fecha de la actividad solo registra cuándo ocurrió.</p>
-        <label class="span-2 inline" id="activityDoneField" hidden><input type="checkbox" id="activityCommitmentDone" /> Compromiso ya realizado</label>
+        <p class="span-2 muted form-note">Esto solo deja registro de lo que pasó. La próxima tarea se agenda al cerrar la anterior con <strong>Marcar realizada</strong>.</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="activityDialog">Cancelar</button>
@@ -161,15 +157,37 @@
         <div><h2>Cerrar tarea</h2><p id="completeSubtitle"></p></div>
         <button type="button" class="icon-btn" data-close-dialog="completeDialog" aria-label="Cerrar">×</button>
       </div>
-      <input type="hidden" id="completeActivityId" />
+      <input type="hidden" id="completeLeadId" />
       <div class="form-grid">
+        <label>¿Qué tipo de actividad fue?<select id="completeType"></select></label>
+        <label>Fecha en que ocurrió<input id="completeDate" type="datetime-local" /></label>
         <label class="span-2">¿Cómo resultó?<textarea id="completeResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <label class="span-2">Siguiente actividad<input id="completeNextAction" placeholder="Ej. Enviar propuesta ajustada (opcional)" /></label>
+        <label class="span-2">Siguiente tarea<input id="completeNextAction" placeholder="Ej. Enviar propuesta ajustada" /></label>
         <label>Fecha de la siguiente<input id="completeNextDate" type="date" /></label>
+        <p class="span-2 muted form-note">Si dejas la siguiente tarea en blanco, el prospecto queda <strong>sin próximo paso</strong> y aparecerá como pendiente de agendar.</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
         <button type="submit" class="primary-btn">Cerrar tarea</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Agendar / reagendar tarea -->
+  <dialog id="taskDialog" class="modal">
+    <form id="taskForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2 id="taskDialogTitle">Agendar tarea</h2><p id="taskSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="taskDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="taskLeadId" />
+      <div class="form-grid">
+        <label class="span-2">Tarea<input id="taskAction" required placeholder="Ej. Llamar para coordinar demo" /></label>
+        <label class="span-2">Fecha<input id="taskDate" type="date" /></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="taskDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar tarea</button>
       </div>
     </form>
   </dialog>
