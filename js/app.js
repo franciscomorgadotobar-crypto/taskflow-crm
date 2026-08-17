@@ -58,6 +58,7 @@ const CFG = window.TASKFLOW_CRM_CONFIG;
 
 const ui = {
   view: 'dashboard',
+  taskTab: 'overdue',
   leadFilters: { query: '', owner: '', sort: 'updated' },
   pipelineView: 'kanban',
   pipelineFilters: { query: '', stage: '', owner: '' },
@@ -609,6 +610,14 @@ const ACTIONS = {
     render();
   },
   'export-pipeline-csv': () => exportPipelineCsv(),
+  'tasks-tab-overdue': () => {
+    ui.taskTab = 'overdue';
+    render();
+  },
+  'tasks-tab-upcoming': () => {
+    ui.taskTab = 'upcoming';
+    render();
+  },
   'open-manage': () => openManage(),
   'qualify-lead': (id) => {
     const lead = getLead(id);

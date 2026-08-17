@@ -23,7 +23,7 @@ const empty = (title, hint) => `<div class="empty"><strong>${e(title)}</strong><
 
 /* ---------------- Resumen ---------------- */
 
-export function renderDashboard() {
+export function renderDashboard(ui) {
   const m = metrics();
   const stageDays = avgDaysPerStage();
   const maxStage = Math.max(1, ...m.stageCounts.map((x) => x.count));
@@ -45,7 +45,7 @@ export function renderDashboard() {
 
     ${m.stale.length ? `<div class="notice warn">${m.stale.length} oportunidad(es) sin próxima acción y sin movimiento hace más de 14 días.</div>` : ''}
 
-    ${renderPendingTasks()}
+    ${renderPendingTasks(ui)}
 
     <div class="grid-2">
       <div class="card">
@@ -143,31 +143,34 @@ function taskRow(a, isOverdue) {
   </div>`;
 }
 
-/** Compromisos abiertos de todas las oportunidades, atrasados primero. */
-function renderPendingTasks() {
+/**
+ * Tareas por gestionar. Por defecto solo las vencidas (lo que exige acción hoy);
+ * las que aún tienen fecha por delante quedan en la pestaña "Próximas a vencer".
+ */
+function renderPendingTasks(ui) {
   const today = todayISO();
   const pending = pendingCommitments().filter((a) => getLead(a.leadId));
   const overdue = pending.filter((a) => !a.commitmentDate || a.commitmentDate < today);
   const upcoming = pending.filter((a) => a.commitmentDate && a.commitmentDate >= today);
+  const tab = ui?.taskTab === 'upcoming' ? 'upcoming' : 'overdue';
+  const rows = tab === 'upcoming' ? upcoming : overdue;
 
   return `
     <div class="card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
       <div class="card-head">
-        <h3>Tareas pendientes</h3>
-        <div class="actions">
-          ${overdue.length ? `<span class="badge danger">${overdue.length} por gestionar</span>` : ''}
-          <span class="muted">${upcoming.length} agendada(s)</span>
+        <h3>Tareas por gestionar</h3>
+        <div class="button-row">
+          <button class="small-btn ${tab === 'overdue' ? 'active-view' : ''}" data-action="tasks-tab-overdue">Vencidas (${overdue.length})</button>
+          <button class="small-btn ${tab === 'upcoming' ? 'active-view' : ''}" data-action="tasks-tab-upcoming">Próximas a vencer (${upcoming.length})</button>
         </div>
       </div>
       <div class="card-body">
         ${
-          pending.length
-            ? `${overdue.length ? `<h4 class="task-group overdue">Atrasadas o sin fecha</h4><div class="list">${overdue.map((a) => taskRow(a, Boolean(a.commitmentDate))).join('')}</div>` : ''}
-               ${upcoming.length ? `<h4 class="task-group">Agendadas</h4><div class="list">${upcoming.map((a) => taskRow(a, false)).join('')}</div>` : ''}`
-            : empty(
-                'Sin tareas pendientes',
-                'Los compromisos que registres al guardar una actividad aparecen acá hasta que los marques como hechos.'
-              )
+          rows.length
+            ? `<div class="list">${rows.map((a) => taskRow(a, tab === 'overdue' && Boolean(a.commitmentDate))).join('')}</div>`
+            : tab === 'overdue'
+              ? empty('Sin tareas vencidas', 'Todo al día. Los compromisos que pasen su fecha de seguimiento aparecen acá.')
+              : empty('Sin tareas próximas a vencer', 'Los compromisos con fecha futura aparecen acá hasta que llegue el día.')
         }
       </div>
     </div>`;
