@@ -63,13 +63,15 @@ export function migrate(raw) {
   });
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
   // {{contacto}} pasó a llamarse {{nombre}} (y ahora resuelve al nombre de pila).
-  // Se renombra en las plantillas guardadas para que coincidan con la lista de variables.
   const renameVar = (s) => String(s || '').split('{{contacto}}').join('{{nombre}}');
+  // El nombre de quien escribe ya viene en la firma del correo: se quita del cierre
+  // para no repetirlo. Si está en medio del texto se respeta, ahí sí aporta.
+  const dropSignature = (s) => String(s || '').replace(/\s*\{\{responsable\}\}\s*$/, '');
   data.templates = data.templates.map((t) => ({
     channel: 'both',
     ...t,
     subject: renameVar(t.subject),
-    body: renameVar(t.body)
+    body: dropSignature(renameVar(t.body))
   }));
 
   const rawSettings = data.settings || {};
