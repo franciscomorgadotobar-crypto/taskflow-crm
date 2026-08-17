@@ -554,7 +554,6 @@ function openDetail(id) {
   $('detailTitle').textContent = lead.company;
   $('detailSubtitle').textContent = `${lead.stage} · actualizada ${fmtDateTime(lead.updatedAt)}`;
   $('detailBody').innerHTML = renderLeadDetail(id);
-  $('detailDeleteBtn').dataset.id = id;
   $('detailDialog').showModal();
 }
 
@@ -660,7 +659,11 @@ const ACTIONS = {
   'open-detail': (id) => openDetail(id),
   'open-discovery': (id) => openDiscovery(id),
   'new-activity': (id) => openActivity(id),
-  'edit-activity': (id) => editActivity(id),
+  'edit-activity': (id) => {
+    const act = getActivity(id);
+    if (act?.task || act?.system) return toast('Los movimientos del historial no se pueden editar.', 'error');
+    editActivity(id);
+  },
   'move-stage': (id) => openStage(id),
   'pipeline-view-kanban': () => {
     ui.pipelineView = 'kanban';
@@ -702,6 +705,8 @@ const ACTIONS = {
   'open-email': (id, btn) => openComm(id, btn.dataset.contact, 'email'),
   'remarketing-email': (id, btn) => openComm(id, 'primary', 'email', btn.dataset.template),
   'delete-activity': (id) => {
+    const act = getActivity(id);
+    if (act?.task || act?.system) return toast('Los movimientos del historial no se pueden eliminar.', 'error');
     if (confirm('¿Eliminar esta actividad?')) {
       deleteActivity(id);
       toast('Actividad eliminada.');
@@ -785,7 +790,7 @@ const ACTIONS = {
 };
 
 function handleClick(ev) {
-  const btn = ev.target.closest('[data-action]');
+  const btn = ev.target.closest?.('[data-action]');
   if (!btn) return;
   ACTIONS[btn.dataset.action]?.(btn.dataset.id, btn);
 }
@@ -1063,11 +1068,6 @@ function bindEvents() {
   $('manageNextBtn').addEventListener('click', () => manageStep(1));
   $('stageForm').addEventListener('submit', submitStage);
   $('stageOptions').addEventListener('change', updateStageFields);
-  $('detailEditBtn').addEventListener('click', () => {
-    $('detailDialog').close();
-    openLead(detailLeadId);
-  });
-
   $('exportBtn').addEventListener('click', exportJson);
   $('exportCsvBtn').addEventListener('click', exportCsv);
   $('importInput').addEventListener('change', importJson);

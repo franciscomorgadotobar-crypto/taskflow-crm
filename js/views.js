@@ -22,6 +22,12 @@ const kpi = (label, value, sub, tone = '') =>
 
 const empty = (title, hint) => `<div class="empty"><strong>${e(title)}</strong><p>${e(hint)}</p></div>`;
 
+/**
+ * Un movimiento se puede editar/borrar solo si lo registró el usuario a mano.
+ * El cierre de una tarea y los eventos del sistema son historia: quedan fijos.
+ */
+const editableActivity = (a) => !a.task && !a.system;
+
 /** Semáforo de la tarea del prospecto, para verlo sin abrir la ficha. */
 function taskDot(lead) {
   const task = taskOf(lead);
@@ -177,7 +183,7 @@ function renderRecentActivities() {
   return `
     <div class="card" style="margin-top:16px">
       <div class="card-head">
-        <h3>Últimas actividades</h3>
+        <h3>Últimos movimientos</h3>
         <span class="muted">${recent.length ? `${recent.length} más recientes` : ''}</span>
       </div>
       <div class="card-body">
@@ -189,7 +195,7 @@ function renderRecentActivities() {
                   const contactName = a.contactId ? findContact(l, a.contactId)?.name : '';
                   const company = l
                     ? `<button class="link-btn" data-action="open-detail" data-id="${l.id}">${e(l.company)}</button>`
-                    : `<span class="muted">Empresa eliminada</span>`;
+                    : `<span class="muted">${e(a.company || 'Empresa eliminada')}</span>`;
                   return `<div class="list-item">
                     <div>
                       <strong>${e(a.type)} · </strong>${company}${contactName ? `<span class="muted"> · ${e(contactName)}</span>` : ''}
@@ -197,15 +203,19 @@ function renderRecentActivities() {
                     </div>
                     <div class="list-side">
                       <span class="badge">${e(fmtDateTime(a.date))}</span>
-                      <div class="actions">
-                        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
-                        <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
-                      </div>
+                      ${
+                        editableActivity(a)
+                          ? `<div class="actions">
+                              <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+                              <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+                            </div>`
+                          : ''
+                      }
                     </div>
                   </div>`;
                 })
                 .join('')}</div>`
-            : empty('Sin actividades registradas', 'Registra llamadas, demos y compromisos desde la ficha de cada oportunidad.')
+            : empty('Sin movimientos registrados', 'Acá aparecen las actividades, las tareas cerradas y los cambios en tus oportunidades.')
         }
       </div>
     </div>`;
@@ -753,10 +763,14 @@ function activityItem(a, lead) {
       ${detailRow('Responsable', a.owner)}
       ${detailRow('Tarea cerrada', a.task)}
       ${detailRow(a.task ? 'Resultado' : 'Detalle', a.detail)}
-      <div class="actions">
-        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
-        <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
-      </div>
+      ${
+        editableActivity(a)
+          ? `<div class="actions">
+              <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+              <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+            </div>`
+          : '<p class="muted">Una tarea cerrada queda como registro histórico: no se edita ni se elimina.</p>'
+      }
     </div>
   </details>`;
 }
@@ -827,7 +841,8 @@ export function renderLeadDetail(id) {
         ${row('Rubro', l.industry)}
         ${row('Origen', l.source)}
         ${row('Responsable', l.owner)}
-        ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}`,
+        ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}
+        <button class="small-btn" data-action="edit-lead" data-id="${l.id}">Editar datos de la empresa</button>`,
         { open: true }
       )}
 
@@ -882,6 +897,12 @@ export function renderLeadDetail(id) {
         `${renderHistory(l, acts)}
         <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>`,
         { count: acts.length + (l.stageHistory || []).length }
+      )}
+
+      ${section(
+        'Otros',
+        `<p class="muted">Eliminar borra la empresa con su levantamiento y todo su historial. No se puede deshacer.</p>
+         <button class="small-btn danger" data-action="delete-lead" data-id="${l.id}">Eliminar oportunidad</button>`
       )}
     </div>`;
 }

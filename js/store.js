@@ -50,7 +50,7 @@ export function migrate(raw) {
   });
 
   data.discoveries = data.discoveries || {};
-  data.activities = (data.activities || []).map((a) => ({ task: '', ...a, id: a.id || uid('act') }));
+  data.activities = (data.activities || []).map((a) => ({ task: '', company: '', system: false, ...a, id: a.id || uid('act') }));
 
   // v2: las tareas dejaron de vivir en los compromisos de cada actividad y pasaron
   // a ser la única próxima acción del prospecto. Rescatamos los que quedaron abiertos.
@@ -158,9 +158,23 @@ export function updateLead(id, patch) {
 }
 
 export function deleteLead(id) {
+  const lead = getLead(id);
+  if (!lead) return;
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
+  // El borrado queda registrado suelto (sin leadId) para que sobreviva a la limpieza.
+  state.activities.push({
+    id: uid('act'),
+    leadId: '',
+    company: lead.company,
+    type: 'Eliminación',
+    date: nowISO(),
+    owner: lead.owner || '',
+    detail: `Se eliminó la oportunidad “${lead.company}” (etapa ${lead.stage}) con su levantamiento e historial.`,
+    task: '',
+    system: true
+  });
   persist();
 }
 
