@@ -270,6 +270,22 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .detail-section-body { padding: 4px 16px 16px; }
 .detail-section-body > .small-btn { margin-top: 12px; }
 
+.stage-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+.activity-list { display: grid; gap: 6px; }
+.activity-item { border: 1px solid var(--border); border-radius: 10px; background: var(--bg); overflow: hidden; }
+.activity-item > summary {
+  display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; padding: 10px 12px; font-size: 13px;
+}
+.activity-item > summary::-webkit-details-marker { display: none; }
+.activity-item > summary::before { content: '▸'; color: var(--blue); font-size: 11px; transition: transform .15s ease; flex: none; }
+.activity-item[open] > summary::before { transform: rotate(90deg); }
+.activity-item > summary:hover { background: color-mix(in srgb, var(--bg) 88%, var(--sky)); }
+.activity-type { font-weight: 700; flex: none; }
+.activity-peek { color: var(--muted); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-body { padding: 4px 12px 12px; }
+.activity-body .actions { margin-top: 10px; }
+
 .next-highlight {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--blue);
@@ -394,6 +410,8 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   .list-side { align-items: flex-start; text-align: left; flex-direction: row; }
   .detail-row { flex-direction: column; align-items: flex-start; gap: 2px; }
   .detail-row strong { text-align: left; }
+  .stage-cell { justify-content: flex-start; }
+  .activity-peek { display: none; }
   .manage-actions { flex-wrap: wrap; }
   .comm-row { flex-direction: column; align-items: flex-start; }
 }

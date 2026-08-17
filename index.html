@@ -131,9 +131,10 @@
   <dialog id="activityDialog" class="modal">
     <form id="activityForm" class="modal-card" novalidate>
       <div class="modal-head">
-        <div><h2>Nueva actividad</h2><p>Registra una interacción o compromiso comercial.</p></div>
+        <div><h2 id="activityDialogTitle">Nueva actividad</h2><p>Registra una interacción o compromiso comercial.</p></div>
         <button type="button" class="icon-btn" data-close-dialog="activityDialog" aria-label="Cerrar">×</button>
       </div>
+      <input type="hidden" id="activityId" />
       <div class="form-grid">
         <label>Empresa<select id="activityLeadId" required></select></label>
         <label>Contacto<select id="activityContactId"></select></label>
@@ -144,10 +145,11 @@
         <label class="span-2">Compromiso / siguiente paso<input id="activityCommitment" /></label>
         <label>Fecha de seguimiento<input id="activityCommitmentDate" type="date" /></label>
         <label class="span-2 inline"><input type="checkbox" id="activityUpdatesNext" checked /> Usar el compromiso como próxima acción del lead</label>
+        <label class="span-2 inline" id="activityDoneField" hidden><input type="checkbox" id="activityCommitmentDone" /> Compromiso ya realizado</label>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="activityDialog">Cancelar</button>
-        <button type="submit" class="primary-btn">Guardar actividad</button>
+        <button type="submit" class="primary-btn" id="activitySubmitBtn">Guardar actividad</button>
       </div>
     </form>
   </dialog>

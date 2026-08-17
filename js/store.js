@@ -197,6 +197,23 @@ export function addActivity(activity, { updateNextAction = true } = {}) {
   return record;
 }
 
+/** Edita una actividad ya registrada (fecha, detalle, compromiso o su estado). */
+export function updateActivity(id, patch, { updateNextAction = false } = {}) {
+  const act = state.activities.find((a) => a.id === id);
+  if (!act) return null;
+  Object.assign(act, patch);
+  const lead = getLead(act.leadId);
+  if (lead && act.commitment && !act.commitmentDone && updateNextAction) {
+    lead.nextAction = act.commitment;
+    lead.nextDate = act.commitmentDate || todayISO();
+    lead.updatedAt = nowISO();
+  }
+  persist();
+  return act;
+}
+
+export const getActivity = (id) => state.activities.find((a) => a.id === id) || null;
+
 export function deleteActivity(id) {
   state.activities = state.activities.filter((a) => a.id !== id);
   persist();

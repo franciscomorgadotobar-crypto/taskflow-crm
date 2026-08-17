@@ -23,7 +23,9 @@ import {
   emptyData,
   findContact,
   toggleCommitmentDone,
+  updateActivity,
   findDuplicate,
+  getActivity,
   getDiscovery,
   getLead,
   metrics,
@@ -194,14 +196,42 @@ function submitDiscovery(e) {
 
 function openActivity(leadId = '') {
   if (!state.leads.length) return toast('Primero registra una empresa.', 'error');
+  $('activityId').value = '';
+  $('activityDialogTitle').textContent = 'Nueva actividad';
+  $('activitySubmitBtn').textContent = 'Guardar actividad';
   $('activityLeadId').innerHTML = leadOptions(leadId);
   fillActivityContacts(leadId);
+  $('activityType').value = ACTIVITY_TYPES[0];
   $('activityDate').value = localDateTimeInput();
   $('activityOwner').value = getLead(leadId)?.owner || '';
   $('activityDetail').value = '';
   $('activityCommitment').value = '';
   $('activityCommitmentDate').value = '';
   $('activityUpdatesNext').checked = true;
+  $('activityCommitmentDone').checked = false;
+  $('activityDoneField').hidden = true;
+  $('activityDialog').showModal();
+}
+
+/** Reabre una actividad existente para corregir fecha, detalle o compromiso. */
+function editActivity(id) {
+  const act = getActivity(id);
+  if (!act) return;
+  $('activityId').value = id;
+  $('activityDialogTitle').textContent = 'Editar actividad';
+  $('activitySubmitBtn').textContent = 'Guardar cambios';
+  $('activityLeadId').innerHTML = leadOptions(act.leadId);
+  fillActivityContacts(act.leadId);
+  $('activityContactId').value = act.contactId || '';
+  $('activityType').value = act.type || ACTIVITY_TYPES[0];
+  $('activityDate').value = act.date || localDateTimeInput();
+  $('activityOwner').value = act.owner || '';
+  $('activityDetail').value = act.detail || '';
+  $('activityCommitment').value = act.commitment || '';
+  $('activityCommitmentDate').value = act.commitmentDate || '';
+  $('activityUpdatesNext').checked = false;
+  $('activityCommitmentDone').checked = Boolean(act.commitmentDone);
+  $('activityDoneField').hidden = false;
   $('activityDialog').showModal();
 }
 
@@ -216,26 +246,29 @@ function fillActivityContacts(leadId) {
 
 function submitActivity(e) {
   e.preventDefault();
+  const id = $('activityId').value;
   const leadId = $('activityLeadId').value;
   const detail = $('activityDetail').value.trim();
   if (!leadId) return toast('Selecciona una empresa.', 'error');
   if (!detail) return toast('Escribe el detalle de la actividad.', 'error');
 
-  addActivity(
-    {
-      leadId,
-      contactId: $('activityContactId').value,
-      type: $('activityType').value,
-      date: $('activityDate').value,
-      owner: $('activityOwner').value.trim(),
-      detail,
-      commitment: $('activityCommitment').value.trim(),
-      commitmentDate: $('activityCommitmentDate').value
-    },
-    { updateNextAction: $('activityUpdatesNext').checked }
-  );
+  const payload = {
+    leadId,
+    contactId: $('activityContactId').value,
+    type: $('activityType').value,
+    date: $('activityDate').value,
+    owner: $('activityOwner').value.trim(),
+    detail,
+    commitment: $('activityCommitment').value.trim(),
+    commitmentDate: $('activityCommitmentDate').value
+  };
+  const updateNextAction = $('activityUpdatesNext').checked;
+
+  if (id) updateActivity(id, { ...payload, commitmentDone: $('activityCommitmentDone').checked }, { updateNextAction });
+  else addActivity(payload, { updateNextAction });
+
   $('activityDialog').close();
-  toast('Actividad registrada.');
+  toast(id ? 'Actividad actualizada.' : 'Actividad registrada.');
 }
 
 /* ---------- Diálogo: contacto ---------- */
@@ -565,6 +598,7 @@ const ACTIONS = {
   'open-detail': (id) => openDetail(id),
   'open-discovery': (id) => openDiscovery(id),
   'new-activity': (id) => openActivity(id),
+  'edit-activity': (id) => editActivity(id),
   'move-stage': (id) => openStage(id),
   'pipeline-view-kanban': () => {
     ui.pipelineView = 'kanban';

@@ -136,6 +136,7 @@ function taskRow(a, isOverdue) {
       <span class="badge ${isOverdue ? 'danger' : ''}">${a.commitmentDate ? e(fmtDate(a.commitmentDate)) : 'Sin fecha'}</span>
       <div class="actions">
         <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
+        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Reagendar</button>
         <button class="small-btn" data-action="open-detail" data-id="${l.id}">Ver ficha</button>
       </div>
     </div>
@@ -197,7 +198,10 @@ function renderRecentActivities() {
                     </div>
                     <div class="list-side">
                       <span class="badge">${e(fmtDateTime(a.date))}</span>
-                      <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+                      <div class="actions">
+                        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+                        <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+                      </div>
                     </div>
                   </div>`;
                 })
@@ -597,7 +601,10 @@ const section = (title, body, { open = false, count = null, tone = '' } = {}) =>
     <div class="detail-section-body">${body}</div>
   </details>`;
 
-/** Un compromiso pendiente, con su fecha y el botón para marcarlo como hecho. */
+const detailRow = (label, value) =>
+  value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '';
+
+/** Un compromiso pendiente, con su fecha y los botones para cerrarlo o reagendarlo. */
 function commitmentItem(a, overdue) {
   return `<div class="list-item">
     <div>
@@ -606,9 +613,43 @@ function commitmentItem(a, overdue) {
     </div>
     <div class="list-side">
       <span class="badge ${overdue ? 'danger' : ''}">${a.commitmentDate ? e(fmtDate(a.commitmentDate)) : 'Sin fecha'}</span>
-      <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
+      <div class="actions">
+        <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
+        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Reagendar</button>
+      </div>
     </div>
   </div>`;
+}
+
+/** Actividad del historial: se expande para ver todo y editarla sin salir de la ficha. */
+function activityItem(a, lead) {
+  const contactName = a.contactId ? findContact(lead, a.contactId)?.name : '';
+  const openCommitment = a.commitment && !a.commitmentDone;
+  return `<details class="activity-item">
+    <summary>
+      <span class="activity-type">${e(a.type)}</span>
+      <span class="activity-peek">${e(a.detail)}</span>
+      <span class="badge ${openCommitment ? 'warning' : ''}">${e(fmtDateTime(a.date))}</span>
+    </summary>
+    <div class="activity-body">
+      ${detailRow('Fecha', fmtDateTime(a.date))}
+      ${detailRow('Contacto', contactName)}
+      ${detailRow('Responsable', a.owner)}
+      ${detailRow('Detalle', a.detail)}
+      ${detailRow('Compromiso', a.commitment)}
+      ${detailRow('Fecha de seguimiento', fmtDate(a.commitmentDate))}
+      ${a.commitment ? detailRow('Estado', a.commitmentDone ? 'Realizado' : 'Pendiente') : ''}
+      <div class="actions">
+        <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+        ${
+          a.commitment
+            ? `<button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">${a.commitmentDone ? 'Reabrir' : 'Marcar realizado'}</button>`
+            : ''
+        }
+        <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+      </div>
+    </div>
+  </details>`;
 }
 
 export function renderLeadDetail(id) {
@@ -625,7 +666,7 @@ export function renderLeadDetail(id) {
   const overdue = pending.filter((a) => !a.commitmentDate || a.commitmentDate < today);
   const nextScheduled = l.nextAction || l.nextDate;
 
-  const row = (label, value) => (value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '');
+  const row = detailRow;
 
   const upcomingBody = `
     ${
@@ -652,7 +693,10 @@ export function renderLeadDetail(id) {
       ${section(
         'Datos comerciales',
         `
-        ${row('Etapa', l.stage)}
+        <div class="detail-row">
+          <span>Etapa</span>
+          <strong class="stage-cell">${stageBadge(l.stage)}<button class="small-btn" data-action="move-stage" data-id="${l.id}">Cambiar etapa</button></strong>
+        </div>
         ${row('Motivo de pérdida', l.lossReason)}
         ${row('Valor', fmtMoney(l.value))}
         ${row('Probabilidad', `${l.probability || 0}%`)}
@@ -729,20 +773,7 @@ export function renderLeadDetail(id) {
         'Historial de actividades',
         `${
           acts.length
-            ? `<div class="list">${acts
-                .slice(0, 12)
-                .map((a) => {
-                  const contactName = a.contactId ? findContact(l, a.contactId)?.name : '';
-                  return `<div class="list-item">
-                    <div>
-                      <strong>${e(a.type)}${contactName ? ' · ' + e(contactName) : ''}</strong>
-                      <div class="muted">${e(a.detail)}</div>
-                      ${a.commitment ? `<div class="muted">Compromiso: ${e(a.commitment)}${a.commitmentDone ? ' ✓' : ''}</div>` : ''}
-                    </div>
-                    <span class="badge">${e(fmtDateTime(a.date))}</span>
-                  </div>`;
-                })
-                .join('')}</div>`
+            ? `<div class="activity-list">${acts.map((a) => activityItem(a, l)).join('')}</div>`
             : '<p class="muted">Sin actividades registradas.</p>'
         }
         <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>`,
