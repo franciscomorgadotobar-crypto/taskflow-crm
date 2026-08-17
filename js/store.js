@@ -13,7 +13,6 @@ export function emptyData() {
     leads: [],
     discoveries: {},
     activities: [],
-    files: [],
     templates: structuredClone(DEFAULT_TEMPLATES),
     meta: { version: SCHEMA_VERSION, updatedAt: nowISO(), lastSyncAt: '' }
   };
@@ -27,6 +26,7 @@ export function migrate(raw) {
   data.leads = (data.leads || []).map((l) => {
     const lead = {
       lossReason: '',
+      remarketingReason: '',
       expectedCloseDate: '',
       contacts: [],
       ...l,
@@ -45,7 +45,6 @@ export function migrate(raw) {
 
   data.discoveries = data.discoveries || {};
   data.activities = (data.activities || []).map((a) => ({ ...a, id: a.id || uid('act') }));
-  data.files = (data.files || []).map((f) => ({ ...f, id: f.id || uid('file') }));
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
   data.templates = data.templates.map((t) => ({ channel: 'both', ...t }));
   data.meta.version = SCHEMA_VERSION;
@@ -106,11 +105,12 @@ export function upsertLead(input) {
   return lead;
 }
 
-export function setStage(id, stage, { lossReason = '' } = {}) {
+export function setStage(id, stage, { lossReason = '', remarketingReason = '' } = {}) {
   const lead = getLead(id);
   if (!lead || lead.stage === stage) return lead;
   lead.stage = stage;
   lead.lossReason = stage === 'Perdido' ? lossReason : '';
+  lead.remarketingReason = stage === 'Remarketing' ? remarketingReason : '';
   lead.probability = DEFAULT_PROBABILITY[stage] ?? lead.probability;
   lead.stageHistory = [...(lead.stageHistory || []), { stage, at: nowISO() }];
   if (stage === 'Ganado' && !lead.nextAction) lead.nextAction = 'Coordinar kick-off e implementación';
@@ -132,7 +132,6 @@ export function deleteLead(id) {
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
-  state.files = state.files.filter((f) => f.leadId !== id);
   persist();
 }
 
@@ -191,6 +190,7 @@ export function addActivity(activity, { updateNextAction = true } = {}) {
   const lead = getLead(record.leadId);
   if (lead && record.commitment && updateNextAction) {
     lead.nextAction = record.commitment;
+    lead.nextDate = record.commitmentDate || todayISO();
     lead.updatedAt = nowISO();
   }
   persist();
@@ -204,25 +204,6 @@ export function deleteActivity(id) {
 
 export const activitiesOf = (leadId) =>
   state.activities.filter((a) => a.leadId === leadId).sort((a, b) => String(b.date).localeCompare(String(a.date)));
-
-/* ---------- Archivos ---------- */
-
-export function saveFile(input) {
-  const id = input.id || uid('file');
-  const record = { date: todayISO(), ...input, id };
-  const idx = state.files.findIndex((f) => f.id === id);
-  if (idx >= 0) state.files[idx] = record;
-  else state.files.push(record);
-  persist();
-  return record;
-}
-
-export function deleteFile(id) {
-  state.files = state.files.filter((f) => f.id !== id);
-  persist();
-}
-
-export const filesOf = (leadId) => state.files.filter((f) => f.leadId === leadId);
 
 /* ---------- Plantillas ---------- */
 

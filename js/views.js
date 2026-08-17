@@ -1,9 +1,9 @@
 import { PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES } from './catalog.js';
-import { activitiesOf, avgDaysPerStage, contactsOf, filesOf, findContact, getDiscovery, getLead, leadsByIndustry, metrics, state } from './store.js';
+import { activitiesOf, avgDaysPerStage, contactsOf, findContact, getDiscovery, getLead, leadsByIndustry, metrics, state } from './store.js';
 import { daysBetween, escapeHtml as e, fmtDate, fmtDateTime, fmtMoney, fmtNumber, todayISO } from './utils.js';
 
 const stageBadge = (stage) =>
-  `<span class="badge ${stage === 'Ganado' ? 'success' : stage === 'Perdido' ? 'danger' : ''}">${e(stage)}</span>`;
+  `<span class="badge ${stage === 'Ganado' ? 'success' : stage === 'Perdido' ? 'danger' : stage === 'Remarketing' ? 'warning' : ''}">${e(stage)}</span>`;
 
 const kpi = (label, value, sub, tone = '') =>
   `<div class="kpi ${tone}"><div class="label">${e(label)}</div><div class="value">${e(value)}</div><div class="sub">${e(sub)}</div></div>`;
@@ -188,9 +188,18 @@ export function renderLeads(ui) {
     </div>`;
 }
 
-/* ---------------- Pipeline ---------------- */
+/* ---------------- Embudo comercial (Pipeline) ---------------- */
 
-export function renderPipeline() {
+export function filterPipeline({ query = '', stage = '', owner = '' }, pool) {
+  const base = pool || state.leads.filter((l) => PIPELINE_STAGES.includes(l.stage));
+  const q = query.trim().toLowerCase();
+  return base.filter((l) => {
+    const haystack = `${l.company} ${l.contact} ${l.email} ${l.industry} ${l.owner}`.toLowerCase();
+    return (!q || haystack.includes(q)) && (!stage || l.stage === stage) && (!owner || l.owner === owner);
+  });
+}
+
+function renderPipelineKanban() {
   return `
     <div class="notice">En escritorio arrastra las tarjetas. En móvil usa <strong>Mover</strong> para cambiar de etapa.</div>
     <div class="kanban">
@@ -224,6 +233,62 @@ export function renderPipeline() {
     </div>`;
 }
 
+function renderPipelineList(ui) {
+  const rows = filterPipeline(ui.pipelineFilters);
+  const owners = [...new Set(state.leads.map((l) => l.owner).filter(Boolean))];
+  const total = rows.reduce((s, l) => s + Number(l.value || 0), 0);
+
+  return `
+    <div class="toolbar">
+      <input id="pipelineQuery" placeholder="Buscar empresa, contacto o email" value="${e(ui.pipelineFilters.query)}" />
+      <select id="pipelineStage">
+        <option value="">Todas las etapas</option>
+        ${PIPELINE_STAGES.map((s) => `<option ${ui.pipelineFilters.stage === s ? 'selected' : ''}>${e(s)}</option>`).join('')}
+      </select>
+      <select id="pipelineOwner">
+        <option value="">Todos los responsables</option>
+        ${owners.map((o) => `<option ${ui.pipelineFilters.owner === o ? 'selected' : ''}>${e(o)}</option>`).join('')}
+      </select>
+      <button class="small-btn" data-action="export-pipeline-csv">Exportar a Excel</button>
+      <span class="toolbar-summary">${rows.length} · ${fmtMoney(total)}</span>
+    </div>
+    ${
+      rows.length
+        ? `<div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Empresa</th><th>Contacto</th><th>Etapa</th><th>Valor</th><th>Próxima acción</th><th>Responsable</th><th></th></tr></thead>
+            <tbody>${rows
+              .map(
+                (l) => `<tr>
+                  <td><button class="link-btn" data-action="open-detail" data-id="${l.id}">${e(l.company)}</button><div class="muted">${e(l.industry || '')}</div></td>
+                  <td>${e(l.contact || '—')}<div class="muted">${e(l.email || l.phone || '')}</div></td>
+                  <td>${stageBadge(l.stage)}</td>
+                  <td>${fmtMoney(l.value)}<div class="muted">${e(l.probability || 0)}%</div></td>
+                  <td>${e(l.nextAction || '—')}<div class="muted ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(fmtDate(l.nextDate))}</div></td>
+                  <td>${e(l.owner || '—')}</td>
+                  <td><div class="actions">
+                    <button class="small-btn" data-action="move-stage" data-id="${l.id}">Mover</button>
+                    <button class="small-btn" data-action="new-activity" data-id="${l.id}">Actividad</button>
+                  </div></td>
+                </tr>`
+              )
+              .join('')}</tbody>
+          </table></div>`
+        : empty('Ningún prospecto coincide', 'Ajusta la búsqueda o limpia los filtros.')
+    }`;
+}
+
+export function renderPipeline(ui) {
+  const view = ui.pipelineView || 'kanban';
+  return `
+    <div class="toolbar" style="margin-bottom:16px">
+      <div class="button-row">
+        <button class="small-btn ${view === 'kanban' ? 'active-view' : ''}" data-action="pipeline-view-kanban">Vista embudo</button>
+        <button class="small-btn ${view === 'list' ? 'active-view' : ''}" data-action="pipeline-view-list">Vista lista</button>
+      </div>
+    </div>
+    ${view === 'list' ? renderPipelineList(ui) : renderPipelineKanban()}`;
+}
+
 /* ---------------- Implementación ---------------- */
 
 export function renderImplementation() {
@@ -253,6 +318,43 @@ export function renderImplementation() {
                   .join('')}</tbody>
               </table></div>`
             : empty('Sin clientes ganados', 'Al mover una oportunidad a “Ganado” aparece acá para su kick-off.')
+        }
+      </div>
+    </div>`;
+}
+
+/* ---------------- Remarketing ---------------- */
+
+export function renderRemarketing() {
+  const rows = state.leads.filter((l) => l.stage === 'Remarketing');
+  return `
+    <div class="card">
+      <div class="card-head"><h3>Prospectos en remarketing</h3><span class="muted">${rows.length} prospecto(s)</span></div>
+      <div class="card-body">
+        <div class="notice">Prospectos con un "no" temporal (no ahora, el próximo año, etc.). Usá los correos de seguimiento para retomar contacto sin perder el hilo.</div>
+        ${
+          rows.length
+            ? `<div class="table-wrap"><table class="data-table">
+                <thead><tr><th>Empresa</th><th>Contacto</th><th>Motivo</th><th>Valor</th><th>Próxima acción</th><th></th></tr></thead>
+                <tbody>${rows
+                  .map(
+                    (l) => `<tr>
+                      <td><button class="link-btn" data-action="open-detail" data-id="${l.id}">${e(l.company)}</button><div class="muted">${e(l.industry || '')}</div></td>
+                      <td>${e(l.contact || '—')}<div class="muted">${e(l.email || l.phone || '')}</div></td>
+                      <td>${e(l.remarketingReason || 'Sin especificar')}</td>
+                      <td>${fmtMoney(l.value)}</td>
+                      <td>${e(l.nextAction || '—')}<div class="muted ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(fmtDate(l.nextDate))}</div></td>
+                      <td><div class="actions">
+                        <button class="small-btn" data-action="remarketing-email" data-id="${l.id}" data-template="remarketing1">Correo 1</button>
+                        <button class="small-btn" data-action="remarketing-email" data-id="${l.id}" data-template="remarketing2">Correo 2</button>
+                        <button class="small-btn" data-action="remarketing-email" data-id="${l.id}" data-template="remarketing3">Correo 3</button>
+                        <button class="small-btn" data-action="move-stage" data-id="${l.id}">Mover</button>
+                      </div></td>
+                    </tr>`
+                  )
+                  .join('')}</tbody>
+              </table></div>`
+            : empty('Sin prospectos en remarketing', 'Cuando muevas una oportunidad a “Remarketing” aparece acá.')
         }
       </div>
     </div>`;
@@ -374,9 +476,11 @@ export function renderTemplates(ui) {
                     return `<article class="template-card">
                       <div class="template-card-head">
                         <input class="template-name" data-template-name="${t.id}" value="${e(t.name)}" placeholder="Nombre de la plantilla" />
-                        <span class="badge">${e(channelLabel(t.channel))}</span>
+                        <select class="template-channel" data-template-channel="${t.id}">
+                          ${TEMPLATE_CHANNELS.map((c) => `<option value="${c.id}" ${t.channel === c.id ? 'selected' : ''}>${e(c.label)}</option>`).join('')}
+                        </select>
                       </div>
-                      ${showSubject ? `<input class="template-subject" data-template-subject="${t.id}" value="${e(t.subject)}" placeholder="Asunto (correo)" />` : ''}
+                      <input class="template-subject" data-template-subject="${t.id}" value="${e(t.subject)}" placeholder="Asunto (solo correo, se ignora en WhatsApp)" />
                       <textarea data-template-body="${t.id}" rows="9">${e(body)}</textarea>
                       <div class="template-actions">
                         <button class="small-btn" data-action="save-template" data-id="${t.id}">Guardar cambios</button>
@@ -393,41 +497,6 @@ export function renderTemplates(ui) {
     </div>`;
 }
 
-/* ---------------- Archivos ---------------- */
-
-export function renderFiles() {
-  return `
-    <div class="card">
-      <div class="card-head"><h3>Registro documental</h3><button class="primary-btn" data-action="add-file">+ Registrar archivo</button></div>
-      <div class="card-body">
-        <div class="notice">Se guardan metadatos y enlaces. Sube el archivo a Drive u OneDrive y pega acá su URL.</div>
-        ${
-          state.files.length
-            ? `<div class="table-wrap"><table class="data-table">
-                <thead><tr><th>Empresa</th><th>Tipo</th><th>Nombre</th><th>Enlace</th><th>Fecha</th><th></th></tr></thead>
-                <tbody>${state.files
-                  .map((f) => {
-                    const l = getLead(f.leadId);
-                    return `<tr>
-                      <td>${e(l?.company || '—')}</td>
-                      <td>${e(f.type)}</td>
-                      <td>${e(f.name)}</td>
-                      <td>${f.url ? `<a href="${e(f.url)}" target="_blank" rel="noopener">Abrir</a>` : '—'}</td>
-                      <td>${e(fmtDate(f.date))}</td>
-                      <td><div class="actions">
-                        <button class="small-btn" data-action="edit-file" data-id="${f.id}">Editar</button>
-                        <button class="small-btn danger" data-action="delete-file" data-id="${f.id}">Eliminar</button>
-                      </div></td>
-                    </tr>`;
-                  })
-                  .join('')}</tbody>
-              </table></div>`
-            : empty('Sin archivos registrados', 'Registra propuestas y contratos para tenerlos junto a cada oportunidad.')
-        }
-      </div>
-    </div>`;
-}
-
 /* ---------------- Ficha de la oportunidad ---------------- */
 
 export function renderLeadDetail(id) {
@@ -435,7 +504,6 @@ export function renderLeadDetail(id) {
   if (!l) return empty('Oportunidad no encontrada', 'Puede haber sido eliminada.');
   const d = getDiscovery(id) || {};
   const acts = activitiesOf(id);
-  const docs = filesOf(id);
   const contacts = contactsOf(l);
   const sendable = contacts.filter((c) => c.email || c.phone);
 
@@ -503,18 +571,6 @@ export function renderLeadDetail(id) {
             : '<p class="muted">Sin actividades registradas.</p>'
         }
         <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>
-      </section>
-
-      <section>
-        <h4>Archivos (${docs.length})</h4>
-        ${
-          docs.length
-            ? `<ul class="doc-list">${docs
-                .map((f) => `<li>${e(f.type)} · ${f.url ? `<a href="${e(f.url)}" target="_blank" rel="noopener">${e(f.name)}</a>` : e(f.name)}</li>`)
-                .join('')}</ul>`
-            : '<p class="muted">Sin archivos registrados.</p>'
-        }
-        <button class="small-btn" data-action="add-file" data-id="${l.id}">Registrar archivo</button>
       </section>
 
       <section>

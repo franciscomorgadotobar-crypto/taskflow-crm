@@ -22,11 +22,11 @@
       <nav id="nav" class="nav" aria-label="Secciones">
         <button class="nav-item active" data-view="dashboard">Resumen</button>
         <button class="nav-item" data-view="leads">Leads</button>
-        <button class="nav-item" data-view="pipeline">Pipeline</button>
+        <button class="nav-item" data-view="pipeline">Embudo Comercial</button>
+        <button class="nav-item" data-view="remarketing">Remarketing</button>
         <button class="nav-item" data-view="implementation">Implementación</button>
         <button class="nav-item" data-view="activities">Actividades</button>
         <button class="nav-item" data-view="templates">Plantillas</button>
-        <button class="nav-item" data-view="files">Archivos</button>
       </nav>
 
       <div class="sidebar-bottom">
@@ -144,33 +144,12 @@
         <label>Responsable<input id="activityOwner" /></label>
         <label class="span-2">Detalle<textarea id="activityDetail" rows="4" required></textarea></label>
         <label class="span-2">Compromiso / siguiente paso<input id="activityCommitment" /></label>
+        <label>Fecha de seguimiento<input id="activityCommitmentDate" type="date" /></label>
         <label class="span-2 inline"><input type="checkbox" id="activityUpdatesNext" checked /> Usar el compromiso como próxima acción del lead</label>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="activityDialog">Cancelar</button>
         <button type="submit" class="primary-btn">Guardar actividad</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- Archivo -->
-  <dialog id="fileDialog" class="modal">
-    <form id="fileForm" class="modal-card" novalidate>
-      <div class="modal-head">
-        <div><h2 id="fileDialogTitle">Registrar archivo</h2><p>Guarda el enlace al documento en Drive, OneDrive u otro repositorio.</p></div>
-        <button type="button" class="icon-btn" data-close-dialog="fileDialog" aria-label="Cerrar">×</button>
-      </div>
-      <input type="hidden" id="fileId" />
-      <div class="form-grid">
-        <label>Empresa<select id="fileLeadId" required></select></label>
-        <label>Tipo<select id="fileType"></select></label>
-        <label class="span-2">Nombre<input id="fileName" required /></label>
-        <label class="span-2">Enlace<input id="fileUrl" type="url" placeholder="https://" /></label>
-        <label>Fecha<input id="fileDate" type="date" /></label>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="ghost-btn" data-close-dialog="fileDialog">Cancelar</button>
-        <button type="submit" class="primary-btn">Guardar</button>
       </div>
     </form>
   </dialog>
@@ -236,6 +215,7 @@
       <div class="form-grid">
         <div class="span-2 stage-options" id="stageOptions"></div>
         <label class="span-2" id="stageLossField" hidden>Motivo de pérdida<select id="stageLossReason"></select></label>
+        <label class="span-2" id="stageRemarketingField" hidden>Motivo de remarketing<select id="stageRemarketingReason"></select></label>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="stageDialog">Cancelar</button>

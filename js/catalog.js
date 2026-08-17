@@ -1,8 +1,17 @@
-export const STAGES = ['Lead', 'Contactado', 'Reunión / Demo', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'];
-export const CLOSED_STAGES = ['Ganado', 'Perdido'];
+export const STAGES = ['Lead', 'Contactado', 'Reunión / Demo', 'Propuesta', 'Negociación', 'Ganado', 'Perdido', 'Remarketing'];
+export const CLOSED_STAGES = ['Ganado', 'Perdido', 'Remarketing'];
 export const OPEN_STAGES = STAGES.filter((s) => !CLOSED_STAGES.includes(s));
-/** Tablero de Prospectos: todo lo calificado, sin la etapa Lead (que vive en la sección Leads). */
-export const PIPELINE_STAGES = STAGES.filter((s) => s !== 'Lead');
+/** Tablero de Prospectos: todo lo calificado, sin Lead (vive en Leads) ni Remarketing (vive en su propia sección). */
+export const PIPELINE_STAGES = STAGES.filter((s) => s !== 'Lead' && s !== 'Remarketing');
+
+/** Motivos por los que un prospecto pasa a Remarketing: un "no" temporal, no definitivo. */
+export const REMARKETING_REASONS = [
+  'No es el momento',
+  'Revisar el próximo año',
+  'Sin presupuesto por ahora',
+  'Prioridades internas cambiaron',
+  'Otro'
+];
 
 /** Plantilla sugerida por defecto al escribirle a un contacto, según la etapa de su oportunidad. */
 export const STAGE_TEMPLATE = {
@@ -12,7 +21,8 @@ export const STAGE_TEMPLATE = {
   Propuesta: 'followup',
   Negociación: 'followup',
   Ganado: 'general',
-  Perdido: 'reactivation'
+  Perdido: 'reactivation',
+  Remarketing: 'remarketing1'
 };
 
 export const DEFAULT_PROBABILITY = {
@@ -22,7 +32,8 @@ export const DEFAULT_PROBABILITY = {
   Propuesta: 55,
   Negociación: 75,
   Ganado: 100,
-  Perdido: 0
+  Perdido: 0,
+  Remarketing: 10
 };
 
 export const INDUSTRIES = [
@@ -91,8 +102,6 @@ export const LOSS_REASONS = [
 
 export const ACTIVITY_TYPES = ['Llamada', 'Reunión', 'Demo', 'Correo', 'WhatsApp', 'Seguimiento', 'Propuesta', 'Otro'];
 
-export const FILE_TYPES = ['Propuesta', 'Cotización', 'Presentación', 'Contrato', 'Levantamiento', 'Otro'];
-
 export const CURRENT_MANAGEMENT = ['WhatsApp / papel', 'Excel / formularios', 'Software parcial', 'ERP / CMMS integrado'];
 
 export const TEMPLATE_CHANNELS = [
@@ -133,6 +142,30 @@ export const DEFAULT_TEMPLATES = [
     subject: '¿Retomamos la conversación, {{contacto}}?',
     body:
       'Hola {{contacto}},\n\nQuedamos en pausa con el proyecto de {{empresa}}. Desde entonces sumamos mejoras en {{modulos}}.\n\nSi el tema sigue vigente, puedo mostrarte en 20 minutos qué cambia hoy respecto a lo que viste.\n\n{{responsable}}'
+  },
+  {
+    id: 'remarketing1',
+    name: 'Remarketing — Seguimiento 1',
+    channel: 'both',
+    subject: '¿Seguimos en contacto, {{contacto}}?',
+    body:
+      'Hola {{contacto}},\n\nSé que por ahora no era el momento para avanzar con TaskFlow en {{empresa}}. Quería dejar la puerta abierta: si la situación cambia o surge una nueva necesidad, quedo disponible para retomar la conversación cuando les acomode.\n\nUn saludo,\n{{responsable}}'
+  },
+  {
+    id: 'remarketing2',
+    name: 'Remarketing — Seguimiento 2',
+    channel: 'both',
+    subject: 'Novedades de TaskFlow para {{empresa}}',
+    body:
+      'Hola {{contacto}},\n\nTe escribo para contarte que seguimos sumando mejoras en {{modulos}}. Si el contexto en {{empresa}} cambió, me encantaría mostrarte qué hay de nuevo.\n\n¿Tenés unos minutos esta semana?\n\n{{responsable}}'
+  },
+  {
+    id: 'remarketing3',
+    name: 'Remarketing — Seguimiento 3',
+    channel: 'both',
+    subject: 'Última consulta, {{contacto}}',
+    body:
+      'Hola {{contacto}},\n\nNo quiero ser insistente, así que este es mi último mensaje por ahora. Si en algún momento {{empresa}} necesita retomar el tema de {{dolor}}, sabés dónde encontrarme.\n\n¡Éxito con todo!\n\n{{responsable}}'
   }
 ];
 

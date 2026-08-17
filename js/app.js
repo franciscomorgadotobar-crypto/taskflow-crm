@@ -3,10 +3,10 @@ import {
   BUY_TRIGGERS,
   CURRENT_MANAGEMENT,
   DEFAULT_PROBABILITY,
-  FILE_TYPES,
   INDUSTRIES,
   LOSS_REASONS,
   MODULES,
+  REMARKETING_REASONS,
   SOURCES,
   STAGE_TEMPLATE,
   STAGES
@@ -18,7 +18,6 @@ import {
   contactsOf,
   deleteActivity,
   deleteContact,
-  deleteFile,
   deleteLead,
   deleteTemplate,
   emptyData,
@@ -31,7 +30,6 @@ import {
   persist,
   replaceState,
   saveDiscovery,
-  saveFile,
   saveTemplate,
   setStage,
   state,
@@ -41,13 +39,14 @@ import {
 import * as api from './api.js';
 import {
   fillTemplate,
+  filterPipeline,
   renderActivities,
   renderDashboard,
-  renderFiles,
   renderImplementation,
   renderLeadDetail,
   renderLeads,
   renderPipeline,
+  renderRemarketing,
   renderTemplates
 } from './views.js';
 import { $, $$, copyText, escapeHtml, fmtDate, fmtDateTime, localDateTimeInput, nowISO, todayISO, toast, uid } from './utils.js';
@@ -57,6 +56,8 @@ const CFG = window.TASKFLOW_CRM_CONFIG;
 const ui = {
   view: 'dashboard',
   leadFilters: { query: '', owner: '', sort: 'updated' },
+  pipelineView: 'kanban',
+  pipelineFilters: { query: '', stage: '', owner: '' },
   activityLead: '',
   activityType: '',
   templateLead: '',
@@ -66,11 +67,11 @@ const ui = {
 const VIEWS = {
   dashboard: ['Resumen', 'Gestión comercial y seguimiento de oportunidades TaskFlow.', renderDashboard],
   leads: ['Leads', 'Empresas por calificar antes de sumarse al pipeline.', renderLeads],
-  pipeline: ['Pipeline', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
+  pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
+  remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   activities: ['Actividades', 'Reuniones, llamadas, demos y compromisos.', renderActivities],
-  templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
-  files: ['Archivos', 'Propuestas, cotizaciones y contratos.', renderFiles]
+  templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates]
 };
 
 /* ---------- Render ---------- */
@@ -108,10 +109,10 @@ function fillStaticSelects() {
   $('stage').innerHTML = options(STAGES);
   $('lossReason').innerHTML = `<option value="">Sin especificar</option>${options(LOSS_REASONS)}`;
   $('stageLossReason').innerHTML = `<option value="">Sin especificar</option>${options(LOSS_REASONS)}`;
+  $('stageRemarketingReason').innerHTML = `<option value="">Sin especificar</option>${options(REMARKETING_REASONS)}`;
   $('buyTrigger').innerHTML = options(BUY_TRIGGERS);
   $('currentManagement').innerHTML = options(CURRENT_MANAGEMENT);
   $('activityType').innerHTML = options(ACTIVITY_TYPES);
-  $('fileType').innerHTML = options(FILE_TYPES);
   $('moduleChecks').innerHTML = MODULES.map(
     (v) => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`
   ).join('');
@@ -200,6 +201,7 @@ function openActivity(leadId = '') {
   $('activityOwner').value = getLead(leadId)?.owner || '';
   $('activityDetail').value = '';
   $('activityCommitment').value = '';
+  $('activityCommitmentDate').value = '';
   $('activityUpdatesNext').checked = true;
   $('activityDialog').showModal();
 }
@@ -228,45 +230,13 @@ function submitActivity(e) {
       date: $('activityDate').value,
       owner: $('activityOwner').value.trim(),
       detail,
-      commitment: $('activityCommitment').value.trim()
+      commitment: $('activityCommitment').value.trim(),
+      commitmentDate: $('activityCommitmentDate').value
     },
     { updateNextAction: $('activityUpdatesNext').checked }
   );
   $('activityDialog').close();
   toast('Actividad registrada.');
-}
-
-/* ---------- Diálogo: archivo ---------- */
-
-function openFile(fileId = '', leadId = '') {
-  if (!state.leads.length) return toast('Primero registra una empresa.', 'error');
-  const f = state.files.find((x) => x.id === fileId) || {};
-  $('fileDialogTitle').textContent = fileId ? 'Editar archivo' : 'Registrar archivo';
-  $('fileId').value = f.id || '';
-  $('fileLeadId').innerHTML = leadOptions(f.leadId || leadId);
-  $('fileType').value = f.type || 'Propuesta';
-  $('fileName').value = f.name || '';
-  $('fileUrl').value = f.url || '';
-  $('fileDate').value = f.date || todayISO();
-  $('fileDialog').showModal();
-}
-
-function submitFile(e) {
-  e.preventDefault();
-  const leadId = $('fileLeadId').value;
-  const name = $('fileName').value.trim();
-  if (!leadId) return toast('Selecciona una empresa.', 'error');
-  if (!name) return toast('El nombre del archivo es obligatorio.', 'error');
-  saveFile({
-    id: $('fileId').value || undefined,
-    leadId,
-    type: $('fileType').value,
-    name,
-    url: $('fileUrl').value.trim(),
-    date: $('fileDate').value || todayISO()
-  });
-  $('fileDialog').close();
-  toast('Archivo registrado.');
 }
 
 /* ---------- Diálogo: contacto ---------- */
@@ -299,7 +269,7 @@ function submitContact(e) {
 
 /* ---------- Diálogo: comunicación ---------- */
 
-function openComm(leadId, contactKey, channel) {
+function openComm(leadId, contactKey, channel, preferredTemplateId) {
   const lead = getLead(leadId);
   const contact = findContact(lead, contactKey);
   if (!lead || !contact || !state.templates.length) return;
@@ -312,7 +282,7 @@ function openComm(leadId, contactKey, channel) {
   $('commSubjectField').hidden = channel === 'whatsapp';
   $('commSendBtn').textContent = channel === 'whatsapp' ? 'Abrir WhatsApp' : 'Abrir correo';
 
-  const defaultId = STAGE_TEMPLATE[lead.stage] || state.templates[0].id;
+  const defaultId = preferredTemplateId || STAGE_TEMPLATE[lead.stage] || state.templates[0].id;
   $('commTemplate').innerHTML = state.templates
     .map((t) => `<option value="${t.id}" ${t.id === defaultId ? 'selected' : ''}>${escapeHtml(t.name)}</option>`)
     .join('');
@@ -458,13 +428,16 @@ function openStage(id) {
     </label>`
   ).join('');
   $('stageLossReason').value = lead.lossReason || '';
-  updateStageLossField();
+  $('stageRemarketingReason').value = lead.remarketingReason || '';
+  updateStageFields();
   $('stageDialog').showModal();
 }
 
 const selectedStage = () => document.querySelector('input[name="stageChoice"]:checked')?.value || '';
-function updateStageLossField() {
-  $('stageLossField').hidden = selectedStage() !== 'Perdido';
+function updateStageFields() {
+  const stage = selectedStage();
+  $('stageLossField').hidden = stage !== 'Perdido';
+  $('stageRemarketingField').hidden = stage !== 'Remarketing';
 }
 
 function submitStage(e) {
@@ -472,7 +445,7 @@ function submitStage(e) {
   const id = $('stageLeadId').value;
   const stage = selectedStage();
   if (!stage) return;
-  setStage(id, stage, { lossReason: $('stageLossReason').value });
+  setStage(id, stage, { lossReason: $('stageLossReason').value, remarketingReason: $('stageRemarketingReason').value });
   $('stageDialog').close();
   toast(`Movida a ${stage}.`);
 }
@@ -531,6 +504,15 @@ const ACTIONS = {
   'open-discovery': (id) => openDiscovery(id),
   'new-activity': (id) => openActivity(id),
   'move-stage': (id) => openStage(id),
+  'pipeline-view-kanban': () => {
+    ui.pipelineView = 'kanban';
+    render();
+  },
+  'pipeline-view-list': () => {
+    ui.pipelineView = 'list';
+    render();
+  },
+  'export-pipeline-csv': () => exportPipelineCsv(),
   'open-manage': () => openManage(),
   'qualify-lead': (id) => {
     const lead = getLead(id);
@@ -557,14 +539,7 @@ const ACTIONS = {
   },
   'open-whatsapp': (id, btn) => openComm(id, btn.dataset.contact, 'whatsapp'),
   'open-email': (id, btn) => openComm(id, btn.dataset.contact, 'email'),
-  'add-file': (id) => openFile('', id),
-  'edit-file': (id) => openFile(id),
-  'delete-file': (id) => {
-    if (confirm('¿Eliminar este registro de archivo?')) {
-      deleteFile(id);
-      toast('Archivo eliminado.');
-    }
-  },
+  'remarketing-email': (id, btn) => openComm(id, 'primary', 'email', btn.dataset.template),
   'delete-activity': (id) => {
     if (confirm('¿Eliminar esta actividad?')) {
       deleteActivity(id);
@@ -587,11 +562,12 @@ const ACTIONS = {
   'save-template': (id) => {
     const ta = document.querySelector(`[data-template-body="${id}"]`);
     const nameEl = document.querySelector(`[data-template-name="${id}"]`);
+    const channelEl = document.querySelector(`[data-template-channel="${id}"]`);
     const subjectEl = document.querySelector(`[data-template-subject="${id}"]`);
     if (!ta) return;
     const name = nameEl?.value.trim();
     if (!name) return toast('El nombre de la plantilla es obligatorio.', 'error');
-    saveTemplate(id, { name, subject: subjectEl?.value.trim() || '', body: ta.value });
+    saveTemplate(id, { name, channel: channelEl?.value || 'both', subject: subjectEl?.value.trim() || '', body: ta.value });
     toast('Plantilla guardada.');
   },
   'delete-template': (id) => {
@@ -644,6 +620,9 @@ function handleViewInput(ev) {
     leadQuery: () => (ui.leadFilters.query = value),
     leadOwner: () => (ui.leadFilters.owner = value),
     leadSort: () => (ui.leadFilters.sort = value),
+    pipelineQuery: () => (ui.pipelineFilters.query = value),
+    pipelineStage: () => (ui.pipelineFilters.stage = value),
+    pipelineOwner: () => (ui.pipelineFilters.owner = value),
     activityLeadFilter: () => (ui.activityLead = value),
     activityTypeFilter: () => (ui.activityType = value),
     templateLead: () => (ui.templateLead = value),
@@ -665,16 +644,27 @@ function exportJson() {
   URL.revokeObjectURL(a.href);
 }
 
-function exportCsv() {
-  const cols = ['company', 'rut', 'industry', 'source', 'contact', 'role', 'email', 'phone', 'stage', 'lossReason', 'value', 'probability', 'expectedCloseDate', 'nextAction', 'nextDate', 'owner'];
+function downloadCsv(filename, cols, rows) {
   const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = [cols.join(','), ...state.leads.map((l) => cols.map((c) => escape(l[c])).join(','))].join('\n');
+  const csv = [cols.join(','), ...rows.map((row) => cols.map((c) => escape(row[c])).join(','))].join('\n');
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `taskflow-leads-${todayISO()}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function exportCsv() {
+  const cols = ['company', 'rut', 'industry', 'source', 'contact', 'role', 'email', 'phone', 'stage', 'lossReason', 'value', 'probability', 'expectedCloseDate', 'nextAction', 'nextDate', 'owner'];
+  downloadCsv(`taskflow-leads-${todayISO()}.csv`, cols, state.leads);
+}
+
+function exportPipelineCsv() {
+  const cols = ['company', 'contact', 'email', 'phone', 'stage', 'value', 'probability', 'owner', 'nextAction', 'nextDate'];
+  const rows = filterPipeline(ui.pipelineFilters);
+  if (!rows.length) return toast('No hay filas para exportar con estos filtros.', 'error');
+  downloadCsv(`taskflow-embudo-${todayISO()}.csv`, cols, rows);
 }
 
 function importJson(ev) {
@@ -758,8 +748,8 @@ function paintSync(status) {
 }
 
 function openDataDialog() {
-  const { leads, activities, files, meta } = state;
-  $('dataSummary').textContent = `${leads.length} leads · ${activities.length} actividades · ${files.length} archivos`;
+  const { leads, activities, meta } = state;
+  $('dataSummary').textContent = `${leads.length} leads · ${activities.length} actividades`;
   $('syncHint').textContent = api.isConfigured()
     ? `Endpoint configurado. Última sincronización: ${meta.lastSyncAt ? fmtDateTime(meta.lastSyncAt) : 'nunca'}.`
     : 'Sin endpoint. Completa apiUrl en config.js con la URL de tu Aplicación web de Apps Script.';
@@ -827,9 +817,8 @@ function bindEvents() {
   $('manageForm').addEventListener('submit', submitManage);
   $('managePrevBtn').addEventListener('click', () => manageStep(-1));
   $('manageNextBtn').addEventListener('click', () => manageStep(1));
-  $('fileForm').addEventListener('submit', submitFile);
   $('stageForm').addEventListener('submit', submitStage);
-  $('stageOptions').addEventListener('change', updateStageLossField);
+  $('stageOptions').addEventListener('change', updateStageFields);
   $('detailEditBtn').addEventListener('click', () => {
     $('detailDialog').close();
     openLead(detailLeadId);

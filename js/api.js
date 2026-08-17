@@ -64,7 +64,7 @@ export async function push() {
   setStatus({ state: 'syncing', message: 'Subiendo…' });
   await request({
     action: 'replaceAll',
-    data: { leads: state.leads, discoveries: state.discoveries, activities: state.activities, files: state.files }
+    data: { leads: state.leads, discoveries: state.discoveries, activities: state.activities }
   });
   state.meta.lastSyncAt = nowISO();
   persist({ silent: true });
