@@ -125,6 +125,7 @@ function fillStaticSelects() {
   $('currentManagement').innerHTML = options(CURRENT_MANAGEMENT);
   $('activityType').innerHTML = options(ACTIVITY_TYPES);
   $('completeType').innerHTML = options(ACTIVITY_TYPES);
+  $('manageType').innerHTML = options(ACTIVITY_TYPES);
   $('moduleChecks').innerHTML = MODULES.map(
     (v) => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`
   ).join('');
@@ -433,9 +434,12 @@ function renderManage() {
   $('manageCurrentAction').textContent = task.title || 'Sin próxima acción';
   $('manageCurrentDate').textContent = task.date ? fmtDate(task.date) : 'Sin fecha';
   $('manageCurrentDate').classList.toggle('danger', !task.date || task.date < todayISO());
-  $('manageNote').value = '';
-  $('manageNextAction').value = task.title || '';
-  $('manageNextDate').value = task.date || '';
+  // La siguiente tarea nace en blanco: se define después de saber cómo resultó esta.
+  $('manageType').value = ACTIVITY_TYPES[0];
+  $('manageDate').value = localDateTimeInput();
+  $('manageResult').value = '';
+  $('manageNextAction').value = '';
+  $('manageNextDate').value = '';
 
   $('managePrevBtn').disabled = manageIndex === 0;
   $('manageNextBtn').disabled = manageIndex === manageQueue.length - 1;
@@ -454,26 +458,31 @@ function manageStep(delta) {
   renderManage();
 }
 
+/** Gestionar una tarea es cerrarla: qué resultó y cuál es la siguiente. */
 function submitManage(e) {
   e.preventDefault();
   const task = currentTask();
   if (!task) return;
-  const lead = task.lead;
-  const note = $('manageNote').value.trim();
-  const nextAction = $('manageNextAction').value.trim();
-  const nextDate = $('manageNextDate').value;
+  const result = $('manageResult').value.trim();
+  if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
 
-  if (note) {
-    addActivity({ leadId: lead.id, type: 'Seguimiento', date: localDateTimeInput(), owner: lead.owner || '', detail: note });
-  }
-  updateLead(lead.id, { nextAction, nextDate: nextAction ? nextDate : '' });
+  completeTask(task.lead.id, {
+    type: $('manageType').value,
+    date: $('manageDate').value || localDateTimeInput(),
+    result,
+    nextAction: $('manageNextAction').value.trim(),
+    nextDate: $('manageNextDate').value
+  });
 
-  toast('Guardado.');
-  if (manageIndex < manageQueue.length - 1) manageStep(1);
-  else {
+  // Cerrada, sale de la cola aunque su reemplazo sea otra tarea del mismo prospecto.
+  manageQueue.splice(manageIndex, 1);
+  if (!manageQueue.length) {
     $('manageDialog').close();
-    toast('Terminaste la lista de tareas.');
+    return toast('Terminaste la lista de tareas.');
   }
+  manageIndex = Math.min(manageIndex, manageQueue.length - 1);
+  renderManage();
+  toast('Tarea cerrada.');
 }
 
 /* ---------- Cerrar tarea: resultado + siguiente tarea ---------- */
@@ -1094,6 +1103,10 @@ function bindEvents() {
   $('manageForm').addEventListener('submit', submitManage);
   $('managePrevBtn').addEventListener('click', () => manageStep(-1));
   $('manageNextBtn').addEventListener('click', () => manageStep(1));
+  $('manageRescheduleBtn').addEventListener('click', () => {
+    const task = currentTask();
+    if (task) openTask(task.lead.id);
+  });
   $('stageForm').addEventListener('submit', submitStage);
   $('stageOptions').addEventListener('change', updateStageFields);
   $('exportBtn').addEventListener('click', exportJson);
