@@ -47,6 +47,22 @@ export function localDateTimeInput(date = new Date()) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
+/**
+ * Abre un enlace de sistema (mailto:, tel:) sin sacar al usuario del CRM.
+ * Con `location.href` el navegador navega la propia pestaña; con un enlace
+ * temporal a _blank el handler del sistema recibe la orden y la pantalla queda igual.
+ */
+export function openExternal(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 let toastTimer = null;
 export function toast(message, kind = 'info') {
   const el = $('toast');

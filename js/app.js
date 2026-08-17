@@ -63,7 +63,21 @@ import {
   renderTemplates,
   templatePreviewHtml
 } from './views.js';
-import { $, $$, addDaysISO, copyText, escapeHtml, fmtDate, fmtDateTime, localDateTimeInput, nowISO, todayISO, toast, uid } from './utils.js';
+import {
+  $,
+  $$,
+  addDaysISO,
+  copyText,
+  escapeHtml,
+  fmtDate,
+  fmtDateTime,
+  localDateTimeInput,
+  nowISO,
+  openExternal,
+  todayISO,
+  toast,
+  uid
+} from './utils.js';
 
 const CFG = window.TASKFLOW_CRM_CONFIG;
 
@@ -404,7 +418,7 @@ function submitComm(e) {
   } else {
     if (!contact?.email) return toast('Ese contacto no tiene email.', 'error');
     addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por correo a ${contact.name || contact.email}.` });
-    window.location.href = `mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent($('commSubject').value)}&body=${encodeURIComponent(body)}`;
+    openExternal(`mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent($('commSubject').value)}&body=${encodeURIComponent(body)}`);
   }
   $('commDialog').close();
   toast(channel === 'whatsapp' ? 'WhatsApp abierto.' : 'Correo abierto.');
@@ -814,7 +828,7 @@ const ACTIONS = {
     const contact = findContact(lead, btn.dataset.contact);
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
     addActivity({ leadId: id, contactId: btn.dataset.contact, type: 'Llamada', date: localDateTimeInput(), owner: lead.owner || '', detail: `Llamada iniciada a ${contact.name || contact.phone}.` });
-    window.location.href = `tel:${contact.phone.replace(/[^\d+]/g, '')}`;
+    openExternal(`tel:${contact.phone.replace(/[^\d+]/g, '')}`);
   },
   'open-whatsapp': (id, btn) => openComm(id, btn.dataset.contact, 'whatsapp'),
   'open-email': (id, btn) => openComm(id, btn.dataset.contact, 'email'),
