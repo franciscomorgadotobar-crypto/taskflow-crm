@@ -308,6 +308,19 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29, 113, 184, .12);
 }
 .task-form-actions { justify-content: flex-end; }
+
+.task-type-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.task-type-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 2px; }
+
+.th-sort {
+  background: none; border: 0; padding: 0; font: inherit; color: inherit;
+  text-transform: inherit; letter-spacing: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.th-sort:hover { color: var(--blue); }
+.sort-arrow { font-size: 9px; opacity: .55; }
+.data-table th.sorted .th-sort { color: var(--blue); }
+.data-table th.sorted .sort-arrow { opacity: 1; }
 .detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
 .detail-row span { color: var(--muted); flex: none; }
 .detail-row strong { text-align: right; overflow-wrap: anywhere; min-width: 0; }

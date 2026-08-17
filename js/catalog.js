@@ -102,6 +102,16 @@ export const LOSS_REASONS = [
 
 export const ACTIVITY_TYPES = ['Llamada', 'Reunión', 'Demo', 'Correo', 'WhatsApp', 'Seguimiento', 'Propuesta', 'Otro'];
 
+/**
+ * Tipos de la siguiente tarea. Se eligen con botón, no se escriben: así la tarea
+ * queda como un dato uniforme y el texto libre vive en la nota.
+ */
+export const TASK_TYPES = [
+  { value: 'Llamada', label: 'Llamar' },
+  { value: 'WhatsApp', label: 'WhatsApp' },
+  { value: 'Correo', label: 'Correo' }
+];
+
 export const CURRENT_MANAGEMENT = ['WhatsApp / papel', 'Excel / formularios', 'Software parcial', 'ERP / CMMS integrado'];
 
 /** Perfiles de acceso. El detalle describe qué puede hacer cada uno dentro del CRM. */

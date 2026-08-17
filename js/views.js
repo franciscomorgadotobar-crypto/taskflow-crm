@@ -339,7 +339,7 @@ function renderPipelineKanban() {
                   <div class="deal-company">${taskDot(l)}${e(l.company)}</div>
                   <div class="meta">${e(l.contact || 'Sin contacto')}</div>
                   <div class="money">${fmtMoney(l.value)}</div>
-                  <div class="meta ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(l.nextAction || 'Sin tarea agendada')}</div>
+                  <div class="meta ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(taskOf(l)?.title || 'Sin tarea agendada')}</div>
                   <div class="card-actions">
                     <button class="small-btn" data-action="move-stage" data-id="${l.id}">Mover</button>
                     <button class="small-btn" data-action="new-activity" data-id="${l.id}">Actividad</button>
@@ -353,8 +353,37 @@ function renderPipelineKanban() {
     </div>`;
 }
 
+/** Ordena la lista del embudo. La etapa sigue el orden del embudo, no el alfabético. */
+function sortPipeline(rows, { key = 'company', dir = 'asc' } = {}) {
+  const value = (l) => {
+    if (key === 'stage') return String(PIPELINE_STAGES.indexOf(l.stage)).padStart(3, '0');
+    if (key === 'value') return Number(l.value || 0);
+    if (key === 'nextDate') return l.nextDate || '9999-12-31';
+    if (key === 'contact') return (l.contact || '').toLowerCase();
+    if (key === 'owner') return (l.owner || '').toLowerCase();
+    return (l.company || '').toLowerCase();
+  };
+  const sorted = [...rows].sort((a, b) => {
+    const x = value(a);
+    const y = value(b);
+    if (typeof x === 'number') return x - y;
+    return String(x).localeCompare(String(y));
+  });
+  return dir === 'desc' ? sorted.reverse() : sorted;
+}
+
+const sortableTh = (label, key, sort) => {
+  const active = sort.key === key;
+  return `<th class="${active ? 'sorted' : ''}">
+    <button class="th-sort" data-action="pipeline-sort" data-key="${key}">
+      ${e(label)}<span class="sort-arrow">${active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+    </button>
+  </th>`;
+};
+
 function renderPipelineList(ui) {
-  const rows = filterPipeline(ui.pipelineFilters);
+  const sort = ui.pipelineSort || { key: 'company', dir: 'asc' };
+  const rows = sortPipeline(filterPipeline(ui.pipelineFilters), sort);
   const owners = [...new Set(state.leads.map((l) => l.owner).filter(Boolean))];
   const total = rows.reduce((s, l) => s + Number(l.value || 0), 0);
 
@@ -375,7 +404,15 @@ function renderPipelineList(ui) {
     ${
       rows.length
         ? `<div class="table-wrap"><table class="data-table">
-            <thead><tr><th>Empresa</th><th>Contacto</th><th>Etapa</th><th>Valor</th><th>Próxima acción</th><th>Responsable</th><th></th></tr></thead>
+            <thead><tr>
+              ${sortableTh('Empresa', 'company', sort)}
+              ${sortableTh('Contacto', 'contact', sort)}
+              ${sortableTh('Etapa', 'stage', sort)}
+              ${sortableTh('Valor', 'value', sort)}
+              ${sortableTh('Próxima tarea', 'nextDate', sort)}
+              ${sortableTh('Responsable', 'owner', sort)}
+              <th></th>
+            </tr></thead>
             <tbody>${rows
               .map(
                 (l) => `<tr>
@@ -383,7 +420,7 @@ function renderPipelineList(ui) {
                   <td>${e(l.contact || '—')}<div class="muted">${e(l.email || l.phone || '')}</div></td>
                   <td>${stageBadge(l.stage)}</td>
                   <td>${fmtMoney(l.value)}<div class="muted">${e(l.probability || 0)}%</div></td>
-                  <td>${e(l.nextAction || '—')}<div class="muted ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(fmtDate(l.nextDate))}</div></td>
+                  <td>${e(taskOf(l)?.title || '—')}<div class="muted ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(fmtDate(l.nextDate))}</div></td>
                   <td>${e(l.owner || '—')}</td>
                   <td><div class="actions">
                     <button class="small-btn" data-action="move-stage" data-id="${l.id}">Mover</button>
@@ -834,7 +871,11 @@ export function renderLeadDetail(id) {
         </label>
         <label>Fecha en que ocurrió<input id="fichaDate" type="datetime-local" value="${e(localDateTimeInput())}" /></label>
         <label class="span-2">¿Cómo resultó?<textarea id="fichaResult" rows="3" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <label class="span-2">Siguiente tarea<input id="fichaNextAction" placeholder="Qué hay que hacer después" /></label>
+        <div class="span-2 task-type-row" data-task-type-group="ficha">
+          <span class="task-type-label">Siguiente tarea</span>
+          <input type="hidden" id="fichaNextType" />
+        </div>
+        <label class="span-2">Nota<textarea id="fichaNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
         <label>Fecha de la siguiente<input id="fichaNextDate" type="date" /></label>
         <p class="span-2 muted form-note">¿No lograste hacerla? Usa <strong>Reagendar</strong> y queda pendiente con otra fecha, sin cerrarla.</p>
       </div>

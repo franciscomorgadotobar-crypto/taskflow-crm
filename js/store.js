@@ -34,6 +34,7 @@ export function migrate(raw) {
       lossReason: '',
       remarketingReason: '',
       expectedCloseDate: '',
+      nextType: '',
       contacts: [],
       ...l,
       value: Number(l.value || 0),
@@ -127,9 +128,28 @@ export function upsertLead(input) {
   }
   if (lead.stage !== 'Perdido') lead.lossReason = '';
 
+  const reassigned = existing && existing.owner !== lead.owner;
+
   const idx = state.leads.findIndex((l) => l.id === id);
   if (idx >= 0) state.leads[idx] = lead;
   else state.leads.push(lead);
+
+  // Reasignar es una decisión comercial: queda registrada con quién, a quién y cuándo.
+  if (reassigned) {
+    const actor = state.settings.profile.name || 'Usuario sin identificar';
+    addActivity(
+      {
+        leadId: id,
+        type: 'Asignación',
+        date: nowISO(),
+        owner: actor,
+        detail: `${actor} cambió el responsable de ${existing.owner || 'sin asignar'} a ${lead.owner || 'sin asignar'}.`,
+        system: true
+      },
+      { silent: true }
+    );
+  }
+
   persist();
   return lead;
 }
@@ -278,8 +298,15 @@ export const activitiesOf = (leadId) =>
 /** La tarea abierta de un prospecto, o null si no tiene. */
 export function taskOf(lead) {
   if (!lead || lead.stage === 'Perdido') return null;
-  if (!lead.nextAction && !lead.nextDate) return null;
-  return { key: lead.id, lead, title: lead.nextAction || 'Sin detalle', date: lead.nextDate || '' };
+  if (!lead.nextAction && !lead.nextDate && !lead.nextType) return null;
+  return {
+    key: lead.id,
+    lead,
+    type: lead.nextType || '',
+    note: lead.nextAction || '',
+    title: [lead.nextType, lead.nextAction].filter(Boolean).join(' · ') || 'Sin detalle',
+    date: lead.nextDate || ''
+  };
 }
 
 /** Todas las tareas abiertas del CRM, la más urgente primero. */
@@ -290,15 +317,18 @@ export const openTasks = () =>
     .sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31'));
 
 /** Cierra la tarea del prospecto: deja constancia de lo ocurrido y agenda la siguiente. */
-export function completeTask(leadId, { type, result, nextAction = '', nextDate = '' }) {
+export function completeTask(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
   const lead = getLead(leadId);
   if (!lead) return null;
+  const closed = taskOf(lead);
   const record = addActivity(
-    { leadId, type, date: nowISO(), owner: lead.owner || '', detail: result, task: lead.nextAction || '' },
+    { leadId, type, date: date || nowISO(), owner: lead.owner || '', detail: result, task: closed?.title || '' },
     { silent: true }
   );
-  lead.nextAction = nextAction;
-  lead.nextDate = nextAction ? nextDate : '';
+  const hasNext = Boolean(nextType || nextAction);
+  lead.nextType = hasNext ? nextType : '';
+  lead.nextAction = hasNext ? nextAction : '';
+  lead.nextDate = hasNext ? nextDate : '';
   lead.updatedAt = nowISO();
   persist();
   return record;

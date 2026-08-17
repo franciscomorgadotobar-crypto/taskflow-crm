@@ -81,8 +81,12 @@
         <label>Probabilidad %<input id="probability" type="number" min="0" max="100" inputmode="numeric" /></label>
         <label>Cierre estimado<input id="expectedCloseDate" type="date" /></label>
         <label>Responsable<select id="owner"></select></label>
-        <label class="span-2">Próxima acción<input id="nextAction" /></label>
-        <label>Fecha próxima acción<input id="nextDate" type="date" /></label>
+        <div class="span-2 task-type-row" id="leadTaskTypeRow" data-task-type-group="lead">
+          <span class="task-type-label">Primera tarea</span>
+          <input type="hidden" id="nextType" />
+        </div>
+        <label class="span-2">Nota de la tarea<input id="nextAction" placeholder="Detalle (opcional)" /></label>
+        <label>Fecha de la tarea<input id="nextDate" type="date" /></label>
         <label id="lossReasonField" hidden>Motivo de pérdida<select id="lossReason"></select></label>
         <label class="span-2">Notas<textarea id="notes" rows="4"></textarea></label>
       </div>
@@ -161,9 +165,13 @@
         <label>¿Qué tipo de actividad fue?<select id="completeType"></select></label>
         <label>Fecha en que ocurrió<input id="completeDate" type="datetime-local" /></label>
         <label class="span-2">¿Cómo resultó?<textarea id="completeResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <label class="span-2">Siguiente tarea<input id="completeNextAction" placeholder="Ej. Enviar propuesta ajustada" /></label>
+        <div class="span-2 task-type-row" data-task-type-group="complete">
+          <span class="task-type-label">Siguiente tarea</span>
+          <input type="hidden" id="completeNextType" />
+        </div>
+        <label class="span-2">Nota<textarea id="completeNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
         <label>Fecha de la siguiente<input id="completeNextDate" type="date" /></label>
-        <p class="span-2 muted form-note">Si dejas la siguiente tarea en blanco, el prospecto queda <strong>sin próximo paso</strong> y aparecerá como pendiente de agendar.</p>
+        <p class="span-2 muted form-note">Si no eliges tipo ni escribes nota, el prospecto queda <strong>sin próximo paso</strong> y aparecerá como pendiente de agendar.</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
@@ -181,7 +189,11 @@
       </div>
       <input type="hidden" id="taskLeadId" />
       <div class="form-grid">
-        <label class="span-2">Tarea<input id="taskAction" required placeholder="Ej. Llamar para coordinar demo" /></label>
+        <div class="span-2 task-type-row" data-task-type-group="task">
+          <span class="task-type-label">Tipo de tarea</span>
+          <input type="hidden" id="taskType" />
+        </div>
+        <label class="span-2">Nota<textarea id="taskAction" rows="2" placeholder="Detalle de la tarea (opcional)"></textarea></label>
         <label class="span-2">Fecha<input id="taskDate" type="date" /></label>
       </div>
       <div class="modal-actions">
@@ -306,7 +318,11 @@
         <label>¿Qué tipo de actividad fue?<select id="manageType"></select></label>
         <label>Fecha en que ocurrió<input id="manageDate" type="datetime-local" /></label>
         <label class="span-2">¿Cómo resultó?<textarea id="manageResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <label class="span-2">Siguiente tarea<input id="manageNextAction" placeholder="Qué hay que hacer después" /></label>
+        <div class="span-2 task-type-row" data-task-type-group="manage">
+          <span class="task-type-label">Siguiente tarea</span>
+          <input type="hidden" id="manageNextType" />
+        </div>
+        <label class="span-2">Nota<textarea id="manageNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
         <label>Fecha de la siguiente<input id="manageNextDate" type="date" /></label>
         <p class="span-2 muted form-note">¿No lograste hacerla? Usa <strong>Reagendar</strong> y queda pendiente con otra fecha, sin cerrarla.</p>
       </div>

@@ -9,7 +9,8 @@ import {
   REMARKETING_REASONS,
   SOURCES,
   STAGE_TEMPLATE,
-  STAGES
+  STAGES,
+  TASK_TYPES
 } from './catalog.js';
 import {
   addActivity,
@@ -70,6 +71,7 @@ const ui = {
   leadFilters: { query: '', owner: '', sort: 'updated' },
   pipelineView: 'kanban',
   pipelineFilters: { query: '', stage: '', owner: '' },
+  pipelineSort: { key: 'company', dir: 'asc' },
   templateLead: '',
   templateChannel: '',
   templateOpen: ''
@@ -155,11 +157,11 @@ const leadOptions = (selected = '', placeholder = 'Selecciona una empresa') =>
 
 const LEAD_FIELDS = [
   'company', 'rut', 'industry', 'source', 'contact', 'role', 'email', 'phone', 'stage', 'priority',
-  'value', 'probability', 'expectedCloseDate', 'owner', 'nextAction', 'nextDate', 'lossReason', 'notes'
+  'value', 'probability', 'expectedCloseDate', 'owner', 'nextType', 'nextAction', 'nextDate', 'lossReason', 'notes'
 ];
 
 /** Al editar, la etapa y la tarea se cambian con sus propios botones en la ficha, no acá. */
-const OWNED_ELSEWHERE = ['stage', 'lossReason', 'nextAction', 'nextDate'];
+const OWNED_ELSEWHERE = ['stage', 'lossReason', 'nextAction', 'nextDate', 'nextType'];
 
 function openLead(id) {
   const l = getLead(id) || {};
@@ -174,11 +176,13 @@ function openLead(id) {
     el.value = l[k] ?? fallback;
   });
   toggleLossField();
+  setTaskType('lead', l.nextType || '');
   // En edición se ocultan los campos que ya tienen su propio flujo en la ficha.
   OWNED_ELSEWHERE.forEach((k) => {
     const field = $(k)?.closest('label');
     if (field) field.hidden = editing;
   });
+  $('leadTaskTypeRow').hidden = editing;
   if (editing) $('lossReasonField').hidden = true;
   $('leadDialog').showModal();
   setTimeout(() => $('company').focus(), 50);
@@ -450,11 +454,12 @@ function renderManage() {
   $('manageCurrentDate').textContent = task.date ? fmtDate(task.date) : 'Sin fecha';
   $('manageCurrentDate').classList.toggle('danger', !task.date || task.date < todayISO());
   // La siguiente tarea nace en blanco: se define después de saber cómo resultó esta.
-  $('manageType').value = ACTIVITY_TYPES[0];
+  $('manageType').value = task.type || ACTIVITY_TYPES[0];
   $('manageDate').value = localDateTimeInput();
   $('manageResult').value = '';
   $('manageNextAction').value = '';
   $('manageNextDate').value = '';
+  setTaskType('manage', '');
 
   $('managePrevBtn').disabled = manageIndex === 0;
   $('manageNextBtn').disabled = manageIndex === manageQueue.length - 1;
@@ -485,6 +490,7 @@ function submitManage(e) {
     type: $('manageType').value,
     date: $('manageDate').value || localDateTimeInput(),
     result,
+    nextType: taskTypeValue('manage'),
     nextAction: $('manageNextAction').value.trim(),
     nextDate: $('manageNextDate').value
   });
@@ -508,11 +514,12 @@ function openComplete(leadId) {
   if (!task) return toast('Este prospecto no tiene una tarea abierta.', 'error');
   $('completeLeadId').value = leadId;
   $('completeSubtitle').textContent = `${task.title} · ${lead.company}`;
-  $('completeType').value = ACTIVITY_TYPES[0];
+  $('completeType').value = task.type || ACTIVITY_TYPES[0];
   $('completeDate').value = localDateTimeInput();
   $('completeResult').value = '';
   $('completeNextAction').value = '';
   $('completeNextDate').value = '';
+  setTaskType('complete', '');
   $('completeDialog').showModal();
   setTimeout(() => $('completeResult').focus(), 50);
 }
@@ -523,17 +530,19 @@ function submitComplete(e) {
   const result = $('completeResult').value.trim();
   if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
 
+  const nextType = taskTypeValue('complete');
   const nextAction = $('completeNextAction').value.trim();
   completeTask(leadId, {
     type: $('completeType').value,
     date: $('completeDate').value || localDateTimeInput(),
     result,
+    nextType,
     nextAction,
     nextDate: $('completeNextDate').value
   });
 
   $('completeDialog').close();
-  toast(nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
+  toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
 }
 
 /* ---------- Agendar / reagendar la tarea ---------- */
@@ -545,17 +554,18 @@ function openTask(leadId) {
   $('taskLeadId').value = leadId;
   $('taskDialogTitle').textContent = task ? 'Reagendar tarea' : 'Agendar tarea';
   $('taskSubtitle').textContent = lead.company;
-  $('taskAction').value = task?.title === 'Sin detalle' ? '' : task?.title || '';
+  $('taskAction').value = task?.note || '';
   $('taskDate').value = task?.date || '';
+  setTaskType('task', task?.type || '');
   $('taskDialog').showModal();
-  setTimeout(() => $('taskAction').focus(), 50);
 }
 
 function submitTask(e) {
   e.preventDefault();
-  const action = $('taskAction').value.trim();
-  if (!action) return toast('Escribe qué hay que hacer.', 'error');
-  updateLead($('taskLeadId').value, { nextAction: action, nextDate: $('taskDate').value });
+  const nextType = taskTypeValue('task');
+  const note = $('taskAction').value.trim();
+  if (!nextType && !note) return toast('Elige el tipo de tarea o escribe una nota.', 'error');
+  updateLead($('taskLeadId').value, { nextType, nextAction: note, nextDate: $('taskDate').value });
   $('taskDialog').close();
   toast('Tarea agendada.');
 }
@@ -605,6 +615,7 @@ function openDetail(id) {
   $('detailTitle').textContent = lead.company;
   $('detailSubtitle').textContent = `${lead.stage} · actualizada ${fmtDateTime(lead.updatedAt)}`;
   $('detailBody').innerHTML = renderLeadDetail(id);
+  buildTaskTypeGroups($('detailBody'));
   $('detailDialog').showModal();
 }
 
@@ -638,6 +649,31 @@ function bindKanbanDrag() {
     });
   });
 }
+
+/* ---------- Tipo de tarea (botones en vez de texto libre) ---------- */
+
+/** Pinta los botones de tipo dentro de cada grupo declarado en el HTML. */
+function buildTaskTypeGroups(root = document) {
+  $$('[data-task-type-group]', root).forEach((group) => {
+    const prefix = group.dataset.taskTypeGroup;
+    if (group.querySelector('.task-type')) return;
+    const label = group.querySelector('.task-type-label');
+    const chips = TASK_TYPES.map(
+      (t) =>
+        `<button type="button" class="small-btn task-type" data-action="set-task-type" data-task-type="${prefix}" data-value="${escapeHtml(t.value)}">${escapeHtml(t.label)}</button>`
+    ).join('');
+    label.insertAdjacentHTML('afterend', chips);
+  });
+}
+
+/** Marca el tipo elegido y lo deja en el input oculto del grupo. */
+function setTaskType(prefix, value) {
+  const input = $(prefix === 'lead' ? 'nextType' : `${prefix}NextType`);
+  if (input) input.value = value;
+  $$(`[data-task-type="${prefix}"]`).forEach((btn) => btn.classList.toggle('active-view', btn.dataset.value === value));
+}
+
+const taskTypeValue = (prefix) => $(prefix === 'lead' ? 'nextType' : `${prefix}NextType`)?.value || '';
 
 /* ---------- Plantillas ---------- */
 
@@ -734,17 +770,28 @@ const ACTIONS = {
   'complete-task-inline': (id) => {
     const result = $('fichaResult').value.trim();
     if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
+    const nextType = taskTypeValue('ficha');
     const nextAction = $('fichaNextAction').value.trim();
     completeTask(id, {
       type: $('fichaType').value,
       date: $('fichaDate').value || localDateTimeInput(),
       result,
+      nextType,
       nextAction,
       nextDate: $('fichaNextDate').value
     });
-    toast(nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
+    toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
   },
   'reschedule-task': (id) => openTask(id),
+  'set-task-type': (id, btn) => {
+    const prefix = btn.dataset.taskType;
+    setTaskType(prefix, taskTypeValue(prefix) === btn.dataset.value ? '' : btn.dataset.value);
+  },
+  'pipeline-sort': (id, btn) => {
+    const key = btn.dataset.key;
+    ui.pipelineSort = { key, dir: ui.pipelineSort.key === key && ui.pipelineSort.dir === 'asc' ? 'desc' : 'asc' };
+    render();
+  },
   'open-manage': () => openManage(),
   'qualify-lead': (id) => {
     const lead = getLead(id);
@@ -1161,11 +1208,15 @@ function bindEvents() {
 function init() {
   document.title = `${CFG.appName} · ${CFG.companyName}`;
   fillStaticSelects();
+  buildTaskTypeGroups();
   bindEvents();
 
   onChange(() => {
     render();
-    if ($('detailDialog').open && detailLeadId) $('detailBody').innerHTML = renderLeadDetail(detailLeadId);
+    if ($('detailDialog').open && detailLeadId) {
+      $('detailBody').innerHTML = renderLeadDetail(detailLeadId);
+      buildTaskTypeGroups($('detailBody'));
+    }
     api.queuePush();
   });
   api.onStatus(paintSync);
