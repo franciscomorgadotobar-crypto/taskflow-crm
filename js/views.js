@@ -1,5 +1,16 @@
 import { PIPELINE_STAGES, TEMPLATE_CHANNELS, TEMPLATE_VARIABLES } from './catalog.js';
-import { activitiesOf, avgDaysPerStage, contactsOf, findContact, getDiscovery, getLead, leadsByIndustry, metrics, state } from './store.js';
+import {
+  activitiesOf,
+  avgDaysPerStage,
+  contactsOf,
+  findContact,
+  getDiscovery,
+  getLead,
+  leadsByIndustry,
+  metrics,
+  pendingCommitments,
+  state
+} from './store.js';
 import { daysBetween, escapeHtml as e, fmtDate, fmtDateTime, fmtMoney, fmtNumber, todayISO } from './utils.js';
 
 const stageBadge = (stage) =>
@@ -253,8 +264,10 @@ function renderPipelineKanban() {
           <div class="kanban-list" data-stage="${e(stage)}">
             ${ls
               .map(
-                (l) => `<article class="deal-card" draggable="true" data-id="${l.id}">
-                  <button class="link-btn" data-action="open-detail" data-id="${l.id}">${e(l.company)}</button>
+                (l) => `<article class="deal-card" draggable="true" data-id="${l.id}"
+                  data-action="open-detail" role="button" tabindex="0"
+                  aria-label="Abrir ficha de ${e(l.company)}">
+                  <div class="deal-company">${e(l.company)}</div>
                   <div class="meta">${e(l.contact || 'Sin contacto')}</div>
                   <div class="money">${fmtMoney(l.value)}</div>
                   <div class="meta ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(l.nextAction || 'Sin próxima acción')}</div>
@@ -416,18 +429,37 @@ export function fillTemplate(text, leadId, contact = null) {
 
 const channelLabel = (channel) => TEMPLATE_CHANNELS.find((c) => c.id === channel)?.label || 'WhatsApp + Correo';
 
+/**
+ * Vista previa del mensaje ya resuelto: las variables reemplazadas por los datos
+ * reales de la empresa elegida (o por ejemplos genéricos si no hay ninguna).
+ */
+export function templatePreviewHtml({ channel, subject, body }, leadId) {
+  const filledSubject = fillTemplate(subject || '', leadId);
+  const filledBody = fillTemplate(body || '', leadId);
+  return `
+    ${channel !== 'whatsapp' && filledSubject ? `<p class="preview-subject"><strong>Asunto:</strong> ${e(filledSubject)}</p>` : ''}
+    <p class="preview-body">${e(filledBody).replace(/\n/g, '<br />') || '<span class="muted">Escribe el mensaje para ver la vista previa.</span>'}</p>`;
+}
+
 export function renderTemplates(ui) {
   const leadId = ui.templateLead;
   const channelFilter = ui.templateChannel || '';
   const rows = state.templates.filter((t) => !channelFilter || t.channel === channelFilter || t.channel === 'both');
+  const previewName = leadId ? getLead(leadId)?.company : 'ejemplo genérico';
 
   return `
     <div class="card">
       <div class="card-head">
-        <h3>Plantillas comerciales</h3>
+        <h3>Plantillas de mensajes</h3>
         <button class="primary-btn" data-action="new-template">+ Nueva plantilla</button>
       </div>
       <div class="card-body">
+        <div class="notice">
+          <strong>Cómo funciona:</strong> una plantilla es un mensaje base con <em>variables</em> (por ejemplo <code>{{empresa}}</code>)
+          que se completan solas con los datos de cada prospecto. Acá las escribes y las guardas;
+          para enviarlas entra a la ficha de una empresa → <strong>Comunicación</strong> y elige WhatsApp o Correo.
+        </div>
+
         <div class="toolbar">
           <select id="templateChannel">
             <option value="">Todos los canales</option>
@@ -435,48 +467,65 @@ export function renderTemplates(ui) {
               .map((c) => `<option value="${c.id}" ${channelFilter === c.id ? 'selected' : ''}>${e(c.label)}</option>`)
               .join('')}
           </select>
-          <select id="templateLead">
-            <option value="">Sin empresa (mostrar variables)</option>
-            ${state.leads.map((l) => `<option value="${l.id}" ${leadId === l.id ? 'selected' : ''}>${e(l.company)}</option>`).join('')}
+          <select id="templateLead" aria-label="Empresa para la vista previa">
+            <option value="">Vista previa: ejemplo genérico</option>
+            ${state.leads.map((l) => `<option value="${l.id}" ${leadId === l.id ? 'selected' : ''}>Vista previa: ${e(l.company)}</option>`).join('')}
           </select>
-          <span class="toolbar-summary">Variables: ${TEMPLATE_VARIABLES.map((v) => e(v)).join(' · ')}</span>
+          <span class="toolbar-summary">${rows.length} plantilla(s)</span>
         </div>
+
         ${
           rows.length
-            ? `<div class="template-grid">
+            ? `<div class="template-list">
                 ${rows
-                  .map((t) => {
-                    const subject = leadId ? fillTemplate(t.subject, leadId) : t.subject;
-                    const body = leadId ? fillTemplate(t.body, leadId) : t.body;
-                    const showSubject = t.channel !== 'whatsapp';
-                    if (leadId) {
-                      return `<article class="template-card">
-                        <div class="template-card-head"><h3>${e(t.name)}</h3><span class="badge">${e(channelLabel(t.channel))}</span></div>
-                        ${showSubject ? `<p class="subject"><strong>Asunto:</strong> ${e(subject)}</p>` : ''}
-                        <textarea data-template-body="${t.id}" rows="10" readonly>${e(body)}</textarea>
-                        <div class="template-actions">
-                          <button class="small-btn" data-action="copy-template" data-id="${t.id}">Copiar</button>
-                          ${t.channel !== 'email' ? `<button class="small-btn" data-action="whatsapp-template" data-id="${t.id}">Abrir WhatsApp</button>` : ''}
-                          ${t.channel !== 'whatsapp' ? `<button class="small-btn" data-action="mail-template" data-id="${t.id}">Abrir en correo</button>` : ''}
+                  .map(
+                    (t) => `<details class="template-item" data-id="${t.id}" ${ui.templateOpen === t.id ? 'open' : ''}>
+                      <summary>
+                        <span class="template-title">${e(t.name || 'Sin nombre')}</span>
+                        <span class="badge">${e(channelLabel(t.channel))}</span>
+                        <span class="template-peek">${e((t.body || '').replace(/\s+/g, ' ').slice(0, 70))}…</span>
+                        <span class="unsaved-flag">Sin guardar</span>
+                      </summary>
+
+                      <div class="template-editor">
+                        <div class="template-fields">
+                          <label>Nombre
+                            <input class="template-name" data-template-name="${t.id}" value="${e(t.name)}" placeholder="Ej. Presentación general" />
+                          </label>
+                          <label>Canal
+                            <select class="template-channel" data-template-channel="${t.id}">
+                              ${TEMPLATE_CHANNELS.map((c) => `<option value="${c.id}" ${t.channel === c.id ? 'selected' : ''}>${e(c.label)}</option>`).join('')}
+                            </select>
+                          </label>
+                          <label class="span-2 template-subject-field" ${t.channel === 'whatsapp' ? 'hidden' : ''}>Asunto del correo
+                            <input class="template-subject" data-template-subject="${t.id}" value="${e(t.subject)}" placeholder="Asunto que verá el destinatario" />
+                          </label>
+                          <label class="span-2">Mensaje
+                            <textarea data-template-body="${t.id}" rows="9">${e(t.body)}</textarea>
+                          </label>
                         </div>
-                      </article>`;
-                    }
-                    return `<article class="template-card">
-                      <div class="template-card-head">
-                        <input class="template-name" data-template-name="${t.id}" value="${e(t.name)}" placeholder="Nombre de la plantilla" />
-                        <select class="template-channel" data-template-channel="${t.id}">
-                          ${TEMPLATE_CHANNELS.map((c) => `<option value="${c.id}" ${t.channel === c.id ? 'selected' : ''}>${e(c.label)}</option>`).join('')}
-                        </select>
+
+                        <div class="var-chips">
+                          <span class="muted">Insertar variable:</span>
+                          ${TEMPLATE_VARIABLES.map(
+                            (v) => `<button type="button" class="var-chip" data-action="insert-var" data-id="${t.id}" data-var="${e(v)}">${e(v)}</button>`
+                          ).join('')}
+                        </div>
+
+                        <div class="template-preview">
+                          <h5>Así se envía · ${e(previewName || 'ejemplo genérico')}</h5>
+                          <div data-template-preview="${t.id}">${templatePreviewHtml(t, leadId)}</div>
+                        </div>
+
+                        <div class="template-actions">
+                          <button class="small-btn danger" data-action="delete-template" data-id="${t.id}">Eliminar</button>
+                          <button class="small-btn" data-action="copy-template" data-id="${t.id}">Copiar mensaje</button>
+                          <button class="small-btn" data-action="test-template" data-id="${t.id}">Probar envío</button>
+                          <button class="primary-btn" data-action="save-template" data-id="${t.id}">Guardar plantilla</button>
+                        </div>
                       </div>
-                      <input class="template-subject" data-template-subject="${t.id}" value="${e(t.subject)}" placeholder="Asunto (solo correo, se ignora en WhatsApp)" />
-                      <textarea data-template-body="${t.id}" rows="9">${e(body)}</textarea>
-                      <div class="template-actions">
-                        <button class="small-btn" data-action="save-template" data-id="${t.id}">Guardar cambios</button>
-                        <button class="small-btn" data-action="copy-template" data-id="${t.id}">Copiar</button>
-                        <button class="small-btn danger" data-action="delete-template" data-id="${t.id}">Eliminar</button>
-                      </div>
-                    </article>`;
-                  })
+                    </details>`
+                  )
                   .join('')}
               </div>`
             : empty('Sin plantillas para este canal', 'Cambia el filtro o crea una nueva plantilla.')
@@ -487,6 +536,30 @@ export function renderTemplates(ui) {
 
 /* ---------------- Ficha de la oportunidad ---------------- */
 
+/** Sección plegable de la ficha. `count` se muestra como badge en el encabezado. */
+const section = (title, body, { open = false, count = null, tone = '' } = {}) => `
+  <details class="detail-section" ${open ? 'open' : ''}>
+    <summary>
+      <span class="detail-section-title">${e(title)}</span>
+      ${count == null ? '' : `<span class="badge ${tone}">${count}</span>`}
+    </summary>
+    <div class="detail-section-body">${body}</div>
+  </details>`;
+
+/** Un compromiso pendiente, con su fecha y el botón para marcarlo como hecho. */
+function commitmentItem(a, overdue) {
+  return `<div class="list-item">
+    <div>
+      <strong>${e(a.commitment)}</strong>
+      <div class="muted">${e(a.type)} · ${e(fmtDateTime(a.date))}${a.detail ? ` · ${e(a.detail)}` : ''}</div>
+    </div>
+    <div class="list-side">
+      <span class="badge ${overdue ? 'danger' : ''}">${a.commitmentDate ? e(fmtDate(a.commitmentDate)) : 'Sin fecha'}</span>
+      <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
+    </div>
+  </div>`;
+}
+
 export function renderLeadDetail(id) {
   const l = getLead(id);
   if (!l) return empty('Oportunidad no encontrada', 'Puede haber sido eliminada.');
@@ -494,13 +567,40 @@ export function renderLeadDetail(id) {
   const acts = activitiesOf(id);
   const contacts = contactsOf(l);
   const sendable = contacts.filter((c) => c.email || c.phone);
+  const today = todayISO();
+
+  const pending = pendingCommitments(id);
+  const upcoming = pending.filter((a) => a.commitmentDate && a.commitmentDate >= today);
+  const overdue = pending.filter((a) => !a.commitmentDate || a.commitmentDate < today);
+  const nextScheduled = l.nextAction || l.nextDate;
 
   const row = (label, value) => (value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '');
 
+  const upcomingBody = `
+    ${
+      nextScheduled
+        ? `<div class="next-highlight ${l.nextDate && l.nextDate < today ? 'overdue-box' : ''}">
+            <span class="muted">Próxima acción del prospecto</span>
+            <strong>${e(l.nextAction || 'Sin detalle')}</strong>
+            <span class="badge ${l.nextDate && l.nextDate < today ? 'danger' : ''}">${e(fmtDate(l.nextDate)) || 'Sin fecha'}</span>
+          </div>`
+        : '<p class="muted">Este prospecto no tiene una próxima acción agendada.</p>'
+    }
+    ${upcoming.length ? `<div class="list">${upcoming.map((a) => commitmentItem(a, false)).join('')}</div>` : ''}
+    <button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Agendar actividad</button>`;
+
+  const overdueBody = overdue.length
+    ? `<div class="list">${overdue.map((a) => commitmentItem(a, Boolean(a.commitmentDate))).join('')}</div>`
+    : '<p class="muted">Sin compromisos pendientes. Todo al día.</p>';
+
   return `
     <div class="detail-grid">
-      <section>
-        <h4>Datos comerciales</h4>
+      ${section('Próximas actividades', upcomingBody, { open: true, count: upcoming.length + (nextScheduled ? 1 : 0) })}
+      ${section('Actividades pendientes', overdueBody, { open: overdue.length > 0, count: overdue.length, tone: overdue.length ? 'danger' : '' })}
+
+      ${section(
+        'Datos comerciales',
+        `
         ${row('Etapa', l.stage)}
         ${row('Motivo de pérdida', l.lossReason)}
         ${row('Valor', fmtMoney(l.value))}
@@ -513,57 +613,32 @@ export function renderLeadDetail(id) {
         ${row('Origen', l.source)}
         ${row('Responsable', l.owner)}
         ${row('Próxima acción', [l.nextAction, fmtDate(l.nextDate)].filter(Boolean).join(' · '))}
-        ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}
-      </section>
+        ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}`,
+        { open: true }
+      )}
 
-      <section>
-        <h4>Levantamiento</h4>
-        ${
-          d.pain
-            ? `${row('Dolor principal', d.pain)}
-               ${row('Gestión actual', d.currentManagement)}
-               ${row('Técnicos', d.technicians)}
-               ${row('Sucursales', d.locations)}
-               ${row('Gatillo', d.buyTrigger)}
-               ${row('Módulos', (d.modules || []).join(', '))}
-               ${row('Integraciones', d.integrations)}
-               ${row('Criterio de éxito', d.successCriteria)}`
-            : '<p class="muted">Sin levantamiento registrado.</p>'
-        }
-        <button class="small-btn" data-action="open-discovery" data-id="${l.id}">${d.pain ? 'Editar levantamiento' : 'Completar levantamiento'}</button>
-      </section>
+      ${section(
+        'Comunicación',
+        sendable.length
+          ? `<div class="comm-list">${sendable
+              .map(
+                (c) => `<div class="comm-row">
+                  <div class="comm-who"><strong>${e(c.name || 'Sin nombre')}</strong>${c.role ? `<span class="muted"> · ${e(c.role)}</span>` : ''}</div>
+                  <div class="actions">
+                    ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
+                    ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
+                    ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
+                  </div>
+                </div>`
+              )
+              .join('')}</div>`
+          : '<p class="muted">Agrega un email o teléfono a algún contacto para poder escribirle o llamarlo.</p>',
+        { open: true, count: sendable.length }
+      )}
 
-      <section>
-        <h4>Recorrido por etapas</h4>
-        <ol class="timeline">
-          ${(l.stageHistory || [])
-            .map((h, i, arr) => {
-              const end = arr[i + 1]?.at;
-              return `<li><strong>${e(h.stage)}</strong><span class="muted">${e(fmtDate(h.at))}${end ? ` · ${daysBetween(h.at, end)} días` : ''}</span></li>`;
-            })
-            .join('')}
-        </ol>
-      </section>
-
-      <section>
-        <h4>Actividades (${acts.length})</h4>
-        ${
-          acts.length
-            ? `<div class="list">${acts
-                .slice(0, 8)
-                .map((a) => {
-                  const contactName = a.contactId ? findContact(l, a.contactId)?.name : '';
-                  return `<div class="list-item"><div><strong>${e(a.type)}${contactName ? ' · ' + e(contactName) : ''}</strong><div class="muted">${e(a.detail)}</div></div><span class="badge">${e(fmtDateTime(a.date))}</span></div>`;
-                })
-                .join('')}</div>`
-            : '<p class="muted">Sin actividades registradas.</p>'
-        }
-        <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>
-      </section>
-
-      <section>
-        <h4>Contactos (${contacts.length})</h4>
-        ${
+      ${section(
+        'Contactos',
+        `${
           contacts.length
             ? `<div class="list">${contacts
                 .map(
@@ -578,27 +653,61 @@ export function renderLeadDetail(id) {
                 .join('')}</div>`
             : '<p class="muted">Sin contactos registrados.</p>'
         }
-        <button class="small-btn" data-action="add-contact" data-id="${l.id}">+ Agregar contacto</button>
-      </section>
+        <button class="small-btn" data-action="add-contact" data-id="${l.id}">+ Agregar contacto</button>`,
+        { count: contacts.length }
+      )}
 
-      <section>
-        <h4>Comunicación</h4>
-        ${
-          sendable.length
-            ? `<div class="comm-list">${sendable
-                .map(
-                  (c) => `<div class="comm-row">
-                    <div class="comm-who"><strong>${e(c.name || 'Sin nombre')}</strong>${c.role ? `<span class="muted"> · ${e(c.role)}</span>` : ''}</div>
-                    <div class="actions">
-                      ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
-                      ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
-                      ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
-                    </div>
-                  </div>`
-                )
-                .join('')}</div>`
-            : '<p class="muted">Agrega un email o teléfono a algún contacto para poder escribirle o llamarlo.</p>'
+      ${section(
+        'Levantamiento',
+        `${
+          d.pain
+            ? `${row('Dolor principal', d.pain)}
+               ${row('Gestión actual', d.currentManagement)}
+               ${row('Técnicos', d.technicians)}
+               ${row('Sucursales', d.locations)}
+               ${row('Gatillo', d.buyTrigger)}
+               ${row('Módulos', (d.modules || []).join(', '))}
+               ${row('Integraciones', d.integrations)}
+               ${row('Criterio de éxito', d.successCriteria)}`
+            : '<p class="muted">Sin levantamiento registrado.</p>'
         }
-      </section>
+        <button class="small-btn" data-action="open-discovery" data-id="${l.id}">${d.pain ? 'Editar levantamiento' : 'Completar levantamiento'}</button>`
+      )}
+
+      ${section(
+        'Historial de actividades',
+        `${
+          acts.length
+            ? `<div class="list">${acts
+                .slice(0, 12)
+                .map((a) => {
+                  const contactName = a.contactId ? findContact(l, a.contactId)?.name : '';
+                  return `<div class="list-item">
+                    <div>
+                      <strong>${e(a.type)}${contactName ? ' · ' + e(contactName) : ''}</strong>
+                      <div class="muted">${e(a.detail)}</div>
+                      ${a.commitment ? `<div class="muted">Compromiso: ${e(a.commitment)}${a.commitmentDone ? ' ✓' : ''}</div>` : ''}
+                    </div>
+                    <span class="badge">${e(fmtDateTime(a.date))}</span>
+                  </div>`;
+                })
+                .join('')}</div>`
+            : '<p class="muted">Sin actividades registradas.</p>'
+        }
+        <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>`,
+        { count: acts.length }
+      )}
+
+      ${section(
+        'Recorrido por etapas',
+        `<ol class="timeline">
+          ${(l.stageHistory || [])
+            .map((h, i, arr) => {
+              const end = arr[i + 1]?.at;
+              return `<li><strong>${e(h.stage)}</strong><span class="muted">${e(fmtDate(h.at))}${end ? ` · ${daysBetween(h.at, end)} días` : ''}</span></li>`;
+            })
+            .join('')}
+        </ol>`
+      )}
     </div>`;
 }

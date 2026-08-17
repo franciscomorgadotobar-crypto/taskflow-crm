@@ -44,7 +44,7 @@ export function migrate(raw) {
   });
 
   data.discoveries = data.discoveries || {};
-  data.activities = (data.activities || []).map((a) => ({ ...a, id: a.id || uid('act') }));
+  data.activities = (data.activities || []).map((a) => ({ commitmentDone: false, ...a, id: a.id || uid('act') }));
   if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
   data.templates = data.templates.map((t) => ({ channel: 'both', ...t }));
   data.meta.version = SCHEMA_VERSION;
@@ -185,7 +185,7 @@ export function saveDiscovery(leadId, payload) {
 /* ---------- Actividades ---------- */
 
 export function addActivity(activity, { updateNextAction = true } = {}) {
-  const record = { id: uid('act'), ...activity };
+  const record = { id: uid('act'), commitmentDone: false, ...activity };
   state.activities.push(record);
   const lead = getLead(record.leadId);
   if (lead && record.commitment && updateNextAction) {
@@ -204,6 +204,20 @@ export function deleteActivity(id) {
 
 export const activitiesOf = (leadId) =>
   state.activities.filter((a) => a.leadId === leadId).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+/** Compromisos registrados en actividades que todavía no se marcan como hechos. */
+export const pendingCommitments = (leadId) =>
+  state.activities
+    .filter((a) => (!leadId || a.leadId === leadId) && a.commitment && !a.commitmentDone)
+    .sort((a, b) => (a.commitmentDate || '9999-12-31').localeCompare(b.commitmentDate || '9999-12-31'));
+
+export function toggleCommitmentDone(id) {
+  const act = state.activities.find((a) => a.id === id);
+  if (!act) return null;
+  act.commitmentDone = !act.commitmentDone;
+  persist();
+  return act;
+}
 
 /* ---------- Plantillas ---------- */
 

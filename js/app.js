@@ -22,6 +22,7 @@ import {
   deleteTemplate,
   emptyData,
   findContact,
+  toggleCommitmentDone,
   findDuplicate,
   getDiscovery,
   getLead,
@@ -46,7 +47,8 @@ import {
   renderLeads,
   renderPipeline,
   renderRemarketing,
-  renderTemplates
+  renderTemplates,
+  templatePreviewHtml
 } from './views.js';
 import { $, $$, copyText, escapeHtml, fmtDate, fmtDateTime, localDateTimeInput, nowISO, todayISO, toast, uid } from './utils.js';
 
@@ -58,7 +60,8 @@ const ui = {
   pipelineView: 'kanban',
   pipelineFilters: { query: '', stage: '', owner: '' },
   templateLead: '',
-  templateChannel: ''
+  templateChannel: '',
+  templateOpen: ''
 };
 
 const VIEWS = {
@@ -76,7 +79,6 @@ function render() {
   const [title, subtitle, view] = VIEWS[ui.view];
   $('viewTitle').textContent = title;
   $('viewSubtitle').textContent = subtitle;
-  $('newLeadBtn').hidden = ui.view !== 'leads';
 
   const active = document.activeElement;
   const activeId = active && active.closest?.('#viewRoot') ? active.id : null;
@@ -92,6 +94,7 @@ function render() {
     }
   }
   if (ui.view === 'pipeline') bindKanbanDrag();
+  if (ui.view === 'templates') bindTemplateAccordion();
 }
 
 /* ---------- Selects ---------- */
@@ -491,6 +494,69 @@ function bindKanbanDrag() {
   });
 }
 
+/* ---------- Plantillas ---------- */
+
+/** Mantiene abierta la plantilla que el usuario estaba editando entre re-renders. */
+function bindTemplateAccordion() {
+  $$('#viewRoot .template-item').forEach((item) =>
+    item.addEventListener('toggle', () => {
+      if (item.open) ui.templateOpen = item.dataset.id;
+      else if (ui.templateOpen === item.dataset.id) ui.templateOpen = '';
+    })
+  );
+}
+
+/** Valores actuales del editor (incluye cambios aún no guardados). */
+function templateDraft(id) {
+  const t = state.templates.find((x) => x.id === id);
+  if (!t) return null;
+  const val = (attr, fallback) => document.querySelector(`[${attr}="${id}"]`)?.value ?? fallback;
+  return {
+    name: val('data-template-name', t.name),
+    channel: val('data-template-channel', t.channel),
+    subject: val('data-template-subject', t.subject),
+    body: val('data-template-body', t.body)
+  };
+}
+
+function updateTemplatePreview(id) {
+  const box = document.querySelector(`[data-template-preview="${id}"]`);
+  const draft = templateDraft(id);
+  if (box && draft) box.innerHTML = templatePreviewHtml(draft, ui.templateLead);
+}
+
+/** Refresca la vista previa y el encabezado sin volver a pintar toda la vista (no perdemos el foco). */
+function onTemplateEdit(id, el) {
+  const item = document.querySelector(`.template-item[data-id="${id}"]`);
+  if (item) {
+    item.classList.add('dirty');
+    if (el.dataset.templateName) {
+      const title = item.querySelector('.template-title');
+      if (title) title.textContent = el.value || 'Sin nombre';
+    }
+    if (el.dataset.templateChannel) {
+      const subjectField = item.querySelector('.template-subject-field');
+      if (subjectField) subjectField.hidden = el.value === 'whatsapp';
+    }
+  }
+  updateTemplatePreview(id);
+}
+
+/** Inserta una variable en el campo del editor donde estaba el cursor. */
+let lastTemplateField = null;
+function insertVariable(id, variable) {
+  const item = document.querySelector(`.template-item[data-id="${id}"]`);
+  const field =
+    lastTemplateField && item?.contains(lastTemplateField) ? lastTemplateField : item?.querySelector(`[data-template-body="${id}"]`);
+  if (!field) return;
+  const start = field.selectionStart ?? field.value.length;
+  const end = field.selectionEnd ?? field.value.length;
+  field.value = field.value.slice(0, start) + variable + field.value.slice(end);
+  field.focus();
+  field.setSelectionRange(start + variable.length, start + variable.length);
+  onTemplateEdit(id, field);
+}
+
 /* ---------- Acciones delegadas ---------- */
 
 const ACTIONS = {
@@ -542,6 +608,10 @@ const ACTIONS = {
       toast('Actividad eliminada.');
     }
   },
+  'toggle-commitment': (id) => {
+    const act = toggleCommitmentDone(id);
+    if (act) toast(act.commitmentDone ? 'Compromiso marcado como hecho.' : 'Compromiso reabierto.');
+  },
   'delete-lead': (id) => {
     const lead = getLead(id);
     if (!lead) return;
@@ -552,18 +622,21 @@ const ACTIONS = {
     }
   },
   'new-template': () => {
-    addTemplate(ui.templateChannel || 'both');
-    toast('Plantilla creada. Complétala y guarda los cambios.');
+    const record = addTemplate(ui.templateChannel || 'both');
+    ui.templateOpen = record.id;
+    render();
+    toast('Plantilla creada. Complétala y guárdala.');
   },
   'save-template': (id) => {
-    const ta = document.querySelector(`[data-template-body="${id}"]`);
-    const nameEl = document.querySelector(`[data-template-name="${id}"]`);
-    const channelEl = document.querySelector(`[data-template-channel="${id}"]`);
-    const subjectEl = document.querySelector(`[data-template-subject="${id}"]`);
-    if (!ta) return;
-    const name = nameEl?.value.trim();
-    if (!name) return toast('El nombre de la plantilla es obligatorio.', 'error');
-    saveTemplate(id, { name, channel: channelEl?.value || 'both', subject: subjectEl?.value.trim() || '', body: ta.value });
+    const draft = templateDraft(id);
+    if (!draft) return;
+    if (!draft.name.trim()) return toast('El nombre de la plantilla es obligatorio.', 'error');
+    saveTemplate(id, {
+      name: draft.name.trim(),
+      channel: draft.channel || 'both',
+      subject: draft.subject.trim(),
+      body: draft.body
+    });
     toast('Plantilla guardada.');
   },
   'delete-template': (id) => {
@@ -571,33 +644,25 @@ const ACTIONS = {
     if (!deleteTemplate(id)) return toast('Debe quedar al menos una plantilla.', 'error');
     toast('Plantilla eliminada.');
   },
+  'insert-var': (id, btn) => insertVariable(id, btn.dataset.var),
   'copy-template': async (id) => {
-    const t = state.templates.find((x) => x.id === id);
-    const ta = document.querySelector(`[data-template-body="${id}"]`);
-    if (!t || !ta) return;
-    const subject = ui.templateLead ? fillTemplate(t.subject, ui.templateLead) : t.subject;
-    const text = t.channel === 'whatsapp' || !subject ? ta.value : `${subject}\n\n${ta.value}`;
+    const draft = templateDraft(id);
+    if (!draft) return;
+    const subject = fillTemplate(draft.subject, ui.templateLead);
+    const body = fillTemplate(draft.body, ui.templateLead);
+    const text = draft.channel === 'whatsapp' || !subject ? body : `${subject}\n\n${body}`;
     const ok = await copyText(text);
-    toast(ok ? 'Plantilla copiada.' : 'No se pudo copiar.', ok ? 'info' : 'error');
+    toast(ok ? 'Mensaje copiado con los datos resueltos.' : 'No se pudo copiar.', ok ? 'info' : 'error');
   },
-  'whatsapp-template': (id) => {
-    const t = state.templates.find((x) => x.id === id);
+  'test-template': (id) => {
     const lead = getLead(ui.templateLead);
-    if (!t || !lead) return;
-    if (!lead.phone) return toast('Ese lead no tiene teléfono.', 'error');
-    const ta = document.querySelector(`[data-template-body="${id}"]`);
-    const digits = lead.phone.replace(/\D/g, '');
-    if (!digits) return toast('El teléfono no es válido.', 'error');
-    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(ta.value)}`, '_blank', 'noopener');
-  },
-  'mail-template': (id) => {
-    const t = state.templates.find((x) => x.id === id);
-    const lead = getLead(ui.templateLead);
-    if (!t || !lead) return;
-    if (!lead.email) return toast('Ese lead no tiene email.', 'error');
-    const ta = document.querySelector(`[data-template-body="${id}"]`);
-    const url = `mailto:${encodeURIComponent(lead.email || '')}?subject=${encodeURIComponent(fillTemplate(t.subject, lead.id))}&body=${encodeURIComponent(ta.value)}`;
-    window.location.href = url;
+    if (!lead) return toast('Elige una empresa en “Vista previa” para probar el envío.', 'error');
+    if (document.querySelector(`.template-item[data-id="${id}"]`)?.classList.contains('dirty')) {
+      return toast('Guarda la plantilla antes de probar el envío.', 'error');
+    }
+    const draft = templateDraft(id);
+    const channel = draft?.channel === 'whatsapp' ? 'whatsapp' : 'email';
+    openComm(lead.id, 'primary', channel, id);
   }
 };
 
@@ -607,11 +672,24 @@ function handleClick(ev) {
   ACTIONS[btn.dataset.action]?.(btn.dataset.id, btn);
 }
 
+/** Los contenedores clickeables (tarjetas del embudo) también responden a teclado. */
+function handleKeydown(ev) {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  const el = ev.target.closest?.('[data-action][role="button"]');
+  if (!el) return;
+  ev.preventDefault();
+  ACTIONS[el.dataset.action]?.(el.dataset.id, el);
+}
+
 /* ---------- Controles de vista ---------- */
 
 function handleViewInput(ev) {
-  const id = ev.target.id;
-  const value = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value;
+  const el = ev.target;
+  const tplId = el.dataset.templateName || el.dataset.templateChannel || el.dataset.templateSubject || el.dataset.templateBody;
+  if (tplId) return onTemplateEdit(tplId, el);
+
+  const id = el.id;
+  const value = el.type === 'checkbox' ? el.checked : el.value;
   const map = {
     leadQuery: () => (ui.leadFilters.query = value),
     leadOwner: () => (ui.leadFilters.owner = value),
@@ -784,7 +862,6 @@ function bindEvents() {
     })
   );
 
-  $('newLeadBtn').addEventListener('click', () => openLead());
   $('seedBtn').addEventListener('click', seedExample);
   $('dataBtn').addEventListener('click', openDataDialog);
   $('syncStatus').addEventListener('click', openDataDialog);
@@ -830,8 +907,12 @@ function bindEvents() {
   });
 
   document.addEventListener('click', handleClick);
+  document.addEventListener('keydown', handleKeydown);
   $('viewRoot').addEventListener('input', handleViewInput);
   $('viewRoot').addEventListener('change', handleViewInput);
+  $('viewRoot').addEventListener('focusin', (ev) => {
+    if (ev.target.matches('[data-template-body], [data-template-subject]')) lastTemplateField = ev.target;
+  });
 }
 
 function init() {
