@@ -654,16 +654,6 @@ const ACTIONS = {
     const ok = await copyText(text);
     toast(ok ? 'Mensaje copiado con los datos resueltos.' : 'No se pudo copiar.', ok ? 'info' : 'error');
   },
-  'test-template': (id) => {
-    const lead = getLead(ui.templateLead);
-    if (!lead) return toast('Elige una empresa en “Vista previa” para probar el envío.', 'error');
-    if (document.querySelector(`.template-item[data-id="${id}"]`)?.classList.contains('dirty')) {
-      return toast('Guarda la plantilla antes de probar el envío.', 'error');
-    }
-    const draft = templateDraft(id);
-    const channel = draft?.channel === 'whatsapp' ? 'whatsapp' : 'email';
-    openComm(lead.id, 'primary', channel, id);
-  }
 };
 
 function handleClick(ev) {

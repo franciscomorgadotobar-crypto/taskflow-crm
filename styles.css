@@ -137,6 +137,11 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 /* ---------- Tarjetas ---------- */
 
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.card.card-alert { border-left: 3px solid var(--danger); }
+.task-group { margin: 4px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.task-group.overdue { color: var(--danger); }
+.task-group + .list + .task-group { margin-top: 18px; }
+
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
 .card-head h3 { margin: 0; font-size: 16px; }
 .card-body { padding: 18px; }

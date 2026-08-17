@@ -45,6 +45,8 @@ export function renderDashboard() {
 
     ${m.stale.length ? `<div class="notice warn">${m.stale.length} oportunidad(es) sin próxima acción y sin movimiento hace más de 14 días.</div>` : ''}
 
+    ${renderPendingTasks()}
+
     <div class="grid-2">
       <div class="card">
         <div class="card-head">
@@ -118,6 +120,56 @@ export function renderDashboard() {
     }
 
     ${renderRecentActivities()}`;
+}
+
+/** Una tarea pendiente en el resumen: se gestiona sin salir del home. */
+function taskRow(a, isOverdue) {
+  const l = getLead(a.leadId);
+  if (!l) return '';
+  const contact = a.contactId ? findContact(l, a.contactId) : null;
+  return `<div class="list-item">
+    <div>
+      <strong>${e(a.commitment)}</strong>
+      <div class="muted">${e(l.company)} · ${e(l.stage)}${contact?.name ? ` · ${e(contact.name)}` : ''}${l.owner ? ` · ${e(l.owner)}` : ''}</div>
+    </div>
+    <div class="list-side">
+      <span class="badge ${isOverdue ? 'danger' : ''}">${a.commitmentDate ? e(fmtDate(a.commitmentDate)) : 'Sin fecha'}</span>
+      <div class="actions">
+        <button class="small-btn" data-action="toggle-commitment" data-id="${a.id}">Marcar hecho</button>
+        <button class="small-btn" data-action="open-detail" data-id="${l.id}">Ver ficha</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/** Compromisos abiertos de todas las oportunidades, atrasados primero. */
+function renderPendingTasks() {
+  const today = todayISO();
+  const pending = pendingCommitments().filter((a) => getLead(a.leadId));
+  const overdue = pending.filter((a) => !a.commitmentDate || a.commitmentDate < today);
+  const upcoming = pending.filter((a) => a.commitmentDate && a.commitmentDate >= today);
+
+  return `
+    <div class="card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
+      <div class="card-head">
+        <h3>Tareas pendientes</h3>
+        <div class="actions">
+          ${overdue.length ? `<span class="badge danger">${overdue.length} por gestionar</span>` : ''}
+          <span class="muted">${upcoming.length} agendada(s)</span>
+        </div>
+      </div>
+      <div class="card-body">
+        ${
+          pending.length
+            ? `${overdue.length ? `<h4 class="task-group overdue">Atrasadas o sin fecha</h4><div class="list">${overdue.map((a) => taskRow(a, Boolean(a.commitmentDate))).join('')}</div>` : ''}
+               ${upcoming.length ? `<h4 class="task-group">Agendadas</h4><div class="list">${upcoming.map((a) => taskRow(a, false)).join('')}</div>` : ''}`
+            : empty(
+                'Sin tareas pendientes',
+                'Los compromisos que registres al guardar una actividad aparecen acá hasta que los marques como hechos.'
+              )
+        }
+      </div>
+    </div>`;
 }
 
 function renderRecentActivities() {
@@ -456,8 +508,8 @@ export function renderTemplates(ui) {
       <div class="card-body">
         <div class="notice">
           <strong>Cómo funciona:</strong> una plantilla es un mensaje base con <em>variables</em> (por ejemplo <code>{{empresa}}</code>)
-          que se completan solas con los datos de cada prospecto. Acá las escribes y las guardas;
-          para enviarlas entra a la ficha de una empresa → <strong>Comunicación</strong> y elige WhatsApp o Correo.
+          que se completan solas con los datos de cada prospecto. Esta pantalla es solo de configuración: acá se escriben y se guardan,
+          <strong>desde acá no se envía nada</strong>. El envío se hace en la ficha de cada empresa → <strong>Comunicación</strong>.
         </div>
 
         <div class="toolbar">
@@ -520,7 +572,6 @@ export function renderTemplates(ui) {
                         <div class="template-actions">
                           <button class="small-btn danger" data-action="delete-template" data-id="${t.id}">Eliminar</button>
                           <button class="small-btn" data-action="copy-template" data-id="${t.id}">Copiar mensaje</button>
-                          <button class="small-btn" data-action="test-template" data-id="${t.id}">Probar envío</button>
                           <button class="primary-btn" data-action="save-template" data-id="${t.id}">Guardar plantilla</button>
                         </div>
                       </div>
