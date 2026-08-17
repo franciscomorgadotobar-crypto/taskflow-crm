@@ -40,7 +40,6 @@ import * as api from './api.js';
 import {
   fillTemplate,
   filterPipeline,
-  renderActivities,
   renderDashboard,
   renderImplementation,
   renderLeadDetail,
@@ -58,8 +57,6 @@ const ui = {
   leadFilters: { query: '', owner: '', sort: 'updated' },
   pipelineView: 'kanban',
   pipelineFilters: { query: '', stage: '', owner: '' },
-  activityLead: '',
-  activityType: '',
   templateLead: '',
   templateChannel: ''
 };
@@ -70,7 +67,6 @@ const VIEWS = {
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
-  activities: ['Actividades', 'Reuniones, llamadas, demos y compromisos.', renderActivities],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates]
 };
 
@@ -623,8 +619,6 @@ function handleViewInput(ev) {
     pipelineQuery: () => (ui.pipelineFilters.query = value),
     pipelineStage: () => (ui.pipelineFilters.stage = value),
     pipelineOwner: () => (ui.pipelineFilters.owner = value),
-    activityLeadFilter: () => (ui.activityLead = value),
-    activityTypeFilter: () => (ui.activityType = value),
     templateLead: () => (ui.templateLead = value),
     templateChannel: () => (ui.templateChannel = value)
   };

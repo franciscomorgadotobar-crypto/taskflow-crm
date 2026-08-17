@@ -104,7 +104,45 @@ export function renderDashboard() {
               .join('')}</div></div>
           </div>`
         : ''
-    }`;
+    }
+
+    ${renderRecentActivities()}`;
+}
+
+function renderRecentActivities() {
+  const recent = [...state.activities].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 8);
+  return `
+    <div class="card" style="margin-top:16px">
+      <div class="card-head">
+        <h3>Últimas actividades</h3>
+        <button class="small-btn" data-action="new-activity">+ Nueva actividad</button>
+      </div>
+      <div class="card-body">
+        ${
+          recent.length
+            ? `<div class="list">${recent
+                .map((a) => {
+                  const l = getLead(a.leadId);
+                  const contactName = a.contactId ? findContact(l, a.contactId)?.name : '';
+                  const company = l
+                    ? `<button class="link-btn" data-action="open-detail" data-id="${l.id}">${e(l.company)}</button>`
+                    : `<span class="muted">Empresa eliminada</span>`;
+                  return `<div class="list-item">
+                    <div>
+                      <strong>${e(a.type)} · </strong>${company}${contactName ? `<span class="muted"> · ${e(contactName)}</span>` : ''}
+                      <div class="muted">${e(a.detail)}</div>
+                    </div>
+                    <div class="list-side">
+                      <span class="badge">${e(fmtDateTime(a.date))}</span>
+                      <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+                    </div>
+                  </div>`;
+                })
+                .join('')}</div>`
+            : empty('Sin actividades registradas', 'Registra llamadas, demos y compromisos desde la ficha de cada oportunidad.')
+        }
+      </div>
+    </div>`;
 }
 
 /* ---------------- Leads ---------------- */
@@ -355,56 +393,6 @@ export function renderRemarketing() {
                   .join('')}</tbody>
               </table></div>`
             : empty('Sin prospectos en remarketing', 'Cuando muevas una oportunidad a “Remarketing” aparece acá.')
-        }
-      </div>
-    </div>`;
-}
-
-/* ---------------- Actividades ---------------- */
-
-export function renderActivities(ui) {
-  const rows = state.activities
-    .filter((a) => (!ui.activityLead || a.leadId === ui.activityLead) && (!ui.activityType || a.type === ui.activityType))
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
-
-  return `
-    <div class="card">
-      <div class="card-head"><h3>Historial comercial</h3><button class="primary-btn" data-action="new-activity">+ Nueva actividad</button></div>
-      <div class="card-body">
-        <div class="toolbar">
-          <select id="activityLeadFilter">
-            <option value="">Todas las empresas</option>
-            ${state.leads.map((l) => `<option value="${l.id}" ${ui.activityLead === l.id ? 'selected' : ''}>${e(l.company)}</option>`).join('')}
-          </select>
-          <select id="activityTypeFilter">
-            <option value="">Todos los tipos</option>
-            ${[...new Set(state.activities.map((a) => a.type))]
-              .map((t) => `<option ${ui.activityType === t ? 'selected' : ''}>${e(t)}</option>`)
-              .join('')}
-          </select>
-          <span class="toolbar-summary">${rows.length} registro(s)</span>
-        </div>
-        ${
-          rows.length
-            ? `<div class="list">${rows
-                .map((a) => {
-                  const l = getLead(a.leadId);
-                  const contactName = a.contactId ? findContact(l, a.contactId)?.name : '';
-                  return `<div class="list-item">
-                    <div>
-                      <strong>${e(a.type)} · ${e(l?.company || 'Empresa eliminada')}${contactName ? ' · ' + e(contactName) : ''}</strong>
-                      <div class="muted">${e(a.detail)}</div>
-                      ${a.commitment ? `<div class="muted"><strong>Siguiente:</strong> ${e(a.commitment)}</div>` : ''}
-                    </div>
-                    <div class="list-side">
-                      <span class="badge">${e(fmtDateTime(a.date))}</span>
-                      <div class="muted">${e(a.owner || '')}</div>
-                      <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
-                    </div>
-                  </div>`;
-                })
-                .join('')}</div>`
-            : empty('Sin actividades', 'Registra llamadas, demos y compromisos para no perder el hilo.')
         }
       </div>
     </div>`;
