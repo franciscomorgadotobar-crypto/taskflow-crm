@@ -11,7 +11,25 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <!-- Acceso -->
+  <div id="authScreen" class="auth-screen" hidden>
+    <form id="authForm" class="auth-card" novalidate>
+      <img class="auth-logo" src="assets/logo-taskflow-trim.png" alt="TaskFlow · By 4R Labs" />
+      <h1 id="authTitle">Iniciar sesión</h1>
+      <p id="authSubtitle" class="muted">Entra con tu correo y contraseña.</p>
+      <label id="authNameField" hidden>Nombre<input id="authName" autocomplete="name" /></label>
+      <label>Correo<input id="authEmail" type="email" required autocomplete="email" /></label>
+      <label>Contraseña<input id="authPassword" type="password" required autocomplete="current-password" minlength="6" /></label>
+      <p id="authError" class="auth-error" hidden></p>
+      <button type="submit" class="primary-btn" id="authSubmitBtn">Entrar</button>
+      <div class="auth-links">
+        <button type="button" class="link-btn" id="authToggleMode">¿No tienes cuenta? Crear una</button>
+        <button type="button" class="link-btn" id="authForgot">Olvidé mi contraseña</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar">
       <div class="brand">
         <img class="brand-logo on-dark" src="assets/logo-taskflow-trim.png" alt="TaskFlow · By 4R Labs" />
@@ -25,6 +43,7 @@
         <button class="nav-item" data-view="remarketing">Remarketing</button>
         <button class="nav-item" data-view="implementation">Implementación</button>
         <button class="nav-item" data-view="templates">Plantillas</button>
+        <button class="nav-item" data-view="quotes">Cotizaciones</button>
         <button class="nav-item" data-view="settings">Configuración</button>
       </nav>
 
@@ -335,6 +354,90 @@
     </form>
   </dialog>
 
+  <datalist id="serviceUnits"></datalist>
+
+  <!-- Servicio del catálogo -->
+  <dialog id="serviceDialog" class="modal">
+    <form id="serviceForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2 id="serviceDialogTitle">Nuevo servicio</h2><p>Nombre, unidad y valor neto.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="serviceDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="serviceId" />
+      <div class="form-grid">
+        <label class="span-2">Nombre<input id="serviceName" required /></label>
+        <label>Unidad<input id="serviceUnit" list="serviceUnits" value="unidad" /></label>
+        <label>Precio neto CLP<input id="serviceNetPrice" type="number" min="0" step="100" inputmode="numeric" /></label>
+        <label>Categoría<input id="serviceCategory" placeholder="Opcional" /></label>
+        <label class="inline-check span-2"><input type="checkbox" id="serviceActive" checked /> Activo (disponible en el cotizador)</label>
+        <label class="span-2">Descripción<textarea id="serviceDescription" rows="3" placeholder="Opcional"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="serviceDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar servicio</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Constructor de cotización -->
+  <dialog id="quoteDialog" class="modal">
+    <form id="quoteForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div><h2 id="quoteDialogTitle">Nueva cotización</h2><p id="quoteDialogSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quoteDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="quoteBaseId" />
+      <div class="form-grid">
+        <label class="span-2">Empresa<select id="quoteLeadId" required></select></label>
+        <label>Válida hasta<input id="quoteValidUntil" type="date" /></label>
+        <label>Estado<select id="quoteStatusField"></select></label>
+      </div>
+      <div id="quoteItemsRoot"></div>
+      <div class="form-grid" style="margin-top:10px">
+        <label class="span-2">Notas (van en el correo)<textarea id="quoteNotes" rows="3" placeholder="Condiciones, plazos, forma de pago..."></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quoteDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar cotización</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Ver cotización -->
+  <dialog id="quoteViewDialog" class="modal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <div><h2 id="quoteViewTitle">Cotización</h2><p id="quoteViewSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quoteViewDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="quoteViewBody" class="detail-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quoteViewDialog">Cerrar</button>
+        <button type="button" class="ghost-btn" id="quoteViewEditBtn" data-action="edit-quote">Editar (nueva versión)</button>
+        <button type="button" class="primary-btn" id="quoteViewSendBtn" data-action="send-quote">Enviar al cliente</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Enviar cotización -->
+  <dialog id="quoteSendDialog" class="modal">
+    <form id="quoteSendForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div><h2>Enviar cotización</h2><p id="quoteSendSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quoteSendDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="quoteSendId" />
+      <div class="form-grid">
+        <label class="span-2">Asunto<input id="quoteSendSubject" /></label>
+        <label class="span-2">Mensaje<textarea id="quoteSendBody" rows="12"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quoteSendDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Abrir correo</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Datos y respaldo -->
   <dialog id="dataDialog" class="modal">
     <div class="modal-card">
@@ -352,17 +455,12 @@
           </div>
         </section>
         <section id="syncSection">
-          <h4>Google Sheets</h4>
+          <h4>Base de datos</h4>
           <p id="syncHint" class="muted"></p>
-          <div class="button-row">
-            <button id="pullBtn" class="ghost-btn">Descargar de Sheets</button>
-            <button id="pushBtn" class="ghost-btn">Subir a Sheets</button>
-          </div>
-          <label class="inline"><input type="checkbox" id="autoSyncToggle" /> Sincronizar automáticamente al guardar</label>
         </section>
         <section>
           <h4>Zona sensible</h4>
-          <button id="resetBtn" class="danger-btn">Borrar todos los datos locales</button>
+          <button id="resetBtn" class="danger-btn">Borrar mis oportunidades</button>
         </section>
       </div>
     </div>

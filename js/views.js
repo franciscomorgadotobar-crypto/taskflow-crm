@@ -4,6 +4,8 @@ import {
   CRM_CROSS,
   CRM_FLOW,
   PIPELINE_STAGES,
+  QUOTE_STATUSES,
+  QUOTE_STATUS_LABEL,
   TEMPLATE_CHANNELS,
   TEMPLATE_VARIABLES,
   USER_ROLES
@@ -21,6 +23,8 @@ import {
   state,
   taskOf
 } from './store.js';
+import { quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { isAdmin, isReadOnly, session } from './auth.js';
 import {
   addDaysISO,
   daysBetween,
@@ -673,64 +677,59 @@ export function renderTemplates(ui) {
 /* ---------------- Configuración ---------------- */
 
 export function renderSettings() {
-  const { profile, users } = state.settings;
+  const me = state.me;
+  const admin = isAdmin();
 
   return `
     <div class="card">
       <div class="card-head"><h3>Mi usuario</h3></div>
       <div class="card-body">
         <div class="settings-grid">
-          <label>Nombre<input id="profileName" value="${e(profile.name)}" placeholder="Tu nombre" /></label>
-          <label>Correo<input id="profileEmail" type="email" value="${e(profile.email)}" placeholder="nombre@taskflow.cl" /></label>
-          <label>Teléfono<input id="profilePhone" inputmode="tel" value="${e(profile.phone)}" placeholder="+56 9 ..." /></label>
-          <label>Contraseña
-            <span class="pass-field">
-              <input id="profilePassword" type="password" value="${e(profile.password)}" placeholder="Contraseña" />
-              <button class="small-btn" data-action="toggle-password" data-target="profilePassword">Ver</button>
-            </span>
-          </label>
+          <label>Nombre<input id="profileName" value="${e(me?.name)}" placeholder="Tu nombre" /></label>
+          <label>Correo<input value="${e(session.user?.email)}" disabled title="El correo se gestiona en el inicio de sesión" /></label>
+          <label>Teléfono<input id="profilePhone" inputmode="tel" value="${e(me?.phone)}" placeholder="+56 9 ..." /></label>
+          <label>Permiso<input value="${e(USER_ROLES.find((r) => r.id === me?.role)?.label || me?.role)}" disabled /></label>
         </div>
         <div class="button-row" style="margin-top:14px">
           <button class="primary-btn" data-action="save-profile">Guardar mis datos</button>
+        </div>
+        <h4 class="settings-subtitle">Contraseña</h4>
+        <div class="settings-grid">
+          <label>Nueva contraseña<input id="newPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" /></label>
+        </div>
+        <div class="button-row" style="margin-top:10px">
+          <button class="ghost-btn" data-action="change-password">Actualizar contraseña</button>
+          <button class="ghost-btn" data-action="sign-out">Cerrar sesión</button>
         </div>
       </div>
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-head">
-        <h3>Usuarios invitados</h3>
-        <button class="primary-btn" data-action="new-user">+ Invitar usuario</button>
-      </div>
+      <div class="card-head"><h3>Equipo</h3></div>
       <div class="card-body">
-        <div class="notice warn">
-          <strong>Importante:</strong> este CRM funciona solo en el navegador, sin servidor. Los usuarios y contraseñas
-          quedan guardados en este equipo y <strong>sin cifrar</strong>: sirven para dejar definidos los accesos y permisos,
-          pero todavía no son un inicio de sesión real. Para que lo sean hay que conectar un backend.
+        <div class="notice">
+          Para sumar a alguien, compárte el link del CRM: se registra con su propio correo y contraseña y aparece acá
+          para que le asignes el permiso. ${admin ? '' : 'Solo un administrador puede cambiar permisos y desactivar cuentas.'}
         </div>
         ${
-          users.length
+          state.team.length
             ? `<div class="table-wrap"><table class="data-table">
-                <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Contraseña</th><th>Permiso</th><th>Estado</th><th></th></tr></thead>
-                <tbody>${users
+                <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Permiso</th><th>Estado</th></tr></thead>
+                <tbody>${state.team
                   .map(
                     (u) => `<tr>
-                      <td><input class="cell-input" id="u_${u.id}_name" data-user-field="name" data-id="${u.id}" value="${e(u.name)}" placeholder="Nombre" /></td>
-                      <td><input class="cell-input" id="u_${u.id}_email" data-user-field="email" data-id="${u.id}" type="email" value="${e(u.email)}" placeholder="correo@taskflow.cl" /></td>
-                      <td><input class="cell-input" id="u_${u.id}_phone" data-user-field="phone" data-id="${u.id}" value="${e(u.phone)}" placeholder="+56 9 ..." /></td>
-                      <td><span class="pass-field">
-                        <input class="cell-input" id="pass-${u.id}" data-user-field="password" data-id="${u.id}" type="password" value="${e(u.password)}" placeholder="Clave" />
-                        <button class="small-btn" data-action="toggle-password" data-target="pass-${u.id}">Ver</button>
-                      </span></td>
-                      <td><select class="cell-input" id="u_${u.id}_role" data-user-field="role" data-id="${u.id}">
+                      <td><input class="cell-input" data-user-field="name" data-id="${u.id}" value="${e(u.name)}" placeholder="Nombre" ${admin ? '' : 'disabled'} /></td>
+                      <td>${e(u.email)}</td>
+                      <td><input class="cell-input" data-user-field="phone" data-id="${u.id}" value="${e(u.phone)}" placeholder="+56 9 ..." ${admin ? '' : 'disabled'} /></td>
+                      <td><select class="cell-input" data-user-field="role" data-id="${u.id}" ${admin ? '' : 'disabled'}>
                         ${USER_ROLES.map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`).join('')}
                       </select></td>
-                      <td><label class="inline-check"><input type="checkbox" id="u_${u.id}_active" data-user-field="active" data-id="${u.id}" ${u.active ? 'checked' : ''} /> Activo</label></td>
-                      <td><button class="small-btn danger" data-action="delete-user" data-id="${u.id}">Eliminar</button></td>
+                      <td><label class="inline-check"><input type="checkbox" data-user-field="active" data-id="${u.id}" ${u.active ? 'checked' : ''} ${admin ? '' : 'disabled'} /> Activo</label></td>
                     </tr>`
                   )
                   .join('')}</tbody>
               </table></div>`
-            : empty('Sin usuarios invitados', 'Usa “Invitar usuario” para sumar a alguien del equipo y asignarle un permiso.')
+            : empty('Sin personas registradas', 'Nadie se ha registrado todavía.')
         }
 
         <h4 class="settings-subtitle">Qué puede hacer cada permiso</h4>
@@ -799,6 +798,169 @@ export function renderSettings() {
           <button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>
         </div>
       </div>
+    </div>`;
+}
+
+/* ---------------- Cotizador ---------------- */
+
+const quoteStatusBadge = (status) => {
+  const tone = status === 'aceptada' ? 'success' : status === 'rechazada' ? 'danger' : status === 'enviada' ? 'warning' : '';
+  return `<span class="badge ${tone}">${e(QUOTE_STATUS_LABEL[status] || status)}</span>`;
+};
+
+/** Fila de cotización, reutilizada en la ficha y en la lista general. */
+function quoteRow(q, { showCompany = false } = {}) {
+  const lead = getLead(q.leadId);
+  const versions = versionsOf(q.rootId);
+  return `<div class="list-item">
+    <div>
+      <strong>${showCompany ? e(lead?.company || 'Empresa eliminada') + ' · ' : ''}Versión ${q.version}</strong>
+      ${quoteStatusBadge(q.status)}
+      ${versions.length > 1 ? `<span class="muted"> · ${versions.length} versiones</span>` : ''}
+      <div class="muted">${e(q.owner || 'Sin responsable')} · ${e(fmtDateTime(q.updatedAt))}</div>
+    </div>
+    <div class="list-side">
+      <strong>${fmtMoney(q.total)}</strong>
+      <div class="actions">
+        <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver</button>
+        <button class="small-btn" data-action="edit-quote" data-id="${q.id}">Editar</button>
+        <button class="small-btn" data-action="send-quote" data-id="${q.id}">Enviar</button>
+        ${isAdmin() || q.ownerId === session.user?.id ? `<button class="small-btn danger" data-action="delete-quote" data-id="${q.id}">Eliminar</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+export function renderQuotesSection(leadId) {
+  const rows = quotesOf(leadId).filter((q) => q.isCurrent);
+  return rows.length
+    ? `<div class="list">${rows.map((q) => quoteRow(q)).join('')}</div>`
+    : '<p class="muted">Sin cotizaciones para esta empresa.</p>';
+}
+
+function renderQuoteCatalog() {
+  const rows = quoteState.services;
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3>Catálogo de servicios</h3>
+        ${isAdmin() ? '<button class="primary-btn" data-action="new-service">+ Nuevo servicio</button>' : ''}
+      </div>
+      <div class="card-body">
+        ${
+          rows.length
+            ? `<div class="table-wrap"><table class="data-table">
+                <thead><tr><th>Servicio</th><th>Unidad</th><th>Precio neto</th><th>Categoría</th><th>Estado</th>${isAdmin() ? '<th></th>' : ''}</tr></thead>
+                <tbody>${rows
+                  .map(
+                    (s) => `<tr>
+                      <td><strong>${e(s.name)}</strong>${s.description ? `<div class="muted">${e(s.description)}</div>` : ''}</td>
+                      <td>${e(s.unit)}</td>
+                      <td>${fmtMoney(s.netPrice)}</td>
+                      <td>${e(s.category || '—')}</td>
+                      <td>${s.active ? '<span class="badge success">Activo</span>' : '<span class="badge">Inactivo</span>'}</td>
+                      ${
+                        isAdmin()
+                          ? `<td><div class="actions">
+                              <button class="small-btn" data-action="edit-service" data-id="${s.id}">Editar</button>
+                              <button class="small-btn danger" data-action="delete-service" data-id="${s.id}">Eliminar</button>
+                            </div></td>`
+                          : ''
+                      }
+                    </tr>`
+                  )
+                  .join('')}</tbody>
+              </table></div>`
+            : empty('Sin servicios en el catálogo', isAdmin() ? 'Crea el primero con "Nuevo servicio".' : 'Todavía no hay servicios cargados.')
+        }
+      </div>
+    </div>`;
+}
+
+function renderQuotesList(ui) {
+  const rows = quoteState.quotes.filter((q) => q.isCurrent);
+  const status = ui.quoteFilters?.status || '';
+  const filtered = status ? rows.filter((q) => q.status === status) : rows;
+  const total = filtered.reduce((s, q) => s + q.total, 0);
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3>Cotizaciones</h3>
+        <button class="primary-btn" data-action="new-quote">+ Nueva cotización</button>
+      </div>
+      <div class="card-body">
+        <div class="toolbar">
+          <select id="quoteStatus">
+            <option value="">Todos los estados</option>
+            ${QUOTE_STATUSES.map((s) => `<option value="${s.id}" ${status === s.id ? 'selected' : ''}>${e(s.label)}</option>`).join('')}
+          </select>
+          <span class="toolbar-summary">${filtered.length} · ${fmtMoney(total)}</span>
+        </div>
+        ${
+          filtered.length
+            ? `<div class="list">${filtered.map((q) => quoteRow(q, { showCompany: true })).join('')}</div>`
+            : empty('Sin cotizaciones', 'Crea la primera con "Nueva cotización" o desde la ficha de una empresa.')
+        }
+      </div>
+    </div>`;
+}
+
+export function renderQuotes(ui) {
+  const view = ui.quotesView || 'list';
+  return `
+    <div class="toolbar" style="margin-bottom:16px">
+      <div class="button-row">
+        <button class="small-btn ${view === 'list' ? 'active-view' : ''}" data-action="quotes-view-list">Cotizaciones</button>
+        <button class="small-btn ${view === 'catalog' ? 'active-view' : ''}" data-action="quotes-view-catalog">Catálogo de servicios</button>
+      </div>
+    </div>
+    ${view === 'catalog' ? renderQuoteCatalog() : renderQuotesList(ui)}`;
+}
+
+/**
+ * Filas editables del constructor de cotización. `rows` son items en memoria
+ * (no guardados todavía); se recalculan en cada input desde app.js.
+ */
+export function quoteBuilderRows(items) {
+  const services = quoteState.services.filter((s) => s.active);
+  return items
+    .map(
+      (it, i) => `<tr data-row="${i}">
+        <td>
+          <select class="cell-input" data-quote-field="serviceId" data-row="${i}">
+            <option value="">Item personalizado</option>
+            ${services.map((s) => `<option value="${s.id}" ${it.serviceId === s.id ? 'selected' : ''}>${e(s.name)}</option>`).join('')}
+          </select>
+          ${it.serviceId ? '' : `<input class="cell-input" data-quote-field="name" data-row="${i}" value="${e(it.name)}" placeholder="Nombre del item" />`}
+        </td>
+        <td><input class="cell-input qty" type="number" min="0" step="1" data-quote-field="quantity" data-row="${i}" value="${e(it.quantity)}" /></td>
+        <td><input class="cell-input" data-quote-field="unit" data-row="${i}" value="${e(it.unit)}" list="serviceUnits" /></td>
+        <td><input class="cell-input" type="number" min="0" step="100" data-quote-field="unitPrice" data-row="${i}" value="${e(it.unitPrice)}" /></td>
+        <td class="quote-row-total">${fmtMoney(Number(it.quantity || 0) * Number(it.unitPrice || 0))}</td>
+        <td><button type="button" class="icon-btn" data-action="remove-quote-row" data-row="${i}" aria-label="Quitar">×</button></td>
+      </tr>`
+    )
+    .join('');
+}
+
+export function quoteBuilderHtml(builder) {
+  const totals = { subtotalNeto: 0, iva: 0, total: 0 };
+  builder.items.forEach((it) => (totals.subtotalNeto += Number(it.quantity || 0) * Number(it.unitPrice || 0)));
+  totals.iva = Math.round(totals.subtotalNeto * 0.19);
+  totals.total = totals.subtotalNeto + totals.iva;
+
+  return `
+    <div class="table-wrap"><table class="data-table quote-items-table">
+      <thead><tr><th>Servicio</th><th>Cant.</th><th>Unidad</th><th>Precio unit.</th><th>Subtotal</th><th></th></tr></thead>
+      <tbody id="quoteRows">${quoteBuilderRows(builder.items)}</tbody>
+    </table></div>
+    <div class="button-row" style="margin:10px 0">
+      <button type="button" class="small-btn" data-action="add-quote-row">+ Agregar item</button>
+    </div>
+    <div class="quote-totals">
+      <div><span>Subtotal neto</span><strong>${fmtMoney(totals.subtotalNeto)}</strong></div>
+      <div><span>IVA (19%)</span><strong>${fmtMoney(totals.iva)}</strong></div>
+      <div class="quote-total-final"><span>Total</span><strong>${fmtMoney(totals.total)}</strong></div>
     </div>`;
 }
 
@@ -987,6 +1149,13 @@ export function renderLeadDetail(id) {
             : '<p class="muted">Sin levantamiento registrado.</p>'
         }
         <button class="small-btn" data-action="open-discovery" data-id="${l.id}">${d.pain ? 'Editar levantamiento' : 'Completar levantamiento'}</button>`
+      )}
+
+      ${section(
+        'Cotizaciones',
+        `${renderQuotesSection(l.id)}
+        <button class="small-btn" data-action="new-quote" data-id="${l.id}">+ Nueva cotización</button>`,
+        { count: quotesOf(l.id).filter((q) => q.isCurrent).length }
       )}
 
       ${section(

@@ -18,7 +18,10 @@ export function addDaysISO(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
-export const uid = (p = 'id') => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+// UUID v4: los registros viven en columnas `uuid` de Postgres, así que el id se
+// genera en el cliente con el mismo formato que usará la base (permite mostrar el
+// registro al instante sin esperar la respuesta de red — ver js/store.js).
+export const uid = () => crypto.randomUUID();
 
 export const nowISO = () => new Date().toISOString();
 

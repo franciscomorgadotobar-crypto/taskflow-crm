@@ -1,12 +1,24 @@
-import { CLOSED_STAGES, DEFAULT_PROBABILITY, DEFAULT_PROFILE, DEFAULT_TEMPLATES, DEFAULT_USERS, STAGES } from './catalog.js';
-import { addDaysISO, daysBetween, nowISO, todayISO, uid } from './utils.js';
+import { CLOSED_STAGES, DEFAULT_PROBABILITY, DEFAULT_TEMPLATES, STAGES } from './catalog.js';
+import { addDaysISO, daysBetween, nowISO, todayISO, uid, toast } from './utils.js';
+import { supabase } from './supabase.js';
+import { session } from './auth.js';
 
 const CFG = window.TASKFLOW_CRM_CONFIG;
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const listeners = new Set();
 export const onChange = (fn) => (listeners.add(fn), () => listeners.delete(fn));
 const notify = () => listeners.forEach((fn) => fn(state));
+
+/**
+ * Fuente de verdad: Supabase (Postgres + RLS). `state` es una copia en memoria
+ * que se hidrata al iniciar sesión y se mantiene al día con Realtime. Cada
+ * función que muta algo actualiza `state` al instante (UI sin esperar la red) y
+ * dispara la escritura real en segundo plano — si esa escritura falla (por
+ * ejemplo, por RLS) se avisa con un toast y se vuelve a hidratar esa tabla para
+ * no quedar con datos fantasma en pantalla.
+ */
+export let state = emptyData();
 
 export function emptyData() {
   return {
@@ -14,113 +26,204 @@ export function emptyData() {
     discoveries: {},
     activities: [],
     templates: structuredClone(DEFAULT_TEMPLATES),
-    settings: {
-      profile: { ...DEFAULT_PROFILE },
-      users: DEFAULT_USERS.map((u) => ({ id: uid('user'), password: '', ...u })),
-      seeded: true
-    },
+    team: [],
+    me: null,
     meta: { version: SCHEMA_VERSION, updatedAt: nowISO(), lastSyncAt: '' }
   };
 }
-
-/** Normaliza datos antiguos (v1 sin historial de etapa ni motivo de pérdida). */
-export function migrate(raw) {
-  const base = emptyData();
-  const data = { ...base, ...raw, meta: { ...base.meta, ...(raw?.meta || {}) } };
-
-  data.leads = (data.leads || []).map((l) => {
-    const lead = {
-      lossReason: '',
-      remarketingReason: '',
-      expectedCloseDate: '',
-      nextType: '',
-      contacts: [],
-      ...l,
-      value: Number(l.value || 0),
-      probability: l.probability === '' || l.probability == null ? DEFAULT_PROBABILITY[l.stage] ?? 10 : Number(l.probability),
-      stage: STAGES.includes(l.stage) ? l.stage : 'Lead',
-      createdAt: l.createdAt || nowISO(),
-      updatedAt: l.updatedAt || l.createdAt || nowISO()
-    };
-    if (!Array.isArray(lead.stageHistory) || !lead.stageHistory.length) {
-      lead.stageHistory = [{ stage: lead.stage, at: lead.createdAt }];
-    }
-    if (!Array.isArray(lead.contacts)) lead.contacts = [];
-    return lead;
-  });
-
-  data.discoveries = data.discoveries || {};
-  data.activities = (data.activities || []).map((a) => ({ task: '', company: '', system: false, ...a, id: a.id || uid('act') }));
-
-  // v2: las tareas dejaron de vivir en los compromisos de cada actividad y pasaron
-  // a ser la única próxima acción del prospecto. Rescatamos los que quedaron abiertos.
-  data.activities.forEach((a) => {
-    if (!a.commitment || a.commitmentDone) return;
-    const lead = data.leads.find((l) => l.id === a.leadId);
-    if (!lead || lead.nextAction) return;
-    lead.nextAction = a.commitment;
-    lead.nextDate = a.commitmentDate || '';
-  });
-  if (!Array.isArray(data.templates) || !data.templates.length) data.templates = structuredClone(DEFAULT_TEMPLATES);
-  // {{contacto}} pasó a llamarse {{nombre}} (y ahora resuelve al nombre de pila).
-  const renameVar = (s) => String(s || '').split('{{contacto}}').join('{{nombre}}');
-  // El nombre de quien escribe ya viene en la firma del correo: se quita del cierre
-  // para no repetirlo. Si está en medio del texto se respeta, ahí sí aporta.
-  const dropSignature = (s) => String(s || '').replace(/\s*\{\{responsable\}\}\s*$/, '');
-  data.templates = data.templates.map((t) => ({
-    channel: 'both',
-    ...t,
-    subject: renameVar(t.subject),
-    body: dropSignature(renameVar(t.body))
-  }));
-
-  const rawSettings = data.settings || {};
-  data.settings = { ...base.settings, ...rawSettings };
-  data.settings.profile = { ...base.settings.profile, ...(rawSettings.profile || {}) };
-  // El equipo se precarga una sola vez. Ojo: las versiones anteriores ya dejaban
-  // `users: []` guardado, así que la marca `seeded` es la única señal fiable de que
-  // la precarga ya ocurrió; si hay usuarios propios, tampoco se toca.
-  const existing = Array.isArray(rawSettings.users) ? rawSettings.users : [];
-  const users = rawSettings.seeded || existing.length ? existing : base.settings.users;
-  data.settings.users = users.map((u) => ({
-    id: u.id || uid('user'),
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    role: 'comercial',
-    active: true,
-    ...u
-  }));
-  data.settings.seeded = true;
-  data.meta.version = SCHEMA_VERSION;
-  return data;
-}
-
-function load() {
-  try {
-    const raw = localStorage.getItem(CFG.storageKey);
-    return raw ? migrate(JSON.parse(raw)) : emptyData();
-  } catch {
-    return emptyData();
-  }
-}
-
-export let state = load();
 
 export function persist({ silent = false } = {}) {
   state.meta.updatedAt = nowISO();
   try {
     localStorage.setItem(CFG.storageKey, JSON.stringify(state));
-  } catch (err) {
-    console.error('No se pudo guardar en este navegador', err);
+  } catch {
+    /* cache best-effort, no es la fuente de verdad */
   }
   if (!silent) notify();
 }
 
-export function replaceState(next, { silent = false } = {}) {
-  state = migrate(next);
-  persist({ silent });
+function reportError(action, err) {
+  console.error(action, err);
+  toast(`${action}: ${err.message || 'no se pudo guardar en el servidor'}`, 'error');
+}
+
+/* ---------- Mapeo DB <-> estado ---------- */
+
+const fromDbLead = (r) => ({
+  id: r.id,
+  company: r.company,
+  rut: r.rut || '',
+  industry: r.industry || '',
+  source: r.source || '',
+  contact: r.contact || '',
+  role: r.role || '',
+  email: r.email || '',
+  phone: r.phone || '',
+  stage: r.stage,
+  priority: r.priority || '',
+  value: Number(r.value || 0),
+  probability: Number(r.probability || 0),
+  expectedCloseDate: r.expected_close_date || '',
+  nextAction: r.next_action || '',
+  nextDate: r.next_date || '',
+  nextType: r.next_type || '',
+  ownerId: r.owner_id || '',
+  owner: r.owner_name || '',
+  lossReason: r.loss_reason || '',
+  remarketingReason: r.remarketing_reason || '',
+  notes: r.notes || '',
+  stageHistory: r.stage_history || [],
+  contacts: r.contacts || [],
+  createdAt: r.created_at,
+  updatedAt: r.updated_at
+});
+
+function resolveOwnerId(name) {
+  const t = state.team.find((x) => x.name === name);
+  return t ? t.id : null;
+}
+
+const toDbLead = (l) => ({
+  company: l.company,
+  rut: l.rut || '',
+  industry: l.industry || '',
+  source: l.source || '',
+  contact: l.contact || '',
+  role: l.role || '',
+  email: l.email || '',
+  phone: l.phone || '',
+  stage: l.stage,
+  priority: l.priority || '',
+  value: Number(l.value || 0),
+  probability: Number(l.probability || 0),
+  expected_close_date: l.expectedCloseDate || null,
+  next_action: l.nextAction || '',
+  next_date: l.nextDate || null,
+  next_type: l.nextType || '',
+  owner_id: resolveOwnerId(l.owner) || (l.owner && l.owner === session.profile?.name ? session.user.id : null),
+  owner_name: l.owner || '',
+  loss_reason: l.lossReason || '',
+  remarketing_reason: l.remarketingReason || '',
+  notes: l.notes || '',
+  stage_history: l.stageHistory || [],
+  contacts: l.contacts || []
+});
+
+const fromDbDiscovery = (r) => ({
+  pain: r.pain || '',
+  currentManagement: r.current_management || '',
+  technicians: r.technicians || '',
+  locations: r.locations || '',
+  buyTrigger: r.buy_trigger || '',
+  modules: r.modules || [],
+  integrations: r.integrations || '',
+  successCriteria: r.success_criteria || '',
+  technicalNotes: r.technical_notes || '',
+  updatedAt: r.updated_at
+});
+
+const toDbDiscovery = (leadId, d) => ({
+  lead_id: leadId,
+  pain: d.pain || '',
+  current_management: d.currentManagement || '',
+  technicians: d.technicians || '',
+  locations: d.locations || '',
+  buy_trigger: d.buyTrigger || '',
+  modules: d.modules || [],
+  integrations: d.integrations || '',
+  success_criteria: d.successCriteria || '',
+  technical_notes: d.technicalNotes || ''
+});
+
+const fromDbActivity = (r) => ({
+  id: r.id,
+  leadId: r.lead_id || '',
+  contactId: r.contact_key || '',
+  company: r.company || '',
+  type: r.type || '',
+  date: r.date,
+  owner: r.owner_name || '',
+  detail: r.detail || '',
+  task: r.task || '',
+  system: Boolean(r.system)
+});
+
+const toDbActivity = (a) => ({
+  lead_id: a.leadId || null,
+  contact_key: a.contactId || '',
+  company: a.company || '',
+  type: a.type || '',
+  date: a.date || nowISO(),
+  owner_id: resolveOwnerId(a.owner) || (a.owner && a.owner === session.profile?.name ? session.user.id : null),
+  owner_name: a.owner || '',
+  detail: a.detail || '',
+  task: a.task || '',
+  system: Boolean(a.system)
+});
+
+const fromDbTemplate = (r) => ({ id: r.id, name: r.name, channel: r.channel, subject: r.subject || '', body: r.body || '' });
+const toDbTemplate = (t) => ({ name: t.name || '', channel: t.channel || 'both', subject: t.subject || '', body: t.body || '' });
+
+const fromDbProfile = (r) => ({ id: r.id, name: r.name || '', email: r.email || '', phone: r.phone || '', role: r.role, active: r.active });
+
+/* ---------- Hidratación + Realtime ---------- */
+
+let channel = null;
+
+export async function hydrate() {
+  const [leadsR, discR, actR, tplR, teamR] = await Promise.all([
+    supabase.from('leads').select('*').order('updated_at', { ascending: false }),
+    supabase.from('discoveries').select('*'),
+    supabase.from('activities').select('*').order('date', { ascending: false }),
+    supabase.from('templates').select('*').order('name'),
+    supabase.from('profiles').select('*').order('name')
+  ]);
+  [leadsR, discR, actR, tplR, teamR].forEach((r) => r.error && console.error(r.error));
+
+  state.leads = (leadsR.data || []).map(fromDbLead);
+  state.discoveries = Object.fromEntries((discR.data || []).map((r) => [r.lead_id, fromDbDiscovery(r)]));
+  state.activities = (actR.data || []).map(fromDbActivity);
+  state.templates = (tplR.data || []).map(fromDbTemplate);
+  if (!state.templates.length) await seedDefaultTemplates();
+  state.team = (teamR.data || []).map(fromDbProfile);
+  state.me = state.team.find((t) => t.id === session.user?.id) || null;
+  state.meta.lastSyncAt = nowISO();
+  persist();
+}
+
+/** La primera vez que alguien entra no hay plantillas: se cargan las de fábrica una sola vez. */
+async function seedDefaultTemplates() {
+  const rows = DEFAULT_TEMPLATES.map(({ id, ...t }) => toDbTemplate(t));
+  const { data, error } = await supabase.from('templates').insert(rows).select();
+  if (error) return console.error(error);
+  state.templates = (data || []).map(fromDbTemplate);
+}
+
+export function startRealtime() {
+  if (channel) return;
+  channel = supabase
+    .channel('crm-core')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => hydrate())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'discoveries' }, () => hydrate())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, () => hydrate())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'templates' }, () => hydrate())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => hydrate())
+    .subscribe();
+}
+
+export function stopRealtime() {
+  if (channel) supabase.removeChannel(channel);
+  channel = null;
+}
+
+export function clearLocal() {
+  state = emptyData();
+  try {
+    localStorage.removeItem(CFG.storageKey);
+  } catch {
+    /* noop */
+  }
+  notify();
 }
 
 /* ---------- Leads ---------- */
@@ -128,7 +231,7 @@ export function replaceState(next, { silent = false } = {}) {
 export const getLead = (id) => state.leads.find((l) => l.id === id) || null;
 
 export function upsertLead(input) {
-  const id = input.id || uid('lead');
+  const id = input.id || uid();
   const existing = getLead(id);
   const lead = {
     ...(existing || { createdAt: nowISO(), stageHistory: [{ stage: input.stage || 'Lead', at: nowISO() }], contacts: [] }),
@@ -148,11 +251,10 @@ export function upsertLead(input) {
 
   const idx = state.leads.findIndex((l) => l.id === id);
   if (idx >= 0) state.leads[idx] = lead;
-  else state.leads.push(lead);
+  else state.leads.unshift(lead);
 
-  // Reasignar es una decisión comercial: queda registrada con quién, a quién y cuándo.
   if (reassigned) {
-    const actor = state.settings.profile.name || 'Usuario sin identificar';
+    const actor = session.profile?.name || 'Usuario sin identificar';
     addActivity(
       {
         leadId: id,
@@ -167,6 +269,12 @@ export function upsertLead(input) {
   }
 
   persist();
+
+  const write = existing
+    ? supabase.from('leads').update(toDbLead(lead)).eq('id', id)
+    : supabase.from('leads').insert({ id, ...toDbLead(lead) });
+  write.then(({ error }) => error && reportError('No se pudo guardar el lead', error));
+
   return lead;
 }
 
@@ -181,15 +289,24 @@ export function setStage(id, stage, { lossReason = '', remarketingReason = '' } 
   if (stage === 'Ganado' && !lead.nextAction) lead.nextAction = 'Coordinar kick-off e implementación';
   lead.updatedAt = nowISO();
   persist();
+  supabase
+    .from('leads')
+    .update(toDbLead(lead))
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo mover la oportunidad', error));
   return lead;
 }
 
-/** Actualiza campos puntuales del lead sin tocar el resto (a diferencia de upsertLead, no resetea value/probability). */
 export function updateLead(id, patch) {
   const lead = getLead(id);
   if (!lead) return null;
   Object.assign(lead, patch, { updatedAt: nowISO() });
   persist();
+  supabase
+    .from('leads')
+    .update(toDbLead(lead))
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo actualizar el lead', error));
   return lead;
 }
 
@@ -199,19 +316,53 @@ export function deleteLead(id) {
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
-  // El borrado queda registrado suelto (sin leadId) para que sobreviva a la limpieza.
   state.activities.push({
-    id: uid('act'),
+    id: uid(),
     leadId: '',
     company: lead.company,
     type: 'Eliminación',
     date: nowISO(),
     owner: lead.owner || '',
-    detail: `Se eliminó la oportunidad “${lead.company}” (etapa ${lead.stage}) con su levantamiento e historial.`,
+    detail: `Se eliminó la oportunidad "${lead.company}" (etapa ${lead.stage}) con su levantamiento e historial.`,
     task: '',
     system: true
   });
   persist();
+  supabase
+    .from('leads')
+    .delete()
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo eliminar en el servidor', error));
+}
+
+/** Elimina todas las oportunidades visibles para quien ejecuta (RLS decide el alcance real). */
+export function deleteAllVisibleLeads() {
+  const ids = state.leads.map((l) => l.id);
+  ids.forEach((id) => deleteLead(id));
+}
+
+/**
+ * Importa un respaldo JSON (exportado desde acá mismo) creando cada registro de
+ * nuevo — no reemplaza la base, la complementa. Útil para recuperar un respaldo
+ * o mover datos entre ambientes. Cada fila pasa por el mismo camino que crearla
+ * a mano, así que RLS decide qué se puede crear.
+ */
+export function replaceState(data) {
+  const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ''));
+  const idMap = new Map();
+  (data.leads || []).forEach((raw) => {
+    const oldId = raw.id;
+    const lead = upsertLead({ ...raw, id: isUuid(oldId) ? oldId : undefined });
+    if (oldId) idMap.set(oldId, lead.id);
+  });
+  Object.entries(data.discoveries || {}).forEach(([leadId, d]) => {
+    const newId = idMap.get(leadId) || leadId;
+    if (getLead(newId)) saveDiscovery(newId, d);
+  });
+  (data.activities || []).forEach((a) => {
+    addActivity({ ...a, leadId: idMap.get(a.leadId) || a.leadId, id: undefined });
+  });
+  toast('Importación completada.');
 }
 
 export function findDuplicate(company, excludeId = '') {
@@ -220,9 +371,8 @@ export function findDuplicate(company, excludeId = '') {
   return state.leads.find((l) => l.id !== excludeId && l.company.trim().toLowerCase() === key) || null;
 }
 
-/* ---------- Contactos ---------- */
+/* ---------- Contactos (viven dentro del lead, jsonb) ---------- */
 
-/** Todos los contactos de un lead: el principal (campos del lead) + los adicionales. */
 export function contactsOf(lead) {
   if (!lead) return [];
   const primary = lead.contact || lead.email || lead.phone
@@ -237,14 +387,18 @@ export const findContact = (lead, key) => contactsOf(lead).find((c) => c.key ===
 export function addContact(leadId, contact) {
   const lead = getLead(leadId);
   if (!lead) return null;
-  const record = { id: uid('contact'), name: '', role: '', email: '', phone: '', ...contact };
+  const record = { id: uid(), name: '', role: '', email: '', phone: '', ...contact };
   lead.contacts = [...(lead.contacts || []), record];
   lead.updatedAt = nowISO();
   persist();
+  supabase
+    .from('leads')
+    .update({ contacts: lead.contacts })
+    .eq('id', leadId)
+    .then(({ error }) => error && reportError('No se pudo guardar el contacto', error));
   return record;
 }
 
-/** Edita un contacto. El principal vive en los campos del lead, los demás en lead.contacts. */
 export function updateContact(leadId, key, patch) {
   const lead = getLead(leadId);
   if (!lead) return null;
@@ -257,6 +411,11 @@ export function updateContact(leadId, key, patch) {
   }
   lead.updatedAt = nowISO();
   persist();
+  supabase
+    .from('leads')
+    .update(toDbLead(lead))
+    .eq('id', leadId)
+    .then(({ error }) => error && reportError('No se pudo actualizar el contacto', error));
   return lead;
 }
 
@@ -266,6 +425,11 @@ export function deleteContact(leadId, contactId) {
   lead.contacts = (lead.contacts || []).filter((c) => c.id !== contactId);
   lead.updatedAt = nowISO();
   persist();
+  supabase
+    .from('leads')
+    .update({ contacts: lead.contacts })
+    .eq('id', leadId)
+    .then(({ error }) => error && reportError('No se pudo eliminar el contacto', error));
 }
 
 /* ---------- Levantamiento ---------- */
@@ -275,24 +439,35 @@ export const getDiscovery = (leadId) => state.discoveries[leadId] || null;
 export function saveDiscovery(leadId, payload) {
   state.discoveries[leadId] = { ...payload, updatedAt: nowISO() };
   persist();
+  supabase
+    .from('discoveries')
+    .upsert(toDbDiscovery(leadId, state.discoveries[leadId]))
+    .then(({ error }) => error && reportError('No se pudo guardar el levantamiento', error));
 }
 
 /* ---------- Actividades ---------- */
 
-/** Registra lo que ocurrió. No agenda nada: la próxima acción se define al cerrar una tarea. */
 export function addActivity(activity, { silent = false } = {}) {
-  const record = { id: uid('act'), task: '', ...activity };
-  state.activities.push(record);
+  const record = { id: uid(), task: '', ...activity };
+  state.activities.unshift(record);
   if (!silent) persist();
+  supabase
+    .from('activities')
+    .insert({ id: record.id, ...toDbActivity(record) })
+    .then(({ error }) => error && reportError('No se pudo registrar la actividad', error));
   return record;
 }
 
-/** Edita una actividad ya registrada (fecha, detalle, compromiso o su estado). */
 export function updateActivity(id, patch) {
   const act = state.activities.find((a) => a.id === id);
   if (!act) return null;
   Object.assign(act, patch);
   persist();
+  supabase
+    .from('activities')
+    .update(toDbActivity(act))
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo actualizar la actividad', error));
   return act;
 }
 
@@ -301,17 +476,18 @@ export const getActivity = (id) => state.activities.find((a) => a.id === id) || 
 export function deleteActivity(id) {
   state.activities = state.activities.filter((a) => a.id !== id);
   persist();
+  supabase
+    .from('activities')
+    .delete()
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo eliminar la actividad', error));
 }
 
 export const activitiesOf = (leadId) =>
   state.activities.filter((a) => a.leadId === leadId).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
-/* ---------- Tareas ----------
- * Cada prospecto tiene como máximo UNA tarea abierta: su próxima acción con
- * fecha. Se define al crear el prospecto y se renueva al cerrar la anterior.
- */
+/* ---------- Tareas (viven en el propio lead) ---------- */
 
-/** La tarea abierta de un prospecto, o null si no tiene. */
 export function taskOf(lead) {
   if (!lead || lead.stage === 'Perdido') return null;
   if (!lead.nextAction && !lead.nextDate && !lead.nextType) return null;
@@ -325,14 +501,12 @@ export function taskOf(lead) {
   };
 }
 
-/** Todas las tareas abiertas del CRM, la más urgente primero. */
 export const openTasks = () =>
   state.leads
     .map((lead) => taskOf(lead))
     .filter(Boolean)
     .sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31'));
 
-/** Cierra la tarea del prospecto: deja constancia de lo ocurrido y agenda la siguiente. */
 export function completeTask(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
   const lead = getLead(leadId);
   if (!lead) return null;
@@ -347,6 +521,11 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
   lead.nextDate = hasNext ? nextDate : '';
   lead.updatedAt = nowISO();
   persist();
+  supabase
+    .from('leads')
+    .update(toDbLead(lead))
+    .eq('id', leadId)
+    .then(({ error }) => error && reportError('No se pudo cerrar la tarea', error));
   return record;
 }
 
@@ -357,13 +536,22 @@ export function saveTemplate(id, patch) {
   if (!t) return null;
   Object.assign(t, patch);
   persist();
+  supabase
+    .from('templates')
+    .update(toDbTemplate(t))
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo guardar la plantilla', error));
   return t;
 }
 
-export function addTemplate(channel = 'both') {
-  const record = { id: uid('tpl'), name: 'Nueva plantilla', channel, subject: '', body: '' };
+export function addTemplate(channel_ = 'both') {
+  const record = { id: uid(), name: 'Nueva plantilla', channel: channel_, subject: '', body: '' };
   state.templates.push(record);
   persist();
+  supabase
+    .from('templates')
+    .insert({ id: record.id, ...toDbTemplate(record) })
+    .then(({ error }) => error && reportError('No se pudo crear la plantilla', error));
   return record;
 }
 
@@ -371,49 +559,56 @@ export function deleteTemplate(id) {
   if (state.templates.length <= 1) return false;
   state.templates = state.templates.filter((t) => t.id !== id);
   persist();
+  supabase
+    .from('templates')
+    .delete()
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo eliminar la plantilla', error));
   return true;
 }
 
-/* ---------- Configuración ---------- */
+/* ---------- Equipo ---------- */
 
-/**
- * Responsables seleccionables: mi usuario, los invitados activos y cualquiera que
- * ya esté asignado a un prospecto (para no perder responsables antiguos).
- */
+/** Nombres seleccionables como responsable: el equipo activo + cualquiera ya asignado a un lead. */
 export function ownerNames() {
-  const { profile, users } = state.settings;
-  const names = [
-    profile.name,
-    ...users.filter((u) => u.active && u.name).map((u) => u.name),
-    ...state.leads.map((l) => l.owner)
-  ].filter(Boolean);
+  const names = [...state.team.filter((t) => t.active && t.name).map((t) => t.name), ...state.leads.map((l) => l.owner)].filter(
+    Boolean
+  );
   return [...new Set(names)];
 }
 
+/** Guarda mi propio nombre/teléfono (el correo lo gestiona la sesión, no se edita acá). */
 export function saveProfile(patch) {
-  state.settings.profile = { ...state.settings.profile, ...patch };
+  if (!state.me) return null;
+  Object.assign(state.me, patch);
+  const idx = state.team.findIndex((t) => t.id === state.me.id);
+  if (idx >= 0) state.team[idx] = state.me;
   persist();
-  return state.settings.profile;
+  supabase
+    .from('profiles')
+    .update({ name: patch.name ?? state.me.name, phone: patch.phone ?? state.me.phone })
+    .eq('id', state.me.id)
+    .then(({ error }) => error && reportError('No se pudo guardar tu perfil', error));
+  return state.me;
 }
 
-export function addUser(user = {}) {
-  const record = { id: uid('user'), name: '', email: '', phone: '', password: '', role: 'comercial', active: true, ...user };
-  state.settings.users.push(record);
-  persist();
-  return record;
-}
-
+/** Edita el perfil de otra persona del equipo (rol/activo/nombre/teléfono) — solo admin/super por RLS. */
 export function updateUser(id, patch) {
-  const user = state.settings.users.find((u) => u.id === id);
-  if (!user) return null;
-  Object.assign(user, patch);
+  const t = state.team.find((x) => x.id === id);
+  if (!t) return null;
+  Object.assign(t, patch);
   persist();
-  return user;
-}
-
-export function deleteUser(id) {
-  state.settings.users = state.settings.users.filter((u) => u.id !== id);
-  persist();
+  const payload = {};
+  if ('name' in patch) payload.name = patch.name;
+  if ('phone' in patch) payload.phone = patch.phone;
+  if ('role' in patch) payload.role = patch.role;
+  if ('active' in patch) payload.active = patch.active;
+  supabase
+    .from('profiles')
+    .update(payload)
+    .eq('id', id)
+    .then(({ error }) => error && reportError('No se pudo actualizar a esa persona', error));
+  return t;
 }
 
 /* ---------- Métricas ---------- */
@@ -462,7 +657,6 @@ export function metrics() {
   };
 }
 
-/** Agrupa los prospectos según la dimensión elegida en el gráfico. */
 export function groupLeads(dimension) {
   const today = todayISO();
   const limit = addDaysISO(today, 1);
@@ -505,4 +699,3 @@ export function groupLeads(dimension) {
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
 }
-

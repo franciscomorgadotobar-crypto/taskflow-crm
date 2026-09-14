@@ -114,23 +114,6 @@ export const TASK_TYPES = [
 
 export const CURRENT_MANAGEMENT = ['WhatsApp / papel', 'Excel / formularios', 'Software parcial', 'ERP / CMMS integrado'];
 
-/**
- * Equipo comercial precargado. Sin contraseñas: el sitio es público y todo lo que
- * viva en el código queda a la vista. Se definen en Configuración.
- */
-export const DEFAULT_PROFILE = {
-  name: 'Francisco Morgado',
-  email: 'franciscomorgado@taskflow.cl',
-  phone: '+56939453804',
-  password: ''
-};
-
-export const DEFAULT_USERS = [
-  { name: 'Cristóbal', email: '', phone: '', role: 'comercial', active: true },
-  { name: 'Yazmín', email: '', phone: '', role: 'comercial', active: true },
-  { name: 'Paula', email: '', phone: '', role: 'comercial', active: true }
-];
-
 /** Dimensiones que puede mostrar cada gráfico del resumen. */
 export const CHART_DIMENSIONS = [
   { id: 'stage', label: 'Etapa', title: 'Prospectos por etapa' },
@@ -278,3 +261,18 @@ export const DEFAULT_TEMPLATES = [
 ];
 
 export const TEMPLATE_VARIABLES = ['{{nombre}}', '{{nombreCompleto}}', '{{empresa}}', '{{cargo}}', '{{dolor}}', '{{modulos}}', '{{responsable}}'];
+
+/* ---------- Cotizador ---------- */
+
+export const IVA_RATE = 0.19;
+
+export const SERVICE_UNITS = ['unidad', 'hora', 'mes', 'visita', 'm2', 'proyecto', 'licencia'];
+
+export const QUOTE_STATUSES = [
+  { id: 'borrador', label: 'Borrador' },
+  { id: 'enviada', label: 'Enviada' },
+  { id: 'aceptada', label: 'Aceptada' },
+  { id: 'rechazada', label: 'Rechazada' }
+];
+
+export const QUOTE_STATUS_LABEL = Object.fromEntries(QUOTE_STATUSES.map((s) => [s.id, s.label]));

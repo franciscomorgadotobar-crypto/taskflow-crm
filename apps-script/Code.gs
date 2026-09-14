@@ -1,4 +1,8 @@
 /**
+ * OBSOLETO — TaskFlow CRM migró su backend a Supabase (Postgres + Auth + RLS).
+ * Este script de Google Sheets/Apps Script ya no se usa y se mantiene solo
+ * como referencia histórica. No requiere despliegue ni mantención.
+ *
  * TaskFlow CRM — backend Google Sheets + Apps Script.
  *
  * Las cabeceras usan exactamente las mismas claves que el frontend (js/store.js),

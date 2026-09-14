@@ -3,11 +3,12 @@ import {
   BUY_TRIGGERS,
   CURRENT_MANAGEMENT,
   DEFAULT_PROBABILITY,
-  DEFAULT_PROFILE,
   INDUSTRIES,
   LOSS_REASONS,
   MODULES,
+  QUOTE_STATUSES,
   REMARKETING_REASONS,
+  SERVICE_UNITS,
   SOURCES,
   STAGE_TEMPLATE,
   STAGES,
@@ -17,18 +18,15 @@ import {
   addActivity,
   addContact,
   addTemplate,
-  addUser,
-  deleteUser,
-  saveProfile,
-  updateUser,
+  clearLocal,
   contactsOf,
   deleteActivity,
+  deleteAllVisibleLeads,
   deleteContact,
   updateContact,
   deleteLead,
   completeTask,
   deleteTemplate,
-  emptyData,
   findContact,
   taskOf,
   updateActivity,
@@ -36,28 +34,53 @@ import {
   getActivity,
   getDiscovery,
   getLead,
+  hydrate,
   metrics,
   openTasks,
   onChange,
   ownerNames,
-  persist,
   replaceState,
   saveDiscovery,
+  saveProfile,
   saveTemplate,
   setStage,
+  startRealtime,
   state,
+  stopRealtime,
   updateLead,
+  updateUser,
   upsertLead
 } from './store.js';
-import * as api from './api.js';
+import {
+  buildQuoteEmail,
+  clearLocal as quotesClearLocal,
+  computeTotals,
+  deleteQuote,
+  getQuote,
+  getService,
+  hydrate as quotesHydrate,
+  markQuoteSent,
+  onChange as onQuotesChange,
+  saveQuote,
+  setQuoteStatus,
+  startRealtime as quotesStartRealtime,
+  state as quoteState,
+  stopRealtime as quotesStopRealtime,
+  upsertService,
+  deleteService,
+  versionsOf
+} from './quotes.js';
+import { isAdmin, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import {
   fillTemplate,
   filterPipeline,
+  quoteBuilderHtml,
   renderDashboard,
   renderImplementation,
   renderLeadDetail,
   renderLeads,
   renderPipeline,
+  renderQuotes,
   renderRemarketing,
   renderSettings,
   renderTemplates,
@@ -71,6 +94,7 @@ import {
   escapeHtml,
   fmtDate,
   fmtDateTime,
+  fmtMoney,
   localDateTimeInput,
   nowISO,
   openExternal,
@@ -92,7 +116,10 @@ const ui = {
   pipelineSort: { key: 'company', dir: 'asc' },
   templateLead: '',
   templateChannel: '',
-  templateOpen: ''
+  templateOpen: '',
+  quotesView: 'list',
+  quoteFilters: { status: '' },
+  quoteBuilder: null
 };
 
 const VIEWS = {
@@ -102,6 +129,7 @@ const VIEWS = {
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
+  quotes: ['Cotizaciones', 'Servicios, valores y cotizaciones para tus clientes.', renderQuotes],
   settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
 
@@ -129,6 +157,13 @@ function render() {
   if (ui.view === 'templates') bindTemplateAccordion();
 }
 
+function refreshDetailIfOpen() {
+  if ($('detailDialog').open && detailLeadId) {
+    $('detailBody').innerHTML = renderLeadDetail(detailLeadId);
+    buildTaskTypeGroups($('detailBody'));
+  }
+}
+
 /* ---------- Selects ---------- */
 
 const options = (list, selected = '') =>
@@ -149,12 +184,10 @@ function fillStaticSelects() {
   $('moduleChecks').innerHTML = MODULES.map(
     (v) => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`
   ).join('');
+  $('quoteStatusField').innerHTML = QUOTE_STATUSES.map((s) => `<option value="${s.id}">${escapeHtml(s.label)}</option>`).join('');
+  $('serviceUnits').innerHTML = SERVICE_UNITS.map((u) => `<option value="${escapeHtml(u)}">`).join('');
 }
 
-/**
- * Responsables disponibles: yo y los usuarios activos configurados. Si el lead
- * ya tenía un responsable que ya no está activo, se conserva para no perderlo.
- */
 function fillOwnerSelect(selected = '') {
   const names = ownerNames();
   if (selected && !names.includes(selected)) names.push(selected);
@@ -176,7 +209,6 @@ const LEAD_FIELDS = [
   'value', 'probability', 'expectedCloseDate', 'owner', 'nextType', 'nextAction', 'nextDate', 'lossReason', 'notes'
 ];
 
-/** Al editar, la etapa y la tarea se cambian con sus propios botones en la ficha, no acá. */
 const OWNED_ELSEWHERE = ['stage', 'lossReason', 'nextAction', 'nextDate', 'nextType'];
 
 function openLead(id) {
@@ -184,7 +216,7 @@ function openLead(id) {
   const editing = Boolean(id);
   $('leadDialogTitle').textContent = editing ? 'Editar datos de la empresa' : 'Nuevo lead';
   $('leadId').value = l.id || '';
-  fillOwnerSelect(l.owner || '');
+  fillOwnerSelect(l.owner || session.profile?.name || '');
   LEAD_FIELDS.forEach((k) => {
     const el = $(k);
     if (!el) return;
@@ -193,7 +225,6 @@ function openLead(id) {
   });
   toggleLossField();
   setTaskType('lead', l.nextType || '');
-  // En edición se ocultan los campos que ya tienen su propio flujo en la ficha.
   OWNED_ELSEWHERE.forEach((k) => {
     const field = $(k)?.closest('label');
     if (field) field.hidden = editing;
@@ -215,11 +246,12 @@ function submitLead(e) {
 
   const id = $('leadId').value;
   const dup = findDuplicate(company, id);
-  if (dup && !confirm(`Ya existe “${dup.company}”. ¿Guardar de todos modos?`)) return;
+  if (dup && !confirm(`Ya existe "${dup.company}". ¿Guardar de todos modos?`)) return;
 
   const payload = { id: id || undefined };
   const fields = id ? LEAD_FIELDS.filter((k) => !OWNED_ELSEWHERE.includes(k)) : LEAD_FIELDS;
   fields.forEach((k) => (payload[k] = $(k).value.trim ? $(k).value.trim() : $(k).value));
+  if (!id && !payload.owner) payload.owner = session.profile?.name || '';
   upsertLead(payload);
   $('leadDialog').close();
   toast(id ? 'Datos actualizados.' : 'Lead creado.');
@@ -266,7 +298,6 @@ function openActivity(leadId = '') {
   $('activityDialog').showModal();
 }
 
-/** Reabre una actividad existente para corregir fecha, detalle o compromiso. */
 function editActivity(id) {
   const act = getActivity(id);
   if (!act) return;
@@ -318,7 +349,6 @@ function submitActivity(e) {
 
 /* ---------- Diálogo: contacto ---------- */
 
-/** Sin `key` crea uno nuevo; con `key` edita el existente (incluido el principal). */
 function openContact(leadId, key = '') {
   const lead = getLead(leadId);
   if (!lead) return;
@@ -413,11 +443,11 @@ function submitComm(e) {
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
     const digits = contact.phone.replace(/\D/g, '');
     if (!digits) return toast('El teléfono no es válido.', 'error');
-    addActivity({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por WhatsApp a ${contact.name || contact.phone}.` });
+    addActivity({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla "${templateName}" enviada por WhatsApp a ${contact.name || contact.phone}.` });
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(body)}`, '_blank', 'noopener');
   } else {
     if (!contact?.email) return toast('Ese contacto no tiene email.', 'error');
-    addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla “${templateName}” enviada por correo a ${contact.name || contact.email}.` });
+    addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla "${templateName}" enviada por correo a ${contact.name || contact.email}.` });
     openExternal(`mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent($('commSubject').value)}&body=${encodeURIComponent(body)}`);
   }
   $('commDialog').close();
@@ -429,7 +459,6 @@ function submitComm(e) {
 let manageQueue = [];
 let manageIndex = 0;
 
-/** Cola de tareas de la pestaña activa del Resumen, en el mismo orden que se ven. */
 function tasksForTab() {
   const today = todayISO();
   const limit = addDaysISO(today, 1);
@@ -469,7 +498,6 @@ function renderManage() {
   $('manageCurrentAction').textContent = task.title || 'Sin próxima acción';
   $('manageCurrentDate').textContent = task.date ? fmtDate(task.date) : 'Sin fecha';
   $('manageCurrentDate').classList.toggle('danger', !task.date || task.date < todayISO());
-  // La siguiente tarea nace en blanco: se define después de saber cómo resultó esta.
   $('manageType').value = task.type || ACTIVITY_TYPES[0];
   $('manageDate').value = localDateTimeInput();
   $('manageResult').value = '';
@@ -494,7 +522,6 @@ function manageStep(delta) {
   renderManage();
 }
 
-/** Gestionar una tarea es cerrarla: qué resultó y cuál es la siguiente. */
 function submitManage(e) {
   e.preventDefault();
   const task = currentTask();
@@ -511,7 +538,6 @@ function submitManage(e) {
     nextDate: $('manageNextDate').value
   });
 
-  // Cerrada, sale de la cola aunque su reemplazo sea otra tarea del mismo prospecto.
   manageQueue.splice(manageIndex, 1);
   if (!manageQueue.length) {
     $('manageDialog').close();
@@ -659,16 +685,15 @@ function bindKanbanDrag() {
       const target = list.dataset.stage;
       const lead = getLead(draggedId);
       if (!lead || lead.stage === target) return;
-      if (target === 'Perdido') return openStage(lead.id); // exige motivo
+      if (target === 'Perdido') return openStage(lead.id);
       setStage(lead.id, target);
       toast(`${lead.company} → ${target}`);
     });
   });
 }
 
-/* ---------- Tipo de tarea (botones en vez de texto libre) ---------- */
+/* ---------- Tipo de tarea ---------- */
 
-/** Pinta los botones de tipo dentro de cada grupo declarado en el HTML. */
 function buildTaskTypeGroups(root = document) {
   $$('[data-task-type-group]', root).forEach((group) => {
     const prefix = group.dataset.taskTypeGroup;
@@ -682,7 +707,6 @@ function buildTaskTypeGroups(root = document) {
   });
 }
 
-/** Marca el tipo elegido y lo deja en el input oculto del grupo. */
 function setTaskType(prefix, value) {
   const input = $(prefix === 'lead' ? 'nextType' : `${prefix}NextType`);
   if (input) input.value = value;
@@ -693,7 +717,6 @@ const taskTypeValue = (prefix) => $(prefix === 'lead' ? 'nextType' : `${prefix}N
 
 /* ---------- Plantillas ---------- */
 
-/** Mantiene abierta la plantilla que el usuario estaba editando entre re-renders. */
 function bindTemplateAccordion() {
   $$('#viewRoot .template-item').forEach((item) =>
     item.addEventListener('toggle', () => {
@@ -703,7 +726,6 @@ function bindTemplateAccordion() {
   );
 }
 
-/** Valores actuales del editor (incluye cambios aún no guardados). */
 function templateDraft(id) {
   const t = state.templates.find((x) => x.id === id);
   if (!t) return null;
@@ -722,7 +744,6 @@ function updateTemplatePreview(id) {
   if (box && draft) box.innerHTML = templatePreviewHtml(draft, ui.templateLead);
 }
 
-/** Refresca la vista previa y el encabezado sin volver a pintar toda la vista (no perdemos el foco). */
 function onTemplateEdit(id, el) {
   const item = document.querySelector(`.template-item[data-id="${id}"]`);
   if (item) {
@@ -739,7 +760,6 @@ function onTemplateEdit(id, el) {
   updateTemplatePreview(id);
 }
 
-/** Inserta una variable en el campo del editor donde estaba el cursor. */
 let lastTemplateField = null;
 function insertVariable(id, variable) {
   const item = document.querySelector(`.template-item[data-id="${id}"]`);
@@ -752,6 +772,215 @@ function insertVariable(id, variable) {
   field.focus();
   field.setSelectionRange(start + variable.length, start + variable.length);
   onTemplateEdit(id, field);
+}
+
+/* ---------- Cotizador ---------- */
+
+function emptyQuoteRow() {
+  return { serviceId: '', name: '', unit: 'unidad', quantity: 1, unitPrice: 0 };
+}
+
+function renderQuoteItemsRoot() {
+  $('quoteItemsRoot').innerHTML = quoteBuilderHtml(ui.quoteBuilder);
+}
+
+function openQuoteBuilder(leadId = '', baseId = '') {
+  const base = baseId ? getQuote(baseId) : null;
+  ui.quoteBuilder = {
+    leadId: base?.leadId || leadId,
+    // Al editar, cada item se guarda como fila nueva en la versión nueva: se descarta
+    // el id/posición/subtotal de la versión anterior para no chocar con su primary key.
+    items: base
+      ? base.items.map(({ serviceId, name, unit, quantity, unitPrice }) => ({ serviceId, name, unit, quantity, unitPrice }))
+      : [emptyQuoteRow()]
+  };
+  $('quoteBaseId').value = baseId;
+  $('quoteDialogTitle').textContent = base ? `Editar cotización (crea versión ${base.version + 1})` : 'Nueva cotización';
+  $('quoteDialogSubtitle').textContent = base ? 'Guardar deja esta como nueva versión; la anterior queda en el historial.' : 'Selecciona la empresa y agrega los items.';
+  $('quoteLeadId').innerHTML = leadOptions(ui.quoteBuilder.leadId);
+  $('quoteLeadId').disabled = Boolean(leadId && !base);
+  $('quoteStatusField').value = base?.status || 'borrador';
+  $('quoteValidUntil').value = base?.validUntil || '';
+  $('quoteNotes').value = base?.notes || '';
+  renderQuoteItemsRoot();
+  $('quoteDialog').showModal();
+}
+
+function submitQuoteBuilder(e) {
+  e.preventDefault();
+  const leadId = $('quoteLeadId').value;
+  if (!leadId) return toast('Selecciona una empresa.', 'error');
+  const items = ui.quoteBuilder.items
+    .filter((it) => it.name.trim() && Number(it.quantity) > 0)
+    .map((it) => ({ ...it, name: it.name.trim() }));
+  if (!items.length) return toast('Agrega al menos un item con cantidad.', 'error');
+
+  const lead = getLead(leadId);
+  const client = { company: lead.company, contact: lead.contact, email: lead.email, phone: lead.phone };
+  const baseId = $('quoteBaseId').value;
+
+  saveQuote({
+    baseId,
+    leadId,
+    status: $('quoteStatusField').value,
+    notes: $('quoteNotes').value.trim(),
+    validUntil: $('quoteValidUntil').value,
+    client,
+    items
+  });
+
+  $('quoteDialog').close();
+  toast(baseId ? 'Nueva versión guardada.' : 'Cotización creada.');
+}
+
+function openQuoteView(id) {
+  const q = getQuote(id);
+  if (!q) return;
+  const lead = getLead(q.leadId);
+  $('quoteViewTitle').textContent = `${lead?.company || 'Empresa eliminada'} · versión ${q.version}`;
+  $('quoteViewSubtitle').textContent = `${q.owner || 'Sin responsable'} · actualizada ${fmtDateTime(q.updatedAt)}`;
+  const versions = versionsOf(q.rootId);
+  $('quoteViewBody').innerHTML = `
+    <div class="detail-row"><span>Estado</span><strong>${escapeHtml(QUOTE_STATUSES.find((s) => s.id === q.status)?.label || q.status)}</strong></div>
+    <div class="table-wrap"><table class="data-table">
+      <thead><tr><th>Item</th><th>Cant.</th><th>Unidad</th><th>Precio unit.</th><th>Subtotal</th></tr></thead>
+      <tbody>${q.items
+        .map(
+          (it) =>
+            `<tr><td>${escapeHtml(it.name)}</td><td>${it.quantity}</td><td>${escapeHtml(it.unit)}</td><td>${fmtMoney(it.unitPrice)}</td><td>${fmtMoney(it.subtotal ?? it.quantity * it.unitPrice)}</td></tr>`
+        )
+        .join('')}</tbody>
+    </table></div>
+    <div class="quote-totals">
+      <div><span>Subtotal neto</span><strong>${fmtMoney(q.subtotalNeto)}</strong></div>
+      <div><span>IVA (19%)</span><strong>${fmtMoney(q.iva)}</strong></div>
+      <div class="quote-total-final"><span>Total</span><strong>${fmtMoney(q.total)}</strong></div>
+    </div>
+    ${q.notes ? `<p class="detail-notes">${escapeHtml(q.notes)}</p>` : ''}
+    ${
+      versions.length > 1
+        ? `<h4 class="settings-subtitle">Versiones</h4><div class="list">${versions
+            .map(
+              (v) =>
+                `<div class="list-item"><div>Versión ${v.version} ${v.isCurrent ? '<span class="badge success">Vigente</span>' : ''}</div><div class="list-side"><span class="muted">${fmtDateTime(v.updatedAt)}</span> <button class="small-btn" data-action="view-quote" data-id="${v.id}">Ver</button></div></div>`
+            )
+            .join('')}</div>`
+        : ''
+    }`;
+  $('quoteViewEditBtn').dataset.id = q.id;
+  $('quoteViewSendBtn').dataset.id = q.id;
+  $('quoteViewDialog').showModal();
+}
+
+function openQuoteSend(id) {
+  const q = getQuote(id);
+  if (!q) return;
+  const lead = getLead(q.leadId);
+  if (!lead?.email) return toast('Esa empresa no tiene un correo de contacto. Agrégalo en su ficha.', 'error');
+  const { subject, body } = buildQuoteEmail(q, lead);
+  $('quoteSendId').value = id;
+  $('quoteSendSubtitle').textContent = `Para ${lead.contact || lead.company} · ${lead.email}`;
+  $('quoteSendSubject').value = subject;
+  $('quoteSendBody').value = body;
+  $('quoteSendDialog').showModal();
+}
+
+function submitQuoteSend(e) {
+  e.preventDefault();
+  const id = $('quoteSendId').value;
+  const q = getQuote(id);
+  const lead = getLead(q?.leadId);
+  if (!q || !lead) return;
+  addActivity({
+    leadId: lead.id,
+    type: 'Correo',
+    date: localDateTimeInput(),
+    owner: lead.owner || session.profile?.name || '',
+    detail: `Cotización v${q.version} enviada por correo a ${lead.contact || lead.email}.`
+  });
+  openExternal(`mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent($('quoteSendSubject').value)}&body=${encodeURIComponent($('quoteSendBody').value)}`);
+  markQuoteSent(id);
+  $('quoteSendDialog').close();
+  if ($('quoteViewDialog').open) $('quoteViewDialog').close();
+  toast('Correo abierto.');
+}
+
+/* ---------- Servicios (catálogo) ---------- */
+
+function openService(id = '') {
+  const s = id ? getService(id) : null;
+  $('serviceDialogTitle').textContent = s ? 'Editar servicio' : 'Nuevo servicio';
+  $('serviceId').value = id;
+  $('serviceName').value = s?.name || '';
+  $('serviceUnit').value = s?.unit || 'unidad';
+  $('serviceNetPrice').value = s?.netPrice ?? 0;
+  $('serviceCategory').value = s?.category || '';
+  $('serviceActive').checked = s ? s.active : true;
+  $('serviceDescription').value = s?.description || '';
+  $('serviceDialog').showModal();
+}
+
+function submitService(e) {
+  e.preventDefault();
+  const name = $('serviceName').value.trim();
+  if (!name) return toast('El nombre es obligatorio.', 'error');
+  upsertService({
+    id: $('serviceId').value || undefined,
+    name,
+    unit: $('serviceUnit').value.trim() || 'unidad',
+    netPrice: Number($('serviceNetPrice').value || 0),
+    category: $('serviceCategory').value.trim(),
+    active: $('serviceActive').checked,
+    description: $('serviceDescription').value.trim()
+  });
+  $('serviceDialog').close();
+  toast('Servicio guardado.');
+}
+
+/* ---------- Acceso ---------- */
+
+let authMode = 'signin';
+
+function renderAuthMode() {
+  const signup = authMode === 'signup';
+  $('authTitle').textContent = signup ? 'Crear cuenta' : 'Iniciar sesión';
+  $('authSubtitle').textContent = signup ? 'Regístrate con tu correo de TaskFlow.' : 'Entra con tu correo y contraseña.';
+  $('authNameField').hidden = !signup;
+  $('authSubmitBtn').textContent = signup ? 'Crear cuenta' : 'Entrar';
+  $('authToggleMode').textContent = signup ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Crear una';
+  $('authError').hidden = true;
+}
+
+async function submitAuth(e) {
+  e.preventDefault();
+  const email = $('authEmail').value.trim();
+  const password = $('authPassword').value;
+  $('authError').hidden = true;
+  $('authSubmitBtn').disabled = true;
+  try {
+    if (authMode === 'signup') {
+      await signUp(email, password, $('authName').value.trim());
+      toast('Cuenta creada. Ya puedes usar el CRM.');
+    } else {
+      await signIn(email, password);
+    }
+  } catch (err) {
+    $('authError').textContent = err.message || 'No se pudo completar la operación.';
+    $('authError').hidden = false;
+  } finally {
+    $('authSubmitBtn').disabled = false;
+  }
+}
+
+async function forgotPassword() {
+  const email = $('authEmail').value.trim();
+  if (!email) return toast('Escribe tu correo primero.', 'error');
+  try {
+    await resetPassword(email);
+    toast('Te enviamos un correo para restablecer tu contraseña.');
+  } catch (err) {
+    toast(err.message || 'No se pudo enviar el correo.', 'error');
+  }
 }
 
 /* ---------- Acciones delegadas ---------- */
@@ -782,7 +1011,6 @@ const ACTIONS = {
     render();
   },
   'complete-task': (id) => openComplete(id),
-  // Misma gestión que el diálogo, pero resuelta dentro de la propia ficha.
   'complete-task-inline': (id) => {
     const result = $('fichaResult').value.trim();
     if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
@@ -844,7 +1072,7 @@ const ACTIONS = {
   'delete-lead': (id) => {
     const lead = getLead(id);
     if (!lead) return;
-    if (confirm(`¿Eliminar “${lead.company}” con su levantamiento, actividades y archivos?`)) {
+    if (confirm(`¿Eliminar "${lead.company}" con su levantamiento, actividades y cotizaciones?`)) {
       deleteLead(id);
       if ($('detailDialog').open) $('detailDialog').close();
       toast('Oportunidad eliminada.');
@@ -881,30 +1109,19 @@ const ACTIONS = {
     toast(`${lead.company} volvió al embudo comercial.`);
   },
   'save-profile': () => {
-    saveProfile({
-      name: $('profileName').value.trim(),
-      email: $('profileEmail').value.trim(),
-      phone: $('profilePhone').value.trim(),
-      password: $('profilePassword').value
-    });
+    saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() });
     toast('Datos guardados.');
   },
-  'new-user': () => {
-    addUser();
-    toast('Usuario creado. Completa sus datos y su permiso.');
+  'change-password': async () => {
+    const pass = $('newPassword').value;
+    if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
+    const { supabase } = await import('./supabase.js');
+    const { error } = await supabase.auth.updateUser({ password: pass });
+    if (error) return toast(error.message, 'error');
+    $('newPassword').value = '';
+    toast('Contraseña actualizada.');
   },
-  'delete-user': (id) => {
-    if (!confirm('¿Eliminar este usuario?')) return;
-    deleteUser(id);
-    toast('Usuario eliminado.');
-  },
-  'toggle-password': (id, btn) => {
-    const input = $(btn.dataset.target);
-    if (!input) return;
-    const shown = input.type === 'text';
-    input.type = shown ? 'password' : 'text';
-    btn.textContent = shown ? 'Ver' : 'Ocultar';
-  },
+  'sign-out': () => signOut(),
   'load-demo': () => seedExample(),
   'clear-demo': () => resetAll(),
   'copy-template': async (id) => {
@@ -916,6 +1133,46 @@ const ACTIONS = {
     const ok = await copyText(text);
     toast(ok ? 'Mensaje copiado con los datos resueltos.' : 'No se pudo copiar.', ok ? 'info' : 'error');
   },
+  'quotes-view-list': () => {
+    ui.quotesView = 'list';
+    render();
+  },
+  'quotes-view-catalog': () => {
+    ui.quotesView = 'catalog';
+    render();
+  },
+  'new-quote': (id) => openQuoteBuilder(id || ''),
+  'edit-quote': (id, btn) => {
+    const quoteId = id || btn?.dataset.id;
+    const q = getQuote(quoteId);
+    if (!q) return;
+    if ($('quoteViewDialog').open) $('quoteViewDialog').close();
+    openQuoteBuilder(q.leadId, quoteId);
+  },
+  'view-quote': (id) => openQuoteView(id),
+  'send-quote': (id, btn) => openQuoteSend(id || btn?.dataset.id),
+  'delete-quote': (id) => {
+    if (!confirm('¿Eliminar esta versión de la cotización?')) return;
+    deleteQuote(id);
+    toast('Cotización eliminada.');
+  },
+  'add-quote-row': () => {
+    ui.quoteBuilder.items.push(emptyQuoteRow());
+    renderQuoteItemsRoot();
+  },
+  'remove-quote-row': (id, btn) => {
+    const i = Number(btn.dataset.row);
+    ui.quoteBuilder.items.splice(i, 1);
+    if (!ui.quoteBuilder.items.length) ui.quoteBuilder.items.push(emptyQuoteRow());
+    renderQuoteItemsRoot();
+  },
+  'new-service': () => openService(),
+  'edit-service': (id) => openService(id),
+  'delete-service': (id) => {
+    if (!confirm('¿Eliminar este servicio del catálogo?')) return;
+    deleteService(id);
+    toast('Servicio eliminado.');
+  }
 };
 
 function handleClick(ev) {
@@ -924,7 +1181,6 @@ function handleClick(ev) {
   ACTIONS[btn.dataset.action]?.(btn.dataset.id, btn);
 }
 
-/** Los contenedores clickeables (tarjetas del embudo) también responden a teclado. */
 function handleKeydown(ev) {
   if (ev.key !== 'Enter' && ev.key !== ' ') return;
   const el = ev.target.closest?.('[data-action][role="button"]');
@@ -940,7 +1196,6 @@ function handleViewInput(ev) {
   const tplId = el.dataset.templateName || el.dataset.templateChannel || el.dataset.templateSubject || el.dataset.templateBody;
   if (tplId) return onTemplateEdit(tplId, el);
 
-  // Los usuarios se guardan al salir del campo, no en cada tecla.
   if (el.dataset.userField) {
     if (ev.type !== 'change') return;
     updateUser(el.dataset.id, { [el.dataset.userField]: el.type === 'checkbox' ? el.checked : el.value });
@@ -959,11 +1214,33 @@ function handleViewInput(ev) {
     pipelineStage: () => (ui.pipelineFilters.stage = value),
     pipelineOwner: () => (ui.pipelineFilters.owner = value),
     templateLead: () => (ui.templateLead = value),
-    templateChannel: () => (ui.templateChannel = value)
+    templateChannel: () => (ui.templateChannel = value),
+    quoteStatus: () => (ui.quoteFilters.status = value)
   };
   if (!map[id]) return;
   map[id]();
   render();
+}
+
+/** Cambios dentro del constructor de cotización: no vive en #viewRoot, así que se escucha aparte. */
+function handleQuoteFieldChange(ev) {
+  const el = ev.target;
+  if (!el.dataset.quoteField) return;
+  const row = Number(el.dataset.row);
+  const item = ui.quoteBuilder.items[row];
+  if (!item) return;
+  const field = el.dataset.quoteField;
+  if (field === 'serviceId') {
+    const svc = getService(el.value);
+    if (svc) Object.assign(item, { serviceId: svc.id, name: svc.name, unit: svc.unit, unitPrice: svc.netPrice });
+    else item.serviceId = '';
+    renderQuoteItemsRoot();
+    return;
+  }
+  item[field] = field === 'quantity' || field === 'unitPrice' ? Number(el.value || 0) : el.value;
+  // Solo repinta el total de la fila y no todo el bloque, para no perder el foco mientras se escribe.
+  const totalCell = document.querySelector(`#quoteItemsRoot tr[data-row="${row}"] .quote-row-total`);
+  if (totalCell) totalCell.textContent = fmtMoney(Number(item.quantity || 0) * Number(item.unitPrice || 0));
 }
 
 /* ---------- Datos y respaldo ---------- */
@@ -980,7 +1257,7 @@ function exportJson() {
 function downloadCsv(filename, cols, rows) {
   const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = [cols.join(','), ...rows.map((row) => cols.map((c) => escape(row[c])).join(','))].join('\n');
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -1008,9 +1285,8 @@ function importJson(ev) {
     try {
       const imported = JSON.parse(reader.result);
       if (!Array.isArray(imported.leads)) throw new Error('El archivo no tiene una lista de leads.');
-      if (state.leads.length && !confirm('Esto reemplaza los datos actuales de este navegador. ¿Continuar?')) return;
+      if (!confirm(`Se crearán ${imported.leads.length} lead(s) a partir del archivo. ¿Continuar?`)) return;
       replaceState(imported);
-      toast('Datos importados.');
     } catch (err) {
       toast(`No se pudo importar: ${err.message}`, 'error');
     } finally {
@@ -1021,47 +1297,35 @@ function importJson(ev) {
 }
 
 function resetAll() {
-  if (!confirm('Se borrarán todos los datos guardados en este navegador. ¿Continuar?')) return;
-  replaceState(emptyData());
+  if (!confirm('Se borrarán todas las oportunidades que puedes ver (según tu permiso). Esta acción no se puede deshacer. ¿Continuar?')) return;
+  deleteAllVisibleLeads();
   toast('Datos borrados.');
 }
 
 function seedExample() {
   if (state.leads.length && !confirm('Ya existen datos. ¿Agregar ejemplos igualmente?')) return;
+  const ownerName = session.profile?.name || '';
   const base = [
-    // Leads por calificar
     { company: 'Refrigeración Austral', industry: 'HVAC / Climatización', contact: 'Marcela Fuentes', role: 'Administradora', email: 'marcela@ejemplo.cl', phone: '+56 9 5555 1010', stage: 'Lead', priority: 'Media', value: 420000, probability: 5, nextAction: 'Primer contacto telefónico', source: 'Web' },
     { company: 'Montajes del Maipo', industry: 'Construcción / Instalaciones', contact: 'Javier Núñez', role: 'Jefe de Obra', email: 'javier@ejemplo.cl', phone: '+56 9 5555 1011', stage: 'Lead', priority: 'Baja', value: 350000, probability: 5, nextAction: 'Validar tamaño de cuadrilla', source: 'Google Ads' },
-    // Embudo comercial
     { company: 'PowerGen Chile', industry: 'Grupos electrógenos', contact: 'Carolina Díaz', role: 'Jefa de Servicio Técnico', email: 'carolina@ejemplo.cl', phone: '+56 9 5555 1003', stage: 'Contactado', priority: 'Media', value: 690000, probability: 15, nextAction: 'Coordinar reunión de descubrimiento', source: 'LinkedIn' },
     { company: 'ClimaSur Servicios', industry: 'HVAC / Climatización', contact: 'Paula Rojas', role: 'Jefa de Mantenimiento', email: 'paula@ejemplo.cl', phone: '+56 9 5555 1001', stage: 'Reunión / Demo', priority: 'Alta', value: 890000, probability: 35, nextAction: 'Demo enfocada en preventivos e inventario', source: 'Prospección en frío' },
     { company: 'VerticalTech', industry: 'Ascensores / Transporte vertical', contact: 'Andrés Silva', role: 'Gerente de Operaciones', email: 'andres@ejemplo.cl', phone: '+56 9 5555 1002', stage: 'Propuesta', priority: 'Alta', value: 1250000, probability: 55, nextAction: 'Seguimiento propuesta y alcance de certificación', source: 'Referido' },
     { company: 'Hidráulica Centro', industry: 'Arriendo de maquinaria', contact: 'Ignacio Bravo', role: 'Gerente Comercial', email: 'ignacio@ejemplo.cl', phone: '+56 9 5555 1012', stage: 'Negociación', priority: 'Alta', value: 1680000, probability: 75, nextAction: 'Cerrar condiciones de licencia anual', source: 'Referido' },
-    // Remarketing
     { company: 'Ascensores del Sur', industry: 'Ascensores / Transporte vertical', contact: 'Daniela Vera', role: 'Gerente de Operaciones', email: 'daniela@ejemplo.cl', phone: '+56 9 5555 1013', stage: 'Remarketing', priority: 'Media', value: 780000, probability: 10, remarketingReason: 'Revisar el próximo año', nextAction: 'Retomar en enero', source: 'Evento / Feria' },
     { company: 'Servicios Bío Bío', industry: 'Facility Management', contact: 'Cristián Soto', role: 'Jefe de Contratos', email: 'cristian@ejemplo.cl', phone: '+56 9 5555 1014', stage: 'Remarketing', priority: 'Baja', value: 460000, probability: 10, remarketingReason: 'Sin presupuesto por ahora', nextAction: 'Reconsultar tras cierre de presupuesto', source: 'Base de datos' },
-    // Implementación (ganados)
     { company: 'TecnoFrío Ltda.', industry: 'HVAC / Climatización', contact: 'Loreto Cáceres', role: 'Gerente de Servicio', email: 'loreto@ejemplo.cl', phone: '+56 9 5555 1015', stage: 'Ganado', priority: 'Alta', value: 1420000, probability: 100, nextAction: 'Coordinar kick-off e implementación', source: 'Referido' },
     { company: 'Electro Andina', industry: 'Grupos electrógenos', contact: 'Felipe Ortiz', role: 'Subgerente Técnico', email: 'felipe@ejemplo.cl', phone: '+56 9 5555 1016', stage: 'Ganado', priority: 'Media', value: 980000, probability: 100, nextAction: 'Capacitar a técnicos en terreno', source: 'Cliente existente' },
-    // Perdido
     { company: 'Andes Facility', industry: 'Facility Management', contact: 'Rodrigo Pérez', role: 'Subgerente', email: 'rodrigo@ejemplo.cl', phone: '+56 9 5555 1004', stage: 'Perdido', priority: 'Baja', value: 540000, probability: 0, lossReason: 'Eligió a un competidor', nextAction: '', source: 'Web' }
-  ].map((x) => ({
-    id: uid('lead'),
-    rut: '',
-    notes: '',
-    owner: DEFAULT_PROFILE.name,
-    nextDate: todayISO(),
-    expectedCloseDate: '',
-    createdAt: nowISO(),
-    updatedAt: nowISO(),
-    stageHistory: [{ stage: 'Lead', at: nowISO() }, { stage: x.stage, at: nowISO() }],
-    ...x
-  }));
+  ];
 
-  state.leads.push(...base);
-  const byName = (name) => base.find((l) => l.company === name);
+  const created = {};
+  base.forEach((x) => {
+    const lead = upsertLead({ rut: '', notes: '', owner: ownerName, nextDate: todayISO(), expectedCloseDate: '', ...x });
+    created[x.company] = lead;
+  });
 
-  state.discoveries[byName('ClimaSur Servicios').id] = {
+  saveDiscovery(created['ClimaSur Servicios'].id, {
     pain: 'Preventivos vencidos, historial incompleto y poca visibilidad de repuestos.',
     currentManagement: 'Excel / formularios',
     technicians: '18',
@@ -1070,10 +1334,9 @@ function seedExample() {
     modules: ['Órdenes de trabajo', 'Técnicos en terreno', 'Inventario / Bodegas', 'Trazabilidad / Reportes'],
     integrations: 'Power BI',
     successCriteria: 'Controlar cumplimiento preventivo y trazabilidad por equipo.',
-    technicalNotes: '',
-    updatedAt: nowISO()
-  };
-  state.discoveries[byName('TecnoFrío Ltda.').id] = {
+    technicalNotes: ''
+  });
+  saveDiscovery(created['TecnoFrío Ltda.'].id, {
     pain: 'Sin trazabilidad de las visitas ni respaldo fotográfico ante reclamos.',
     currentManagement: 'WhatsApp / papel',
     technicians: '26',
@@ -1082,12 +1345,10 @@ function seedExample() {
     modules: ['Órdenes de trabajo', 'Checklists / Formularios', 'Fotografías / Firmas', 'Geolocalización'],
     integrations: 'ERP propio',
     successCriteria: 'Evidencia firmada por visita y reportes mensuales automáticos.',
-    technicalNotes: '',
-    updatedAt: nowISO()
-  };
+    technicalNotes: ''
+  });
 
-  // Tareas repartidas entre vencidas, por vencer y agendadas, con tipos variados.
-  const set = (name, type, action, date) => Object.assign(byName(name), { nextType: type, nextAction: action, nextDate: date });
+  const set = (name, type, action, date) => updateLead(created[name].id, { nextType: type, nextAction: action, nextDate: date });
   set('ClimaSur Servicios', 'Correo', 'Enviar agenda de demo con casos de preventivos', addDaysISO(todayISO(), -3));
   set('VerticalTech', 'Llamada', 'Revisar observaciones de la propuesta', addDaysISO(todayISO(), -1));
   set('Hidráulica Centro', 'Llamada', 'Confirmar condiciones comerciales', todayISO());
@@ -1095,27 +1356,22 @@ function seedExample() {
   set('Refrigeración Austral', 'Llamada', 'Primer contacto', addDaysISO(todayISO(), 4));
   set('Montajes del Maipo', 'Correo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9));
 
-  state.activities.push(
-    {
-      id: uid('act'),
-      leadId: byName('ClimaSur Servicios').id,
-      type: 'Reunión',
-      date: localDateTimeInput(new Date(Date.now() - 4 * 86400000)),
-      owner: DEFAULT_PROFILE.name,
-      detail: 'Levantamiento inicial con jefatura de mantenimiento.',
-      task: ''
-    },
-    {
-      id: uid('act'),
-      leadId: byName('TecnoFrío Ltda.').id,
-      type: 'Demo',
-      date: localDateTimeInput(new Date(Date.now() - 2 * 86400000)),
-      owner: DEFAULT_PROFILE.name,
-      detail: 'Mostraron interés en checklists y firma digital. Aprueban avanzar.',
-      task: 'Presentar demo de checklists al equipo técnico'
-    }
-  );
-  persist();
+  addActivity({
+    leadId: created['ClimaSur Servicios'].id,
+    type: 'Reunión',
+    date: localDateTimeInput(new Date(Date.now() - 4 * 86400000)),
+    owner: ownerName,
+    detail: 'Levantamiento inicial con jefatura de mantenimiento.'
+  });
+  addActivity({
+    leadId: created['TecnoFrío Ltda.'].id,
+    type: 'Demo',
+    date: localDateTimeInput(new Date(Date.now() - 2 * 86400000)),
+    owner: ownerName,
+    detail: 'Mostraron interés en checklists y firma digital. Aprueban avanzar.',
+    task: 'Presentar demo de checklists al equipo técnico'
+  });
+
   toast('Datos demo cargados en leads, embudo, remarketing e implementación.');
 }
 
@@ -1130,33 +1386,8 @@ function paintSync(status) {
 function openDataDialog() {
   const { leads, activities, meta } = state;
   $('dataSummary').textContent = `${leads.length} leads · ${activities.length} actividades`;
-  $('syncHint').textContent = api.isConfigured()
-    ? `Endpoint configurado. Última sincronización: ${meta.lastSyncAt ? fmtDateTime(meta.lastSyncAt) : 'nunca'}.`
-    : 'Sin endpoint. Completa apiUrl en config.js con la URL de tu Aplicación web de Apps Script.';
-  $('pullBtn').disabled = !api.isConfigured();
-  $('pushBtn').disabled = !api.isConfigured();
-  $('autoSyncToggle').disabled = !api.isConfigured();
-  $('autoSyncToggle').checked = api.autoSyncEnabled();
+  $('syncHint').textContent = `Datos en Supabase. Última actualización: ${meta.lastSyncAt ? fmtDateTime(meta.lastSyncAt) : 'nunca'}.`;
   $('dataDialog').showModal();
-}
-
-async function doPull() {
-  if (!confirm('Se reemplazarán los datos locales con los de la planilla. ¿Continuar?')) return;
-  try {
-    await api.pull();
-    toast('Datos descargados de Sheets.');
-  } catch (err) {
-    toast(`Error al descargar: ${err.message}`, 'error');
-  }
-}
-
-async function doPush() {
-  try {
-    await api.push();
-    toast('Datos subidos a Sheets.');
-  } catch (err) {
-    toast(`Error al subir: ${err.message}`, 'error');
-  }
 }
 
 /* ---------- Arranque ---------- */
@@ -1207,12 +1438,20 @@ function bindEvents() {
   $('exportCsvBtn').addEventListener('click', exportCsv);
   $('importInput').addEventListener('change', importJson);
   $('resetBtn').addEventListener('click', resetAll);
-  $('pullBtn').addEventListener('click', doPull);
-  $('pushBtn').addEventListener('click', doPush);
-  $('autoSyncToggle').addEventListener('change', (ev) => {
-    api.setAutoSync(ev.target.checked);
-    toast(ev.target.checked ? 'Sincronización automática activada.' : 'Sincronización automática desactivada.');
+
+  $('serviceForm').addEventListener('submit', submitService);
+  $('quoteForm').addEventListener('submit', submitQuoteBuilder);
+  $('quoteItemsRoot').parentElement; // noop, root exists once quoteForm renders
+  $('quoteForm').addEventListener('input', handleQuoteFieldChange);
+  $('quoteForm').addEventListener('change', handleQuoteFieldChange);
+  $('quoteSendForm').addEventListener('submit', submitQuoteSend);
+
+  $('authForm').addEventListener('submit', submitAuth);
+  $('authToggleMode').addEventListener('click', () => {
+    authMode = authMode === 'signup' ? 'signin' : 'signup';
+    renderAuthMode();
   });
+  $('authForgot').addEventListener('click', forgotPassword);
 
   document.addEventListener('click', handleClick);
   document.addEventListener('keydown', handleKeydown);
@@ -1223,25 +1462,50 @@ function bindEvents() {
   });
 }
 
-function init() {
+async function start() {
   document.title = `${CFG.appName} · ${CFG.companyName}`;
   fillStaticSelects();
   buildTaskTypeGroups();
   bindEvents();
+  renderAuthMode();
 
   onChange(() => {
     render();
-    if ($('detailDialog').open && detailLeadId) {
-      $('detailBody').innerHTML = renderLeadDetail(detailLeadId);
-      buildTaskTypeGroups($('detailBody'));
-    }
-    api.queuePush();
+    refreshDetailIfOpen();
   });
-  api.onStatus(paintSync);
+  onQuotesChange(() => {
+    if (ui.view === 'quotes') render();
+    refreshDetailIfOpen();
+  });
 
-  render();
-  if (api.isConfigured()) api.health();
-  else paintSync(api.getStatus());
+  onAuthChange(async (s) => {
+    if (s.status === 'signed-in') {
+      $('authScreen').hidden = true;
+      $('appShell').hidden = false;
+      paintSync({ state: 'syncing', message: 'Cargando datos…' });
+      try {
+        await Promise.all([hydrate(), quotesHydrate()]);
+        startRealtime();
+        quotesStartRealtime();
+        paintSync({ state: 'ok', message: 'Conectado' });
+      } catch (err) {
+        paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
+      }
+      render();
+    } else if (s.status === 'signed-out') {
+      stopRealtime();
+      quotesStopRealtime();
+      clearLocal();
+      quotesClearLocal();
+      $('appShell').hidden = true;
+      $('authScreen').hidden = false;
+      authMode = 'signin';
+      renderAuthMode();
+    }
+  });
+
+  const { initAuth } = await import('./auth.js');
+  await initAuth();
 }
 
-init();
+start();

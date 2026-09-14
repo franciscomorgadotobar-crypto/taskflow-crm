@@ -3,7 +3,9 @@ window.TASKFLOW_CRM_CONFIG = {
   companyName: 'Cuatro Rlabs',
   productName: 'TaskFlow',
   website: 'https://taskflow.cl',
-  // URL /exec de la Aplicación web de Apps Script. Vacío = solo almacenamiento local.
-  apiUrl: '',
-  storageKey: 'taskflow-crm-data-v1'
+  // Proyecto Supabase (URL y llave publicable — ambas son públicas por diseño, la
+  // seguridad real la da Row Level Security, no mantener esto en secreto).
+  supabaseUrl: 'https://egglrpexexcodsreumnz.supabase.co',
+  supabaseAnonKey: 'sb_publishable_VIEfbg5RZq12b_H457NeOA_qr5RpEqd',
+  storageKey: 'taskflow-crm-cache-v3'
 };
