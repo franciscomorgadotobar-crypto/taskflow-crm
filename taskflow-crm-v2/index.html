@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b3257" />
+  <meta name="description" content="CRM comercial TaskFlow — pipeline, levantamiento e implementación." />
+  <title>TaskFlow CRM</title>
+  <link rel="icon" type="image/png" href="assets/isotipo-taskflow-trim.png" />
+  <link rel="apple-touch-icon" href="assets/isotipo-taskflow.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Acceso -->
+  <div id="authScreen" class="auth-screen" hidden>
+    <form id="authForm" class="auth-card" novalidate>
+      <img class="auth-logo" src="assets/logo-taskflow-trim.png" alt="TaskFlow · By 4R Labs" />
+      <h1 id="authTitle">Iniciar sesión</h1>
+      <p id="authSubtitle" class="muted">Entra con tu correo y contraseña.</p>
+      <label id="authNameField" hidden>Nombre<input id="authName" autocomplete="name" /></label>
+      <label>Correo<input id="authEmail" type="email" required autocomplete="email" /></label>
+      <label>Contraseña<input id="authPassword" type="password" required autocomplete="current-password" minlength="6" /></label>
+      <p id="authError" class="auth-error" hidden></p>
+      <button type="submit" class="primary-btn" id="authSubmitBtn">Entrar</button>
+      <div class="auth-links">
+        <button type="button" class="link-btn" id="authToggleMode">¿No tienes cuenta? Crear una</button>
+        <button type="button" class="link-btn" id="authForgot">Olvidé mi contraseña</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-logo on-dark" src="assets/logo-taskflow-trim.png" alt="TaskFlow · By 4R Labs" />
+        <span class="brand-sub">CRM comercial</span>
+      </div>
+
+      <nav id="nav" class="nav" aria-label="Secciones">
+        <button class="nav-item active" data-view="dashboard">Resumen</button>
+        <button class="nav-item" data-view="leads">Leads</button>
+        <button class="nav-item" data-view="pipeline">Embudo Comercial</button>
+        <button class="nav-item" data-view="remarketing">Remarketing</button>
+        <button class="nav-item" data-view="implementation">Implementación</button>
+        <button class="nav-item" data-view="templates">Plantillas</button>
+        <button class="nav-item" data-view="quotes">Cotizaciones</button>
+        <button class="nav-item" data-view="settings">Configuración</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button id="syncStatus" class="sync-pill" type="button" title="Estado de sincronización">
+          <span class="dot"></span><span id="syncStatusText">Solo local</span>
+        </button>
+        <div class="sidebar-row">
+          <button id="themeToggle" class="icon-btn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
+          <button id="dataBtn" class="text-btn">Datos y respaldo</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="viewTitle">Resumen</h1>
+          <p id="viewSubtitle">Gestión comercial y seguimiento de oportunidades TaskFlow.</p>
+        </div>
+        <div class="top-actions"></div>
+      </header>
+
+      <section id="viewRoot"></section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Lead -->
+  <dialog id="leadDialog" class="modal">
+    <form id="leadForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2 id="leadDialogTitle">Nuevo lead</h2>
+          <p>Empresa, contacto y contexto comercial.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="leadDialog" aria-label="Cerrar">×</button>
+      </div>
+
+      <input type="hidden" id="leadId" />
+      <div class="form-grid">
+        <label>Empresa<input id="company" required autocomplete="organization" /></label>
+        <label>RUT<input id="rut" placeholder="Opcional" /></label>
+        <label>Rubro<select id="industry"></select></label>
+        <label>Origen<select id="source"></select></label>
+        <label>Contacto<input id="contact" autocomplete="name" /></label>
+        <label>Cargo<input id="role" /></label>
+        <label>Email<input id="email" type="email" autocomplete="email" /></label>
+        <label>Teléfono<input id="phone" inputmode="tel" /></label>
+        <label>Etapa<select id="stage"></select></label>
+        <label>Prioridad<select id="priority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
+        <label>Valor estimado CLP<input id="value" type="number" min="0" step="10000" inputmode="numeric" /></label>
+        <label>Probabilidad %<input id="probability" type="number" min="0" max="100" inputmode="numeric" /></label>
+        <label>Cierre estimado<input id="expectedCloseDate" type="date" /></label>
+        <label>Responsable<select id="owner"></select></label>
+        <div class="span-2 task-type-row" id="leadTaskTypeRow" data-task-type-group="lead">
+          <span class="task-type-label">Primera tarea</span>
+          <input type="hidden" id="nextType" />
+        </div>
+        <label class="span-2">Nota de la tarea<input id="nextAction" placeholder="Detalle (opcional)" /></label>
+        <label>Fecha de la tarea<input id="nextDate" type="date" /></label>
+        <label id="lossReasonField" hidden>Motivo de pérdida<select id="lossReason"></select></label>
+        <label class="span-2">Notas<textarea id="notes" rows="4"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="leadDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Levantamiento -->
+  <dialog id="discoveryDialog" class="modal">
+    <form id="discoveryForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Levantamiento comercial</h2>
+          <p id="discoverySubtitle">Información para construir una propuesta alineada a la operación.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="discoveryDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="discoveryLeadId" />
+      <div class="form-grid">
+        <label class="span-2">Dolor principal<textarea id="pain" rows="3"></textarea></label>
+        <label>Gestión actual<select id="currentManagement"></select></label>
+        <label>Nº técnicos / usuarios<input id="technicians" type="number" min="0" inputmode="numeric" /></label>
+        <label>Nº sucursales / zonas<input id="locations" type="number" min="0" inputmode="numeric" /></label>
+        <label>Gatillo de compra<select id="buyTrigger"></select></label>
+        <fieldset class="span-2 module-fieldset">
+          <legend>Módulos / capacidades de interés</legend>
+          <div id="moduleChecks" class="check-grid"></div>
+        </fieldset>
+        <label class="span-2">Integraciones requeridas<input id="integrations" placeholder="Ej. ERP, BI, API, SSO" /></label>
+        <label class="span-2">Criterio de éxito<textarea id="successCriteria" rows="3"></textarea></label>
+        <label class="span-2">Observaciones técnicas<textarea id="technicalNotes" rows="3"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="discoveryDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar levantamiento</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Actividad -->
+  <dialog id="activityDialog" class="modal">
+    <form id="activityForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div><h2 id="activityDialogTitle">Nueva actividad</h2><p>Deja constancia de una interacción con el prospecto.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="activityDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="activityId" />
+      <div class="form-grid">
+        <label>Empresa<select id="activityLeadId" required></select></label>
+        <label>Contacto<select id="activityContactId"></select></label>
+        <label>Tipo<select id="activityType"></select></label>
+        <label>Fecha de la actividad<input id="activityDate" type="datetime-local" required /></label>
+        <label>Responsable<input id="activityOwner" /></label>
+        <label class="span-2">Detalle<textarea id="activityDetail" rows="4" required></textarea></label>
+        <p class="span-2 muted form-note">Esto solo deja registro de lo que pasó. La próxima tarea se agenda al cerrar la anterior con <strong>Marcar realizada</strong>.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="activityDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="activitySubmitBtn">Guardar actividad</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Cerrar tarea -->
+  <dialog id="completeDialog" class="modal">
+    <form id="completeForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div><h2>Cerrar tarea</h2><p id="completeSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="completeDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="completeLeadId" />
+      <div class="form-grid">
+        <label>¿Qué tipo de actividad fue?<select id="completeType"></select></label>
+        <label>Fecha en que ocurrió<input id="completeDate" type="datetime-local" /></label>
+        <label class="span-2">¿Cómo resultó?<textarea id="completeResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
+        <div class="span-2 task-type-row" data-task-type-group="complete">
+          <span class="task-type-label">Siguiente tarea</span>
+          <input type="hidden" id="completeNextType" />
+        </div>
+        <label class="span-2">Nota<textarea id="completeNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
+        <label>Fecha de la siguiente<input id="completeNextDate" type="date" /></label>
+        <p class="span-2 muted form-note">Si no eliges tipo ni escribes nota, el prospecto queda <strong>sin próximo paso</strong> y aparecerá como pendiente de agendar.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Cerrar tarea</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Agendar / reagendar tarea -->
+  <dialog id="taskDialog" class="modal">
+    <form id="taskForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2 id="taskDialogTitle">Agendar tarea</h2><p id="taskSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="taskDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="taskLeadId" />
+      <div class="form-grid">
+        <div class="span-2 task-type-row" data-task-type-group="task">
+          <span class="task-type-label">Tipo de tarea</span>
+          <input type="hidden" id="taskType" />
+        </div>
+        <label class="span-2">Nota<textarea id="taskAction" rows="2" placeholder="Detalle de la tarea (opcional)"></textarea></label>
+        <label class="span-2">Fecha<input id="taskDate" type="date" /></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="taskDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar tarea</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Contacto -->
+  <dialog id="contactDialog" class="modal">
+    <form id="contactForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2 id="contactDialogTitle">Nuevo contacto</h2>
+          <p id="contactDialogSubtitle">Otra persona de contacto en esta empresa.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="contactDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="contactLeadId" />
+      <input type="hidden" id="contactKey" />
+      <div class="form-grid">
+        <label class="span-2">Nombre<input id="contactName" required /></label>
+        <label>Cargo<input id="contactRole" /></label>
+        <label>Teléfono<input id="contactPhone" inputmode="tel" /></label>
+        <label class="span-2">Email<input id="contactEmail" type="email" /></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="contactDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="contactSubmitBtn">Guardar contacto</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Comunicación -->
+  <dialog id="commDialog" class="modal">
+    <form id="commForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2 id="commDialogTitle">Escribir mensaje</h2>
+          <p id="commDialogSubtitle"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="commDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="commLeadId" />
+      <input type="hidden" id="commContactKey" />
+      <input type="hidden" id="commChannel" />
+      <div class="form-grid">
+        <label class="span-2">Plantilla<select id="commTemplate"></select></label>
+        <label class="span-2" id="commSubjectField">Asunto<input id="commSubject" /></label>
+        <label class="span-2">Mensaje<textarea id="commBody" rows="10"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" id="commCopyBtn">Copiar</button>
+        <button type="button" class="ghost-btn" data-close-dialog="commDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="commSendBtn">Abrir</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Mover de etapa -->
+  <dialog id="stageDialog" class="modal">
+    <form id="stageForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2>Mover oportunidad</h2><p id="stageDialogLead"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="stageDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="stageLeadId" />
+      <div class="form-grid">
+        <div class="span-2 stage-options" id="stageOptions"></div>
+        <label class="span-2" id="stageLossField" hidden>Motivo de pérdida<select id="stageLossReason"></select></label>
+        <label class="span-2" id="stageRemarketingField" hidden>Motivo de remarketing<select id="stageRemarketingReason"></select></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="stageDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Mover</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Ficha -->
+  <dialog id="detailDialog" class="modal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <div><h2 id="detailTitle">Ficha</h2><p id="detailSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="detailDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="detailBody" class="detail-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="detailDialog">Cerrar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Gestionar pendientes -->
+  <dialog id="manageDialog" class="modal">
+    <form id="manageForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Gestionar pendientes</h2>
+          <p id="manageCounter"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="manageDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="detail-body manage-lead">
+        <h3 id="manageCompany"></h3>
+        <span class="badge" id="manageStage"></span>
+        <p class="muted" id="manageContact"></p>
+        <div class="manage-current">
+          <span class="muted">Tarea a gestionar:</span>
+          <strong id="manageCurrentAction"></strong>
+          <span class="badge" id="manageCurrentDate"></span>
+        </div>
+        <div class="button-row">
+          <button type="button" class="small-btn" id="manageCallBtn" data-action="call-contact">Llamar</button>
+          <button type="button" class="small-btn" id="manageWhatsappBtn" data-action="open-whatsapp">WhatsApp</button>
+          <button type="button" class="small-btn" id="manageEmailBtn" data-action="open-email">Correo</button>
+          <button type="button" class="small-btn" id="manageOpenFichaBtn" data-action="open-detail">Ver ficha completa</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label>¿Qué tipo de actividad fue?<select id="manageType"></select></label>
+        <label>Fecha en que ocurrió<input id="manageDate" type="datetime-local" /></label>
+        <label class="span-2">¿Cómo resultó?<textarea id="manageResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
+        <div class="span-2 task-type-row" data-task-type-group="manage">
+          <span class="task-type-label">Siguiente tarea</span>
+          <input type="hidden" id="manageNextType" />
+        </div>
+        <label class="span-2">Nota<textarea id="manageNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
+        <label>Fecha de la siguiente<input id="manageNextDate" type="date" /></label>
+        <p class="span-2 muted form-note">¿No lograste hacerla? Usa <strong>Reagendar</strong> y queda pendiente con otra fecha, sin cerrarla.</p>
+      </div>
+      <div class="modal-actions manage-actions">
+        <button type="button" class="icon-btn" id="managePrevBtn" aria-label="Anterior">←</button>
+        <button type="button" class="ghost-btn" id="manageRescheduleBtn">Reagendar</button>
+        <button type="submit" class="primary-btn">Marcar realizada</button>
+        <button type="button" class="icon-btn" id="manageNextBtn" aria-label="Siguiente">→</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="serviceUnits"></datalist>
+
+  <!-- Servicio del catálogo -->
+  <dialog id="serviceDialog" class="modal">
+    <form id="serviceForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2 id="serviceDialogTitle">Nuevo servicio</h2><p>Nombre, unidad y valor neto.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="serviceDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="serviceId" />
+      <div class="form-grid">
+        <label class="span-2">Nombre<input id="serviceName" required /></label>
+        <label>Unidad<input id="serviceUnit" list="serviceUnits" value="unidad" /></label>
+        <label>Precio neto CLP<input id="serviceNetPrice" type="number" min="0" step="100" inputmode="numeric" /></label>
+        <label>Categoría<input id="serviceCategory" placeholder="Opcional" /></label>
+        <label class="inline-check span-2"><input type="checkbox" id="serviceActive" checked /> Activo (disponible en el cotizador)</label>
+        <label class="span-2">Descripción<textarea id="serviceDescription" rows="3" placeholder="Opcional"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="serviceDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar servicio</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Constructor de cotización -->
+  <dialog id="quoteDialog" class="modal">
+    <form id="quoteForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div><h2 id="quoteDialogTitle">Nueva cotización</h2><p id="quoteDialogSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quoteDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="quoteBaseId" />
+      <div class="form-grid">
+        <label class="span-2">Empresa<select id="quoteLeadId" required></select></label>
+        <label>Válida hasta<input id="quoteValidUntil" type="date" /></label>
+        <label>Estado<select id="quoteStatusField"></select></label>
+      </div>
+      <div id="quoteItemsRoot"></div>
+      <div class="form-grid" style="margin-top:10px">
+        <label class="span-2">Notas (van en el correo)<textarea id="quoteNotes" rows="3" placeholder="Condiciones, plazos, forma de pago..."></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quoteDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar cotización</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Ver cotización -->
+  <dialog id="quoteViewDialog" class="modal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <div><h2 id="quoteViewTitle">Cotización</h2><p id="quoteViewSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quoteViewDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="quoteViewBody" class="detail-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quoteViewDialog">Cerrar</button>
+        <button type="button" class="ghost-btn" id="quoteViewEditBtn" data-action="edit-quote">Editar (nueva versión)</button>
+        <button type="button" class="primary-btn" id="quoteViewSendBtn" data-action="send-quote">Enviar al cliente</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Enviar cotización -->
+  <dialog id="quoteSendDialog" class="modal">
+    <form id="quoteSendForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div><h2>Enviar cotización</h2><p id="quoteSendSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quoteSendDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="quoteSendId" />
+      <div class="form-grid">
+        <label class="span-2">Asunto<input id="quoteSendSubject" /></label>
+        <label class="span-2">Mensaje<textarea id="quoteSendBody" rows="12"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quoteSendDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Abrir correo</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Datos y respaldo -->
+  <dialog id="dataDialog" class="modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div><h2>Datos y respaldo</h2><p id="dataSummary"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="dataDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="data-panel">
+        <section>
+          <h4>Respaldo local</h4>
+          <div class="button-row">
+            <button id="exportBtn" class="ghost-btn">Exportar JSON</button>
+            <label class="ghost-btn file-label">Importar JSON<input id="importInput" type="file" accept="application/json" hidden></label>
+            <button id="exportCsvBtn" class="ghost-btn">Exportar leads CSV</button>
+          </div>
+        </section>
+        <section id="syncSection">
+          <h4>Base de datos</h4>
+          <p id="syncHint" class="muted"></p>
+        </section>
+        <section>
+          <h4>Zona sensible</h4>
+          <button id="resetBtn" class="danger-btn">Borrar mis oportunidades</button>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

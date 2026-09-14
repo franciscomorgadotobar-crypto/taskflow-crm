@@ -1,0 +1,99 @@
+# TaskFlow CRM
+
+CRM comercial B2B para TaskFlow / Cuatro Rlabs. Frontend en JavaScript puro (sin build ni framework), backend en Supabase (Postgres + Auth + Row Level Security + Realtime).
+
+## Cómo ejecutarlo
+
+El proyecto usa módulos ES, así que **no funciona abriendo `index.html` con doble clic** (el navegador bloquea módulos bajo `file://`). Usa cualquiera de estas opciones:
+
+```bash
+python3 -m http.server 8080   # luego abre http://localhost:8080
+npx serve .
+```
+
+En producción, publica la carpeta en Netlify (o el hosting estático que prefieras) conectado a este repositorio de GitHub, para que cada push despliegue solo. `netlify.toml` ya trae la configuración base.
+
+## Estructura
+
+```
+index.html            Estructura, diálogos y la pantalla de acceso
+styles.css             Estilos (tema claro/oscuro, responsive)
+config.js               Nombre de la app y credenciales públicas de Supabase (URL + anon key)
+js/supabase.js    Cliente de Supabase (carga vía CDN, sin instalar nada)
+js/auth.js            Sesión, login/registro, recuperar contraseña, rol de quien usa el CRM
+js/catalog.js        Etapas, rubros, gatillos, módulos, plantillas, catálogo de unidades y estados de cotización
+js/utils.js            Formato de fechas/moneda, escape HTML, toasts
+js/store.js            Estado del CRM: leads, levantamientos, actividades, plantillas y equipo — hidratado desde Supabase y sincronizado en vivo
+js/quotes.js         Estado del cotizador: catálogo de servicios y cotizaciones con versionado
+js/views.js            Render de cada vista (HTML puro)
+js/app.js              Routing, diálogos, kanban, acciones y el cotizador
+apps-script/Code.gs Backend antiguo (Google Sheets) — obsoleto, se mantiene solo de referencia
+supabase/*.sql       Migraciones del esquema, aplicadas en orden al proyecto de Supabase
+```
+
+## Backend: Supabase
+
+El proyecto usa un proyecto de Supabase propio (Postgres + Auth + RLS + Realtime). `config.js` trae la URL del proyecto y la llave publicable (`anon key`) — ambas son públicas por diseño, la seguridad real la da Row Level Security en la base de datos, no mantener esos valores en secreto.
+
+Para levantar el esquema desde cero en un proyecto nuevo, aplica los archivos de `supabase/` en orden (`0001_schema.sql`, `0002_rls.sql`, `0003_harden.sql`, `0004_activity_contact.sql`) desde el SQL Editor del panel de Supabase o con la CLI.
+
+### Acceso y roles
+
+Cualquier persona puede registrarse desde la pantalla de acceso con su correo y contraseña. Al registrarse se crea automáticamente su fila en `profiles` con rol **comercial** (ve solo sus propias oportunidades y cotizaciones). Los roles disponibles son:
+
+- **comercial**: ve y gestiona solo lo que le pertenece (leads con `owner_id` propio).
+- **admin** / **super**: ven y gestionan todo, y pueden cambiar el rol de otras personas desde Configuración → Equipo.
+- **visita**: solo lectura de todo (pensado para gerencia o auditoría).
+
+**Primer arranque:** como nadie parte siendo admin, la primera persona que se registre queda como `comercial` y no puede autopromoverse desde la interfaz. Hay que promoverla una vez, a mano, desde el SQL Editor de Supabase:
+
+```sql
+update public.profiles set role = 'super' where email = 'tu-correo@taskflow.cl';
+```
+
+Desde ahí, esa persona ya puede asignar roles al resto del equipo desde Configuración → Equipo.
+
+### Cómo escribe los datos
+
+El store sigue un patrón "local primero, espejo en Supabase": cada acción (crear un lead, mover de etapa, agregar una actividad, etc.) actualiza el estado en memoria al instante — para que la interfaz no espere a la red — y dispara en segundo plano la escritura real en Supabase. Si esa escritura falla (por ejemplo, por Row Level Security) se avisa con un toast. Realtime mantiene a todo el equipo viendo los mismos datos sin recargar la página.
+
+## Proceso comercial
+
+Lead → Contactado → Reunión / Demo → Propuesta → Negociación → Ganado / Perdido.
+
+Cada cambio de etapa queda registrado con fecha en `stageHistory`, lo que alimenta el tiempo promedio por etapa y el ciclo de venta. Al mover una oportunidad a **Perdido** se pide el motivo, que se agrupa en el resumen.
+
+## Módulos
+
+- **Resumen**: pipeline, pipeline ponderado, tasa de cierre, ticket promedio, ciclo de venta, seguimientos vencidos, oportunidades estancadas y motivos de pérdida.
+- **Leads**: búsqueda por texto, etapa, responsable y orden; los filtros se combinan entre sí.
+- **Pipeline**: kanban con arrastre en escritorio y botón *Mover* en móvil.
+- **Levantamiento**: dolor, gestión actual, dotación, gatillo, módulos, integraciones y criterio de éxito. Disponible también para oportunidades cerradas.
+- **Implementación**: clientes ganados con su alcance levantado para el kick-off.
+- **Actividades**: historial filtrable; el compromiso puede convertirse en la próxima acción del lead.
+- **Plantillas**: variables `{{contacto}}`, `{{empresa}}`, `{{cargo}}`, `{{dolor}}`, `{{modulos}}` y `{{responsable}}`, con copiar al portapapeles y apertura en el cliente de correo.
+- **Cotizaciones**: catálogo de servicios con precio neto, constructor de cotizaciones (items del catálogo o personalizados, cálculo automático de neto + IVA 19% + total), envío al cliente abriendo un correo prellenado y editable, y quedan guardadas en el historial de cada empresa.
+- **Ficha**: vista única por empresa con datos, levantamiento, cotizaciones, recorrido por etapas, actividades e historial.
+
+## Cotizador
+
+- El catálogo de servicios (nombre, unidad, precio neto, categoría) lo administra un admin/super desde Cotizaciones → Catálogo de servicios; cualquiera puede usarlo para cotizar.
+- Cada cotización queda ligada a una empresa (lead) y muestra el desglose neto / IVA (19%) / total.
+- **Editar una cotización no la sobrescribe: crea una versión nueva.** La versión anterior queda en el historial (visible desde "Ver" → "Versiones") y deja de ser la vigente. Así siempre se puede ver qué se le mandó a un cliente en cada momento.
+- Enviar una cotización arma un correo con el detalle de los items y el total, lo deja editable, y lo abre en el cliente de correo del comercial (mailto) — no se envía automático desde el servidor.
+
+## Datos
+
+El estado se hidrata desde Supabase al iniciar sesión (fuente de verdad) y se guarda además en una copia local (`localStorage`) solo como caché de arranque — nunca se lee de ahí para las decisiones de permisos. Desde **Datos y respaldo**:
+
+- Exportar/importar JSON completo (la importación crea registros nuevos, no reemplaza lo existente).
+- Exportar leads a CSV (compatible con Excel, incluye BOM).
+- Borrar las oportunidades visibles para quien tiene la sesión abierta (según su rol).
+
+## Backend antiguo: Google Sheets (obsoleto)
+
+`apps-script/Code.gs` era el backend original, antes de migrar a Supabase. Ya no se usa ni se necesita desplegar — se mantiene en el repositorio solo como referencia histórica.
+
+## Marca
+
+Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM · By 4R Labs.
