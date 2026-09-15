@@ -405,6 +405,11 @@ body {
   white-space: nowrap;
 }
 
+/* La V2 subió "Nuevo lead" a la barra superior, donde está siempre disponible.
+   El botón que la vista de Leads pinta en su propia cabecera queda repetido, así
+   que se esconde acá y no en views.js: si se retira esta capa, vuelve solo. */
+.card-head > .primary-btn[data-action="new-lead"] { display: none; }
+
 /* ---------- General surfaces ---------- */
 .card,
 .kpi,

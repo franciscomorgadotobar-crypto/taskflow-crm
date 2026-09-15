@@ -324,7 +324,9 @@ function setupLeadForm() {
   grid.dataset.v2 = '1';
 
   const nodeFor = (id) => $(id)?.closest('label') || $(id);
-  const basicIds = ['company', 'contact', 'phone', 'email', 'source', 'owner'];
+  // Los campos que no estén en ninguna de las dos listas se quedan donde estaban,
+  // es decir arriba de todo: por eso "Cargo" aparecía antes que "Empresa".
+  const basicIds = ['company', 'contact', 'role', 'phone', 'email', 'source', 'owner'];
   const advancedIds = ['rut', 'industry', 'stage', 'priority', 'value', 'probability', 'expectedCloseDate'];
   const taskRow = q('#leadTaskTypeRow');
   const nextAction = nodeFor('nextAction');
@@ -342,6 +344,10 @@ function setupLeadForm() {
 
   basic.forEach((node) => grid.appendChild(node));
   [...advanced, taskRow, nextAction, nextDate, loss, notes].filter(Boolean).forEach((node) => inner.appendChild(node));
+  // La marca de oportunidad privada se decide al crear, así que cierra el bloque
+  // esencial en vez de quedar suelta antes de los datos de la empresa.
+  const privacy = nodeFor('isPrivate');
+  if (privacy) grid.appendChild(privacy);
   grid.appendChild(details);
 
   const observer = new MutationObserver(() => {
