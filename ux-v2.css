@@ -345,7 +345,8 @@ body {
   position: absolute;
   top: calc(100% + 9px);
   right: 0;
-  width: 244px;
+  /* Nunca más ancho que la pantalla, o se sale por el costado en móvil. */
+  width: min(244px, calc(100vw - 24px));
   padding: 7px;
   border: 1px solid var(--v2-line);
   border-radius: 14px;
@@ -813,7 +814,12 @@ textarea:focus {
   .nav-item { min-height:36px; padding:8px 10px; white-space:nowrap; }
   .nav-item::before { display:none; }
   .main { padding:0 18px 36px; }
-  .topbar { margin:0 -18px 20px; padding:11px 18px; min-height:66px; }
+  /* En móvil styles.css apila la cabecera en columna y estira .top-actions al 100%, así
+     que el avatar queda pegado al borde izquierdo y su menú (anclado a la derecha del
+     botón, 244px) se abre fuera de la pantalla. Con la búsqueda oculta caben en una
+     fila: título a la izquierda, acciones a la derecha. */
+  .topbar { margin:0 -18px 20px; padding:11px 18px; min-height:66px; flex-direction:row; align-items:center; gap:10px; }
+  .top-actions { width:auto; flex:0 0 auto; }
   .topbar p { display:none; }
   .v2-search-wrap { display:none; }
   .v2-user-copy { display:none; }
