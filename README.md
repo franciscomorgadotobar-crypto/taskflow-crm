@@ -26,7 +26,9 @@ js/utils.js            Formato de fechas/moneda, escape HTML, toasts
 js/store.js            Estado del CRM: leads, levantamientos, actividades, plantillas y equipo — hidratado desde Supabase y sincronizado en vivo
 js/quotes.js         Estado del cotizador: catálogo de servicios y cotizaciones con versionado
 js/views.js            Render de cada vista (HTML puro)
+js/hyperfocus.js        Campañas Híper Foco: importación, cola secuencial, resultados y conversión al CRM
 js/app.js              Routing, diálogos, kanban, acciones y el cotizador
+hyperfocus.css          Estilos del modo Híper Foco
 apps-script/Code.gs Backend antiguo (Google Sheets) — obsoleto, se mantiene solo de referencia
 supabase/*.sql       Migraciones del esquema, aplicadas en orden al proyecto de Supabase
 ```
@@ -35,15 +37,16 @@ supabase/*.sql       Migraciones del esquema, aplicadas en orden al proyecto de 
 
 El proyecto usa un proyecto de Supabase propio (Postgres + Auth + RLS + Realtime). `config.js` trae la URL del proyecto y la llave publicable (`anon key`) — ambas son públicas por diseño, la seguridad real la da Row Level Security en la base de datos, no mantener esos valores en secreto.
 
-Para levantar el esquema desde cero en un proyecto nuevo, aplica los archivos de `supabase/` en orden (`0001_schema.sql`, `0002_rls.sql`, `0003_harden.sql`, `0004_activity_contact.sql`) desde el SQL Editor del panel de Supabase o con la CLI.
+Para levantar el esquema desde cero en un proyecto nuevo, aplica **todos** los archivos de `supabase/` en orden numérico desde el SQL Editor del panel de Supabase o con la CLI. En una instalación existente, aplica solamente las migraciones nuevas que aún no estén ejecutadas. Híper Foco requiere `0008_hyperfocus.sql`.
 
 ### Acceso y roles
 
 Cualquier persona puede registrarse desde la pantalla de acceso con su correo y contraseña. Al registrarse se crea automáticamente su fila en `profiles` con rol **comercial** (ve solo sus propias oportunidades y cotizaciones). Los roles disponibles son:
 
-- **comercial**: ve y gestiona solo lo que le pertenece (leads con `owner_id` propio).
-- **admin** / **super**: ven y gestionan todo, y pueden cambiar el rol de otras personas desde Configuración → Equipo.
-- **visita**: solo lectura de todo (pensado para gerencia o auditoría).
+- **comercial**: ve la cartera no privada de su organización y gestiona las oportunidades que tiene asignadas. Las oportunidades privadas ajenas no se muestran.
+- **admin**: ve la cartera no privada de su organización y puede gestionarla completa, además de administrar recursos compartidos. No ve oportunidades privadas ajenas.
+- **super**: control total dentro de la organización, incluidas las oportunidades privadas y la administración del equipo.
+- **visita**: lectura de la cartera no privada de su organización, sin editar.
 
 **Primer arranque:** como nadie parte siendo admin, la primera persona que se registre queda como `comercial` y no puede autopromoverse desde la interfaz. Hay que promoverla una vez, a mano, desde el SQL Editor de Supabase:
 
@@ -66,6 +69,7 @@ Cada cambio de etapa queda registrado con fecha en `stageHistory`, lo que alimen
 ## Módulos
 
 - **Resumen**: pipeline, pipeline ponderado, tasa de cierre, ticket promedio, ciclo de venta, seguimientos vencidos, oportunidades estancadas y motivos de pérdida.
+- **Híper Foco**: importa bases CSV/Excel como campañas separadas del CRM, consolida empresas repetidas, detecta coincidencias con el CRM y recorre una cola de contacto una empresa a la vez. Solo los registros calificados se convierten en prospectos o Remarketing.
 - **Leads**: búsqueda por texto, etapa, responsable y orden; los filtros se combinan entre sí.
 - **Pipeline**: kanban con arrastre en escritorio y botón *Mover* en móvil.
 - **Levantamiento**: dolor, gestión actual, dotación, gatillo, módulos, integraciones y criterio de éxito. Disponible también para oportunidades cerradas.
@@ -74,6 +78,26 @@ Cada cambio de etapa queda registrado con fecha en `stageHistory`, lo que alimen
 - **Plantillas**: variables `{{contacto}}`, `{{empresa}}`, `{{cargo}}`, `{{dolor}}`, `{{modulos}}` y `{{responsable}}`, con copiar al portapapeles y apertura en el cliente de correo.
 - **Cotizaciones**: catálogo de servicios con precio neto, constructor de cotizaciones (items del catálogo o personalizados, cálculo automático de neto + IVA 19% + total), envío al cliente abriendo un correo prellenado y editable, y quedan guardadas en el historial de cada empresa.
 - **Ficha**: vista única por empresa con datos, levantamiento, cotizaciones, recorrido por etapas, actividades e historial.
+
+
+## Híper Foco
+
+Híper Foco está diseñado para trabajar bases grandes sin convertir cada fila en un lead. El flujo es:
+
+`Base importada → Campaña Híper Foco → Gestión / clasificación → CRM`
+
+- Acepta CSV directamente y Excel (`.xlsx`/`.xls`) mediante SheetJS cargado al momento de importar. Si el CDN de Excel no está disponible, CSV sigue funcionando.
+- Detecta y permite corregir el mapeo de empresa, RUT, ubicación, contacto, teléfonos, correo y sitio web.
+- Consolida empresas repetidas para evitar llamar dos veces al mismo registro.
+- Cruza RUT/nombre contra los leads visibles en el CRM y avisa si ya existe una oportunidad.
+- Respeta marcas de “No contactar” de la base de origen y puede excluir registros sin canal.
+- Prioriza contactos por cargo y disponibilidad de teléfono/correo.
+- La sesión es secuencial: llamar / WhatsApp / correo → resultado → siguiente acción.
+- Resultados posibles: reintento, enriquecimiento de contacto, descarte, Remarketing o conversión a prospecto.
+- Las campañas y sus registros quedan guardados en Supabase, así que se puede pausar y continuar otro día.
+- `visita` puede ver campañas, pero no gestionarlas; `comercial`, `admin` y `super` pueden trabajar la cola.
+
+Para activar las tablas y RLS ejecuta `supabase/0008_hyperfocus.sql` después de `0007_rls_organization_scoped.sql`.
 
 ## Cotizador
 

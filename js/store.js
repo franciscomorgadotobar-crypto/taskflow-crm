@@ -280,6 +280,54 @@ export function upsertLead(input) {
   return lead;
 }
 
+/**
+ * Variante confirmada para flujos transaccionales (p. ej. Híper Foco).
+ * A diferencia de `upsertLead`, espera la respuesta de Postgres antes de dar la
+ * operación por cerrada y revierte la copia local si RLS/red rechazan el cambio.
+ */
+export async function upsertLeadConfirmed(input) {
+  const id = input.id || uid();
+  const existing = getLead(id);
+  const before = existing ? structuredClone(existing) : null;
+  const lead = {
+    ...(existing || { createdAt: nowISO(), stageHistory: [{ stage: input.stage || 'Lead', at: nowISO() }], contacts: [] }),
+    ...input,
+    id,
+    value: Number(input.value || 0),
+    probability: Number(input.probability || 0),
+    updatedAt: nowISO()
+  };
+
+  if (existing && existing.stage !== lead.stage) {
+    lead.stageHistory = [...(existing.stageHistory || []), { stage: lead.stage, at: nowISO() }];
+  }
+  if (lead.stage !== 'Perdido') lead.lossReason = '';
+
+  const idx = state.leads.findIndex((l) => l.id === id);
+  if (idx >= 0) state.leads[idx] = lead;
+  else state.leads.unshift(lead);
+  persist();
+
+  const query = existing
+    ? supabase.from('leads').update(toDbLead(lead)).eq('id', id).select('id').single()
+    : supabase.from('leads').insert({ id, ...toDbLead(lead) }).select('id').single();
+  const { error } = await query;
+
+  if (error) {
+    if (before) {
+      const current = state.leads.findIndex((l) => l.id === id);
+      if (current >= 0) state.leads[current] = before;
+    } else {
+      state.leads = state.leads.filter((l) => l.id !== id);
+    }
+    persist();
+    reportError('No se pudo confirmar el prospecto en el servidor', error);
+    throw error;
+  }
+
+  return lead;
+}
+
 export function setStage(id, stage, { lossReason = '', remarketingReason = '' } = {}) {
   const lead = getLead(id);
   if (!lead || lead.stage === stage) return lead;

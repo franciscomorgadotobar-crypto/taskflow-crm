@@ -72,6 +72,15 @@ import {
 } from './quotes.js';
 import { isAdmin, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import {
+  clearLocal as hyperFocusClearLocal,
+  hydrate as hyperFocusHydrate,
+  initUI as initHyperFocusUI,
+  onChange as onHyperFocusChange,
+  renderHyperFocus,
+  startRealtime as hyperFocusStartRealtime,
+  stopRealtime as hyperFocusStopRealtime
+} from './hyperfocus.js';
+import {
   fillTemplate,
   filterPipeline,
   quoteBuilderHtml,
@@ -125,6 +134,7 @@ const ui = {
 const VIEWS = {
   dashboard: ['Resumen', 'Gestión comercial y seguimiento de oportunidades TaskFlow.', renderDashboard],
   leads: ['Leads', 'Empresas por calificar antes de sumarse al pipeline.', renderLeads],
+  hyperfocus: ['Híper Foco', 'Gestiona bases grandes una empresa a la vez, sin llenar el CRM de registros fríos.', renderHyperFocus],
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
@@ -1471,6 +1481,7 @@ async function start() {
   document.title = `${CFG.appName} · ${CFG.companyName}`;
   fillStaticSelects();
   buildTaskTypeGroups();
+  initHyperFocusUI();
   bindEvents();
   renderAuthMode();
 
@@ -1482,6 +1493,9 @@ async function start() {
     if (ui.view === 'quotes') render();
     refreshDetailIfOpen();
   });
+  onHyperFocusChange(() => {
+    if (ui.view === 'hyperfocus') render();
+  });
 
   onAuthChange(async (s) => {
     if (s.status === 'signed-in') {
@@ -1489,9 +1503,10 @@ async function start() {
       $('appShell').hidden = false;
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
-        await Promise.all([hydrate(), quotesHydrate()]);
+        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
         startRealtime();
         quotesStartRealtime();
+        hyperFocusStartRealtime();
         paintSync({ state: 'ok', message: 'Conectado' });
       } catch (err) {
         paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
@@ -1500,8 +1515,10 @@ async function start() {
     } else if (s.status === 'signed-out') {
       stopRealtime();
       quotesStopRealtime();
+      hyperFocusStopRealtime();
       clearLocal();
       quotesClearLocal();
+      hyperFocusClearLocal();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';

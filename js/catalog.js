@@ -138,6 +138,15 @@ export const USER_ROLES = [
  */
 export const CRM_FLOW = [
   {
+    id: 'hyperfocus',
+    step: '0',
+    title: 'Híper Foco',
+    tagline: 'Bases masivas antes del CRM',
+    detail: 'Zona de staging para prospectar bases CSV/Excel sin convertir miles de filas en leads. Se gestiona una empresa a la vez y solo lo que califica entra al CRM.',
+    does: ['Importar y mapear bases heterogéneas', 'Consolidar empresas y detectar coincidencias con el CRM', 'Llamar, escribir, reintentar, enriquecer contactos o descartar sin salir de la sesión'],
+    goes: ['<strong>Interesado</strong> → entra como prospecto en “Contactado”', '<strong>No por ahora</strong> → pasa a Remarketing', '<strong>Sin contacto</strong> → reintento dentro de Híper Foco']
+  },
+  {
     id: 'leads',
     step: '1',
     title: 'Leads',
