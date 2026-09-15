@@ -942,7 +942,10 @@ function submitService(e) {
 let authMode = 'signin';
 
 function renderAuthMode() {
-  const signup = authMode === 'signup';
+  // Con el registro cerrado, las cuentas las crea un administrador: se esconde la
+  // opción de crear cuenta en vez de dejar un botón que terminaría en error.
+  const signup = CFG.allowSignup !== false && authMode === 'signup';
+  $('authToggleMode').hidden = CFG.allowSignup === false;
   $('authTitle').textContent = signup ? 'Crear cuenta' : 'Iniciar sesión';
   $('authSubtitle').textContent = signup ? 'Regístrate con tu correo de TaskFlow.' : 'Entra con tu correo y contraseña.';
   $('authNameField').hidden = !signup;
