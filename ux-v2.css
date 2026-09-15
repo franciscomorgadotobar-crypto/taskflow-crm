@@ -790,7 +790,10 @@ textarea:focus {
 }
 
 @media (max-width: 900px) {
-  .app-shell { grid-template-columns: 1fr; }
+  /* Sin align-content, la grilla reparte el alto sobrante entre sus filas y la
+     barra superior se infla hasta comerse media pantalla cuando hay poco
+     contenido (por ejemplo, un CRM recién creado y sin datos). */
+  .app-shell { grid-template-columns: 1fr; align-content: start; }
   .sidebar {
     position: sticky;
     top: 0;

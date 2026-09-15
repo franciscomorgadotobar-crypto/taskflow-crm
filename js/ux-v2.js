@@ -306,7 +306,10 @@ function refinePriorityBlock(root) {
   const card = taskHead.closest('.card');
   if (card) card.classList.add('v2-priorities-card');
   const title = q('h3', taskHead);
-  if (title) title.textContent = 'Prioridades';
+  // Solo escribir si el texto cambia de verdad: asignar textContent siempre cuenta
+  // como mutación del DOM y vuelve a disparar el MutationObserver que llama a esta
+  // función, lo que producía un bucle infinito que congelaba la página.
+  if (title && title.textContent.trim() !== 'Prioridades') title.textContent = 'Prioridades';
 
   qa('button', taskHead).forEach((btn) => {
     const text = btn.textContent.trim();
