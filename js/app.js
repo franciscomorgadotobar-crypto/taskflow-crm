@@ -223,6 +223,7 @@ function openLead(id) {
     const fallback = k === 'stage' ? 'Lead' : k === 'priority' ? 'Media' : k === 'probability' ? DEFAULT_PROBABILITY.Lead : '';
     el.value = l[k] ?? fallback;
   });
+  $('isPrivate').checked = Boolean(l.isPrivate);
   toggleLossField();
   setTaskType('lead', l.nextType || '');
   OWNED_ELSEWHERE.forEach((k) => {
@@ -251,6 +252,7 @@ function submitLead(e) {
   const payload = { id: id || undefined };
   const fields = id ? LEAD_FIELDS.filter((k) => !OWNED_ELSEWHERE.includes(k)) : LEAD_FIELDS;
   fields.forEach((k) => (payload[k] = $(k).value.trim ? $(k).value.trim() : $(k).value));
+  payload.isPrivate = $('isPrivate').checked;
   if (!id && !payload.owner) payload.owner = session.profile?.name || '';
   upsertLead(payload);
   $('leadDialog').close();

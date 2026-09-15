@@ -71,6 +71,7 @@ const fromDbLead = (r) => ({
   owner: r.owner_name || '',
   lossReason: r.loss_reason || '',
   remarketingReason: r.remarketing_reason || '',
+  isPrivate: Boolean(r.is_private),
   notes: r.notes || '',
   stageHistory: r.stage_history || [],
   contacts: r.contacts || [],
@@ -104,6 +105,7 @@ const toDbLead = (l) => ({
   owner_name: l.owner || '',
   loss_reason: l.lossReason || '',
   remarketing_reason: l.remarketingReason || '',
+  is_private: Boolean(l.isPrivate),
   notes: l.notes || '',
   stage_history: l.stageHistory || [],
   contacts: l.contacts || []

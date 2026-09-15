@@ -361,7 +361,7 @@ function renderPipelineKanban() {
                 (l) => `<article class="deal-card" draggable="true" data-id="${l.id}"
                   data-action="open-detail" role="button" tabindex="0"
                   aria-label="Abrir ficha de ${e(l.company)}">
-                  <div class="deal-company">${taskDot(l)}${e(l.company)}</div>
+                  <div class="deal-company">${taskDot(l)}${e(l.company)}${l.isPrivate ? '<span class="badge warning" title="Privada: solo la ves tú">Privada</span>' : ''}</div>
                   <div class="meta">${e(l.contact || 'Sin contacto')}</div>
                   <div class="money">${fmtMoney(l.value)}</div>
                   <div class="meta ${l.nextDate && l.nextDate < todayISO() ? 'overdue' : ''}">${e(taskOf(l)?.title || 'Sin tarea agendada')}</div>
@@ -1089,6 +1089,7 @@ export function renderLeadDetail(id) {
           <span>Etapa</span>
           <strong class="stage-cell">${stageBadge(l.stage)}<button class="small-btn" data-action="move-stage" data-id="${l.id}">Cambiar etapa</button></strong>
         </div>
+        <div class="detail-row"><span>Visibilidad</span><strong>${l.isPrivate ? '<span class="badge warning">Privada · solo tú</span>' : 'Compartida con el equipo'}</strong></div>
         ${row('Motivo de pérdida', l.lossReason)}
         ${row('Valor', fmtMoney(l.value))}
         ${row('Probabilidad', `${l.probability || 0}%`)}
