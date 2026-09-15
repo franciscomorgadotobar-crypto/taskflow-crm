@@ -2130,7 +2130,7 @@ function bindImportControls() {
 
 function dialogsMarkup() {
   return `
-  <dialog id="hfImportDialog" class="modal hf-import-dialog">
+  <dialog id="hfImportDialog" class="modal hf-import-dialog" data-keep-open="true">
     <form id="hfImportForm" class="modal-card hf-import-card" novalidate>
       <div class="modal-head">
         <div><h2>Nueva campaña Híper Foco</h2><p>Sube la base, revisa cómo entendimos sus columnas y recién después créala.</p></div>
@@ -2191,6 +2191,11 @@ function dialogsMarkup() {
   </dialog>`;
 }
 
+function confirmDiscardImport() {
+  if (!importDraft.rows.length) return true;
+  return confirm('Se perderá la base cargada y el mapeo que hiciste. ¿Cerrar de todas formas?');
+}
+
 export function initUI() {
   if (uiBound) return;
   uiBound = true;
@@ -2200,8 +2205,16 @@ export function initUI() {
 
   document.addEventListener('click', handleHyperFocusClick);
   document.addEventListener('keydown', handleHyperFocusKeydown);
-  qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => byId(btn.dataset.closeHf)?.close()));
-  byId('hfImportDialog')?.addEventListener('click', (ev) => ev.target === byId('hfImportDialog') && byId('hfImportDialog').close());
+  qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
+    if (btn.dataset.closeHf === 'hfImportDialog' && !confirmDiscardImport()) return;
+    byId(btn.dataset.closeHf)?.close();
+  }));
+  // El importador ya no se cierra al pinchar fuera: configurar el mapeo de una base
+  // toma varios minutos y un clic perdido borraba todo el trabajo. Escape tampoco
+  // cierra sin preguntar mientras haya una base cargada.
+  byId('hfImportDialog')?.addEventListener('cancel', (ev) => {
+    if (!confirmDiscardImport()) ev.preventDefault();
+  });
   byId('hfSessionDialog')?.addEventListener('close', () => { releaseCurrentClaim(); });
   bindImportControls();
 }

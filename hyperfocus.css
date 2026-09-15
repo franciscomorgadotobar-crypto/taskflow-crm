@@ -32,14 +32,25 @@
 .hf-principle strong { color:var(--v2-text,var(--text)); }
 
 /* Importador */
-.hf-import-dialog .modal-card { width:min(1080px,94vw); max-height:92vh; overflow:auto; }
+/* overflow-x oculto: los <select> del mapeo se miden por su opción más larga
+   (nombres de columna de la base, que pueden ser larguísimos) y arrastraban
+   la tarjeta a lo ancho, obligando a desplazarse en horizontal para llenarla. */
+/* El <dialog> hereda max-width:min(920px,94vw) de styles.css: si solo se ensancha
+   la tarjeta, ésta se sale por la izquierda y hay que desplazarse para verla.
+   Se ensanchan los dos, igual que se hizo con la ficha de empresa. */
+.hf-import-dialog { max-width:min(1080px,calc(100vw - 48px)); }
+.hf-import-dialog .modal-card { width:100%; max-height:92vh; overflow-y:auto; overflow-x:hidden; }
 .hf-import-card { gap:0; }
 .hf-import-intro { display:grid; grid-template-columns:1.3fr .8fr 1fr; gap:12px; padding:18px; }
-.hf-import-intro label, .hf-map-grid label, .hf-action-step label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--v2-muted,var(--muted)); }
+.hf-import-intro label, .hf-map-grid label, .hf-action-step label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--v2-muted,var(--muted)); min-width:0; }
+/* Las acciones siempre a la vista: con 16 selectores de mapeo, "Crear campaña"
+   quedaba al final de un formulario largo. */
+.hf-import-dialog .modal-actions { position:sticky; bottom:0; z-index:2; background:var(--v2-panel,var(--panel)); border-top:1px solid var(--v2-line,var(--border)); }
+.hf-import-dialog .modal-head { position:sticky; top:0; z-index:2; background:var(--v2-panel,var(--panel)); }
 .hf-import-intro input, .hf-import-intro select,
 .hf-map-grid select,
 .hf-action-step input, .hf-action-step select, .hf-action-step textarea {
-  min-height:42px; width:100%; border:1px solid var(--v2-line,var(--border)); border-radius:9px;
+  min-height:42px; width:100%; min-width:0; max-width:100%; border:1px solid var(--v2-line,var(--border)); border-radius:9px;
   background:var(--v2-panel,var(--panel)); color:var(--v2-text,var(--text)); padding:9px 11px;
 }
 .hf-file-drop { grid-column:1 / -1; padding:14px; border:1px dashed var(--v2-line,var(--border)); border-radius:12px; background:var(--v2-panel-soft,var(--bg)); }
@@ -50,7 +61,8 @@
 .hf-import-section-head p { margin:3px 0 0; font-size:11px; color:var(--v2-muted,var(--muted)); }
 .hf-map-group { margin:0 18px 12px; padding:13px; border:1px solid var(--v2-line,var(--border)); border-radius:12px; }
 .hf-map-group legend { padding:0 7px; font-size:11px; font-weight:700; color:var(--v2-muted,var(--muted)); text-transform:uppercase; letter-spacing:.05em; }
-.hf-map-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+/* auto-fit: se acomoda al ancho disponible sin depender de puntos de quiebre. */
+.hf-map-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; }
 #hfRepresentativeHint { margin:0 18px 14px; }
 .hf-import-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px 12px; padding:4px 18px 16px; }
 .hf-import-options label { display:flex; align-items:flex-start; gap:8px; border:1px solid var(--v2-line,var(--border)); border-radius:10px; padding:11px 12px; font-size:12px; background:var(--v2-panel-soft,var(--bg)); }
@@ -169,7 +181,10 @@
   .hf-campaign-foot { align-items:stretch; flex-direction:column; }
   .hf-campaign-foot .button-row { width:100%; }
   .hf-campaign-foot .button-row button { flex:1; }
-  .hf-import-dialog .modal-card { width:100vw; max-height:100vh; min-height:100vh; border-radius:0; }
+  /* dvh y no vh: en el teléfono la barra del navegador se descuenta, y con 100vh
+     la fila de botones quedaba cortada abajo. */
+  .hf-import-dialog { margin:0; max-width:100vw; }
+  .hf-import-dialog .modal-card { width:100vw; height:100dvh; max-height:100dvh; min-height:0; border-radius:0; }
   .hf-import-intro, .hf-import-options, .hf-map-grid { grid-template-columns:1fr; }
   .hf-import-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .hf-session-head { grid-template-columns:1fr auto; padding:10px 12px; gap:10px; }

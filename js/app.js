@@ -1427,7 +1427,12 @@ function bindEvents() {
   if (localStorage.getItem('taskflow-crm-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
 
   $$('[data-close-dialog]').forEach((b) => b.addEventListener('click', () => $(b.dataset.closeDialog).close()));
-  $$('dialog.modal').forEach((dlg) => dlg.addEventListener('click', (ev) => ev.target === dlg && dlg.close()));
+  // Cerrar al pinchar fuera, salvo en los diálogos que marcan lo contrario: ahí un
+  // clic perdido significaba botar un formulario largo ya llenado.
+  $$('dialog.modal').forEach((dlg) => dlg.addEventListener('click', (ev) => {
+    if (dlg.dataset.keepOpen === 'true') return;
+    if (ev.target === dlg) dlg.close();
+  }));
 
   $('leadForm').addEventListener('submit', submitLead);
   $('stage').addEventListener('change', toggleLossField);
