@@ -1569,10 +1569,13 @@ async function updateRecord(record, patch) {
     claimedAt: 'claimed_at',
     priority: 'priority'
   };
+  // Las fechas y las claves foráneas viajan como '' dentro del CRM, pero Postgres
+  // rechaza '' en timestamptz y en uuid: mandaba error 22007 y la gestión se caía
+  // justo al cerrar un registro que nunca se había contactado.
+  const nullable = ['lastContactAt', 'nextRetryAt', 'claimedAt', 'convertedLeadId', 'existingLeadId', 'claimedBy'];
   Object.entries(patch).forEach(([k, v]) => {
     if (!map[k]) return;
-    const nullable = ['nextRetryAt', 'convertedLeadId', 'existingLeadId', 'claimedBy', 'claimedAt'].includes(k);
-    dbPatch[map[k]] = nullable && (v === '' || v == null) ? null : v;
+    dbPatch[map[k]] = nullable.includes(k) && (v === '' || v == null) ? null : v;
   });
 
   let query = supabase.from('hyperfocus_records').update(dbPatch).eq('id', record.id);

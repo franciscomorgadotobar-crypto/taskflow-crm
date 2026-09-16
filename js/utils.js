@@ -70,6 +70,11 @@ let toastTimer = null;
 export function toast(message, kind = 'info') {
   const el = $('toast');
   if (!el) return;
+  // Un <dialog> modal se dibuja en la capa superior del navegador, así que un aviso
+  // que vive en <body> queda tapado por el diálogo: el usuario aprieta un botón, la
+  // acción falla y no ve nada. Por eso el aviso se muda al diálogo que esté abierto.
+  const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+  if (el.parentElement !== host) host.appendChild(el);
   el.textContent = message;
   el.dataset.kind = kind;
   el.classList.add('visible');
