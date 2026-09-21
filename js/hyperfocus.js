@@ -340,7 +340,11 @@ function renderCampaignCard(c) {
       <div><strong>${s.pending + s.retry}</strong><span>Por gestionar</span></div>
       <div><strong>${s.converted}</strong><span>Prospectos</span></div>
       <div><strong>${s.remarketing}</strong><span>Remarketing</span></div>
-      <div><strong>${s.discarded}</strong><span>Descartados</span></div>
+      ${s.discarded
+        ? `<button type="button" class="hf-stat-link" data-hf-action="open-discarded" data-id="${e(c.id)}" title="Ver los registros descartados">
+             <strong>${s.discarded}</strong><span>Descartados ›</span>
+           </button>`
+        : `<div><strong>0</strong><span>Descartados</span></div>`}
     </div>
     <div class="hf-campaign-foot">
       <div><strong>${e(availableLabel)}</strong><span>${done} cerrados · ${s.touched} tocados</span></div>
@@ -1018,6 +1022,91 @@ async function createCampaignFromImport(event) {
     createBtn.disabled = false;
     toast(progressText.textContent, 'error');
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Descartados                                                                 */
+/* -------------------------------------------------------------------------- */
+
+const descartados = { campaignId: '', rows: [], cargando: false };
+
+async function openDiscarded(campaignId) {
+  descartados.campaignId = campaignId;
+  descartados.rows = [];
+  descartados.cargando = true;
+  renderDiscarded();
+  byId('hfDiscardedDialog')?.showModal();
+  const { data, error } = await supabase
+    .from('hyperfocus_records')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .eq('status', 'discarded')
+    .order('updated_at', { ascending: false })
+    .limit(1000);
+  descartados.cargando = false;
+  if (error) {
+    toast(error.message, 'error');
+    descartados.rows = [];
+  } else {
+    descartados.rows = (data || []).map(fromDbRecord);
+  }
+  renderDiscarded();
+}
+
+// Un registro descartado ya no tiene reclamo, así que RLS solo deja devolverlo a
+// quien administra. Al comercial se le dice con todas sus letras en vez de dejar
+// que el botón no haga nada.
+async function restoreDiscarded(recordId) {
+  const record = descartados.rows.find((r) => r.id === recordId);
+  if (!record) return;
+  const { data, error } = await supabase
+    .from('hyperfocus_records')
+    .update({ status: 'pending', discard_reason: '', claimed_by: null, claimed_at: null, next_retry_at: null })
+    .eq('id', recordId)
+    .select('id');
+  if (error) return toast(error.message, 'error');
+  if (!data?.length) return toast('Solo un administrador puede devolver un registro a la cola.', 'error');
+  descartados.rows = descartados.rows.filter((r) => r.id !== recordId);
+  renderDiscarded();
+  await hydrate();
+  toast(`${record.company} vuelve a la cola.`);
+}
+
+function renderDiscarded() {
+  const body = byId('hfDiscardedBody');
+  const title = byId('hfDiscardedCampaign');
+  if (!body) return;
+  const campaign = campaignOf(descartados.campaignId);
+  if (title) title.textContent = campaign?.name || '';
+  if (descartados.cargando) {
+    body.innerHTML = '<p class="muted">Cargando…</p>';
+    return;
+  }
+  if (!descartados.rows.length) {
+    body.innerHTML = '<p class="muted">No hay registros descartados en esta campaña.</p>';
+    return;
+  }
+  const puede = !isReadOnly();
+  body.innerHTML = `
+    <p class="muted">${descartados.rows.length.toLocaleString('es-CL')} ${descartados.rows.length === 1 ? 'empresa descartada' : 'empresas descartadas'}. Devolver a la cola la deja disponible para gestionar de nuevo.</p>
+    <div class="hf-discarded-list">
+      ${descartados.rows.map((r) => `
+        <div class="hf-discarded-row">
+          <div>
+            <strong>${e(r.company)}</strong>
+            <span>${[r.comuna, r.region].filter(Boolean).map(e).join(' · ') || 'Sin ubicación'}${r.rut ? ` · RUT ${e(r.rut)}` : ''}</span>
+          </div>
+          <div>
+            <span class="badge">${e(r.discardReason || 'Sin motivo')}</span>
+            ${r.notes ? `<span class="hf-discarded-note">${e(r.notes)}</span>` : ''}
+          </div>
+          <div class="hf-discarded-meta">
+            <span>${r.attempts ? `${r.attempts} ${r.attempts === 1 ? 'intento' : 'intentos'}` : 'Sin intentos'}</span>
+            <span>${e(fmtDate(r.updatedAt))}</span>
+          </div>
+          ${puede ? `<button type="button" class="small-btn" data-hf-action="restore-discarded" data-id="${e(r.id)}">Devolver a la cola</button>` : ''}
+        </div>`).join('')}
+    </div>`;
 }
 
 async function deleteCampaign(id) {
@@ -1919,6 +2008,8 @@ async function handleHyperFocusClick(ev) {
   if (action === 'new-campaign') return openImportDialog();
   if (action === 'start-session') return openSession(btn.dataset.id);
   if (action === 'delete-campaign') return deleteCampaign(btn.dataset.id);
+  if (action === 'open-discarded') return openDiscarded(btn.dataset.id);
+  if (action === 'restore-discarded') return restoreDiscarded(btn.dataset.id);
   if (action === 'close-session') {
     await releaseCurrentClaim();
     return byId('hfSessionDialog')?.close();
@@ -2177,6 +2268,19 @@ function dialogsMarkup() {
         <button id="hfCreateCampaignBtn" type="submit" class="primary-btn" disabled>Crear campaña</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="hfDiscardedDialog" class="modal hf-discarded-dialog">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div><h2>Descartados</h2><p id="hfDiscardedCampaign"></p></div>
+        <button type="button" class="icon-btn" data-close-hf="hfDiscardedDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="hfDiscardedBody" class="hf-discarded-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-hf="hfDiscardedDialog">Cerrar</button>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="hfSessionDialog" class="hf-session-dialog">
