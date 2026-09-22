@@ -78,12 +78,14 @@ begin
 end;
 $$;
 
-create or replace function public.hyperfocus_finalize_record(
+drop function if exists public.hyperfocus_finalize_record(uuid, jsonb, jsonb);
+
+create function public.hyperfocus_finalize_record(
   p_record_id uuid,
   p_patch jsonb,
   p_interaction jsonb
 )
-returns void
+returns public.hyperfocus_records
 language plpgsql
 security definer
 set search_path = ''
@@ -148,8 +150,14 @@ begin
     coalesce(p_interaction->>'commercial_result',''),
     coalesce(p_interaction->>'detail','')
   );
+
+  select * into v_record
+  from public.hyperfocus_records
+  where id = p_record_id;
+
+  return v_record;
 end;
-$$;
+$;
 
 drop policy if exists hyperfocus_records_update on public.hyperfocus_records;
 create policy hyperfocus_records_update on public.hyperfocus_records for update to authenticated
