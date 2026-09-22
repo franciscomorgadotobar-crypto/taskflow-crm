@@ -38,6 +38,18 @@ async function refresh(user) {
   // Un fetch de perfil iniciado por una sesión anterior no puede revivirla si
   // mientras tanto llegó un SIGNED_OUT u otro usuario inició sesión.
   if (generation !== refreshGeneration || session.user?.id !== user.id) return;
+  if (!profile || profile.active === false) {
+    // Un usuario desactivado puede conservar un JWT válido. La migración 0018
+    // bloquea sus datos por RLS; además cerramos su sesión para no dejar una
+    // interfaz aparentemente operativa sin permisos.
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error('No se pudo cerrar la sesión del perfil inactivo', error);
+    if (generation !== refreshGeneration) return;
+    session.user = null;
+    session.profile = null;
+    session.status = 'signed-out';
+    return notify();
+  }
   session.profile = profile;
   session.status = 'signed-in';
   notify();

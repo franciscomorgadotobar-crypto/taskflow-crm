@@ -133,3 +133,8 @@ Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM
 ### Migración 0017 — actividad manual + tarea
 
 `supabase/0017_resolve_task_with_activity_rpc.sql` agrega `resolve_task_with_activity`, que registra una actividad manual y limpia la tarea pendiente del lead dentro de una sola transacción, preservando contacto y responsable. Usa `SECURITY INVOKER` y requiere ejecución autenticada.
+
+
+### Migración 0018 — perfiles inactivos
+
+`supabase/0018_inactive_profiles_access.sql` hace que `internal.my_org()` e `internal.my_role()` solo reconozcan perfiles activos. Como las políticas RLS organizacionales dependen de esos helpers, un usuario desactivado deja de leer y escribir datos aunque conserve un token de Auth válido. El frontend además cierra su sesión al detectar el perfil inactivo.
