@@ -1130,8 +1130,9 @@ async function deleteCampaign(id) {
   const campaign = campaignOf(id);
   if (!campaign || !canDeleteCampaign(campaign)) return;
   if (!confirm(`¿Eliminar la campaña “${campaign.name}” y todo su historial Híper Foco? Los leads que ya pasaron al CRM NO se eliminan.`)) return;
-  const { error } = await supabase.from('hyperfocus_campaigns').delete().eq('id', id);
+  const { data, error } = await supabase.from('hyperfocus_campaigns').delete().eq('id', id).select('id');
   if (error) return toast(error.message, 'error');
+  if (!data?.length) return toast('La campaña no se eliminó. Puede que ya no exista o que tu sesión no tenga permiso.', 'error');
   await hydrate();
   toast('Campaña eliminada.');
 }
