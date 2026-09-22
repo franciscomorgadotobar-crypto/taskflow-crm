@@ -172,6 +172,7 @@ const fromDbProfile = (r) => ({ id: r.id, name: r.name || '', email: r.email || 
 
 let channel = null;
 let realtimeHydrateTimer = null;
+let hydrateGeneration = 0;
 
 function scheduleHydrate() {
   clearTimeout(realtimeHydrateTimer);
@@ -181,6 +182,7 @@ function scheduleHydrate() {
 }
 
 export async function hydrate() {
+  const generation = ++hydrateGeneration;
   const [leadsR, discR, actR, tplR, teamR] = await Promise.all([
     supabase.from('leads').select('*').order('updated_at', { ascending: false }),
     supabase.from('discoveries').select('*'),
@@ -189,6 +191,7 @@ export async function hydrate() {
     supabase.from('profiles').select('*').order('name')
   ]);
   [leadsR, discR, actR, tplR, teamR].forEach((r) => r.error && console.error(r.error));
+  if (generation !== hydrateGeneration) return;
 
   // Una consulta fallida no equivale a una colección vacía. Reemplazamos cada
   // bloque únicamente cuando Supabase respondió correctamente, conservando la
