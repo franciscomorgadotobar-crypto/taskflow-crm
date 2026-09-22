@@ -642,6 +642,25 @@ export function addActivity(activity, { silent = false } = {}) {
   return record;
 }
 
+
+export async function addActivityConfirmed(activity, { silent = false } = {}) {
+  const record = {
+    id: activity.id || uid(),
+    task: '',
+    ...activity
+  };
+  state.activities.unshift(record);
+  persist();
+  const { error } = await supabase.from('activities').insert({ id: record.id, ...toDbActivity(record) });
+  if (error) {
+    state.activities = state.activities.filter((a) => a.id !== record.id);
+    persist();
+    if (!silent) reportError('No se pudo registrar la actividad', error);
+    throw error;
+  }
+  return record;
+}
+
 export function updateActivity(id, patch) {
   const act = state.activities.find((a) => a.id === id);
   if (!act) return null;
