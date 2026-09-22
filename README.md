@@ -114,6 +114,8 @@ El estado se hidrata desde Supabase al iniciar sesión (fuente de verdad) y se g
 - Exportar leads a CSV (compatible con Excel, incluye BOM).
 - Borrar las oportunidades visibles para quien tiene la sesión abierta (según su rol).
 
+Para instalaciones existentes, aplica también `supabase/0011_activities_lead_cascade.sql`. Esta migración hace que, al eliminar una oportunidad, su historial de actividades ligado al lead se elimine junto con ella en vez de quedar huérfano. No borra actividades globales existentes con `lead_id = NULL`.
+
 ## Backend antiguo: Google Sheets (obsoleto)
 
 `apps-script/Code.gs` era el backend original, antes de migrar a Supabase. Ya no se usa ni se necesita desplegar — se mantiene en el repositorio solo como referencia histórica.
