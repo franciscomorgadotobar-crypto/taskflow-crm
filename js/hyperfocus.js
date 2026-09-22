@@ -2163,6 +2163,26 @@ async function skipRecord() {
 /* Eventos                                                                     */
 /* -------------------------------------------------------------------------- */
 
+function handleHyperFocusClickLocked(ev) {
+  const btn = ev.target.closest?.('[data-hf-action]');
+  if (!btn || btn.dataset.hfBusy === '1') return;
+  btn.dataset.hfBusy = '1';
+  btn.setAttribute('aria-disabled', 'true');
+  if ('disabled' in btn) btn.disabled = true;
+
+  Promise.resolve(handleHyperFocusClick(ev))
+    .catch((err) => {
+      console.error('Acción Híper Foco no completada', err);
+      toast(err.message || 'No se pudo completar la acción.', 'error');
+    })
+    .finally(() => {
+      if (!btn.isConnected) return;
+      delete btn.dataset.hfBusy;
+      btn.removeAttribute('aria-disabled');
+      if ('disabled' in btn) btn.disabled = false;
+    });
+}
+
 async function handleHyperFocusClick(ev) {
   const btn = ev.target.closest?.('[data-hf-action]');
   if (!btn) return;
@@ -2474,7 +2494,7 @@ export function initUI() {
   wrap.innerHTML = dialogsMarkup();
   while (wrap.firstElementChild) document.body.appendChild(wrap.firstElementChild);
 
-  document.addEventListener('click', handleHyperFocusClick);
+  document.addEventListener('click', handleHyperFocusClickLocked);
   // La sesión se repinta en cada paso, así que lo escrito en la caja de
   // observaciones se guarda en memoria para no perderlo al cambiar de pantalla.
   document.addEventListener('input', (ev) => {
