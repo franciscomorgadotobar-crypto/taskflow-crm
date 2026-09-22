@@ -739,8 +739,9 @@ function bindKanbanDrag() {
       list.classList.add('drop-target');
     });
     list.addEventListener('dragleave', () => list.classList.remove('drop-target'));
-    list.addEventListener('drop', (ev) => {
+    list.addEventListener('drop', async (ev) => {
       ev.preventDefault();
+      if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
       list.classList.remove('drop-target');
       const target = list.dataset.stage;
       const lead = getLead(draggedId);
