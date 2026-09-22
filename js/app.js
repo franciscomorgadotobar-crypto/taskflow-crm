@@ -598,7 +598,7 @@ function openComplete(leadId) {
   setTimeout(() => $('completeResult').focus(), 50);
 }
 
-function submitComplete(e) {
+async function submitComplete(e) {
   e.preventDefault();
   const leadId = $('completeLeadId').value;
   const result = $('completeResult').value.trim();
@@ -610,7 +610,7 @@ function submitComplete(e) {
   if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
   if (nextDate && !nextType && !nextAction) return toast('Elige el tipo de la siguiente tarea o escribe una nota.', 'error');
   const task = taskOf(getLead(leadId));
-  completeTaskAtomic(leadId, {
+  const closed = await completeTaskAtomic(leadId, {
     type: task?.type || 'Actividad',
     date: localDateTimeInput(),
     result,
@@ -618,6 +618,7 @@ function submitComplete(e) {
     nextAction,
     nextDate
   });
+  if (!closed) return;
 
   $('completeDialog').close();
   toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
@@ -638,14 +639,14 @@ function openTask(leadId) {
   $('taskDialog').showModal();
 }
 
-function submitTask(e) {
+async function submitTask(e) {
   e.preventDefault();
   const nextType = taskTypeValue('task');
   const note = $('taskAction').value.trim();
   if (!nextType && !note) return toast('Elige el tipo de tarea o escribe una nota.', 'error');
   const date = $('taskDate').value;
   if (!date) return toast('Elige la fecha de la tarea.', 'error');
-  updateLead($('taskLeadId').value, { nextType, nextAction: note, nextDate: date });
+  if (!(await updateLead($('taskLeadId').value, { nextType, nextAction: note, nextDate: date }))) return;
   $('taskDialog').close();
   toast('Tarea agendada.');
 }
@@ -1134,10 +1135,10 @@ const ACTIONS = {
     });
     if (saved) toast('Plantilla guardada.');
   },
-  'delete-template': (id) => {
+  'delete-template': async (id) => {
     if (!confirm('¿Eliminar esta plantilla?')) return;
-    if (!deleteTemplate(id)) return toast('Debe quedar al menos una plantilla.', 'error');
-    toast('Plantilla eliminada.');
+    if (state.templates.length <= 1) return toast('Debe quedar al menos una plantilla.', 'error');
+    if (await deleteTemplate(id)) toast('Plantilla eliminada.');
   },
   'insert-var': (id, btn) => insertVariable(id, btn.dataset.var),
   'back-to-pipeline': async (id) => {
