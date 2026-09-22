@@ -563,26 +563,38 @@ export function addActivity(activity, { silent = false } = {}) {
 export function updateActivity(id, patch) {
   const act = state.activities.find((a) => a.id === id);
   if (!act) return null;
+  const before = structuredClone(act);
   Object.assign(act, patch);
   persist();
   supabase
     .from('activities')
     .update(toDbActivity(act))
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo actualizar la actividad', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(act, before);
+      persist();
+      reportError('No se pudo actualizar la actividad', error);
+    });
   return act;
 }
 
 export const getActivity = (id) => state.activities.find((a) => a.id === id) || null;
 
 export function deleteActivity(id) {
+  const before = state.activities.find((a) => a.id === id);
   state.activities = state.activities.filter((a) => a.id !== id);
   persist();
   supabase
     .from('activities')
     .delete()
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo eliminar la actividad', error));
+    .then(({ error }) => {
+      if (!error || !before) return;
+      state.activities.push(before);
+      persist();
+      reportError('No se pudo eliminar la actividad', error);
+    });
 }
 
 export const activitiesOf = (leadId) =>
@@ -642,13 +654,19 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
 export function saveTemplate(id, patch) {
   const t = state.templates.find((x) => x.id === id);
   if (!t) return null;
+  const before = structuredClone(t);
   Object.assign(t, patch);
   persist();
   supabase
     .from('templates')
     .update(toDbTemplate(t))
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo guardar la plantilla', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(t, before);
+      persist();
+      reportError('No se pudo guardar la plantilla', error);
+    });
   return t;
 }
 
@@ -659,19 +677,30 @@ export function addTemplate(channel_ = 'both') {
   supabase
     .from('templates')
     .insert({ id: record.id, ...toDbTemplate(record) })
-    .then(({ error }) => error && reportError('No se pudo crear la plantilla', error));
+    .then(({ error }) => {
+      if (!error) return;
+      state.templates = state.templates.filter((t) => t.id !== record.id);
+      persist();
+      reportError('No se pudo crear la plantilla', error);
+    });
   return record;
 }
 
 export function deleteTemplate(id) {
   if (state.templates.length <= 1) return false;
+  const before = state.templates.find((t) => t.id === id);
   state.templates = state.templates.filter((t) => t.id !== id);
   persist();
   supabase
     .from('templates')
     .delete()
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo eliminar la plantilla', error));
+    .then(({ error }) => {
+      if (!error || !before) return;
+      state.templates.push(before);
+      persist();
+      reportError('No se pudo eliminar la plantilla', error);
+    });
   return true;
 }
 
@@ -688,6 +717,7 @@ export function ownerNames() {
 /** Guarda mi propio nombre/teléfono (el correo lo gestiona la sesión, no se edita acá). */
 export function saveProfile(patch) {
   if (!state.me) return null;
+  const before = structuredClone(state.me);
   Object.assign(state.me, patch);
   const idx = state.team.findIndex((t) => t.id === state.me.id);
   if (idx >= 0) state.team[idx] = state.me;
@@ -696,7 +726,14 @@ export function saveProfile(patch) {
     .from('profiles')
     .update({ name: patch.name ?? state.me.name, phone: patch.phone ?? state.me.phone })
     .eq('id', state.me.id)
-    .then(({ error }) => error && reportError('No se pudo guardar tu perfil', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(state.me, before);
+      const current = state.team.findIndex((t) => t.id === state.me.id);
+      if (current >= 0) state.team[current] = state.me;
+      persist();
+      reportError('No se pudo guardar tu perfil', error);
+    });
   return state.me;
 }
 
@@ -704,6 +741,7 @@ export function saveProfile(patch) {
 export function updateUser(id, patch) {
   const t = state.team.find((x) => x.id === id);
   if (!t) return null;
+  const before = structuredClone(t);
   Object.assign(t, patch);
   persist();
   const payload = {};
@@ -715,7 +753,12 @@ export function updateUser(id, patch) {
     .from('profiles')
     .update(payload)
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo actualizar a esa persona', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(t, before);
+      persist();
+      reportError('No se pudo actualizar a esa persona', error);
+    });
   return t;
 }
 
