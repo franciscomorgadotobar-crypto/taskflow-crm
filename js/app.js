@@ -1340,8 +1340,9 @@ function importJson(ev) {
 
 function resetAll() {
   if (!confirm('Se borrarán todas las oportunidades que puedes ver (según tu permiso). Esta acción no se puede deshacer. ¿Continuar?')) return;
+  const total = state.leads.length;
   deleteAllVisibleLeads();
-  toast('Datos borrados.');
+  toast(`Eliminando ${total} oportunidad(es)…`);
 }
 
 function seedExample() {
