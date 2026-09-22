@@ -1751,7 +1751,11 @@ async function logInteraction(record, {
     detail: detail || ''
   };
   const { error } = await supabase.from('hyperfocus_interactions').insert(row);
-  if (error) console.error('No se pudo guardar interacción Híper Foco', error);
+  if (error) {
+    console.error('No se pudo guardar interacción Híper Foco', error);
+    throw new Error('La gestión se guardó, pero no se pudo registrar su interacción. No se avanzará automáticamente para evitar perder trazabilidad.');
+  }
+  return row;
 }
 
 function statTransition(campaignId, oldStatus, newStatus, { touched = false } = {}) {
@@ -1987,10 +1991,11 @@ async function finalizeDiscard() {
 }
 
 async function advanceAfterFinal(message = '') {
+  // Refrescamos antes de avanzar para que las tarjetas y el contador no dependan
+  // únicamente de la transición optimista local. Si el refresco falla, hydrate()
+  // conserva el último estado válido y la sesión puede continuar.
+  await hydrate();
   if (message) toast(message);
-  // Refrescamos estadísticas reales en segundo plano; la transición local evita
-  // que la sesión se sienta lenta entre un registro y el siguiente.
-  hydrate();
   await takeNextRecord();
 }
 
