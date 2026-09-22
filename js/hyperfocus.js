@@ -1784,9 +1784,17 @@ async function saveAttemptAndPatch(patch, detail) {
   const record = focus.record;
   if (!record) return;
   const oldStatus = record.status;
-  // Si quedó texto sin guardar en la caja de observaciones, se va con este cierre.
-  const suelta = patch.notes === undefined ? pendingNote() : '';
-  if (suelta) patch = { ...patch, notes: mergeNotes(record, suelta) };
+  // Si quedó texto sin guardar en la caja de observaciones, se va con este cierre
+  // aunque el flujo ya traiga una nota propia (p. ej. reintento o descarte).
+  // Partimos desde patch.notes cuando existe para no perder ni duplicar el historial.
+  const suelta = pendingNote();
+  if (suelta) {
+    const baseNotes = patch.notes === undefined ? (record.notes || '') : (patch.notes || '');
+    patch = {
+      ...patch,
+      notes: [String(baseNotes).trim(), stampNote(suelta)].filter(Boolean).join('\n')
+    };
+  }
   const countAttempt = Boolean(focus.attemptStarted || focus.contactResult || focus.commercialResult);
   if (focus.contactResult === 'wrong_number') {
     const contact = selectedContact();
