@@ -728,9 +728,9 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
 }
 
 /**
- * Cierre transaccional para el flujo normal. Si 0010 aún no está aplicada,
- * degrada al cierre legado para no bloquear producción. Gestionar pendientes
- * continúa usando completeTask() y conserva exactamente su comportamiento.
+ * Cierre transaccional para el flujo normal mediante el RPC de 0010.
+ * Gestionar pendientes continúa usando completeTask() y conserva exactamente
+ * su comportamiento.
  */
 export function completeTaskAtomic(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
   const lead = getLead(leadId);
@@ -771,21 +771,9 @@ export function completeTaskAtomic(leadId, { type, date, result, nextType = '', 
     .then(({ error }) => {
       if (!error) return;
 
-      const missingRpc =
-        error.code === 'PGRST202' ||
-        error.code === '42883' ||
-        /complete_task/i.test(error.message || '') && /not found|schema cache|does not exist/i.test(error.message || '');
-
       state.activities = state.activities.filter((a) => a.id !== record.id);
       Object.assign(lead, before);
       persist();
-
-      if (missingRpc) {
-        // Compatibilidad temporal para instalaciones que todavía no ejecutaron 0010.
-        completeTask(leadId, { type, date, result, nextType, nextAction, nextDate });
-        return;
-      }
-
       reportError('No se pudo cerrar la tarea', error);
     });
 
