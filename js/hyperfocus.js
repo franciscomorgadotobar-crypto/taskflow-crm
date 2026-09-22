@@ -2480,6 +2480,11 @@ export function initUI() {
   byId('hfImportDialog')?.addEventListener('cancel', (ev) => {
     if (!confirmDiscardImport()) ev.preventDefault();
   });
-  byId('hfSessionDialog')?.addEventListener('close', () => { releaseCurrentClaim(); });
+  byId('hfSessionDialog')?.addEventListener('cancel', async (ev) => {
+    // Escape no puede cerrar primero y liberar después: si la liberación falla,
+    // el registro debe seguir visible en la sesión para no ocultar un claim activo.
+    ev.preventDefault();
+    if (await releaseCurrentClaim()) byId('hfSessionDialog')?.close();
+  });
   bindImportControls();
 }
