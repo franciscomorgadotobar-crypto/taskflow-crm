@@ -726,6 +726,71 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
   return record;
 }
 
+/**
+ * Cierre transaccional para el flujo normal. Si 0010 aún no está aplicada,
+ * degrada al cierre legado para no bloquear producción. Gestionar pendientes
+ * continúa usando completeTask() y conserva exactamente su comportamiento.
+ */
+export function completeTaskAtomic(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
+  const lead = getLead(leadId);
+  if (!lead) return null;
+
+  const before = structuredClone(lead);
+  const closed = taskOf(lead);
+  const hasNext = Boolean(nextType || nextAction);
+  const record = {
+    id: uid(),
+    leadId,
+    type,
+    date: date || nowISO(),
+    owner: lead.owner || '',
+    detail: result,
+    task: closed?.title || ''
+  };
+
+  state.activities.unshift(record);
+  lead.nextType = hasNext ? nextType : '';
+  lead.nextAction = hasNext ? nextAction : '';
+  lead.nextDate = hasNext ? nextDate : '';
+  lead.updatedAt = nowISO();
+  persist();
+
+  supabase
+    .rpc('complete_task', {
+      p_lead_id: leadId,
+      p_activity_id: record.id,
+      p_type: record.type || '',
+      p_date: record.date,
+      p_result: result,
+      p_task: record.task || '',
+      p_next_type: hasNext ? nextType : '',
+      p_next_action: hasNext ? nextAction : '',
+      p_next_date: hasNext ? nextDate || null : null
+    })
+    .then(({ error }) => {
+      if (!error) return;
+
+      const missingRpc =
+        error.code === 'PGRST202' ||
+        error.code === '42883' ||
+        /complete_task/i.test(error.message || '') && /not found|schema cache|does not exist/i.test(error.message || '');
+
+      state.activities = state.activities.filter((a) => a.id !== record.id);
+      Object.assign(lead, before);
+      persist();
+
+      if (missingRpc) {
+        // Compatibilidad temporal para instalaciones que todavía no ejecutaron 0010.
+        completeTask(leadId, { type, date, result, nextType, nextAction, nextDate });
+        return;
+      }
+
+      reportError('No se pudo cerrar la tarea', error);
+    });
+
+  return record;
+}
+
 /* ---------- Plantillas ---------- */
 
 export function saveTemplate(id, patch) {
