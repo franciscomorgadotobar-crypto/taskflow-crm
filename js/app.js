@@ -190,7 +190,6 @@ function fillStaticSelects() {
   $('buyTrigger').innerHTML = options(BUY_TRIGGERS);
   $('currentManagement').innerHTML = options(CURRENT_MANAGEMENT);
   $('activityType').innerHTML = options(ACTIVITY_TYPES);
-  $('completeType').innerHTML = options(ACTIVITY_TYPES);
   $('manageType').innerHTML = options(ACTIVITY_TYPES);
   $('moduleChecks').innerHTML = MODULES.map(
     (v) => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`
