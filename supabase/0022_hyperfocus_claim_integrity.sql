@@ -157,7 +157,7 @@ begin
 
   return v_record;
 end;
-$;
+$$;
 
 drop policy if exists hyperfocus_records_update on public.hyperfocus_records;
 create policy hyperfocus_records_update on public.hyperfocus_records for update to authenticated
