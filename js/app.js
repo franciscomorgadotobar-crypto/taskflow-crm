@@ -16,6 +16,7 @@ import {
 } from './catalog.js';
 import {
   addActivity,
+  addActivityConfirmed,
   addContact,
   addTemplate,
   clearLocal,
@@ -50,7 +51,8 @@ import {
   stopRealtime,
   updateLead,
   updateUser,
-  upsertLead
+  upsertLead,
+  upsertLeadConfirmed
 } from './store.js';
 import {
   buildQuoteEmail,
@@ -250,7 +252,7 @@ function toggleLossField() {
   $('lossReasonField').hidden = $('stage').value !== 'Perdido';
 }
 
-function submitLead(e) {
+async function submitLead(e) {
   e.preventDefault();
   const company = $('company').value.trim();
   if (!company) return toast('La empresa es obligatoria.', 'error');
@@ -264,9 +266,14 @@ function submitLead(e) {
   fields.forEach((k) => (payload[k] = $(k).value.trim ? $(k).value.trim() : $(k).value));
   payload.isPrivate = $('isPrivate').checked;
   if (!id && !payload.owner) payload.owner = session.profile?.name || '';
-  upsertLead(payload);
-  $('leadDialog').close();
-  toast(id ? 'Datos actualizados.' : 'Lead creado.');
+  try {
+    const saved = await upsertLeadConfirmed(payload);
+    if (!saved) return;
+    $('leadDialog').close();
+    toast(id ? 'Datos actualizados.' : 'Lead creado.');
+  } catch {
+    // upsertLeadConfirmed ya restaura el estado local e informa el error.
+  }
 }
 
 /* ---------- Diálogo: levantamiento ---------- */
@@ -348,7 +355,7 @@ function fillActivityContacts(leadId) {
       .join('');
 }
 
-function submitActivity(e) {
+async function submitActivity(e) {
   e.preventDefault();
   const id = $('activityId').value;
   const leadId = $('activityLeadId').value;
@@ -366,14 +373,22 @@ function submitActivity(e) {
   };
 
   if (id) {
-    updateActivity(id, payload);
+    if (!(await updateActivity(id, payload))) return;
   } else {
     const resolvesTask = $('activityResolveTask').checked;
     const pendingTask = resolvesTask ? taskOf(getLead(leadId)) : null;
-    if (pendingTask) payload.task = pendingTask.title;
-    addActivity(payload);
     if (pendingTask) {
-      updateLead(leadId, { nextType: '', nextAction: '', nextDate: '' });
+      // Este caso aún conserva las dos escrituras históricas hasta activar el
+      // RPC específico que preserva contacto/responsable de la actividad manual.
+      payload.task = pendingTask.title;
+      const activity = await addActivityConfirmed(payload);
+      if (!activity) return;
+      if (!(await updateLead(leadId, { nextType: '', nextAction: '', nextDate: '' }))) {
+        toast('La actividad quedó registrada, pero no se pudo resolver la tarea. Intenta nuevamente.', 'error');
+        return;
+      }
+    } else if (!(await addActivityConfirmed(payload))) {
+      return;
     }
   }
 
