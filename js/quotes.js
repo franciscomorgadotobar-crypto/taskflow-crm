@@ -334,22 +334,12 @@ export function deleteQuote(id) {
   }
   notify();
   (async () => {
-    const { error } = await supabase.from('quotes').delete().eq('id', id);
-    if (error) {
-      state.quotes = beforeQuotes;
-      notify();
-      return reportError('No se pudo eliminar la cotización', error);
-    }
-    if (q.isCurrent) {
-      const next = versionsOf(q.rootId)[0];
-      if (next) {
-        const { error: e2 } = await supabase.from('quotes').update({ is_current: true }).eq('id', next.id);
-        if (e2) {
-          await hydrateQuotes();
-          reportError('La versión se eliminó, pero no se pudo reactivar la anterior', e2);
-        }
-      }
-    }
+    const { error } = await supabase.rpc('delete_quote_version', { p_quote_id: id });
+    if (!error) return;
+
+    state.quotes = beforeQuotes;
+    notify();
+    reportError('No se pudo eliminar la cotización', error);
   })();
 }
 
