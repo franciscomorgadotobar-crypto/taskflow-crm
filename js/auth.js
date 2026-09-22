@@ -46,7 +46,11 @@ async function refresh(user) {
 supabase.auth.onAuthStateChange((_event, sess) => refresh(sess?.user || null));
 
 export async function initAuth() {
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  // onAuthStateChange puede haberse adelantado mientras getSession estaba en vuelo.
+  // En ese caso esa notificación más reciente ya es la fuente de verdad.
+  if (session.status !== 'loading') return;
   await refresh(data.session?.user || null);
 }
 
@@ -61,7 +65,8 @@ export async function signUp(email, password, name) {
 }
 
 export async function signOut() {
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 }
 
 export async function resetPassword(email) {
