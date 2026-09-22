@@ -755,7 +755,7 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
  * Gestionar pendientes continúa usando completeTask() y conserva exactamente
  * su comportamiento.
  */
-export function completeTaskAtomic(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
+export async function completeTaskAtomic(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
   const lead = getLead(leadId);
   if (!lead) return null;
 
@@ -779,26 +779,24 @@ export function completeTaskAtomic(leadId, { type, date, result, nextType = '', 
   lead.updatedAt = nowISO();
   persist();
 
-  supabase
-    .rpc('complete_task', {
-      p_lead_id: leadId,
-      p_activity_id: record.id,
-      p_type: record.type || '',
-      p_date: record.date,
-      p_result: result,
-      p_task: record.task || '',
-      p_next_type: hasNext ? nextType : '',
-      p_next_action: hasNext ? nextAction : '',
-      p_next_date: hasNext ? nextDate || null : null
-    })
-    .then(({ error }) => {
-      if (!error) return;
-
-      state.activities = state.activities.filter((a) => a.id !== record.id);
-      Object.assign(lead, before);
-      persist();
-      reportError('No se pudo cerrar la tarea', error);
-    });
+  const { error } = await supabase.rpc('complete_task', {
+    p_lead_id: leadId,
+    p_activity_id: record.id,
+    p_type: record.type || '',
+    p_date: record.date,
+    p_result: result,
+    p_task: record.task || '',
+    p_next_type: hasNext ? nextType : '',
+    p_next_action: hasNext ? nextAction : '',
+    p_next_date: hasNext ? nextDate || null : null
+  });
+  if (error) {
+    state.activities = state.activities.filter((a) => a.id !== record.id);
+    Object.assign(lead, before);
+    persist();
+    reportError('No se pudo cerrar la tarea', error);
+    return null;
+  }
 
   return record;
 }
@@ -819,20 +817,16 @@ export async function saveTemplate(id, patch) {
   return null;
 }
 
-export function addTemplate(channel_ = 'both') {
+export async function addTemplate(channel_ = 'both') {
   const record = { id: uid(), name: 'Nueva plantilla', channel: channel_, subject: '', body: '' };
   state.templates.push(record);
   persist();
-  supabase
-    .from('templates')
-    .insert({ id: record.id, ...toDbTemplate(record) })
-    .then(({ error }) => {
-      if (!error) return;
-      state.templates = state.templates.filter((t) => t.id !== record.id);
-      persist();
-      reportError('No se pudo crear la plantilla', error);
-    });
-  return record;
+  const { error } = await supabase.from('templates').insert({ id: record.id, ...toDbTemplate(record) });
+  if (!error) return record;
+  state.templates = state.templates.filter((t) => t.id !== record.id);
+  persist();
+  reportError('No se pudo crear la plantilla', error);
+  return null;
 }
 
 export async function deleteTemplate(id) {
@@ -841,19 +835,14 @@ export async function deleteTemplate(id) {
   const before = index >= 0 ? state.templates[index] : null;
   state.templates = state.templates.filter((t) => t.id !== id);
   persist();
-  supabase
-    .from('templates')
-    .delete()
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error || !before) return;
-      if (!state.templates.some((t) => t.id === id)) {
-        state.templates.splice(Math.min(Math.max(index, 0), state.templates.length), 0, before);
-      }
-      persist();
-      reportError('No se pudo eliminar la plantilla', error);
-    });
-  return true;
+  const { error } = await supabase.from('templates').delete().eq('id', id);
+  if (!error) return true;
+  if (before && !state.templates.some((t) => t.id === id)) {
+    state.templates.splice(Math.min(Math.max(index, 0), state.templates.length), 0, before);
+  }
+  persist();
+  reportError('No se pudo eliminar la plantilla', error);
+  return false;
 }
 
 /* ---------- Equipo ---------- */
