@@ -481,22 +481,59 @@ export function deleteAllVisibleLeads() {
  * o mover datos entre ambientes. Cada fila pasa por el mismo camino que crearla
  * a mano, así que RLS decide qué se puede crear.
  */
-export function replaceState(data) {
+export async function replaceState(data) {
   const isUuid = (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || ''));
   const idMap = new Map();
-  (data.leads || []).forEach((raw) => {
+  const summary = { leads: 0, discoveries: 0, activities: 0, failed: 0 };
+
+  // La importación es deliberadamente secuencial: un respaldo puede contener
+  // relaciones entre leads, levantamientos y actividades. Confirmamos cada lead
+  // antes de importar sus dependencias y contamos los rechazos en vez de declarar
+  // éxito mientras aún hay escrituras pendientes.
+  for (const raw of data.leads || []) {
     const oldId = raw.id;
-    const lead = upsertLead({ ...raw, id: isUuid(oldId) ? oldId : undefined });
-    if (oldId) idMap.set(oldId, lead.id);
-  });
-  Object.entries(data.discoveries || {}).forEach(([leadId, d]) => {
+    try {
+      const lead = await upsertLeadConfirmed({ ...raw, id: isUuid(oldId) ? oldId : undefined });
+      if (oldId) idMap.set(oldId, lead.id);
+      summary.leads += 1;
+    } catch {
+      summary.failed += 1;
+    }
+  }
+
+  for (const [leadId, d] of Object.entries(data.discoveries || {})) {
     const newId = idMap.get(leadId) || leadId;
-    if (getLead(newId)) saveDiscovery(newId, d);
-  });
-  (data.activities || []).forEach((a) => {
-    addActivity({ ...a, leadId: idMap.get(a.leadId) || a.leadId, id: undefined });
-  });
-  toast('Importación completada.');
+    if (!getLead(newId)) {
+      summary.failed += 1;
+      continue;
+    }
+    if (await saveDiscovery(newId, d)) summary.discoveries += 1;
+    else summary.failed += 1;
+  }
+
+  for (const a of data.activities || []) {
+    const mappedLeadId = a.leadId ? idMap.get(a.leadId) || a.leadId : '';
+    // No importamos una actividad ligada a un lead que no existe: evita crear
+    // huérfanos accidentales cuando un lead del respaldo fue rechazado.
+    if (mappedLeadId && !getLead(mappedLeadId)) {
+      summary.failed += 1;
+      continue;
+    }
+    const record = { id: uid(), task: '', ...a, id: uid(), leadId: mappedLeadId };
+    state.activities.unshift(record);
+    persist();
+    const { error } = await supabase.from('activities').insert({ id: record.id, ...toDbActivity(record) });
+    if (error) {
+      state.activities = state.activities.filter((x) => x.id !== record.id);
+      persist();
+      reportError('No se pudo importar una actividad', error);
+      summary.failed += 1;
+    } else {
+      summary.activities += 1;
+    }
+  }
+
+  return summary;
 }
 
 export function findDuplicate(company, excludeId = '') {

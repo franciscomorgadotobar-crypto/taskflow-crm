@@ -1320,7 +1320,13 @@ function importJson(ev) {
       const imported = JSON.parse(reader.result);
       if (!Array.isArray(imported.leads)) throw new Error('El archivo no tiene una lista de leads.');
       if (!confirm(`Se crearán ${imported.leads.length} lead(s) a partir del archivo. ¿Continuar?`)) return;
-      replaceState(imported);
+      const result = await replaceState(imported);
+      const importedCount = result.leads + result.discoveries + result.activities;
+      if (result.failed) {
+        toast(`Importación parcial: ${importedCount} registro(s) confirmados y ${result.failed} rechazado(s).`, 'error');
+      } else {
+        toast(`Importación completada: ${result.leads} lead(s), ${result.discoveries} levantamiento(s) y ${result.activities} actividad(es).`);
+      }
     } catch (err) {
       toast(`No se pudo importar: ${err.message}`, 'error');
     } finally {
