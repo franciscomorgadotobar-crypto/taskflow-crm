@@ -1,11 +1,8 @@
 import { INDUSTRIES, DEFAULT_PROBABILITY } from './catalog.js';
 import { isAdmin, isReadOnly, session } from './auth.js';
 import {
-  addActivityConfirmed,
-  hasActivity,
   getLead,
-  state as crmState,
-  upsertLeadConfirmed
+  state as crmState
 } from './store.js';
 import { supabase } from './supabase.js';
 import {
@@ -1782,7 +1779,7 @@ function statTransition(campaignId, oldStatus, newStatus, { touched = false } = 
   state.stats[campaignId] = s;
 }
 
-async function saveAttemptAndPatch(patch, detail) {
+async function saveAttemptAndPatch(patch, detail, crmConversion = null) {
   const record = focus.record;
   if (!record) return;
   const oldStatus = record.status;
@@ -1849,13 +1846,25 @@ async function saveAttemptAndPatch(patch, detail) {
     detail: detail || ''
   };
 
-  // 0016 confirma el cambio del registro y su historial en una sola transacción.
-  // No hay fallback: si el RPC falla, la gestión permanece en pantalla.
-  const { error } = await supabase.rpc('hyperfocus_finalize_record', {
-    p_record_id: record.id,
-    p_patch: dbPatch,
-    p_interaction: interaction
-  });
+  // Sin conversión CRM, 0016/0022 mantienen atómicos registro + interacción.
+  // Con conversión, 0024/0025 agregan lead + actividad a ESA MISMA transacción.
+  // No hay fallback: si falla cualquier paso, la gestión permanece en pantalla
+  // y Postgres revierte el conjunto completo.
+  const rpc = crmConversion
+    ? supabase.rpc('hyperfocus_convert_record', {
+        p_record_id: record.id,
+        p_lead_id: crmConversion.leadId,
+        p_lead: crmConversion.leadPayload,
+        p_activity: crmConversion.activityPayload,
+        p_patch: dbPatch,
+        p_interaction: interaction
+      })
+    : supabase.rpc('hyperfocus_finalize_record', {
+        p_record_id: record.id,
+        p_patch: dbPatch,
+        p_interaction: interaction
+      });
+  const { error } = await rpc;
   if (error) throw error;
 
   Object.assign(record, nextPatch);
@@ -1930,7 +1939,7 @@ function hyperFocusCrmActivityId(record) {
   return `${out.slice(0,8)}-${out.slice(8,12)}-${out.slice(12,16)}-${out.slice(16,20)}-${out.slice(20)}`;
 }
 
-async function createOrUpdateCrmLead(record, {
+function buildAtomicCrmConversion(record, {
   stage = 'Contactado',
   nextType = '',
   nextAction = '',
@@ -1938,100 +1947,96 @@ async function createOrUpdateCrmLead(record, {
   remarketingReason = ''
 } = {}) {
   const contact = selectedContact();
-  let lead = leadForRecord(record);
+  const existing = leadForRecord(record);
 
-  if (lead && !canEditExistingLead(lead)) {
-    throw new Error(`Esta empresa ya está asignada a ${lead.owner || 'otro integrante del equipo'}. No se modificó su oportunidad.`);
+  if (existing && !canEditExistingLead(existing)) {
+    throw new Error(`Esta empresa ya está asignada a ${existing.owner || 'otro integrante del equipo'}. No se modificó su oportunidad.`);
   }
 
-  if (lead) {
-    const finalStage = stageForExisting(lead.stage, stage);
-    const contacts = [...(lead.contacts || [])];
-    if (contact && !sameContactInLead(lead, contact)) contacts.push(contactForLead(contact));
-    lead = await upsertLeadConfirmed({
-      ...lead,
-      industry: lead.industry || record.industry,
-      rut: lead.rut || record.rut,
-      source: lead.source || 'Base de datos',
+  const leadId = existing?.id || uid();
+  let finalStage = stage;
+  let leadPayload;
+
+  if (existing) {
+    finalStage = stageForExisting(existing.stage, stage);
+    const contacts = [...(existing.contacts || [])];
+    if (contact && !sameContactInLead(existing, contact)) contacts.push(contactForLead(contact));
+
+    leadPayload = {
+      industry: existing.industry || record.industry || '',
+      rut: existing.rut || record.rut || '',
+      source: existing.source || 'Base de datos',
       stage: finalStage,
-      probability: DEFAULT_PROBABILITY[finalStage] ?? lead.probability,
-      nextType,
-      nextAction,
-      nextDate,
+      probability: DEFAULT_PROBABILITY[finalStage] ?? existing.probability,
+      next_type: nextType,
+      next_action: nextAction,
+      next_date: nextDate || null,
       contacts,
-      remarketingReason: finalStage === 'Remarketing'
+      remarketing_reason: finalStage === 'Remarketing'
         ? remarketingReason
-        : (lead.stage === 'Remarketing' ? '' : lead.remarketingReason)
-    });
+        : (existing.stage === 'Remarketing' ? '' : existing.remarketingReason || '')
+    };
   } else {
-    lead = await upsertLeadConfirmed({
-      company: record.company,
-      rut: record.rut,
-      industry: record.industry,
+    leadPayload = {
+      rut: record.rut || '',
+      industry: record.industry || '',
       source: 'Base de datos',
       contact: contact?.name || '',
       role: contact?.role || '',
       email: contact?.email || '',
       phone: activePhone(contact),
-      stage,
+      stage: finalStage,
       priority: 'Media',
       value: 0,
-      probability: DEFAULT_PROBABILITY[stage] ?? 15,
-      expectedCloseDate: '',
-      nextType,
-      nextAction,
-      nextDate,
-      owner: session.profile?.name || crmState.me?.name || '',
-      lossReason: '',
-      remarketingReason,
-      isPrivate: false,
+      probability: DEFAULT_PROBABILITY[finalStage] ?? 15,
+      expected_close_date: null,
+      next_type: nextType,
+      next_action: nextAction,
+      next_date: nextDate || null,
+      loss_reason: '',
+      remarketing_reason: remarketingReason,
       notes: [
         `Origen: Híper Foco · ${campaignOf(record.campaignId)?.name || 'campaña'}. Fila de origen ${record.rowNumber}.`,
-        // Lo conversado durante la prospección se va con la empresa a su ficha.
+        // La observación pendiente viaja al lead y al cierre Híper Foco dentro
+        // de la misma transacción, igual que en el flujo anterior.
         mergeNotes(record, pendingNote()).trim()
       ].filter(Boolean).join('\n'),
       contacts: extraContactsForLead(record, contact)
-    });
+    };
   }
 
-  if (lead) {
-    const activityId = hyperFocusCrmActivityId(record);
-    if (!hasActivity(activityId)) {
-      try {
-        await addActivityConfirmed({
-          id: activityId,
-          leadId: lead.id,
-          type: focus.selectedChannel === 'whatsapp' ? 'WhatsApp' : focus.selectedChannel === 'email' ? 'Correo' : 'Llamada',
-          date: nowISO(),
-          owner: session.profile?.name || crmState.me?.name || lead.owner || '',
-          detail: `Híper Foco · ${COMMERCIAL_RESULTS[focus.commercialResult] || CONTACT_RESULTS[focus.contactResult] || 'Gestión comercial'} · campaña ${campaignOf(record.campaignId)?.name || ''}.`
-        });
-      } catch (err) {
-        // Si un intento anterior alcanzó a guardar la actividad pero el cierre
-        // Híper Foco falló, la PK determinista devuelve 23505. En ese caso la
-        // actividad ya existe y el reintento puede continuar sin duplicarla.
-        if (err?.code !== '23505') throw err;
-      }
-    }
-  }
-  return lead;
+  const activityPayload = {
+    id: hyperFocusCrmActivityId(record),
+    contact_key: contact?.id || '',
+    type: focus.selectedChannel === 'whatsapp'
+      ? 'WhatsApp'
+      : focus.selectedChannel === 'email'
+        ? 'Correo'
+        : 'Llamada',
+    date: nowISO(),
+    detail: `Híper Foco · ${COMMERCIAL_RESULTS[focus.commercialResult] || CONTACT_RESULTS[focus.contactResult] || 'Gestión comercial'} · campaña ${campaignOf(record.campaignId)?.name || ''}.`
+  };
+
+  return { leadId, leadPayload, activityPayload, finalStage };
 }
 
 async function finalizeConversion({ stage = 'Contactado', nextType = '', nextAction = '', nextDate = '', remarketingReason = '', detail = '' } = {}) {
   const record = focus.record;
   if (!record) return;
-  const lead = await createOrUpdateCrmLead(record, { stage, nextType, nextAction, nextDate, remarketingReason });
-  if (!lead) return toast('No se pudo crear el prospecto.', 'error');
-  const newStatus = stage === 'Remarketing' ? 'remarketing' : 'converted';
+
   try {
+    const crm = buildAtomicCrmConversion(record, { stage, nextType, nextAction, nextDate, remarketingReason });
+    const newStatus = crm.finalStage === 'Remarketing' ? 'remarketing' : 'converted';
+
     await saveAttemptAndPatch({
       status: newStatus,
-      convertedLeadId: lead.id,
-      existingLeadId: lead.id,
+      convertedLeadId: crm.leadId,
+      existingLeadId: crm.leadId,
       nextRetryAt: null,
-      remarketingReason: stage === 'Remarketing' ? remarketingReason : ''
-    }, detail || `Convertido al CRM en etapa ${stage}.`);
-    await advanceAfterFinal(`Guardado en ${stage === 'Remarketing' ? 'Remarketing' : 'CRM'}.`);
+      remarketingReason: crm.finalStage === 'Remarketing' ? remarketingReason : ''
+    }, detail || `Convertido al CRM en etapa ${crm.finalStage}.`, crm);
+
+    await advanceAfterFinal(`Guardado en ${crm.finalStage === 'Remarketing' ? 'Remarketing' : 'CRM'}.`);
   } catch (err) {
     console.error(err);
     toast(err.message || 'No se pudo cerrar la gestión.', 'error');
@@ -2042,19 +2047,25 @@ async function finalizeRetry({ when, note = '', convert = false } = {}) {
   const record = focus.record;
   if (!record) return;
   if (!when) return toast('Elige cuándo reintentar.', 'error');
-  let lead = null;
-  if (convert) {
-    const date = String(when).slice(0, 10);
-    lead = await createOrUpdateCrmLead(record, { stage: 'Contactado', nextType: 'Llamada', nextAction: note || 'Retomar contacto', nextDate: date });
-  }
+
   try {
+    const crm = convert
+      ? buildAtomicCrmConversion(record, {
+          stage: 'Contactado',
+          nextType: 'Llamada',
+          nextAction: note || 'Retomar contacto',
+          nextDate: String(when).slice(0, 10)
+        })
+      : null;
+
     await saveAttemptAndPatch({
       status: 'retry',
       nextRetryAt: new Date(when).toISOString(),
       notes: mergeNotes(record, note),
-      convertedLeadId: lead?.id || record.convertedLeadId || null,
-      existingLeadId: lead?.id || record.existingLeadId || null
-    }, `Reintento programado para ${when}${note ? ` · ${note}` : ''}.`);
+      convertedLeadId: crm?.leadId || record.convertedLeadId || null,
+      existingLeadId: crm?.leadId || record.existingLeadId || null
+    }, `Reintento programado para ${when}${note ? ` · ${note}` : ''}.`, crm);
+
     await advanceAfterFinal('Reintento programado.');
   } catch (err) {
     console.error(err);
