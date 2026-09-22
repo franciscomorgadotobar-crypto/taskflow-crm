@@ -1031,9 +1031,10 @@ const ACTIONS = {
     if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
     const nextType = taskTypeValue('ficha');
     const nextAction = $('fichaNextAction').value.trim();
+    const task = taskOf(getLead(id));
     completeTask(id, {
-      type: $('fichaType').value,
-      date: $('fichaDate').value || localDateTimeInput(),
+      type: task?.type || 'Actividad',
+      date: localDateTimeInput(),
       result,
       nextType,
       nextAction,
@@ -1070,7 +1071,6 @@ const ACTIONS = {
     const lead = getLead(id);
     const contact = findContact(lead, btn.dataset.contact);
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
-    addActivity({ leadId: id, contactId: btn.dataset.contact, type: 'Llamada', date: localDateTimeInput(), owner: lead.owner || '', detail: `Llamada iniciada a ${contact.name || contact.phone}.` });
     openExternal(`tel:${contact.phone.replace(/[^\d+]/g, '')}`);
   },
   'open-whatsapp': (id, btn) => openComm(id, btn.dataset.contact, 'whatsapp'),
