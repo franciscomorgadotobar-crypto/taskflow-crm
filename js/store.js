@@ -285,6 +285,13 @@ export function clearLocal() {
 
 export const getLead = (id) => state.leads.find((l) => l.id === id) || null;
 
+export function canEditLeadLocally(leadOrId) {
+  const lead = typeof leadOrId === 'string' ? getLead(leadOrId) : leadOrId;
+  if (!lead) return false;
+  if (['super', 'admin'].includes(session.profile?.role)) return true;
+  return session.profile?.role === 'comercial' && Boolean(lead.ownerId) && lead.ownerId === session.user?.id;
+}
+
 export function upsertLead(input) {
   const id = input.id || uid();
   const existing = getLead(id);
