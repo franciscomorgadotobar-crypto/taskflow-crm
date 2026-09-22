@@ -607,13 +607,15 @@ function submitComplete(e) {
 
   const nextType = taskTypeValue('complete');
   const nextAction = $('completeNextAction').value.trim();
+  const nextDate = $('completeNextDate').value;
+  if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
   completeTask(leadId, {
     type: $('completeType').value,
     date: $('completeDate').value || localDateTimeInput(),
     result,
     nextType,
     nextAction,
-    nextDate: $('completeNextDate').value
+    nextDate
   });
 
   $('completeDialog').close();
@@ -640,7 +642,9 @@ function submitTask(e) {
   const nextType = taskTypeValue('task');
   const note = $('taskAction').value.trim();
   if (!nextType && !note) return toast('Elige el tipo de tarea o escribe una nota.', 'error');
-  updateLead($('taskLeadId').value, { nextType, nextAction: note, nextDate: $('taskDate').value });
+  const date = $('taskDate').value;
+  if (!date) return toast('Elige la fecha de la tarea.', 'error');
+  updateLead($('taskLeadId').value, { nextType, nextAction: note, nextDate: date });
   $('taskDialog').close();
   toast('Tarea agendada.');
 }
@@ -1052,6 +1056,8 @@ const ACTIONS = {
     if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
     const nextType = taskTypeValue('ficha');
     const nextAction = $('fichaNextAction').value.trim();
+    const nextDate = $('fichaNextDate').value;
+    if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
     const task = taskOf(getLead(id));
     completeTask(id, {
       type: task?.type || 'Actividad',
@@ -1059,7 +1065,7 @@ const ACTIONS = {
       result,
       nextType,
       nextAction,
-      nextDate: $('fichaNextDate').value
+      nextDate
     });
     toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
   },
