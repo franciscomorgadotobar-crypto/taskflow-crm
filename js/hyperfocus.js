@@ -1134,16 +1134,24 @@ async function claimNextRecord(campaignId) {
 
 async function releaseCurrentClaim() {
   const record = focus.record;
-  if (!record?.id || record.claimedBy !== session.user?.id) return;
-  const { error } = await supabase
+  if (!record?.id || record.claimedBy !== session.user?.id) return true;
+  const { data, error } = await supabase
     .from('hyperfocus_records')
     .update({ claimed_by: null, claimed_at: null })
     .eq('id', record.id)
-    .eq('claimed_by', session.user.id);
-  if (!error) {
-    record.claimedBy = '';
-    record.claimedAt = '';
+    .eq('claimed_by', session.user.id)
+    .select('id');
+  if (error) {
+    toast(error.message || 'No se pudo liberar la empresa actual.', 'error');
+    return false;
   }
+  if (!data?.length) {
+    toast('La empresa actual ya no está reservada por esta sesión. Recarga Híper Foco.', 'error');
+    return false;
+  }
+  record.claimedBy = '';
+  record.claimedAt = '';
+  return true;
 }
 
 function recommendedContact(record) {
@@ -2130,12 +2138,12 @@ async function handleHyperFocusClick(ev) {
   if (action === 'open-discarded') return openDiscarded(btn.dataset.id);
   if (action === 'restore-discarded') return restoreDiscarded(btn.dataset.id);
   if (action === 'close-session') {
-    await releaseCurrentClaim();
-    return byId('hfSessionDialog')?.close();
+    if (await releaseCurrentClaim()) return byId('hfSessionDialog')?.close();
+    return;
   }
   if (action === 'pause-session') {
-    await releaseCurrentClaim();
-    return byId('hfSessionDialog')?.close();
+    if (await releaseCurrentClaim()) return byId('hfSessionDialog')?.close();
+    return;
   }
   if (action === 'save-note') return saveNote();
   if (action === 'skip-record') return skipRecord();
