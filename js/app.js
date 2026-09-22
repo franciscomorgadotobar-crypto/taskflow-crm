@@ -1351,6 +1351,7 @@ function importJson(ev) {
 }
 
 async function resetAll() {
+  if (!isAdmin()) return toast('Solo un administrador puede ejecutar el borrado masivo.', 'error');
   if (!confirm('Se borrarán todas las oportunidades que puedes ver (según tu permiso). Esta acción no se puede deshacer. ¿Continuar?')) return;
   const result = await deleteAllVisibleLeads();
   if (!result.failed) return toast(`${result.deleted} oportunidad(es) eliminada(s).`);
@@ -1358,6 +1359,7 @@ async function resetAll() {
 }
 
 async function seedExample() {
+  if (!isAdmin()) return toast('Solo un administrador puede cargar datos de demostración.', 'error');
   if (state.leads.length && !confirm('Ya existen datos. ¿Agregar ejemplos igualmente?')) return;
   const ownerName = session.profile?.name || '';
   const base = [
