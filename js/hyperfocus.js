@@ -1733,33 +1733,6 @@ async function updateRecord(record, patch) {
   Object.assign(record, patch);
 }
 
-async function logInteraction(record, {
-  contact = selectedContact(),
-  channel = focus.selectedChannel,
-  contactResult = focus.contactResult,
-  commercialResult = focus.commercialResult,
-  detail = ''
-} = {}) {
-  const row = {
-    id: uid(),
-    campaign_id: record.campaignId,
-    record_id: record.id,
-    created_by: session.user?.id || null,
-    contact_id: contact?.id || '',
-    contact_snapshot: contact || {},
-    channel: channel || '',
-    contact_result: contactResult || '',
-    commercial_result: commercialResult || '',
-    detail: detail || ''
-  };
-  const { error } = await supabase.from('hyperfocus_interactions').insert(row);
-  if (error) {
-    console.error('No se pudo guardar interacción Híper Foco', error);
-    throw new Error('La gestión se guardó, pero no se pudo registrar su interacción. No se avanzará automáticamente para evitar perder trazabilidad.');
-  }
-  return row;
-}
-
 function statTransition(campaignId, oldStatus, newStatus, { touched = false } = {}) {
   const s = state.stats[campaignId] || emptyStats();
   if (oldStatus && oldStatus !== newStatus && oldStatus in s) s[oldStatus] = Math.max(0, Number(s[oldStatus] || 0) - 1);
@@ -2090,12 +2063,24 @@ async function saveReferral() {
   const email = byId('hfReferralEmail')?.value.trim() || '';
   if (!name && !phone && !email) return toast('Agrega al menos nombre, teléfono o correo.', 'error');
 
+  const beforeContacts = structuredClone(record.contacts || []);
+  const beforePriority = record.priority;
   const contact = makeContact({ name, role, phone, email, source: 'Enriquecido durante Híper Foco' }, true);
-  record.contacts = dedupeContacts([...(record.contacts || []), contact]);
-  record.priority = recordPriority(record.contacts);
+  const nextContacts = dedupeContacts([...(record.contacts || []), contact]);
+  const nextPriority = recordPriority(nextContacts);
+
   try {
-    if (focus.contactResult) await recordAttemptOnly(CONTACT_RESULTS[focus.contactResult] || 'Contacto derivó a otra persona', { invalidatePhone: focus.contactResult === 'wrong_number' });
-    await updateRecord(record, { contacts: record.contacts, priority: record.priority });
+    // Si el referido aparece como resultado de un intento, el mismo RPC atómico
+    // que registra la interacción persiste también el contacto enriquecido.
+    record.contacts = nextContacts;
+    record.priority = nextPriority;
+    if (focus.contactResult) {
+      await recordAttemptOnly(CONTACT_RESULTS[focus.contactResult] || 'Contacto derivó a otra persona', {
+        invalidatePhone: focus.contactResult === 'wrong_number'
+      });
+    } else {
+      await updateRecord(record, { contacts: nextContacts, priority: nextPriority });
+    }
     focus.selectedContactId = contact.id;
     focus.phoneSlot = preferredPhoneSlot(contact);
     focus.attemptStarted = false;
@@ -2105,6 +2090,9 @@ async function saveReferral() {
     renderSession();
     toast('Contacto agregado.');
   } catch (err) {
+    record.contacts = beforeContacts;
+    record.priority = beforePriority;
+    renderSession();
     console.error(err);
     toast(err.message || 'No se pudo guardar el contacto.', 'error');
   }
