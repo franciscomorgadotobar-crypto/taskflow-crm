@@ -125,6 +125,7 @@ export function startRealtime() {
 }
 
 export function stopRealtime() {
+  hydrateGeneration += 1;
   if (channel) supabase.removeChannel(channel);
   channel = null;
   clearTimeout(realtimeHydrateTimer);
@@ -132,6 +133,7 @@ export function stopRealtime() {
 }
 
 export function clearLocal() {
+  hydrateGeneration += 1;
   state.services = [];
   state.quotes = [];
   notify();
