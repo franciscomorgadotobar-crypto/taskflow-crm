@@ -341,6 +341,7 @@ export async function upsertLeadConfirmed(input) {
 export function setStage(id, stage, { lossReason = '', remarketingReason = '' } = {}) {
   const lead = getLead(id);
   if (!lead || lead.stage === stage) return lead;
+  const before = structuredClone(lead);
   lead.stage = stage;
   lead.lossReason = stage === 'Perdido' ? lossReason : '';
   lead.remarketingReason = stage === 'Remarketing' ? remarketingReason : '';
@@ -352,21 +353,32 @@ export function setStage(id, stage, { lossReason = '', remarketingReason = '' } 
   supabase
     .from('leads')
     .update(toDbLead(lead))
-    .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo mover la oportunidad', error));
+.eq('id', id)
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(lead, before);
+      persist();
+      reportError('No se pudo mover la oportunidad', error);
+    });
   return lead;
 }
 
 export function updateLead(id, patch) {
   const lead = getLead(id);
   if (!lead) return null;
+  const before = structuredClone(lead);
   Object.assign(lead, patch, { updatedAt: nowISO() });
   persist();
   supabase
     .from('leads')
     .update(toDbLead(lead))
-    .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo actualizar el lead', error));
+.eq('id', id)
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(lead, before);
+      persist();
+      reportError('No se pudo actualizar el lead', error);
+    });
   return lead;
 }
 
@@ -514,7 +526,12 @@ export function addActivity(activity, { silent = false } = {}) {
   supabase
     .from('activities')
     .insert({ id: record.id, ...toDbActivity(record) })
-    .then(({ error }) => error && reportError('No se pudo registrar la actividad', error));
+    .then(({ error }) => {
+      if (!error) return;
+      state.activities = state.activities.filter((a) => a.id !== record.id);
+      persist();
+      reportError('No se pudo registrar la actividad', error);
+    });
   return record;
 }
 
@@ -570,6 +587,7 @@ export const openTasks = () =>
 export function completeTask(leadId, { type, date, result, nextType = '', nextAction = '', nextDate = '' }) {
   const lead = getLead(leadId);
   if (!lead) return null;
+  const before = structuredClone(lead);
   const closed = taskOf(lead);
   const record = addActivity(
     { leadId, type, date: date || nowISO(), owner: lead.owner || '', detail: result, task: closed?.title || '' },
@@ -585,7 +603,12 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
     .from('leads')
     .update(toDbLead(lead))
     .eq('id', leadId)
-    .then(({ error }) => error && reportError('No se pudo cerrar la tarea', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(lead, before);
+      persist();
+      reportError('No se pudo cerrar la tarea', error);
+    });
   return record;
 }
 
