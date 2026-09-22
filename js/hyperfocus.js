@@ -126,6 +126,7 @@ const focus = {
   phase: 'ready',
   skipped: new Set(),
   loading: false,
+  busy: false,
   messageOpened: false,
   attemptStarted: false,
   phoneSlot: 'primary',
@@ -281,6 +282,7 @@ export function clearLocal() {
   focus.campaignId = '';
   focus.queue = [];
   focus.record = null;
+  focus.busy = false;
   notify();
 }
 
@@ -2168,7 +2170,11 @@ async function skipRecord() {
 
 function handleHyperFocusClickLocked(ev) {
   const btn = ev.target.closest?.('[data-hf-action]');
-  if (!btn || btn.dataset.hfBusy === '1') return;
+  if (!btn || btn.dataset.hfBusy === '1' || focus.busy) return;
+
+  // Una operación async bloquea toda la sesión para evitar acciones concurrentes
+  // sobre el mismo claim (p. ej. finalizar y pausar/cerrar al mismo tiempo).
+  focus.busy = true;
   btn.dataset.hfBusy = '1';
   btn.setAttribute('aria-disabled', 'true');
   if ('disabled' in btn) btn.disabled = true;
@@ -2179,6 +2185,7 @@ function handleHyperFocusClickLocked(ev) {
       toast(err.message || 'No se pudo completar la acción.', 'error');
     })
     .finally(() => {
+      focus.busy = false;
       if (!btn.isConnected) return;
       delete btn.dataset.hfBusy;
       btn.removeAttribute('aria-disabled');
@@ -2367,7 +2374,7 @@ async function handleHyperFocusClick(ev) {
 
 function handleHyperFocusKeydown(ev) {
   const dialog = byId('hfSessionDialog');
-  if (!dialog?.open || ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (!dialog?.open || focus.busy || ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey) return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(ev.target?.tagName)) return;
 
   const key = ev.key.toLowerCase();
@@ -2517,8 +2524,15 @@ export function initUI() {
   byId('hfSessionDialog')?.addEventListener('cancel', async (ev) => {
     // Escape no puede cerrar primero y liberar después: si la liberación falla,
     // el registro debe seguir visible en la sesión para no ocultar un claim activo.
+    // Tampoco debe liberar el claim mientras otra escritura sigue en curso.
     ev.preventDefault();
-    if (await releaseCurrentClaim()) byId('hfSessionDialog')?.close();
+    if (focus.busy) return;
+    focus.busy = true;
+    try {
+      if (await releaseCurrentClaim()) byId('hfSessionDialog')?.close();
+    } finally {
+      focus.busy = false;
+    }
   });
   bindImportControls();
 }
