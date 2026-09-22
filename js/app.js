@@ -1047,7 +1047,7 @@ async function submitAuth(e) {
   try {
     if (authMode === 'signup') {
       await signUp(email, password, $('authName').value.trim());
-      toast('Cuenta creada. Ya puedes usar el CRM.');
+      toast('Cuenta creada. Un súper administrador debe activarla antes de usar el CRM.');
     } else {
       await signIn(email, password);
     }
