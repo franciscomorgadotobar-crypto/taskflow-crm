@@ -664,7 +664,8 @@ export async function addActivityConfirmed(activity, { silent = false } = {}) {
   };
   state.activities.unshift(record);
   persist();
-  const { error } = await supabase.from('activities').insert({ id: record.id, ...toDbActivity(record) });
+  const { data, error: insertError } = await supabase.from('activities').insert({ id: record.id, ...toDbActivity(record) }).select('id');
+  const error = insertError || (!data?.length ? new Error('El servidor no confirmó la actividad.') : null);
   if (error) {
     state.activities = state.activities.filter((a) => a.id !== record.id);
     persist();
@@ -715,7 +716,8 @@ export async function updateActivity(id, patch) {
   const before = structuredClone(act);
   Object.assign(act, patch);
   persist();
-  const { error } = await supabase.from('activities').update(toDbActivity(act)).eq('id', id);
+  const { data, error: updateError } = await supabase.from('activities').update(toDbActivity(act)).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó la actualización de la actividad.') : null);
   if (!error) return act;
   Object.assign(act, before);
   persist();
@@ -731,7 +733,8 @@ export async function deleteActivity(id) {
   const before = index >= 0 ? state.activities[index] : null;
   state.activities = state.activities.filter((a) => a.id !== id);
   persist();
-  const { error } = await supabase.from('activities').delete().eq('id', id);
+  const { data, error: deleteError } = await supabase.from('activities').delete().eq('id', id).select('id');
+  const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación de la actividad.') : null);
   if (!error) return true;
   if (before && !state.activities.some((a) => a.id === id)) {
     state.activities.splice(Math.min(Math.max(index, 0), state.activities.length), 0, before);
