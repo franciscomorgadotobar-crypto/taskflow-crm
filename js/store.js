@@ -364,14 +364,21 @@ export async function upsertLeadConfirmed(input) {
   }
 
   if (reassigned) {
-    addActivity({
-      leadId: id,
-      type: 'Asignación',
-      date: nowISO(),
-      owner: actor,
-      detail: `${actor} cambió el responsable de ${previousOwner || 'sin asignar'} a ${lead.owner || 'sin asignar'}.`,
-      system: true
-    });
+    try {
+      await addActivityConfirmed({
+        leadId: id,
+        type: 'Asignación',
+        date: nowISO(),
+        owner: actor,
+        detail: `${actor} cambió el responsable de ${previousOwner || 'sin asignar'} a ${lead.owner || 'sin asignar'}.`,
+        system: true
+      });
+    } catch (auditError) {
+      // La reasignación ya fue confirmada por Postgres. La auditoría es
+      // secundaria: no fingimos que el cambio falló, pero tampoco ocultamos
+      // que su registro de trazabilidad no pudo persistirse.
+      console.error('No se pudo registrar la auditoría de reasignación', auditError);
+    }
   }
 
   return lead;
