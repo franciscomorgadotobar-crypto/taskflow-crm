@@ -3,6 +3,7 @@ import { isAdmin, isReadOnly, session } from './auth.js';
 import {
   addActivity,
   addActivityConfirmed,
+  hasActivity,
   getLead,
   state as crmState,
   upsertLeadConfirmed
@@ -1894,6 +1895,19 @@ function stageForExisting(current, desired) {
   return desired;
 }
 
+function hyperFocusCrmActivityId(record) {
+  // UUID v5-like determinista derivado del UUID del registro Híper Foco.
+  // Mantiene formato UUID válido y hace idempotente la actividad CRM:
+  // reintentar el cierre del mismo registro reutiliza exactamente la misma PK.
+  const hex = String(record?.id || '').replace(/-/g, '').toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(hex)) return uid();
+  const chars = hex.split('');
+  chars[12] = '5';
+  chars[16] = ((parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
+  const out = chars.join('');
+  return `${out.slice(0,8)}-${out.slice(8,12)}-${out.slice(12,16)}-${out.slice(16,20)}-${out.slice(20)}`;
+}
+
 async function createOrUpdateCrmLead(record, {
   stage = 'Contactado',
   nextType = '',
@@ -1959,13 +1973,24 @@ async function createOrUpdateCrmLead(record, {
   }
 
   if (lead) {
-    await addActivityConfirmed({
-      leadId: lead.id,
-      type: focus.selectedChannel === 'whatsapp' ? 'WhatsApp' : focus.selectedChannel === 'email' ? 'Correo' : 'Llamada',
-      date: nowISO(),
-      owner: session.profile?.name || crmState.me?.name || lead.owner || '',
-      detail: `Híper Foco · ${COMMERCIAL_RESULTS[focus.commercialResult] || CONTACT_RESULTS[focus.contactResult] || 'Gestión comercial'} · campaña ${campaignOf(record.campaignId)?.name || ''}.`
-    });
+    const activityId = hyperFocusCrmActivityId(record);
+    if (!hasActivity(activityId)) {
+      try {
+        await addActivityConfirmed({
+          id: activityId,
+          leadId: lead.id,
+          type: focus.selectedChannel === 'whatsapp' ? 'WhatsApp' : focus.selectedChannel === 'email' ? 'Correo' : 'Llamada',
+          date: nowISO(),
+          owner: session.profile?.name || crmState.me?.name || lead.owner || '',
+          detail: `Híper Foco · ${COMMERCIAL_RESULTS[focus.commercialResult] || CONTACT_RESULTS[focus.contactResult] || 'Gestión comercial'} · campaña ${campaignOf(record.campaignId)?.name || ''}.`
+        });
+      } catch (err) {
+        // Si un intento anterior alcanzó a guardar la actividad pero el cierre
+        // Híper Foco falló, la PK determinista devuelve 23505. En ese caso la
+        // actividad ya existe y el reintento puede continuar sin duplicarla.
+        if (err?.code !== '23505') throw err;
+      }
+    }
   }
   return lead;
 }
