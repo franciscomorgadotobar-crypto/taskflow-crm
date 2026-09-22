@@ -8,9 +8,9 @@
   <title>TaskFlow CRM</title>
   <link rel="icon" type="image/png" href="assets/isotipo-taskflow-trim.png" />
   <link rel="apple-touch-icon" href="assets/isotipo-taskflow.png" />
-  <link rel="stylesheet" href="styles.css?v=2026-09-22" />
-  <link rel="stylesheet" href="ux-v2.css?v=2026-09-22" />
-  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-22" />
+  <link rel="stylesheet" href="styles.css?v=2026-09-22b" />
+  <link rel="stylesheet" href="ux-v2.css?v=2026-09-22b" />
+  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-22b" />
 </head>
 <body>
   <!-- Acceso -->
@@ -422,7 +422,7 @@
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="quoteViewDialog">Cerrar</button>
         <button type="button" class="ghost-btn" id="quoteViewEditBtn" data-action="edit-quote">Editar (nueva versión)</button>
-        <button type="button" class="primary-btn" id="quoteViewSendBtn" data-action="send-quote">Enviar al cliente</button>
+        <button type="button" class="primary-btn" id="quoteViewSendBtn" data-action="send-quote">Preparar correo</button>
       </div>
     </div>
   </dialog>
@@ -431,7 +431,7 @@
   <dialog id="quoteSendDialog" class="modal">
     <form id="quoteSendForm" class="modal-card wide" novalidate>
       <div class="modal-head">
-        <div><h2>Enviar cotización</h2><p id="quoteSendSubtitle"></p></div>
+        <div><h2>Preparar correo de cotización</h2><p id="quoteSendSubtitle"></p></div>
         <button type="button" class="icon-btn" data-close-dialog="quoteSendDialog" aria-label="Cerrar">×</button>
       </div>
       <input type="hidden" id="quoteSendId" />
@@ -478,28 +478,28 @@
     Versión de publicación. GitHub Pages manda "guardar por 10 minutos", así que sin
     esto un arreglo recién publicado no se ve hasta que pase ese rato o el usuario
     recargue a la fuerza. Al subir cambios hay que cambiar este número en TODAS las
-    líneas de abajo (buscar y reemplazar v=2026-09-22), incluidas las hojas de estilo
+    líneas de abajo (buscar y reemplazar v=2026-09-22b), incluidas las hojas de estilo
     de arriba: si un módulo quedara sin versión, el navegador cargaría dos copias del
     mismo archivo y el CRM tendría dos estados en paralelo.
   -->
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=2026-09-22",
-      "./js/auth.js": "./js/auth.js?v=2026-09-22",
-      "./js/catalog.js": "./js/catalog.js?v=2026-09-22",
-      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-22",
-      "./js/quotes.js": "./js/quotes.js?v=2026-09-22",
-      "./js/store.js": "./js/store.js?v=2026-09-22",
-      "./js/supabase.js": "./js/supabase.js?v=2026-09-22",
-      "./js/utils.js": "./js/utils.js?v=2026-09-22",
-      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-22",
-      "./js/views.js": "./js/views.js?v=2026-09-22"
+      "./js/app.js": "./js/app.js?v=2026-09-22b",
+      "./js/auth.js": "./js/auth.js?v=2026-09-22b",
+      "./js/catalog.js": "./js/catalog.js?v=2026-09-22b",
+      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-22b",
+      "./js/quotes.js": "./js/quotes.js?v=2026-09-22b",
+      "./js/store.js": "./js/store.js?v=2026-09-22b",
+      "./js/supabase.js": "./js/supabase.js?v=2026-09-22b",
+      "./js/utils.js": "./js/utils.js?v=2026-09-22b",
+      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-22b",
+      "./js/views.js": "./js/views.js?v=2026-09-22b"
     }
   }
   </script>
-  <script src="config.js?v=2026-09-22"></script>
-  <script type="module" src="js/app.js?v=2026-09-22"></script>
-  <script type="module" src="js/ux-v2.js?v=2026-09-22"></script>
+  <script src="config.js?v=2026-09-22b"></script>
+  <script type="module" src="js/app.js?v=2026-09-22b"></script>
+  <script type="module" src="js/ux-v2.js?v=2026-09-22b"></script>
 </body>
 </html>
