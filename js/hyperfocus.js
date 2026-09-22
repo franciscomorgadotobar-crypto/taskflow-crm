@@ -1835,7 +1835,7 @@ async function saveAttemptAndPatch(patch, detail) {
 
   // 0016 confirma el cambio del registro y su historial en una sola transacción.
   // No hay fallback: si el RPC falla, la gestión permanece en pantalla.
-  const { data, error } = await supabase.rpc('hyperfocus_finalize_record', {
+  const { error } = await supabase.rpc('hyperfocus_finalize_record', {
     p_record_id: record.id,
     p_patch: dbPatch,
     p_interaction: interaction
