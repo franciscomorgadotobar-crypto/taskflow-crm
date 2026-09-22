@@ -441,6 +441,7 @@ async function submitContact(e) {
 /* ---------- Diálogo: comunicación ---------- */
 
 function openComm(leadId, contactKey, channel, preferredTemplateId) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
   const contact = findContact(lead, contactKey);
   if (!lead || !contact || !state.templates.length) return;
@@ -480,6 +481,7 @@ async function copyComm() {
 
 async function submitComm(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const leadId = $('commLeadId').value;
   const lead = getLead(leadId);
   const contactKey = $('commContactKey').value;
@@ -600,6 +602,7 @@ function submitManage(e) {
 /* ---------- Cerrar tarea: resultado + siguiente tarea ---------- */
 
 function openComplete(leadId) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
   const task = taskOf(lead);
   if (!task) return toast('Este prospecto no tiene una tarea abierta.', 'error');
@@ -615,6 +618,7 @@ function openComplete(leadId) {
 
 async function submitComplete(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const leadId = $('completeLeadId').value;
   const result = $('completeResult').value.trim();
   if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
@@ -1123,6 +1127,7 @@ const ACTIONS = {
   'open-email': (id, btn) => openComm(id, btn.dataset.contact, 'email'),
   'remarketing-email': (id, btn) => openComm(id, 'primary', 'email', btn.dataset.template),
   'delete-activity': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const act = getActivity(id);
     if (act?.task || act?.system) return toast('Los movimientos del historial no se pueden eliminar.', 'error');
     if (confirm('¿Eliminar esta actividad?')) {
@@ -1130,6 +1135,7 @@ const ACTIONS = {
     }
   },
   'delete-lead': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const lead = getLead(id);
     if (!lead) return;
     if (confirm(`¿Eliminar "${lead.company}" con su levantamiento, actividades y cotizaciones?`)) {
@@ -1139,6 +1145,7 @@ const ACTIONS = {
     }
   },
   'new-template': async () => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const record = await addTemplate(ui.templateChannel || 'both');
     if (!record) return;
     ui.templateOpen = record.id;
@@ -1146,6 +1153,7 @@ const ACTIONS = {
     toast('Plantilla creada. Complétala y guárdala.');
   },
   'save-template': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const draft = templateDraft(id);
     if (!draft) return;
     if (!draft.name.trim()) return toast('El nombre de la plantilla es obligatorio.', 'error');
@@ -1158,12 +1166,14 @@ const ACTIONS = {
     if (saved) toast('Plantilla guardada.');
   },
   'delete-template': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     if (!confirm('¿Eliminar esta plantilla?')) return;
     if (state.templates.length <= 1) return toast('Debe quedar al menos una plantilla.', 'error');
     if (await deleteTemplate(id)) toast('Plantilla eliminada.');
   },
   'insert-var': (id, btn) => insertVariable(id, btn.dataset.var),
   'back-to-pipeline': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const lead = getLead(id);
     if (!lead) return;
     if (await setStage(id, 'Contactado')) toast(`${lead.company} volvió al embudo comercial.`);
