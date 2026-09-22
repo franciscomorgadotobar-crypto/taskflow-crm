@@ -236,8 +236,13 @@ export async function hydrate() {
   state.campaigns = (campaignsR.data || []).map(fromDbCampaign);
 
   const statsR = await supabase.from('hyperfocus_campaign_stats').select('*');
-  if (statsR.error) console.error('No se pudieron cargar estadísticas Híper Foco', statsR.error);
-  state.stats = Object.fromEntries((statsR.data || []).map((r) => [r.campaign_id, statsRow(r)]));
+  if (statsR.error) {
+    // Una lectura fallida de estadísticas no significa que las campañas estén
+    // vacías: conservamos el último snapshot válido para no poner contadores a 0.
+    console.error('No se pudieron cargar estadísticas Híper Foco', statsR.error);
+  } else {
+    state.stats = Object.fromEntries((statsR.data || []).map((r) => [r.campaign_id, statsRow(r)]));
+  }
   state.hydrated = true;
   notify();
 }
