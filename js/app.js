@@ -1355,7 +1355,7 @@ async function resetAll() {
   toast(`Borrado parcial: ${result.deleted} eliminada(s) y ${result.failed} no eliminada(s).`, 'error');
 }
 
-function seedExample() {
+async function seedExample() {
   if (state.leads.length && !confirm('Ya existen datos. ¿Agregar ejemplos igualmente?')) return;
   const ownerName = session.profile?.name || '';
   const base = [
@@ -1373,12 +1373,17 @@ function seedExample() {
   ];
 
   const created = {};
-  base.forEach((x) => {
-    const lead = upsertLead({ rut: '', notes: '', owner: ownerName, nextDate: todayISO(), expectedCloseDate: '', ...x });
-    created[x.company] = lead;
-  });
+  try {
+    for (const x of base) {
+      const lead = await upsertLeadConfirmed({ rut: '', notes: '', owner: ownerName, nextDate: todayISO(), expectedCloseDate: '', ...x });
+      created[x.company] = lead;
+    }
+  } catch {
+    toast('La carga demo quedó incompleta. Revisa los registros creados antes de reintentar.', 'error');
+    return;
+  }
 
-  saveDiscovery(created['ClimaSur Servicios'].id, {
+  await saveDiscovery(created['ClimaSur Servicios'].id, {
     pain: 'Preventivos vencidos, historial incompleto y poca visibilidad de repuestos.',
     currentManagement: 'Excel / formularios',
     technicians: '18',
@@ -1389,7 +1394,7 @@ function seedExample() {
     successCriteria: 'Controlar cumplimiento preventivo y trazabilidad por equipo.',
     technicalNotes: ''
   });
-  saveDiscovery(created['TecnoFrío Ltda.'].id, {
+  await saveDiscovery(created['TecnoFrío Ltda.'].id, {
     pain: 'Sin trazabilidad de las visitas ni respaldo fotográfico ante reclamos.',
     currentManagement: 'WhatsApp / papel',
     technicians: '26',
@@ -1409,14 +1414,14 @@ function seedExample() {
   set('Refrigeración Austral', 'Llamada', 'Primer contacto', addDaysISO(todayISO(), 4));
   set('Montajes del Maipo', 'Correo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9));
 
-  addActivity({
+  await addActivityConfirmed({
     leadId: created['ClimaSur Servicios'].id,
     type: 'Reunión',
     date: localDateTimeInput(new Date(Date.now() - 4 * 86400000)),
     owner: ownerName,
     detail: 'Levantamiento inicial con jefatura de mantenimiento.'
   });
-  addActivity({
+  await addActivityConfirmed({
     leadId: created['TecnoFrío Ltda.'].id,
     type: 'Demo',
     date: localDateTimeInput(new Date(Date.now() - 2 * 86400000)),
@@ -1425,6 +1430,7 @@ function seedExample() {
     task: 'Presentar demo de checklists al equipo técnico'
   });
 
+  await hydrate();
   toast('Datos demo cargados en leads, embudo, remarketing e implementación.');
 }
 
