@@ -190,14 +190,25 @@ export async function hydrate() {
   ]);
   [leadsR, discR, actR, tplR, teamR].forEach((r) => r.error && console.error(r.error));
 
-  state.leads = (leadsR.data || []).map(fromDbLead);
-  state.discoveries = Object.fromEntries((discR.data || []).map((r) => [r.lead_id, fromDbDiscovery(r)]));
-  state.activities = (actR.data || []).map(fromDbActivity);
-  state.templates = (tplR.data || []).map(fromDbTemplate);
-  if (!state.templates.length) await seedDefaultTemplates();
-  state.team = (teamR.data || []).map(fromDbProfile);
-  state.me = state.team.find((t) => t.id === session.user?.id) || null;
-  state.meta.lastSyncAt = nowISO();
+  // Una consulta fallida no equivale a una colección vacía. Reemplazamos cada
+  // bloque únicamente cuando Supabase respondió correctamente, conservando la
+  // última copia válida ante cortes de red o errores transitorios.
+  if (!leadsR.error) state.leads = (leadsR.data || []).map(fromDbLead);
+  if (!discR.error) state.discoveries = Object.fromEntries((discR.data || []).map((r) => [r.lead_id, fromDbDiscovery(r)]));
+  if (!actR.error) state.activities = (actR.data || []).map(fromDbActivity);
+
+  if (!tplR.error) {
+    state.templates = (tplR.data || []).map(fromDbTemplate);
+    if (!state.templates.length) await seedDefaultTemplates();
+  }
+
+  if (!teamR.error) {
+    state.team = (teamR.data || []).map(fromDbProfile);
+    state.me = state.team.find((t) => t.id === session.user?.id) || null;
+  }
+
+  const syncOk = [leadsR, discR, actR, tplR, teamR].every((r) => !r.error);
+  if (syncOk) state.meta.lastSyncAt = nowISO();
   persist();
 }
 
