@@ -1632,6 +1632,19 @@ async function start() {
         paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
       }
       if (generation === authSyncGeneration) render();
+    } else if (s.status === 'profile-error') {
+      stopRealtime();
+      quotesStopRealtime();
+      hyperFocusStopRealtime();
+      clearLocal();
+      quotesClearLocal();
+      hyperFocusClearLocal();
+      $('appShell').hidden = true;
+      $('authScreen').hidden = false;
+      authMode = 'signin';
+      renderAuthMode();
+      $('authError').textContent = s.error?.message || 'No se pudo cargar tu perfil. Revisa la conexión e intenta entrar nuevamente.';
+      $('authError').hidden = false;
     } else if (s.status === 'signed-out') {
       stopRealtime();
       quotesStopRealtime();
