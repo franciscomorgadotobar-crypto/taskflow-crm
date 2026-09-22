@@ -75,6 +75,7 @@ function fromDbQuote(r, items = []) {
 
 let channel = null;
 let realtimeHydrateTimer = null;
+let hydrateGeneration = 0;
 
 function scheduleHydrate() {
   clearTimeout(realtimeHydrateTimer);
@@ -84,12 +85,14 @@ function scheduleHydrate() {
 }
 
 export async function hydrate() {
+  const generation = ++hydrateGeneration;
   const [svcR, qR, itR] = await Promise.all([
     supabase.from('services').select('*').order('name'),
     supabase.from('quotes').select('*').order('created_at', { ascending: false }),
     supabase.from('quote_items').select('*')
   ]);
   [svcR, qR, itR].forEach((r) => r.error && console.error(r.error));
+  if (generation !== hydrateGeneration) return;
 
   // Una lectura fallida no debe interpretarse como una colección vacía.
   // Conservamos la última copia válida y actualizamos cada bloque solo cuando
