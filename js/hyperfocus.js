@@ -100,6 +100,7 @@ const notify = () => listeners.forEach((fn) => fn(state));
 
 let realtimeChannel = null;
 let realtimeTimer = null;
+let hydrateGeneration = 0;
 let uiBound = false;
 
 const importDraft = {
@@ -217,7 +218,9 @@ function emptyStats() {
 }
 
 export async function hydrate() {
+  const generation = ++hydrateGeneration;
   const campaignsR = await supabase.from('hyperfocus_campaigns').select('*').order('updated_at', { ascending: false });
+  if (generation !== hydrateGeneration) return;
   if (campaignsR.error) {
     if (schemaMissing(campaignsR.error)) {
       state.schemaReady = false;
@@ -235,6 +238,7 @@ export async function hydrate() {
   state.campaigns = (campaignsR.data || []).map(fromDbCampaign);
 
   const statsR = await supabase.from('hyperfocus_campaign_stats').select('*');
+  if (generation !== hydrateGeneration) return;
   if (statsR.error) {
     // Una lectura fallida de estadísticas no significa que las campañas estén
     // vacías: conservamos el último snapshot válido para no poner contadores a 0.
