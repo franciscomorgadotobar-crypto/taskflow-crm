@@ -1556,6 +1556,8 @@ function bindEvents() {
   });
 }
 
+let authSyncGeneration = 0;
+
 async function start() {
   document.title = `${CFG.appName} · ${CFG.companyName}`;
   fillStaticSelects();
@@ -1577,20 +1579,33 @@ async function start() {
   });
 
   onAuthChange(async (s) => {
+    const generation = ++authSyncGeneration;
     if (s.status === 'signed-in') {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
+        if (generation !== authSyncGeneration || session.status !== 'signed-in') {
+          // Una hidratación iniciada por una sesión anterior no puede volver a
+          // poblar el estado local ni reactivar Realtime después de cerrar sesión.
+          stopRealtime();
+          quotesStopRealtime();
+          hyperFocusStopRealtime();
+          clearLocal();
+          quotesClearLocal();
+          hyperFocusClearLocal();
+          return;
+        }
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
         paintSync({ state: 'ok', message: 'Conectado' });
       } catch (err) {
+        if (generation !== authSyncGeneration) return;
         paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
       }
-      render();
+      if (generation === authSyncGeneration) render();
     } else if (s.status === 'signed-out') {
       stopRealtime();
       quotesStopRealtime();
