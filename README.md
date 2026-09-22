@@ -76,7 +76,7 @@ Cada cambio de etapa queda registrado con fecha en `stageHistory`, lo que alimen
 - **Implementación**: clientes ganados con su alcance levantado para el kick-off.
 - **Actividades**: historial filtrable; el compromiso puede convertirse en la próxima acción del lead.
 - **Plantillas**: variables `{{contacto}}`, `{{empresa}}`, `{{cargo}}`, `{{dolor}}`, `{{modulos}}` y `{{responsable}}`, con copiar al portapapeles y apertura en el cliente de correo.
-- **Cotizaciones**: catálogo de servicios con precio neto, constructor de cotizaciones (items del catálogo o personalizados, cálculo automático de neto + IVA 19% + total), envío al cliente abriendo un correo prellenado y editable, y quedan guardadas en el historial de cada empresa.
+- **Cotizaciones**: catálogo de servicios con precio neto, constructor de cotizaciones (items del catálogo o personalizados, cálculo automático de neto + IVA 19% + total), preparación de un correo prellenado y editable para el cliente, y quedan guardadas en el historial de cada empresa.
 - **Ficha**: vista única por empresa con datos, levantamiento, cotizaciones, recorrido por etapas, actividades e historial.
 
 
@@ -104,7 +104,7 @@ Para activar las tablas y RLS ejecuta `supabase/0008_hyperfocus.sql` después de
 - El catálogo de servicios (nombre, unidad, precio neto, categoría) lo administra un admin/super desde Cotizaciones → Catálogo de servicios; cualquiera puede usarlo para cotizar.
 - Cada cotización queda ligada a una empresa (lead) y muestra el desglose neto / IVA (19%) / total.
 - **Editar una cotización no la sobrescribe: crea una versión nueva.** La versión anterior queda en el historial (visible desde "Ver" → "Versiones") y deja de ser la vigente. Así siempre se puede ver qué se le mandó a un cliente en cada momento.
-- Enviar una cotización arma un correo con el detalle de los items y el total, lo deja editable, y lo abre en el cliente de correo del comercial (mailto) — no se envía automático desde el servidor.
+- Preparar el correo de una cotización arma un mensaje con el detalle de los ítems y el total, lo deja editable y lo abre en el cliente de correo del comercial (`mailto:`). Abrir ese correo no marca la cotización como enviada, porque el CRM no puede confirmar el envío realizado por una aplicación externa.
 
 ## Datos
 

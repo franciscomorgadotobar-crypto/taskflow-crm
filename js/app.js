@@ -59,7 +59,6 @@ import {
   getQuote,
   getService,
   hydrate as quotesHydrate,
-  markQuoteSent,
   onChange as onQuotesChange,
   saveQuote,
   setQuoteStatus,
