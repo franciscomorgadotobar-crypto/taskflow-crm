@@ -1020,7 +1020,16 @@ async function createCampaignFromImport(event) {
     toast(`Campaña creada: ${summary.actionable.toLocaleString('es-CL')} registros listos para gestionar.`);
   } catch (err) {
     console.error(err);
-    await supabase.from('hyperfocus_campaigns').delete().eq('id', campaign.id);
+    const { error: cleanupError } = await supabase.from('hyperfocus_campaigns').delete().eq('id', campaign.id);
+    if (cleanupError) {
+      console.error('No se pudo revertir la campaña incompleta', cleanupError);
+      await hydrate();
+      progressText.textContent = 'La importación falló y no se pudo limpiar completamente. Revisa la campaña antes de reintentar.';
+      createBtn.disabled = false;
+      toast(progressText.textContent, 'error');
+      return;
+    }
+    await hydrate();
     progressText.textContent = `Error: ${err.message || 'no se pudo importar'}`;
     createBtn.disabled = false;
     toast(progressText.textContent, 'error');
