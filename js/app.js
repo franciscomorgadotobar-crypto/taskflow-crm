@@ -844,7 +844,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   $('quoteDialog').showModal();
 }
 
-function submitQuoteBuilder(e) {
+async function submitQuoteBuilder(e) {
   e.preventDefault();
   const leadId = $('quoteLeadId').value;
   if (!leadId) return toast('Selecciona una empresa.', 'error');
@@ -857,7 +857,7 @@ function submitQuoteBuilder(e) {
   const client = { company: lead.company, contact: lead.contact, email: lead.email, phone: lead.phone };
   const baseId = $('quoteBaseId').value;
 
-  saveQuote({
+  const saved = await saveQuote({
     baseId,
     leadId,
     status: $('quoteStatusField').value,
@@ -866,6 +866,7 @@ function submitQuoteBuilder(e) {
     client,
     items
   });
+  if (!saved) return;
 
   $('quoteDialog').close();
   toast(baseId ? 'Nueva versión guardada.' : 'Cotización creada.');
@@ -1193,10 +1194,9 @@ const ACTIONS = {
   },
   'view-quote': (id) => openQuoteView(id),
   'send-quote': (id, btn) => openQuoteSend(id || btn?.dataset.id),
-  'delete-quote': (id) => {
+  'delete-quote': async (id) => {
     if (!confirm('¿Eliminar esta versión de la cotización?')) return;
-    deleteQuote(id);
-    toast('Cotización eliminada.');
+    if (await deleteQuote(id)) toast('Cotización eliminada.');
   },
   'add-quote-row': () => {
     ui.quoteBuilder.items.push(emptyQuoteRow());
