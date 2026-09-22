@@ -296,24 +296,19 @@ export async function saveQuote({ baseId = '', leadId, status, notes = '', valid
     return null;
 }
 
-export function setQuoteStatus(id, status) {
+export async function setQuoteStatus(id, status) {
   const q = getQuote(id);
   if (!q) return null;
   const before = structuredClone(q);
   q.status = status;
   q.updatedAt = nowISO();
   notify();
-  supabase
-    .from('quotes')
-    .update({ status })
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(q, before);
-      notify();
-      reportError('No se pudo actualizar el estado', error);
-    });
-  return q;
+  const { error } = await supabase.from('quotes').update({ status }).eq('id', id);
+  if (!error) return q;
+  Object.assign(q, before);
+  notify();
+  reportError('No se pudo actualizar el estado', error);
+  return null;
 }
 
 /** Borra una versión. Si era la vigente, la versión anterior pasa a serlo. */
