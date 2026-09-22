@@ -125,7 +125,8 @@ const focus = {
   loading: false,
   messageOpened: false,
   attemptStarted: false,
-  phoneSlot: 'primary'
+  phoneSlot: 'primary',
+  noteDraft: ''
 };
 
 const q = (sel, root = document) => root.querySelector(sel);
@@ -1315,6 +1316,8 @@ function renderRecord(record, campaign) {
 
       ${renderContactBlock(contact, contacts)}
 
+      ${renderNotesBlock(record)}
+
       <div class="hf-record-secondary-actions">
         <button class="small-btn" data-hf-action="skip-record">Omitir por ahora</button>
         ${lockedLead ? '' : '<button class="small-btn danger" data-hf-action="open-disposition" data-mode="discard">Descartar registro</button>'}
@@ -1325,6 +1328,57 @@ function renderRecord(record, campaign) {
       ${lockedLead ? renderExistingLeadLock(lockedLead) : renderPhase(record, contact)}
     </aside>
   </div>`;
+}
+
+/*
+ * Observaciones de la gestión. Antes solo se podía escribir algo en los pasos que
+ * cierran el registro (reintento, reunión, descarte), así que una llamada donde
+ * simplemente pasó algo que vale la pena recordar se perdía. Esta caja está
+ * siempre a mano: lo escrito se guarda con fecha y autor, se mantiene el
+ * historial anterior, y si el comercial escribe y después cierra el registro con
+ * otro botón, la nota se guarda igual en vez de botarse.
+ */
+function renderNotesBlock(record) {
+  const previas = (record.notes || '').trim();
+  return `
+    <details class="hf-notes" open>
+      <summary>Observaciones${previas ? ` · ${previas.split('\n').filter(Boolean).length}` : ''}</summary>
+      ${previas ? `<div class="hf-notes-history">${previas.split('\n').filter(Boolean).map((l) => `<p>${e(l)}</p>`).join('')}</div>` : ''}
+      <textarea id="hfRecordNote" rows="2" placeholder="Qué pasó en la llamada, con quién hablaste, qué quedó pendiente…">${e(focus.noteDraft || '')}</textarea>
+      <button type="button" class="small-btn" data-hf-action="save-note">Guardar observación</button>
+    </details>`;
+}
+
+// Lo que esté escrito y sin guardar en la caja, para no perderlo al cerrar el registro.
+function pendingNote() {
+  return (byId('hfRecordNote')?.value || '').trim();
+}
+
+function stampNote(text) {
+  const quien = session.profile?.name || crmState.me?.name || '';
+  return `[${fmtDate(nowISO())}${quien ? ` · ${quien}` : ''}] ${text}`;
+}
+
+function mergeNotes(record, text) {
+  if (!text) return record.notes || '';
+  return [(record.notes || '').trim(), stampNote(text)].filter(Boolean).join('\n');
+}
+
+async function saveNote() {
+  const record = focus.record;
+  const text = pendingNote();
+  if (!record) return;
+  if (!text) return toast('Escribe la observación antes de guardar.', 'error');
+  try {
+    focus.noteDraft = '';
+    await saveAttemptAndPatch({ notes: mergeNotes(record, text) }, `Observación: ${text}`);
+    renderSession();
+    toast('Observación guardada.');
+  } catch (err) {
+    focus.noteDraft = text;
+    console.error(err);
+    toast(err.message || 'No se pudo guardar la observación.', 'error');
+  }
 }
 
 function contextHighlights(record) {
@@ -1712,6 +1766,9 @@ async function saveAttemptAndPatch(patch, detail) {
   const record = focus.record;
   if (!record) return;
   const oldStatus = record.status;
+  // Si quedó texto sin guardar en la caja de observaciones, se va con este cierre.
+  const suelta = patch.notes === undefined ? pendingNote() : '';
+  if (suelta) patch = { ...patch, notes: mergeNotes(record, suelta) };
   const countAttempt = Boolean(focus.attemptStarted || focus.contactResult || focus.commercialResult);
   if (focus.contactResult === 'wrong_number') {
     const contact = selectedContact();
@@ -1738,6 +1795,7 @@ async function saveAttemptAndPatch(patch, detail) {
   await logInteraction(record, { channel: countAttempt ? focus.selectedChannel : '', detail });
   statTransition(record.campaignId, oldStatus, nextPatch.status || oldStatus, { touched: firstTouch });
   focus.attemptStarted = false;
+  focus.noteDraft = '';
 }
 
 async function recordAttemptOnly(detail, { invalidatePhone = false } = {}) {
@@ -1848,7 +1906,11 @@ async function createOrUpdateCrmLead(record, {
       lossReason: '',
       remarketingReason,
       isPrivate: false,
-      notes: `Origen: Híper Foco · ${campaignOf(record.campaignId)?.name || 'campaña'}. Fila de origen ${record.rowNumber}.`,
+      notes: [
+        `Origen: Híper Foco · ${campaignOf(record.campaignId)?.name || 'campaña'}. Fila de origen ${record.rowNumber}.`,
+        // Lo conversado durante la prospección se va con la empresa a su ficha.
+        mergeNotes(record, pendingNote()).trim()
+      ].filter(Boolean).join('\n'),
       contacts: extraContactsForLead(record, contact)
     });
   }
@@ -1899,7 +1961,7 @@ async function finalizeRetry({ when, note = '', convert = false } = {}) {
     await saveAttemptAndPatch({
       status: 'retry',
       nextRetryAt: new Date(when).toISOString(),
-      notes: note || record.notes,
+      notes: mergeNotes(record, note),
       convertedLeadId: lead?.id || record.convertedLeadId || null,
       existingLeadId: lead?.id || record.existingLeadId || null
     }, `Reintento programado para ${when}${note ? ` · ${note}` : ''}.`);
@@ -1916,7 +1978,7 @@ async function finalizeDiscard() {
   const record = focus.record;
   if (!record) return;
   try {
-    await saveAttemptAndPatch({ status: 'discarded', discardReason: reason, notes: note, nextRetryAt: null }, `Descartado: ${reason}${note ? ` · ${note}` : ''}.`);
+    await saveAttemptAndPatch({ status: 'discarded', discardReason: reason, notes: mergeNotes(record, note), nextRetryAt: null }, `Descartado: ${reason}${note ? ` · ${note}` : ''}.`);
     await advanceAfterFinal('Registro descartado.');
   } catch (err) {
     console.error(err);
@@ -2018,6 +2080,7 @@ async function handleHyperFocusClick(ev) {
     await releaseCurrentClaim();
     return byId('hfSessionDialog')?.close();
   }
+  if (action === 'save-note') return saveNote();
   if (action === 'skip-record') return skipRecord();
   if (action === 'resolve-existing') {
     const lead = lockedExistingLead(focus.record);
@@ -2311,6 +2374,11 @@ export function initUI() {
   while (wrap.firstElementChild) document.body.appendChild(wrap.firstElementChild);
 
   document.addEventListener('click', handleHyperFocusClick);
+  // La sesión se repinta en cada paso, así que lo escrito en la caja de
+  // observaciones se guarda en memoria para no perderlo al cambiar de pantalla.
+  document.addEventListener('input', (ev) => {
+    if (ev.target?.id === 'hfRecordNote') focus.noteDraft = ev.target.value;
+  });
   document.addEventListener('keydown', handleHyperFocusKeydown);
   qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
     if (btn.dataset.closeHf === 'hfImportDialog' && !confirmDiscardImport()) return;
