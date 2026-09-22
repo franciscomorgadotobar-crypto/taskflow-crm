@@ -476,11 +476,11 @@ function submitComm(e) {
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
     const digits = contact.phone.replace(/\D/g, '');
     if (!digits) return toast('El teléfono no es válido.', 'error');
-    addActivity({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla "${templateName}" enviada por WhatsApp a ${contact.name || contact.phone}.` });
+    addActivity({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `WhatsApp preparado con plantilla "${templateName}" para ${contact.name || contact.phone}.` });
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(body)}`, '_blank', 'noopener');
   } else {
     if (!contact?.email) return toast('Ese contacto no tiene email.', 'error');
-    addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Plantilla "${templateName}" enviada por correo a ${contact.name || contact.email}.` });
+    addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Correo preparado con plantilla "${templateName}" para ${contact.name || contact.email}.` });
     openExternal(`mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent($('commSubject').value)}&body=${encodeURIComponent(body)}`);
   }
   $('commDialog').close();
@@ -933,10 +933,9 @@ function submitQuoteSend(e) {
     type: 'Correo',
     date: localDateTimeInput(),
     owner: lead.owner || session.profile?.name || '',
-    detail: `Cotización v${q.version} enviada por correo a ${lead.contact || lead.email}.`
+    detail: `Correo preparado con cotización v${q.version} para ${lead.contact || lead.email}.`
   });
   openExternal(`mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent($('quoteSendSubject').value)}&body=${encodeURIComponent($('quoteSendBody').value)}`);
-  markQuoteSent(id);
   $('quoteSendDialog').close();
   if ($('quoteViewDialog').open) $('quoteViewDialog').close();
   toast('Correo abierto.');
