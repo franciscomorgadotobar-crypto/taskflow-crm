@@ -1108,6 +1108,7 @@ const ACTIONS = {
   },
   'open-manage': () => openManage(),
   'qualify-lead': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const lead = getLead(id);
     if (!lead) return;
     if (await setStage(id, 'Contactado')) toast(`${lead.company} calificado → Contactado.`);
@@ -1115,6 +1116,7 @@ const ACTIONS = {
   'add-contact': (id) => openContact(id),
   'edit-contact': (id, btn) => openContact(id, btn.dataset.contact),
   'delete-contact': async (id, btn) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     if (confirm('¿Eliminar este contacto?') && await deleteContact(id, btn.dataset.contact)) toast('Contacto eliminado.');
   },
   'call-contact': (id, btn) => {
@@ -1221,6 +1223,7 @@ const ACTIONS = {
   'view-quote': (id) => openQuoteView(id),
   'send-quote': (id, btn) => openQuoteSend(id || btn?.dataset.id),
   'delete-quote': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     if (!confirm('¿Eliminar esta versión de la cotización?')) return;
     if (await deleteQuote(id)) toast('Cotización eliminada.');
   },
