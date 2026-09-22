@@ -220,7 +220,9 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
   // La versión 1 es su propia raíz (root_id null en la base, FK a quotes.id no puede
   // apuntar a un uuid inventado que no exista todavía).
   const rootId = base ? base.rootId : id;
-  const version = base ? base.version + 1 : 1;
+  // Una versión puede abrirse desde el historial. El siguiente número debe salir
+  // de toda la cadena, no de la versión concreta que el usuario abrió.
+  const version = base ? Math.max(...versionsOf(base.rootId).map((q) => q.version), base.version) + 1 : 1;
   const totals = computeTotals(items);
   const owner = session.profile?.name || '';
 
