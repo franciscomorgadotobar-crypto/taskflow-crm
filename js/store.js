@@ -450,7 +450,8 @@ export async function deleteLead(id) {
   state.activities.push(deletionActivity);
   persist();
 
-  const { error } = await supabase.from('leads').delete().eq('id', id);
+  const { data: deletedRows, error: deleteError } = await supabase.from('leads').delete().eq('id', id).select('id');
+  const error = deleteError || (!deletedRows?.length ? new Error('El servidor no confirmó la eliminación de la oportunidad.') : null);
   if (error) {
     // Restaura únicamente lo perteneciente a este lead; no revive eliminaciones
     // paralelas que sí hayan sido confirmadas por el servidor.
@@ -468,9 +469,11 @@ export async function deleteLead(id) {
   }
 
   // La auditoría es global (lead_id NULL) para sobrevivir al cascade del lead.
-  const { error: auditError } = await supabase
+  const { data: auditRows, error: auditWriteError } = await supabase
     .from('activities')
-    .insert({ id: deletionActivity.id, ...toDbActivity(deletionActivity) });
+    .insert({ id: deletionActivity.id, ...toDbActivity(deletionActivity) })
+    .select('id');
+  const auditError = auditWriteError || (!auditRows?.length ? new Error('El servidor no confirmó la auditoría de eliminación.') : null);
 
   if (auditError) {
     state.activities = state.activities.filter((a) => a.id !== deletionActivityId);
