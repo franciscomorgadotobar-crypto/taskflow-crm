@@ -1409,7 +1409,7 @@ async function seedExample() {
     return;
   }
 
-  await saveDiscovery(created['ClimaSur Servicios'].id, {
+  const discoveryA = await saveDiscovery(created['ClimaSur Servicios'].id, {
     pain: 'Preventivos vencidos, historial incompleto y poca visibilidad de repuestos.',
     currentManagement: 'Excel / formularios',
     technicians: '18',
@@ -1420,7 +1420,7 @@ async function seedExample() {
     successCriteria: 'Controlar cumplimiento preventivo y trazabilidad por equipo.',
     technicalNotes: ''
   });
-  await saveDiscovery(created['TecnoFrío Ltda.'].id, {
+  const discoveryB = await saveDiscovery(created['TecnoFrío Ltda.'].id, {
     pain: 'Sin trazabilidad de las visitas ni respaldo fotográfico ante reclamos.',
     currentManagement: 'WhatsApp / papel',
     technicians: '26',
@@ -1431,30 +1431,41 @@ async function seedExample() {
     successCriteria: 'Evidencia firmada por visita y reportes mensuales automáticos.',
     technicalNotes: ''
   });
+  if (!discoveryA || !discoveryB) {
+    toast('La carga demo quedó incompleta al guardar los levantamientos. Revisa los datos antes de reintentar.', 'error');
+    return;
+  }
 
-  const set = (name, type, action, date) => updateLead(created[name].id, { nextType: type, nextAction: action, nextDate: date });
-  set('ClimaSur Servicios', 'Correo', 'Enviar agenda de demo con casos de preventivos', addDaysISO(todayISO(), -3));
-  set('VerticalTech', 'Llamada', 'Revisar observaciones de la propuesta', addDaysISO(todayISO(), -1));
-  set('Hidráulica Centro', 'Llamada', 'Confirmar condiciones comerciales', todayISO());
-  set('PowerGen Chile', 'WhatsApp', 'Coordinar reunión de descubrimiento', addDaysISO(todayISO(), 1));
-  set('Refrigeración Austral', 'Llamada', 'Primer contacto', addDaysISO(todayISO(), 4));
-  set('Montajes del Maipo', 'Correo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9));
+  const tasks = [
+    ['ClimaSur Servicios', 'Correo', 'Enviar agenda de demo con casos de preventivos', addDaysISO(todayISO(), -3)],
+    ['VerticalTech', 'Llamada', 'Revisar observaciones de la propuesta', addDaysISO(todayISO(), -1)],
+    ['Hidráulica Centro', 'Llamada', 'Confirmar condiciones comerciales', todayISO()],
+    ['PowerGen Chile', 'WhatsApp', 'Coordinar reunión de descubrimiento', addDaysISO(todayISO(), 1)],
+    ['Refrigeración Austral', 'Llamada', 'Primer contacto', addDaysISO(todayISO(), 4)],
+    ['Montajes del Maipo', 'Correo', 'Validar tamaño de cuadrilla', addDaysISO(todayISO(), 9)]
+  ];
+  for (const [name, type, action, date] of tasks) {
+    if (!(await updateLead(created[name].id, { nextType: type, nextAction: action, nextDate: date }))) {
+      toast('La carga demo quedó incompleta al programar tareas. Revisa los datos antes de reintentar.', 'error');
+      return;
+    }
+  }
 
-  await addActivityConfirmed({
+  if (!(await addActivityConfirmed({
     leadId: created['ClimaSur Servicios'].id,
     type: 'Reunión',
     date: localDateTimeInput(new Date(Date.now() - 4 * 86400000)),
     owner: ownerName,
     detail: 'Levantamiento inicial con jefatura de mantenimiento.'
-  });
-  await addActivityConfirmed({
+  }))) return toast('La carga demo quedó incompleta al registrar actividades.', 'error');
+  if (!(await addActivityConfirmed({
     leadId: created['TecnoFrío Ltda.'].id,
     type: 'Demo',
     date: localDateTimeInput(new Date(Date.now() - 2 * 86400000)),
     owner: ownerName,
     detail: 'Mostraron interés en checklists y firma digital. Aprueban avanzar.',
     task: 'Presentar demo de checklists al equipo técnico'
-  });
+  }))) return toast('La carga demo quedó incompleta al registrar actividades.', 'error');
 
   await hydrate();
   toast('Datos demo cargados en leads, embudo, remarketing e implementación.');
