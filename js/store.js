@@ -630,7 +630,8 @@ export function updateActivity(id, patch) {
 export const getActivity = (id) => state.activities.find((a) => a.id === id) || null;
 
 export function deleteActivity(id) {
-  const before = state.activities.find((a) => a.id === id);
+  const index = state.activities.findIndex((a) => a.id === id);
+  const before = index >= 0 ? state.activities[index] : null;
   state.activities = state.activities.filter((a) => a.id !== id);
   persist();
   supabase
@@ -639,7 +640,9 @@ export function deleteActivity(id) {
     .eq('id', id)
     .then(({ error }) => {
       if (!error || !before) return;
-      state.activities.push(before);
+      if (!state.activities.some((a) => a.id === id)) {
+        state.activities.splice(Math.min(Math.max(index, 0), state.activities.length), 0, before);
+      }
       persist();
       reportError('No se pudo eliminar la actividad', error);
     });
@@ -736,7 +739,8 @@ export function addTemplate(channel_ = 'both') {
 
 export function deleteTemplate(id) {
   if (state.templates.length <= 1) return false;
-  const before = state.templates.find((t) => t.id === id);
+  const index = state.templates.findIndex((t) => t.id === id);
+  const before = index >= 0 ? state.templates[index] : null;
   state.templates = state.templates.filter((t) => t.id !== id);
   persist();
   supabase
@@ -745,7 +749,9 @@ export function deleteTemplate(id) {
     .eq('id', id)
     .then(({ error }) => {
       if (!error || !before) return;
-      state.templates.push(before);
+      if (!state.templates.some((t) => t.id === id)) {
+        state.templates.splice(Math.min(Math.max(index, 0), state.templates.length), 0, before);
+      }
       persist();
       reportError('No se pudo eliminar la plantilla', error);
     });
