@@ -167,7 +167,11 @@
         <label>Fecha de la actividad<input id="activityDate" type="datetime-local" required /></label>
         <label>Responsable<input id="activityOwner" /></label>
         <label class="span-2">Detalle<textarea id="activityDetail" rows="4" required></textarea></label>
-        <p class="span-2 muted form-note">Esto solo deja registro de lo que pasó. La próxima tarea se agenda al cerrar la anterior con <strong>Marcar realizada</strong>.</p>
+        <label class="inline-check span-2" id="activityResolveTaskField" hidden>
+          <input type="checkbox" id="activityResolveTask" />
+          Esta actividad resuelve la tarea pendiente
+        </label>
+        <p class="span-2 muted form-note" id="activityResolveTaskHint"></p>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="activityDialog">Cancelar</button>

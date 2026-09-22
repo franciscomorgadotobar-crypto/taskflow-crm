@@ -41,14 +41,14 @@ Para levantar el esquema desde cero en un proyecto nuevo, aplica **todos** los a
 
 ### Acceso y roles
 
-Cualquier persona puede registrarse desde la pantalla de acceso con su correo y contraseña. Al registrarse se crea automáticamente su fila en `profiles` con rol **comercial** (ve solo sus propias oportunidades y cotizaciones). Los roles disponibles son:
+El registro público está desactivado en la configuración actual (`allowSignup: false`). Las cuentas se crean de forma administrada y cada usuario dispone de un perfil con uno de los siguientes roles:
 
 - **comercial**: ve la cartera no privada de su organización y gestiona las oportunidades que tiene asignadas. Las oportunidades privadas ajenas no se muestran.
 - **admin**: ve la cartera no privada de su organización y puede gestionarla completa, además de administrar recursos compartidos. No ve oportunidades privadas ajenas.
 - **super**: control total dentro de la organización, incluidas las oportunidades privadas y la administración del equipo.
 - **visita**: lectura de la cartera no privada de su organización, sin editar.
 
-**Primer arranque:** como nadie parte siendo admin, la primera persona que se registre queda como `comercial` y no puede autopromoverse desde la interfaz. Hay que promoverla una vez, a mano, desde el SQL Editor de Supabase:
+**Primer arranque:** si todavía no existe un usuario con permisos de administración, promueve una cuenta existente una vez desde el SQL Editor de Supabase:
 
 ```sql
 update public.profiles set role = 'super' where email = 'tu-correo@taskflow.cl';
