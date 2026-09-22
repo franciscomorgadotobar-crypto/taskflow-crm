@@ -270,26 +270,6 @@ export function setQuoteStatus(id, status) {
   return q;
 }
 
-export function markQuoteSent(id) {
-  const q = getQuote(id);
-  if (!q) return null;
-  const before = structuredClone(q);
-  q.status = 'enviada';
-  q.sentAt = nowISO();
-  notify();
-  supabase
-    .from('quotes')
-    .update({ status: 'enviada', sent_at: q.sentAt })
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(q, before);
-      notify();
-      reportError('No se pudo marcar como enviada', error);
-    });
-  return q;
-}
-
 /** Borra una versión. Si era la vigente, la versión anterior pasa a serlo. */
 export function deleteQuote(id) {
   const q = getQuote(id);
