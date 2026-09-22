@@ -663,23 +663,53 @@ export async function addActivityConfirmed(activity, { silent = false } = {}) {
   return record;
 }
 
-export function updateActivity(id, patch) {
+
+export async function resolveTaskWithActivityAtomic(activity) {
+  const lead = getLead(activity.leadId);
+  if (!lead) return null;
+  const before = structuredClone(lead);
+  const record = { id: activity.id || uid(), task: '', ...activity };
+  const ownerId = resolveOwnerId(record.owner) || (record.owner && record.owner === session.profile?.name ? session.user.id : null);
+
+  state.activities.unshift(record);
+  lead.nextType = '';
+  lead.nextAction = '';
+  lead.nextDate = '';
+  lead.updatedAt = nowISO();
+  persist();
+
+  const { error } = await supabase.rpc('resolve_task_with_activity', {
+    p_lead_id: record.leadId,
+    p_activity_id: record.id,
+    p_contact_key: record.contactId || '',
+    p_type: record.type || '',
+    p_date: record.date || nowISO(),
+    p_owner_id: ownerId,
+    p_owner_name: record.owner || '',
+    p_detail: record.detail || '',
+    p_task: record.task || ''
+  });
+  if (!error) return record;
+
+  state.activities = state.activities.filter((a) => a.id !== record.id);
+  Object.assign(lead, before);
+  persist();
+  reportError('No se pudo registrar la actividad y resolver la tarea', error);
+  return null;
+}
+
+export async function updateActivity(id, patch) {
   const act = state.activities.find((a) => a.id === id);
   if (!act) return null;
   const before = structuredClone(act);
   Object.assign(act, patch);
   persist();
-  supabase
-    .from('activities')
-    .update(toDbActivity(act))
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(act, before);
-      persist();
-      reportError('No se pudo actualizar la actividad', error);
-    });
-  return act;
+  const { error } = await supabase.from('activities').update(toDbActivity(act)).eq('id', id);
+  if (!error) return act;
+  Object.assign(act, before);
+  persist();
+  reportError('No se pudo actualizar la actividad', error);
+  return null;
 }
 
 export const getActivity = (id) => state.activities.find((a) => a.id === id) || null;
