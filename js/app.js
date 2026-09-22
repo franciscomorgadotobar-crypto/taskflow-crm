@@ -1337,11 +1337,11 @@ function importJson(ev) {
   reader.readAsText(file);
 }
 
-function resetAll() {
+async function resetAll() {
   if (!confirm('Se borrarán todas las oportunidades que puedes ver (según tu permiso). Esta acción no se puede deshacer. ¿Continuar?')) return;
-  const total = state.leads.length;
-  deleteAllVisibleLeads();
-  toast(`Eliminando ${total} oportunidad(es)…`);
+  const result = await deleteAllVisibleLeads();
+  if (!result.failed) return toast(`${result.deleted} oportunidad(es) eliminada(s).`);
+  toast(`Borrado parcial: ${result.deleted} eliminada(s) y ${result.failed} no eliminada(s).`, 'error');
 }
 
 function seedExample() {
