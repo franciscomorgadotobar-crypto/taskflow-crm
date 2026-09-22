@@ -420,7 +420,8 @@ export async function updateLead(id, patch) {
 
 export async function deleteLead(id) {
   const lead = getLead(id);
-  if (!lead) return;
+  if (!lead) return false;
+
   const leadIndex = state.leads.findIndex((l) => l.id === id);
   const beforeLead = structuredClone(lead);
   const hadDiscovery = Object.prototype.hasOwnProperty.call(state.discoveries, id);
@@ -432,6 +433,7 @@ export async function deleteLead(id) {
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
+
   const deletionActivity = {
     id: deletionActivityId,
     leadId: '',
@@ -445,35 +447,36 @@ export async function deleteLead(id) {
   };
   state.activities.push(deletionActivity);
   persist();
+
   const { error } = await supabase.from('leads').delete().eq('id', id);
-  if (!error) {
-      if (!error) {
-        // El registro de auditoría es global (lead_id NULL) para sobrevivir a la
-        // eliminación del lead y a futuras rehidrataciones.
-        const { error: auditError } = await supabase
-          .from('activities')
-          .insert({ id: deletionActivity.id, ...toDbActivity(deletionActivity) });
-        if (auditError) {
-          state.activities = state.activities.filter((a) => a.id !== deletionActivityId);
-          persist();
-          reportError('La oportunidad se eliminó, pero no se pudo registrar la auditoría', auditError);
-        }
-    return true;
+  if (error) {
+    // Restaura únicamente lo perteneciente a este lead; no revive eliminaciones
+    // paralelas que sí hayan sido confirmadas por el servidor.
+    if (!state.leads.some((l) => l.id === id)) {
+      state.leads.splice(Math.min(Math.max(leadIndex, 0), state.leads.length), 0, beforeLead);
+    }
+    if (hadDiscovery) state.discoveries[id] = beforeDiscovery;
+    else delete state.discoveries[id];
+
+    state.activities = state.activities.filter((a) => a.id !== deletionActivityId && a.leadId !== id);
+    state.activities.push(...beforeActivities);
+    persist();
+    reportError('No se pudo eliminar en el servidor', error);
+    return false;
   }
 
-  // Restaura solo lo perteneciente a este lead. Así una eliminación fallida
-      // no revive otras oportunidades que sí se eliminaron en paralelo.
-      if (!state.leads.some((l) => l.id === id)) {
-        state.leads.splice(Math.min(Math.max(leadIndex, 0), state.leads.length), 0, beforeLead);
-      }
-      if (hadDiscovery) state.discoveries[id] = beforeDiscovery;
-      else delete state.discoveries[id];
+  // La auditoría es global (lead_id NULL) para sobrevivir al cascade del lead.
+  const { error: auditError } = await supabase
+    .from('activities')
+    .insert({ id: deletionActivity.id, ...toDbActivity(deletionActivity) });
 
-      state.activities = state.activities.filter((a) => a.id !== deletionActivityId && a.leadId !== id);
-      state.activities.push(...beforeActivities);
-      persist();
-  reportError('No se pudo eliminar en el servidor', error);
-  return false;
+  if (auditError) {
+    state.activities = state.activities.filter((a) => a.id !== deletionActivityId);
+    persist();
+    reportError('La oportunidad se eliminó, pero no se pudo registrar la auditoría', auditError);
+  }
+
+  return true;
 }
 
 /** Elimina todas las oportunidades visibles para quien ejecuta (RLS decide el alcance real). */
