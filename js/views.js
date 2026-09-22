@@ -1058,22 +1058,18 @@ export function renderLeadDetail(id) {
           : ''
       }
       <div class="task-form">
-        <label>¿Qué tipo de actividad fue?
-          <select id="fichaType">${ACTIVITY_TYPES.map((t) => `<option>${e(t)}</option>`).join('')}</select>
-        </label>
-        <label>Fecha en que ocurrió<input id="fichaDate" type="datetime-local" value="${e(localDateTimeInput())}" /></label>
         <label class="span-2">¿Cómo resultó?<textarea id="fichaResult" rows="3" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
         <div class="span-2 task-type-row" data-task-type-group="ficha">
-          <span class="task-type-label">Siguiente tarea</span>
+          <span class="task-type-label">¿Qué sigue?</span>
           <input type="hidden" id="fichaNextType" />
         </div>
-        <label class="span-2">Nota<textarea id="fichaNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
+        <label class="span-2">Objetivo / nota<textarea id="fichaNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
         <label>Fecha de la siguiente<input id="fichaNextDate" type="date" /></label>
-        <p class="span-2 muted form-note">¿No lograste hacerla? Usa <strong>Reagendar</strong> y queda pendiente con otra fecha, sin cerrarla.</p>
+        <p class="span-2 muted form-note">La gestión se registrará con la fecha y hora actuales. Si no hubo gestión, usa <strong>Reagendar</strong>.</p>
       </div>
       <div class="actions task-form-actions">
         <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
-        <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Marcar realizada</button>
+        <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Guardar gestión</button>
       </div>`
     : `<p class="muted">Sin tarea agendada para este prospecto.</p>
        <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
