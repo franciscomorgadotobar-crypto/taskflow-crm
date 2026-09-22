@@ -52,6 +52,14 @@ begin
     raise exception 'Este registro ya no está reservado para tu sesión';
   end if;
 
+  -- Si la importación ya dejó un vínculo explícito al CRM, ese vínculo manda.
+  -- Evita crear un duplicado si el snapshot local del navegador está desactualizado
+  -- o no contiene temporalmente el lead enlazado.
+  if coalesce(v_record.converted_lead_id, v_record.existing_lead_id) is not null
+     and p_lead_id is distinct from coalesce(v_record.converted_lead_id, v_record.existing_lead_id) then
+    raise exception 'El registro Híper Foco ya está vinculado a otra oportunidad';
+  end if;
+
   select coalesce(nullif(name, ''), nullif(email, ''), 'Usuario')
     into v_actor_name
     from public.profiles
