@@ -273,6 +273,7 @@ export function setQuoteStatus(id, status) {
 export function markQuoteSent(id) {
   const q = getQuote(id);
   if (!q) return null;
+  const before = structuredClone(q);
   q.status = 'enviada';
   q.sentAt = nowISO();
   notify();
@@ -280,7 +281,12 @@ export function markQuoteSent(id) {
     .from('quotes')
     .update({ status: 'enviada', sent_at: q.sentAt })
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo marcar como enviada', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(q, before);
+      notify();
+      reportError('No se pudo marcar como enviada', error);
+    });
   return q;
 }
 
@@ -288,6 +294,7 @@ export function markQuoteSent(id) {
 export function deleteQuote(id) {
   const q = getQuote(id);
   if (!q) return;
+  const beforeQuotes = structuredClone(state.quotes);
   state.quotes = state.quotes.filter((x) => x.id !== id);
   if (q.isCurrent) {
     const next = versionsOf(q.rootId)[0];
@@ -296,12 +303,19 @@ export function deleteQuote(id) {
   notify();
   (async () => {
     const { error } = await supabase.from('quotes').delete().eq('id', id);
-    if (error) return reportError('No se pudo eliminar la cotización', error);
+    if (error) {
+      state.quotes = beforeQuotes;
+      notify();
+      return reportError('No se pudo eliminar la cotización', error);
+    }
     if (q.isCurrent) {
       const next = versionsOf(q.rootId)[0];
       if (next) {
         const { error: e2 } = await supabase.from('quotes').update({ is_current: true }).eq('id', next.id);
-        if (e2) reportError('No se pudo reactivar la versión anterior', e2);
+        if (e2) {
+          await hydrateQuotes();
+          reportError('La versión se eliminó, pero no se pudo reactivar la anterior', e2);
+        }
       }
     }
   })();
