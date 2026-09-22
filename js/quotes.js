@@ -213,7 +213,7 @@ export function computeTotals(items) {
  * deja la anterior marcada como no vigente — nunca se pisa una cotización ya
  * guardada, según lo pedido.
  */
-export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil = '', client = {}, items }) {
+export async function saveQuote({ baseId = '', leadId, status, notes = '', validUntil = '', client = {}, items }) {
   const base = baseId ? getQuote(baseId) : null;
   const beforeQuotes = structuredClone(state.quotes);
   const id = uid();
@@ -250,8 +250,7 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
   state.quotes.unshift(quote);
   notify();
 
-  (async () => {
-    try {
+  try {
       const quoteRow = {
         id,
         root_id: rootId === id ? '' : rootId,
@@ -266,7 +265,7 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
         total: totals.total,
         notes,
         valid_until: validUntil || ''
-      };
+    };
       const itemRows = quote.items.map((it) => ({
         id: it.id,
         service_id: it.serviceId || '',
@@ -284,17 +283,17 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
         p_base_id: base?.id || null
       });
       if (error) throw error;
-    } catch (err) {
+  } catch (err) {
       // Si la operación compuesta falla, la copia optimista no debe quedar como
       // si la nueva versión existiera. La base puede haber alcanzado a guardar
       // una parte, por eso luego rehidratamos desde Supabase como fuente de verdad.
-      state.quotes = beforeQuotes;
-      notify();
-      reportError('No se pudo guardar la cotización', err);
-      try {
-        await hydrate();
-      } catch (hydrateErr) {
-        console.error('No se pudo resincronizar el cotizador', hydrateErr);
+    state.quotes = beforeQuotes;
+    notify();
+    reportError('No se pudo guardar la cotización', err);
+    try {
+      await hydrate();
+    } catch (hydrateErr) {
+      console.error('No se pudo resincronizar el cotizador', hydrateErr);
       }
     }
   })();
@@ -323,7 +322,7 @@ export function setQuoteStatus(id, status) {
 }
 
 /** Borra una versión. Si era la vigente, la versión anterior pasa a serlo. */
-export function deleteQuote(id) {
+export async function deleteQuote(id) {
   const q = getQuote(id);
   if (!q) return;
   const beforeQuotes = structuredClone(state.quotes);
@@ -333,14 +332,13 @@ export function deleteQuote(id) {
     if (next) next.isCurrent = true;
   }
   notify();
-  (async () => {
-    const { error } = await supabase.rpc('delete_quote_version', { p_quote_id: id });
-    if (!error) return;
+  const { error } = await supabase.rpc('delete_quote_version', { p_quote_id: id });
+  if (!error) return true;
 
-    state.quotes = beforeQuotes;
-    notify();
-    reportError('No se pudo eliminar la cotización', error);
-  })();
+  state.quotes = beforeQuotes;
+  notify();
+  reportError('No se pudo eliminar la cotización', error);
+  return false;
 }
 
 /* ---------- Correo de cotización ---------- */
