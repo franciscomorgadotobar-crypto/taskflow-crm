@@ -67,11 +67,17 @@ create policy activities_update on public.activities for update to authenticated
   using (
     organization_id = internal.my_org()
     and internal.my_role() in ('super','admin','comercial')
+    and system = false
+    and coalesce(task, '') = ''
+    and (lead_id is null or internal.can_edit_lead(lead_id))
     and (internal.can_manage_all() or owner_id = auth.uid())
   )
   with check (
     organization_id = internal.my_org()
     and internal.my_role() in ('super','admin','comercial')
+    and system = false
+    and coalesce(task, '') = ''
+    and (lead_id is null or internal.can_edit_lead(lead_id))
     and (internal.can_manage_all() or owner_id = auth.uid())
   );
 
@@ -80,6 +86,9 @@ create policy activities_delete on public.activities for delete to authenticated
   using (
     organization_id = internal.my_org()
     and internal.my_role() in ('super','admin','comercial')
+    and system = false
+    and coalesce(task, '') = ''
+    and (lead_id is null or internal.can_edit_lead(lead_id))
     and (internal.can_manage_all() or owner_id = auth.uid())
   );
 
@@ -135,6 +144,14 @@ create policy quote_items_write on public.quote_items for all to authenticated
     )
   );
 
+drop policy if exists hyperfocus_campaigns_insert on public.hyperfocus_campaigns;
+create policy hyperfocus_campaigns_insert on public.hyperfocus_campaigns for insert to authenticated
+  with check (
+    organization_id = internal.my_org()
+    and internal.my_role() in ('super','admin','comercial')
+    and created_by = auth.uid()
+  );
+
 drop policy if exists hyperfocus_campaigns_update on public.hyperfocus_campaigns;
 create policy hyperfocus_campaigns_update on public.hyperfocus_campaigns for update to authenticated
   using (
@@ -154,6 +171,20 @@ create policy hyperfocus_campaigns_delete on public.hyperfocus_campaigns for del
     organization_id = internal.my_org()
     and internal.my_role() in ('super','admin','comercial')
     and (internal.can_manage_all() or created_by = auth.uid())
+  );
+
+drop policy if exists hyperfocus_records_insert on public.hyperfocus_records;
+create policy hyperfocus_records_insert on public.hyperfocus_records for insert to authenticated
+  with check (
+    organization_id = internal.my_org()
+    and internal.my_role() in ('super','admin','comercial')
+    and exists (
+      select 1
+      from public.hyperfocus_campaigns c
+      where c.id = hyperfocus_records.campaign_id
+        and c.organization_id = internal.my_org()
+        and (internal.can_manage_all() or c.created_by = auth.uid())
+    )
   );
 
 drop policy if exists hyperfocus_records_update on public.hyperfocus_records;
@@ -181,5 +212,22 @@ create policy hyperfocus_records_delete on public.hyperfocus_records for delete 
         where c.id = hyperfocus_records.campaign_id
           and c.created_by = auth.uid()
       )
+    )
+  );
+
+
+drop policy if exists hyperfocus_interactions_insert on public.hyperfocus_interactions;
+create policy hyperfocus_interactions_insert on public.hyperfocus_interactions for insert to authenticated
+  with check (
+    organization_id = internal.my_org()
+    and internal.my_role() in ('super','admin','comercial')
+    and created_by = auth.uid()
+    and exists (
+      select 1
+      from public.hyperfocus_records r
+      where r.id = hyperfocus_interactions.record_id
+        and r.campaign_id = hyperfocus_interactions.campaign_id
+        and r.organization_id = internal.my_org()
+        and (internal.can_manage_all() or r.claimed_by = auth.uid())
     )
   );
