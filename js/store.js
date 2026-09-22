@@ -681,6 +681,7 @@ export function updateActivity(id, patch) {
 }
 
 export const getActivity = (id) => state.activities.find((a) => a.id === id) || null;
+export const hasActivity = (id) => Boolean(getActivity(id));
 
 export async function deleteActivity(id) {
   const index = state.activities.findIndex((a) => a.id === id);
