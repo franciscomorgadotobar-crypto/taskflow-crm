@@ -1074,6 +1074,7 @@ async function openDiscarded(campaignId) {
 // quien administra. Al comercial se le dice con todas sus letras en vez de dejar
 // que el botón no haga nada.
 async function restoreDiscarded(recordId) {
+  if (!isAdmin()) return toast('Solo un administrador puede devolver registros descartados a la cola.', 'error');
   const record = descartados.rows.find((r) => r.id === recordId);
   if (!record) return;
   const { data, error } = await supabase
@@ -1103,7 +1104,7 @@ function renderDiscarded() {
     body.innerHTML = '<p class="muted">No hay registros descartados en esta campaña.</p>';
     return;
   }
-  const puede = !isReadOnly();
+  const puede = isAdmin();
   body.innerHTML = `
     <p class="muted">${descartados.rows.length.toLocaleString('es-CL')} ${descartados.rows.length === 1 ? 'empresa descartada' : 'empresas descartadas'}. Devolver a la cola la deja disponible para gestionar de nuevo.</p>
     <div class="hf-discarded-list">
