@@ -1078,7 +1078,8 @@ const ACTIONS = {
     render();
   },
   'complete-task': (id) => openComplete(id),
-  'complete-task-inline': (id) => {
+  'complete-task-inline': async (id) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const result = $('fichaResult').value.trim();
     if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
     const nextType = taskTypeValue('ficha');
@@ -1086,7 +1087,7 @@ const ACTIONS = {
     const nextDate = $('fichaNextDate').value;
     if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
     const task = taskOf(getLead(id));
-    completeTaskAtomic(id, {
+    const closed = await completeTaskAtomic(id, {
       type: task?.type || 'Actividad',
       date: localDateTimeInput(),
       result,
@@ -1094,6 +1095,7 @@ const ACTIONS = {
       nextAction,
       nextDate
     });
+    if (!closed) return;
     toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
   },
   'reschedule-task': (id) => openTask(id),
