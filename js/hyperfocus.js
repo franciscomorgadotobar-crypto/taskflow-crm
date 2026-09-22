@@ -1792,11 +1792,49 @@ async function saveAttemptAndPatch(patch, detail) {
     outcome: focus.commercialResult || focus.contactResult || patch.outcome || record.outcome || '',
     ...patch
   };
-  // Primero confirmamos que el registro sigue reservado por esta sesión. Solo
-  // después escribimos el historial, para no dejar interacciones huérfanas si
-  // el reclamo venció o cambió de usuario.
-  await updateRecord(record, nextPatch);
-  await logInteraction(record, { channel: countAttempt ? focus.selectedChannel : '', detail });
+
+  const dbPatch = {};
+  const map = {
+    contacts: 'contacts',
+    status: 'status',
+    attempts: 'attempts',
+    lastContactAt: 'last_contact_at',
+    nextRetryAt: 'next_retry_at',
+    outcome: 'outcome',
+    discardReason: 'discard_reason',
+    remarketingReason: 'remarketing_reason',
+    notes: 'notes',
+    convertedLeadId: 'converted_lead_id',
+    existingLeadId: 'existing_lead_id',
+    claimedBy: 'claimed_by',
+    claimedAt: 'claimed_at',
+    priority: 'priority'
+  };
+  Object.entries(nextPatch).forEach(([key, value]) => {
+    if (map[key]) dbPatch[map[key]] = value ?? null;
+  });
+
+  const contact = selectedContact();
+  const interaction = {
+    id: uid(),
+    contact_id: contact?.id || '',
+    contact_snapshot: contact || {},
+    channel: countAttempt ? focus.selectedChannel : '',
+    contact_result: focus.contactResult || '',
+    commercial_result: focus.commercialResult || '',
+    detail: detail || ''
+  };
+
+  // 0016 confirma el cambio del registro y su historial en una sola transacción.
+  // No hay fallback: si el RPC falla, la gestión permanece en pantalla.
+  const { data, error } = await supabase.rpc('hyperfocus_finalize_record', {
+    p_record_id: record.id,
+    p_patch: dbPatch,
+    p_interaction: interaction
+  });
+  if (error) throw error;
+
+  Object.assign(record, nextPatch);
   statTransition(record.campaignId, oldStatus, nextPatch.status || oldStatus, { touched: firstTouch });
   focus.attemptStarted = false;
   focus.noteDraft = '';
