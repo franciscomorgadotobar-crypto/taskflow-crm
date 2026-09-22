@@ -24,7 +24,7 @@ import {
   taskOf
 } from './store.js';
 import { quotesOf, state as quoteState, versionsOf } from './quotes.js';
-import { isAdmin, isReadOnly, session } from './auth.js';
+import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import {
   addDaysISO,
   daysBetween,
@@ -678,7 +678,7 @@ export function renderTemplates(ui) {
 
 export function renderSettings() {
   const me = state.me;
-  const admin = isAdmin();
+  const teamAdmin = isSuper();
 
   return `
     <div class="card">
@@ -709,7 +709,7 @@ export function renderSettings() {
       <div class="card-body">
         <div class="notice">
           Para sumar a alguien, compárte el link del CRM: se registra con su propio correo y contraseña y aparece acá
-          para que le asignes el permiso. ${admin ? '' : 'Solo un administrador puede cambiar permisos y desactivar cuentas.'}
+          para que le asignes el permiso. ${teamAdmin ? '' : 'Solo un súper administrador puede cambiar permisos y desactivar cuentas.'}
         </div>
         ${
           state.team.length
@@ -718,13 +718,13 @@ export function renderSettings() {
                 <tbody>${state.team
                   .map(
                     (u) => `<tr>
-                      <td><input class="cell-input" data-user-field="name" data-id="${u.id}" value="${e(u.name)}" placeholder="Nombre" ${admin ? '' : 'disabled'} /></td>
+                      <td><input class="cell-input" data-user-field="name" data-id="${u.id}" value="${e(u.name)}" placeholder="Nombre" ${teamAdmin ? '' : 'disabled'} /></td>
                       <td>${e(u.email)}</td>
-                      <td><input class="cell-input" data-user-field="phone" data-id="${u.id}" value="${e(u.phone)}" placeholder="+56 9 ..." ${admin ? '' : 'disabled'} /></td>
-                      <td><select class="cell-input" data-user-field="role" data-id="${u.id}" ${admin ? '' : 'disabled'}>
+                      <td><input class="cell-input" data-user-field="phone" data-id="${u.id}" value="${e(u.phone)}" placeholder="+56 9 ..." ${teamAdmin ? '' : 'disabled'} /></td>
+                      <td><select class="cell-input" data-user-field="role" data-id="${u.id}" ${teamAdmin ? '' : 'disabled'}>
                         ${USER_ROLES.map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`).join('')}
                       </select></td>
-                      <td><label class="inline-check"><input type="checkbox" data-user-field="active" data-id="${u.id}" ${u.active ? 'checked' : ''} ${admin ? '' : 'disabled'} /> Activo</label></td>
+                      <td><label class="inline-check"><input type="checkbox" data-user-field="active" data-id="${u.id}" ${u.active ? 'checked' : ''} ${teamAdmin ? '' : 'disabled'} /> Activo</label></td>
                     </tr>`
                   )
                   .join('')}</tbody>
