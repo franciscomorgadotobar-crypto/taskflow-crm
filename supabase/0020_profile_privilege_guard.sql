@@ -115,3 +115,35 @@ create trigger protect_profile_privileges
   for each row execute function internal.protect_profile_privileges();
 
 revoke all on function internal.protect_profile_privileges() from public, anon, authenticated;
+
+
+-- Defensa adicional para el alta administrada: aunque alguien lograra usar signup
+-- directamente contra la API pública de Auth, el perfil nace inactivo y 0018 lo
+-- deja sin organización/rol efectivos hasta que un super lo habilite.
+create or replace function internal.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  unica uuid;
+begin
+  select id into unica
+  from public.organizations
+  where (select count(*) from public.organizations) = 1
+  limit 1;
+
+  insert into public.profiles (id, email, name, organization_id, active)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    unica,
+    false
+  );
+  return new;
+end;
+$$;
+
+revoke all on function internal.handle_new_user() from public, anon, authenticated;

@@ -708,8 +708,8 @@ export function renderSettings() {
       <div class="card-head"><h3>Equipo</h3></div>
       <div class="card-body">
         <div class="notice">
-          Las cuentas nuevas se crean de forma administrada. Cuando una cuenta esté creada y asociada a esta organización,
-          aparecerá acá para asignarle permisos. ${teamAdmin ? '' : 'Solo un súper administrador puede cambiar permisos y desactivar cuentas.'}
+          Las cuentas nuevas se crean de forma administrada y nacen inactivas. Cuando aparezcan en esta organización,
+          un súper administrador debe asignarles permiso y activarlas. ${teamAdmin ? '' : 'Solo un súper administrador puede cambiar permisos y activar cuentas.'}
         </div>
         ${
           state.team.length
