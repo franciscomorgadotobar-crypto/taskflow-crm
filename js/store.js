@@ -426,9 +426,9 @@ export function findDuplicate(company, excludeId = '') {
 export function contactsOf(lead) {
   if (!lead) return [];
   const primary = lead.contact || lead.email || lead.phone
-    ? [{ key: 'primary', name: lead.contact || 'Contacto principal', role: lead.role, email: lead.email, phone: lead.phone, primary: true }]
+    ? [{ key: 'primary', name: lead.contact || 'Contacto principal', role: lead.role || '', email: lead.email || '', phone: lead.phone || '', primary: true }]
     : [];
-  const extra = (lead.contacts || []).map((c) => ({ key: c.id, name: c.name, role: c.role, email: c.email, phone: c.phone }));
+  const extra = (lead.contacts || []).map((c) => ({ key: c.id, name: c.name || '', role: c.role || '', email: c.email || '', phone: c.phone || '', primary: false }));
   return [...primary, ...extra];
 }
 
