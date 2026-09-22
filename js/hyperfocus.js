@@ -2,6 +2,7 @@ import { INDUSTRIES, DEFAULT_PROBABILITY } from './catalog.js';
 import { isAdmin, isReadOnly, session } from './auth.js';
 import {
   addActivity,
+  addActivityConfirmed,
   getLead,
   state as crmState,
   upsertLeadConfirmed
@@ -1958,7 +1959,7 @@ async function createOrUpdateCrmLead(record, {
   }
 
   if (lead) {
-    addActivity({
+    await addActivityConfirmed({
       leadId: lead.id,
       type: focus.selectedChannel === 'whatsapp' ? 'WhatsApp' : focus.selectedChannel === 'email' ? 'Correo' : 'Llamada',
       date: nowISO(),
