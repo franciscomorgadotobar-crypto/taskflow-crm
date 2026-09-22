@@ -154,9 +154,10 @@ export async function upsertService(input) {
   notify();
 
   const write = existing
-    ? supabase.from('services').update(toDbService(record)).eq('id', id)
-    : supabase.from('services').insert({ id, ...toDbService(record) });
-  const { error } = await write;
+    ? supabase.from('services').update(toDbService(record)).eq('id', id).select('id')
+    : supabase.from('services').insert({ id, ...toDbService(record) }).select('id');
+  const { data, error: writeError } = await write;
+  const error = writeError || (!data?.length ? new Error('El servidor no confirmó el servicio.') : null);
   if (!error) return record;
   if (before) {
     const current = state.services.findIndex((s) => s.id === id);
@@ -175,7 +176,8 @@ export async function deleteService(id) {
   const before = index >= 0 ? structuredClone(state.services[index]) : null;
   state.services = state.services.filter((s) => s.id !== id);
   notify();
-  const { error } = await supabase.from('services').delete().eq('id', id);
+  const { data, error: deleteError } = await supabase.from('services').delete().eq('id', id).select('id');
+  const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación del servicio.') : null);
   if (!error) return true;
   if (before && !state.services.some((s) => s.id === id)) {
     state.services.splice(Math.min(Math.max(index, 0), state.services.length), 0, before);
@@ -303,7 +305,8 @@ export async function setQuoteStatus(id, status) {
   q.status = status;
   q.updatedAt = nowISO();
   notify();
-  const { error } = await supabase.from('quotes').update({ status }).eq('id', id);
+  const { data, error: updateError } = await supabase.from('quotes').update({ status }).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó el cambio de estado.') : null);
   if (!error) return q;
   Object.assign(q, before);
   notify();
