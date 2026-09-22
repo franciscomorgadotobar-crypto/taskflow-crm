@@ -26,6 +26,7 @@ import {
   updateContact,
   deleteLead,
   completeTask,
+  completeTaskAtomic,
   deleteTemplate,
   findContact,
   taskOf,
@@ -609,7 +610,7 @@ function submitComplete(e) {
   if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
   if (nextDate && !nextType && !nextAction) return toast('Elige el tipo de la siguiente tarea o escribe una nota.', 'error');
   const task = taskOf(getLead(leadId));
-  completeTask(leadId, {
+  completeTaskAtomic(leadId, {
     type: task?.type || 'Actividad',
     date: localDateTimeInput(),
     result,
@@ -1058,7 +1059,7 @@ const ACTIONS = {
     const nextDate = $('fichaNextDate').value;
     if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
     const task = taskOf(getLead(id));
-    completeTask(id, {
+    completeTaskAtomic(id, {
       type: task?.type || 'Actividad',
       date: localDateTimeInput(),
       result,
