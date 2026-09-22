@@ -307,6 +307,7 @@ function openActivity(leadId = '') {
   $('activityDate').value = localDateTimeInput();
   $('activityOwner').value = getLead(leadId)?.owner || '';
   $('activityDetail').value = '';
+  syncActivityTaskResolution(leadId, false);
   $('activityDialog').showModal();
 }
 
@@ -323,7 +324,19 @@ function editActivity(id) {
   $('activityDate').value = act.date || localDateTimeInput();
   $('activityOwner').value = act.owner || '';
   $('activityDetail').value = act.detail || '';
+  syncActivityTaskResolution(act.leadId, true);
   $('activityDialog').showModal();
+}
+
+function syncActivityTaskResolution(leadId, editing = false) {
+  const task = taskOf(getLead(leadId));
+  $('activityResolveTask').checked = false;
+  $('activityResolveTaskField').hidden = editing || !task;
+  $('activityResolveTaskHint').textContent = editing
+    ? 'Editar esta actividad no modifica la tarea pendiente.'
+    : task
+      ? `Tarea pendiente: ${task.title}${task.date ? ` · ${fmtDate(task.date)}` : ''}. Puedes marcarla como resuelta si esta interacción la reemplazó.`
+      : 'Esta actividad queda registrada en el historial. La empresa no tiene una tarea pendiente que resolver.';
 }
 
 function fillActivityContacts(leadId) {
@@ -352,8 +365,16 @@ function submitActivity(e) {
     detail
   };
 
-  if (id) updateActivity(id, payload);
-  else addActivity(payload);
+  if (id) {
+    updateActivity(id, payload);
+  } else {
+    const resolvesTask = $('activityResolveTask').checked;
+    const pendingTask = resolvesTask ? taskOf(getLead(leadId)) : null;
+    addActivity(payload);
+    if (pendingTask) {
+      updateLead(leadId, { nextType: '', nextAction: '', nextDate: '' });
+    }
+  }
 
   $('activityDialog').close();
   toast(id ? 'Actividad actualizada.' : 'Actividad registrada.');
@@ -1438,7 +1459,10 @@ function bindEvents() {
   $('stage').addEventListener('change', toggleLossField);
   $('discoveryForm').addEventListener('submit', submitDiscovery);
   $('activityForm').addEventListener('submit', submitActivity);
-  $('activityLeadId').addEventListener('change', (ev) => fillActivityContacts(ev.target.value));
+  $('activityLeadId').addEventListener('change', (ev) => {
+    fillActivityContacts(ev.target.value);
+    syncActivityTaskResolution(ev.target.value, Boolean($('activityId').value));
+  });
   $('contactForm').addEventListener('submit', submitContact);
   $('commForm').addEventListener('submit', submitComm);
   $('commTemplate').addEventListener('change', fillCommFields);
