@@ -705,6 +705,22 @@ export function renderSettings() {
     </div>
 
     <div class="card" style="margin-top:16px">
+      <div class="card-head"><h3>Aplicación TaskFlow</h3></div>
+      <div class="card-body">
+        <p class="muted settings-hint">
+          Instala TaskFlow CRM como aplicación para abrirlo desde tu escritorio o pantalla de inicio,
+          sin depender de una pestaña del navegador.
+        </p>
+        <div class="button-row">
+          <button class="primary-btn" data-action="install-pwa">Instalar TaskFlow CRM</button>
+        </div>
+        <p class="muted settings-hint" style="margin-top:10px">
+          En iPhone o iPad, usa Compartir → Añadir a pantalla de inicio.
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
       <div class="card-head"><h3>Equipo</h3></div>
       <div class="card-body">
         <div class="notice">
