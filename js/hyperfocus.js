@@ -1257,17 +1257,22 @@ async function openSession(campaignId) {
 async function takeNextRecord() {
   focus.loading = true;
   renderSession();
-  focus.record = await claimNextRecord(focus.campaignId);
-  focus.loading = false;
-  focus.selectedContactId = recommendedContact(focus.record)?.id || '';
-  focus.selectedChannel = 'call';
-  focus.contactResult = '';
-  focus.commercialResult = '';
-  focus.phase = 'ready';
-  focus.messageOpened = false;
-  focus.attemptStarted = false;
-  focus.phoneSlot = preferredPhoneSlot(selectedContact());
-  renderSession();
+  try {
+    focus.record = await claimNextRecord(focus.campaignId);
+    focus.selectedContactId = recommendedContact(focus.record)?.id || '';
+    focus.selectedChannel = 'call';
+    focus.contactResult = '';
+    focus.commercialResult = '';
+    focus.phase = 'ready';
+    focus.messageOpened = false;
+    focus.attemptStarted = false;
+    focus.phoneSlot = preferredPhoneSlot(selectedContact());
+  } finally {
+    // También al fallar el claim: evita dejar la sesión bloqueada eternamente
+    // en "Preparando la cola…" durante transiciones posteriores al primer registro.
+    focus.loading = false;
+    renderSession();
+  }
 }
 
 function sessionProgress(campaign) {
