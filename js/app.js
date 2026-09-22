@@ -326,6 +326,7 @@ async function submitDiscovery(e) {
 
 function openActivity(leadId = '') {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  if (leadId && !canEditLeadLocally(leadId)) return toast('Solo puedes registrar actividad en oportunidades asignadas a ti.', 'error');
   if (!state.leads.length) return toast('Primero registra una empresa.', 'error');
   $('activityId').value = '';
   $('activityDialogTitle').textContent = 'Nueva actividad';
@@ -884,6 +885,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   const base = baseId ? getQuote(baseId) : null;
   const targetLeadId = base?.leadId || leadId;
   if (targetLeadId && !canEditLeadLocally(targetLeadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
+  if (base && !isAdmin() && base.ownerId !== session.user?.id) return toast('Solo quien creó esta cotización puede generar una nueva versión.', 'error');
   ui.quoteBuilder = {
     leadId: base?.leadId || leadId,
     // Al editar, cada item se guarda como fila nueva en la versión nueva: se descarta
@@ -1123,6 +1125,7 @@ const ACTIONS = {
   'complete-task': (id) => openComplete(id),
   'complete-task-inline': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+    if (!canEditLeadLocally(id)) return toast('Solo puedes cerrar tareas de oportunidades asignadas a ti.', 'error');
     const result = $('fichaResult').value.trim();
     if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
     const nextType = taskTypeValue('ficha');
@@ -1179,6 +1182,7 @@ const ACTIONS = {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const act = getActivity(id);
     if (act?.task || act?.system) return toast('Los movimientos del historial no se pueden eliminar.', 'error');
+    if (act?.leadId && !canEditLeadLocally(act.leadId)) return toast('Solo puedes eliminar actividad de oportunidades asignadas a ti.', 'error');
     if (confirm('¿Eliminar esta actividad?')) {
       if (await deleteActivity(id)) toast('Actividad eliminada.');
     }
@@ -1279,6 +1283,11 @@ const ACTIONS = {
   'send-quote': (id, btn) => openQuoteSend(id || btn?.dataset.id),
   'delete-quote': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+    const quote = getQuote(id);
+    if (!quote) return;
+    if (!canEditLeadLocally(quote.leadId) || (!isAdmin() && quote.ownerId !== session.user?.id)) {
+      return toast('No tienes permiso para eliminar esta versión de la cotización.', 'error');
+    }
     if (!confirm('¿Eliminar esta versión de la cotización?')) return;
     if (await deleteQuote(id)) toast('Cotización eliminada.');
   },
