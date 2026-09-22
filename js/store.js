@@ -385,6 +385,9 @@ export function updateLead(id, patch) {
 export function deleteLead(id) {
   const lead = getLead(id);
   if (!lead) return;
+  const beforeLeads = [...state.leads];
+  const beforeDiscovery = state.discoveries[id] ? structuredClone(state.discoveries[id]) : null;
+  const beforeActivities = [...state.activities];
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
@@ -404,7 +407,14 @@ export function deleteLead(id) {
     .from('leads')
     .delete()
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo eliminar en el servidor', error));
+    .then(({ error }) => {
+      if (!error) return;
+      state.leads = beforeLeads;
+      if (beforeDiscovery) state.discoveries[id] = beforeDiscovery;
+      state.activities = beforeActivities;
+      persist();
+      reportError('No se pudo eliminar en el servidor', error);
+    });
 }
 
 /** Elimina todas las oportunidades visibles para quien ejecuta (RLS decide el alcance real). */
