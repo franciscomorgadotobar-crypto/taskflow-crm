@@ -199,7 +199,12 @@ export async function hydrate() {
 
   if (!tplR.error) {
     state.templates = (tplR.data || []).map(fromDbTemplate);
-    if (!state.templates.length) await seedDefaultTemplates();
+    // La inicialización automática es una escritura. Un perfil visita (o cualquier
+    // rol sin permiso de INSERT por RLS) no debe intentar sembrar plantillas cada
+    // vez que hidrata una organización todavía vacía.
+    if (!state.templates.length && ['super', 'admin'].includes(session.profile?.role)) {
+      await seedDefaultTemplates();
+    }
   }
 
   if (!teamR.error) {
