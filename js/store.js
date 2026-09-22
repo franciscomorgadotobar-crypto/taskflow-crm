@@ -385,14 +385,18 @@ export function updateLead(id, patch) {
 export function deleteLead(id) {
   const lead = getLead(id);
   if (!lead) return;
-  const beforeLeads = [...state.leads];
-  const beforeDiscovery = state.discoveries[id] ? structuredClone(state.discoveries[id]) : null;
-  const beforeActivities = [...state.activities];
+  const leadIndex = state.leads.findIndex((l) => l.id === id);
+  const beforeLead = structuredClone(lead);
+  const hadDiscovery = Object.prototype.hasOwnProperty.call(state.discoveries, id);
+  const beforeDiscovery = hadDiscovery ? structuredClone(state.discoveries[id]) : null;
+  const beforeActivities = state.activities.filter((a) => a.leadId === id).map((a) => structuredClone(a));
+  const deletionActivityId = uid();
+
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
   state.activities.push({
-    id: uid(),
+    id: deletionActivityId,
     leadId: '',
     company: lead.company,
     type: 'Eliminación',
@@ -409,9 +413,17 @@ export function deleteLead(id) {
     .eq('id', id)
     .then(({ error }) => {
       if (!error) return;
-      state.leads = beforeLeads;
-      if (beforeDiscovery) state.discoveries[id] = beforeDiscovery;
-      state.activities = beforeActivities;
+
+      // Restaura solo lo perteneciente a este lead. Así una eliminación fallida
+      // no revive otras oportunidades que sí se eliminaron en paralelo.
+      if (!state.leads.some((l) => l.id === id)) {
+        state.leads.splice(Math.min(Math.max(leadIndex, 0), state.leads.length), 0, beforeLead);
+      }
+      if (hadDiscovery) state.discoveries[id] = beforeDiscovery;
+      else delete state.discoveries[id];
+
+      state.activities = state.activities.filter((a) => a.id !== deletionActivityId && a.leadId !== id);
+      state.activities.push(...beforeActivities);
       persist();
       reportError('No se pudo eliminar en el servidor', error);
     });
