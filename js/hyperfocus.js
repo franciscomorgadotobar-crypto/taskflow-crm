@@ -1050,8 +1050,9 @@ async function createCampaignFromImport(event) {
 const descartados = { campaignId: '', rows: [], cargando: false };
 
 async function openDiscarded(campaignId) {
+  const sameCampaign = descartados.campaignId === campaignId;
   descartados.campaignId = campaignId;
-  descartados.rows = [];
+  if (!sameCampaign) descartados.rows = [];
   descartados.cargando = true;
   renderDiscarded();
   byId('hfDiscardedDialog')?.showModal();
@@ -1064,8 +1065,9 @@ async function openDiscarded(campaignId) {
     .limit(1000);
   descartados.cargando = false;
   if (error) {
+    // Un fallo temporal no equivale a una lista vacía. Si ya teníamos un
+    // snapshot válido de esta campaña, lo mantenemos visible.
     toast(error.message, 'error');
-    descartados.rows = [];
   } else {
     descartados.rows = (data || []).map(fromDbRecord);
   }
