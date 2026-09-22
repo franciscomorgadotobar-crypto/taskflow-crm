@@ -198,12 +198,25 @@ function fillStaticSelects() {
   $('serviceUnits').innerHTML = SERVICE_UNITS.map((u) => `<option value="${escapeHtml(u)}">`).join('');
 }
 
-function fillOwnerSelect(selected = '') {
-  const names = ownerNames();
-  if (selected && !names.includes(selected)) names.push(selected);
-  $('owner').innerHTML =
-    `<option value="">Sin asignar</option>` +
-    names.map((n) => `<option ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+function fillOwnerSelect(selectedName = '', selectedId = '') {
+  const active = state.team.filter((u) => u.active && u.name);
+  const duplicateNames = new Map();
+  active.forEach((u) => duplicateNames.set(u.name, (duplicateNames.get(u.name) || 0) + 1));
+
+  const options = active.map((u) => {
+    const selected = selectedId ? u.id === selectedId : (!selectedId && u.name === selectedName);
+    const label = duplicateNames.get(u.name) > 1 && u.email ? `${u.name} · ${u.email}` : u.name;
+    return `<option value="${escapeHtml(u.name)}" data-owner-id="${u.id}" ${selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  });
+
+  // Un responsable histórico inactivo sigue visible al editar su oportunidad,
+  // pero no aparece como opción para nuevas asignaciones.
+  if (selectedName && !active.some((u) => selectedId ? u.id === selectedId : u.name === selectedName)) {
+    const historical = state.team.find((u) => selectedId ? u.id === selectedId : u.name === selectedName);
+    options.push(`<option value="${escapeHtml(selectedName)}" data-owner-id="${historical?.id || selectedId || ''}" selected>${escapeHtml(selectedName)} · inactivo</option>`);
+  }
+
+  $('owner').innerHTML = `<option value="">Sin asignar</option>${options.join('')}`;
 }
 
 const leadOptions = (selected = '', placeholder = 'Selecciona una empresa') =>
@@ -227,7 +240,7 @@ function openLead(id) {
   const editing = Boolean(id);
   $('leadDialogTitle').textContent = editing ? 'Editar datos de la empresa' : 'Nuevo lead';
   $('leadId').value = l.id || '';
-  fillOwnerSelect(l.owner || session.profile?.name || '');
+  fillOwnerSelect(l.owner || session.profile?.name || '', l.ownerId || (!l.id ? session.user?.id || '' : ''));
   LEAD_FIELDS.forEach((k) => {
     const el = $(k);
     if (!el) return;
@@ -266,6 +279,8 @@ async function submitLead(e) {
   fields.forEach((k) => (payload[k] = $(k).value.trim ? $(k).value.trim() : $(k).value));
   payload.isPrivate = $('isPrivate').checked;
   if (!id && !payload.owner) payload.owner = session.profile?.name || '';
+  const ownerOption = $('owner').selectedOptions?.[0];
+  payload.ownerId = ownerOption?.dataset.ownerId || (payload.owner === session.profile?.name ? session.user?.id || '' : '');
   try {
     const saved = await upsertLeadConfirmed(payload);
     if (!saved) return;
