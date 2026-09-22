@@ -627,7 +627,8 @@ export async function saveDiscovery(leadId, payload) {
   const before = state.discoveries[leadId] ? structuredClone(state.discoveries[leadId]) : null;
   state.discoveries[leadId] = { ...payload, updatedAt: nowISO() };
   persist();
-  const { error } = await supabase.from('discoveries').upsert(toDbDiscovery(leadId, state.discoveries[leadId]));
+  const { data, error: writeError } = await supabase.from('discoveries').upsert(toDbDiscovery(leadId, state.discoveries[leadId])).select('lead_id');
+  const error = writeError || (!data?.length ? new Error('El servidor no confirmó el levantamiento.') : null);
   if (!error) return true;
   if (before) state.discoveries[leadId] = before;
   else delete state.discoveries[leadId];
@@ -851,7 +852,8 @@ export async function saveTemplate(id, patch) {
   const before = structuredClone(t);
   Object.assign(t, patch);
   persist();
-  const { error } = await supabase.from('templates').update(toDbTemplate(t)).eq('id', id);
+  const { data, error: updateError } = await supabase.from('templates').update(toDbTemplate(t)).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó la plantilla.') : null);
   if (!error) return t;
   Object.assign(t, before);
   persist();
@@ -863,7 +865,8 @@ export async function addTemplate(channel_ = 'both') {
   const record = { id: uid(), name: 'Nueva plantilla', channel: channel_, subject: '', body: '' };
   state.templates.push(record);
   persist();
-  const { error } = await supabase.from('templates').insert({ id: record.id, ...toDbTemplate(record) });
+  const { data, error: insertError } = await supabase.from('templates').insert({ id: record.id, ...toDbTemplate(record) }).select('id');
+  const error = insertError || (!data?.length ? new Error('El servidor no confirmó la nueva plantilla.') : null);
   if (!error) return record;
   state.templates = state.templates.filter((t) => t.id !== record.id);
   persist();
@@ -877,7 +880,8 @@ export async function deleteTemplate(id) {
   const before = index >= 0 ? state.templates[index] : null;
   state.templates = state.templates.filter((t) => t.id !== id);
   persist();
-  const { error } = await supabase.from('templates').delete().eq('id', id);
+  const { data, error: deleteError } = await supabase.from('templates').delete().eq('id', id).select('id');
+  const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación de la plantilla.') : null);
   if (!error) return true;
   if (before && !state.templates.some((t) => t.id === id)) {
     state.templates.splice(Math.min(Math.max(index, 0), state.templates.length), 0, before);
@@ -905,10 +909,12 @@ export async function saveProfile(patch) {
   const idx = state.team.findIndex((t) => t.id === state.me.id);
   if (idx >= 0) state.team[idx] = state.me;
   persist();
-  const { error } = await supabase
+  const { data, error: updateError } = await supabase
     .from('profiles')
     .update({ name: patch.name ?? state.me.name, phone: patch.phone ?? state.me.phone })
-    .eq('id', state.me.id);
+    .eq('id', state.me.id)
+    .select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó tu perfil.') : null);
   if (!error) return state.me;
   Object.assign(state.me, before);
   const current = state.team.findIndex((t) => t.id === state.me.id);
@@ -930,7 +936,8 @@ export async function updateUser(id, patch) {
   if ('phone' in patch) payload.phone = patch.phone;
   if ('role' in patch) payload.role = patch.role;
   if ('active' in patch) payload.active = patch.active;
-  const { error } = await supabase.from('profiles').update(payload).eq('id', id);
+  const { data, error: updateError } = await supabase.from('profiles').update(payload).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó la actualización del usuario.') : null);
   if (!error) return t;
   Object.assign(t, before);
   persist();
