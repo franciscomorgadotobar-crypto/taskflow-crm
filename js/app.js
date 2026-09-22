@@ -322,6 +322,7 @@ function openActivity(leadId = '') {
 }
 
 function editActivity(id) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const act = getActivity(id);
   if (!act) return;
   $('activityId').value = id;
@@ -645,6 +646,7 @@ async function submitComplete(e) {
 /* ---------- Agendar / reagendar la tarea ---------- */
 
 function openTask(leadId) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
   if (!lead) return;
   const task = taskOf(lead);
@@ -659,6 +661,7 @@ function openTask(leadId) {
 
 async function submitTask(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const nextType = taskTypeValue('task');
   const note = $('taskAction').value.trim();
   if (!nextType && !note) return toast('Elige el tipo de tarea o escribe una nota.', 'error');
@@ -935,6 +938,7 @@ function openQuoteView(id) {
 }
 
 function openQuoteSend(id) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const q = getQuote(id);
   if (!q) return;
   const lead = getLead(q.leadId);
@@ -949,6 +953,7 @@ function openQuoteSend(id) {
 
 async function submitQuoteSend(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const id = $('quoteSendId').value;
   const q = getQuote(id);
   const lead = getLead(q?.leadId);
