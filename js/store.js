@@ -408,7 +408,7 @@ export function deleteLead(id) {
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
   state.activities = state.activities.filter((a) => a.leadId !== id);
-  state.activities.push({
+  const deletionActivity = {
     id: deletionActivityId,
     leadId: '',
     company: lead.company,
@@ -418,14 +418,27 @@ export function deleteLead(id) {
     detail: `Se eliminó la oportunidad "${lead.company}" (etapa ${lead.stage}) con su levantamiento e historial.`,
     task: '',
     system: true
-  });
+  };
+  state.activities.push(deletionActivity);
   persist();
   supabase
     .from('leads')
     .delete()
     .eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
+    .then(async ({ error }) => {
+      if (!error) {
+        // El registro de auditoría es global (lead_id NULL) para sobrevivir a la
+        // eliminación del lead y a futuras rehidrataciones.
+        const { error: auditError } = await supabase
+          .from('activities')
+          .insert({ id: deletionActivity.id, ...toDbActivity(deletionActivity) });
+        if (auditError) {
+          state.activities = state.activities.filter((a) => a.id !== deletionActivityId);
+          persist();
+          reportError('La oportunidad se eliminó, pero no se pudo registrar la auditoría', auditError);
+        }
+        return;
+      }
 
       // Restaura solo lo perteneciente a este lead. Así una eliminación fallida
       // no revive otras oportunidades que sí se eliminaron en paralelo.
