@@ -19,6 +19,7 @@ import {
   addContact,
   addTemplate,
   clearLocal,
+  canEditLeadLocally,
   contactsOf,
   deleteActivity,
   deleteAllVisibleLeads,
@@ -237,6 +238,7 @@ const OWNED_ELSEWHERE = ['stage', 'lossReason', 'nextAction', 'nextDate', 'nextT
 function openLead(id) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const l = getLead(id) || {};
+  if (id && !canEditLeadLocally(l)) return toast('Solo puedes editar oportunidades asignadas a ti.', 'error');
   const editing = Boolean(id);
   $('leadDialogTitle').textContent = editing ? 'Editar datos de la empresa' : 'Nuevo lead';
   $('leadId').value = l.id || '';
@@ -299,6 +301,7 @@ function openDiscovery(id) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(id);
   if (!lead) return;
+  if (!canEditLeadLocally(lead)) return toast('Solo puedes gestionar oportunidades asignadas a ti.', 'error');
   const d = getDiscovery(id) || {};
   $('discoveryLeadId').value = id;
   $('discoverySubtitle').textContent = `${lead.company} · ${lead.stage}`;
@@ -379,6 +382,7 @@ async function submitActivity(e) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const id = $('activityId').value;
   const leadId = $('activityLeadId').value;
+  if (!canEditLeadLocally(leadId)) return toast('Solo puedes registrar actividad en oportunidades asignadas a ti.', 'error');
   const detail = $('activityDetail').value.trim();
   if (!leadId) return toast('Selecciona una empresa.', 'error');
   if (!detail) return toast('Escribe el detalle de la actividad.', 'error');
@@ -415,6 +419,7 @@ function openContact(leadId, key = '') {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
   if (!lead) return;
+  if (!canEditLeadLocally(lead)) return toast('Solo puedes gestionar contactos de oportunidades asignadas a ti.', 'error');
   const contact = key ? findContact(lead, key) : null;
 
   $('contactLeadId').value = leadId;
@@ -619,6 +624,7 @@ function submitManage(e) {
 function openComplete(leadId) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
+  if (lead && !canEditLeadLocally(lead)) return toast('Solo puedes cerrar tareas de oportunidades asignadas a ti.', 'error');
   const task = taskOf(lead);
   if (!task) return toast('Este prospecto no tiene una tarea abierta.', 'error');
   $('completeLeadId').value = leadId;
@@ -663,6 +669,7 @@ async function submitComplete(e) {
 function openTask(leadId) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
+  if (lead && !canEditLeadLocally(lead)) return toast('Solo puedes reagendar tareas de oportunidades asignadas a ti.', 'error');
   if (!lead) return;
   const task = taskOf(lead);
   $('taskLeadId').value = leadId;
@@ -693,6 +700,7 @@ function openStage(id) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(id);
   if (!lead) return;
+  if (!canEditLeadLocally(lead)) return toast('Solo puedes mover oportunidades asignadas a ti.', 'error');
   $('stageLeadId').value = id;
   $('stageDialogLead').textContent = `${lead.company} · actualmente en ${lead.stage}`;
   $('stageOptions').innerHTML = STAGES.map(
@@ -888,6 +896,7 @@ async function submitQuoteBuilder(e) {
   e.preventDefault();
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const leadId = $('quoteLeadId').value;
+  if (!canEditLeadLocally(leadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
   if (!leadId) return toast('Selecciona una empresa.', 'error');
   const items = ui.quoteBuilder.items
     .filter((it) => it.name.trim() && Number(it.quantity) > 0)
@@ -1132,6 +1141,7 @@ const ACTIONS = {
   'qualify-lead': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const lead = getLead(id);
+    if (lead && !canEditLeadLocally(lead)) return toast('Solo puedes calificar oportunidades asignadas a ti.', 'error');
     if (!lead) return;
     if (await setStage(id, 'Contactado')) toast(`${lead.company} calificado → Contactado.`);
   },
@@ -1160,6 +1170,7 @@ const ACTIONS = {
   },
   'delete-lead': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+    if (!canEditLeadLocally(id)) return toast('Solo puedes eliminar oportunidades asignadas a ti.', 'error');
     const lead = getLead(id);
     if (!lead) return;
     if (confirm(`¿Eliminar "${lead.company}" con su levantamiento, actividades y cotizaciones?`)) {
