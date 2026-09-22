@@ -8,7 +8,8 @@ import { supabase } from './supabase.js';
 export const session = {
   user: null,
   profile: null,
-  status: 'loading' // 'loading' | 'signed-out' | 'signed-in'
+  status: 'loading', // 'loading' | 'signed-out' | 'signed-in' | 'profile-error'
+  error: null
 };
 
 const listeners = new Set();
@@ -19,22 +20,34 @@ let refreshGeneration = 0;
 export async function fetchProfile() {
   if (!session.user) return null;
   const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
-  if (error) {
-    console.error('No se pudo cargar el perfil', error);
-    return null;
-  }
+  if (error) throw error;
   return data;
 }
 
 async function refresh(user) {
   const generation = ++refreshGeneration;
   session.user = user || null;
+  session.error = null;
   if (!user) {
     session.profile = null;
     session.status = 'signed-out';
     return notify();
   }
-  const profile = await fetchProfile();
+
+  let profile;
+  try {
+    profile = await fetchProfile();
+  } catch (error) {
+    if (generation !== refreshGeneration || session.user?.id !== user.id) return;
+    // Un corte de red al leer profiles no significa que la cuenta esté inactiva.
+    // Fallamos cerrado en la UI, pero no destruimos una sesión Auth válida.
+    console.error('No se pudo cargar el perfil', error);
+    session.profile = null;
+    session.status = 'profile-error';
+    session.error = error;
+    return notify();
+  }
+
   // Un fetch de perfil iniciado por una sesión anterior no puede revivirla si
   // mientras tanto llegó un SIGNED_OUT u otro usuario inició sesión.
   if (generation !== refreshGeneration || session.user?.id !== user.id) return;
@@ -47,15 +60,22 @@ async function refresh(user) {
     if (generation !== refreshGeneration) return;
     session.user = null;
     session.profile = null;
+    session.error = null;
     session.status = 'signed-out';
     return notify();
   }
   session.profile = profile;
+  session.error = null;
   session.status = 'signed-in';
   notify();
 }
 
-supabase.auth.onAuthStateChange((_event, sess) => refresh(sess?.user || null));
+// El callback de Auth termina inmediatamente. La lectura de profiles se difiere a
+// una microtarea para no encadenar consultas Supabase dentro del procesamiento del
+// propio evento de autenticación.
+supabase.auth.onAuthStateChange((_event, sess) => {
+  queueMicrotask(() => refresh(sess?.user || null));
+});
 
 export async function initAuth() {
   const { data, error } = await supabase.auth.getSession();

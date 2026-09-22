@@ -101,6 +101,7 @@ const notify = () => listeners.forEach((fn) => fn(state));
 let realtimeChannel = null;
 let realtimeTimer = null;
 let hydrateGeneration = 0;
+let discardedGeneration = 0;
 let uiBound = false;
 
 const importDraft = {
@@ -234,11 +235,12 @@ export async function hydrate() {
     return;
   }
 
-  state.schemaReady = true;
-  state.campaigns = (campaignsR.data || []).map(fromDbCampaign);
-
+  const nextCampaigns = (campaignsR.data || []).map(fromDbCampaign);
   const statsR = await supabase.from('hyperfocus_campaign_stats').select('*');
   if (generation !== hydrateGeneration) return;
+
+  state.schemaReady = true;
+  state.campaigns = nextCampaigns;
   if (statsR.error) {
     // Una lectura fallida de estadísticas no significa que las campañas estén
     // vacías: conservamos el último snapshot válido para no poner contadores a 0.
@@ -264,12 +266,15 @@ export function startRealtime() {
 }
 
 export function stopRealtime() {
+  hydrateGeneration += 1;
   clearTimeout(realtimeTimer);
   if (realtimeChannel) supabase.removeChannel(realtimeChannel);
   realtimeChannel = null;
 }
 
 export function clearLocal() {
+  hydrateGeneration += 1;
+  discardedGeneration += 1;
   state.campaigns = [];
   state.stats = {};
   state.hydrated = false;
@@ -1054,6 +1059,7 @@ async function createCampaignFromImport(event) {
 const descartados = { campaignId: '', rows: [], cargando: false };
 
 async function openDiscarded(campaignId) {
+  const generation = ++discardedGeneration;
   const sameCampaign = descartados.campaignId === campaignId;
   descartados.campaignId = campaignId;
   if (!sameCampaign) descartados.rows = [];
@@ -1067,6 +1073,7 @@ async function openDiscarded(campaignId) {
     .eq('status', 'discarded')
     .order('updated_at', { ascending: false })
     .limit(1000);
+  if (generation !== discardedGeneration || descartados.campaignId !== campaignId) return;
   descartados.cargando = false;
   if (error) {
     // Un fallo temporal no equivale a una lista vacía. Si ya teníamos un

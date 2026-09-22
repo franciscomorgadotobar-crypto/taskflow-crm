@@ -173,6 +173,7 @@ const fromDbProfile = (r) => ({ id: r.id, name: r.name || '', email: r.email || 
 let channel = null;
 let realtimeHydrateTimer = null;
 let hydrateGeneration = 0;
+let seedTemplatesPromise = null;
 
 function scheduleHydrate() {
   clearTimeout(realtimeHydrateTimer);
@@ -193,23 +194,23 @@ export async function hydrate() {
   [leadsR, discR, actR, tplR, teamR].forEach((r) => r.error && console.error(r.error));
   if (generation !== hydrateGeneration) return;
 
-  // Una consulta fallida no equivale a una colección vacía. Reemplazamos cada
-  // bloque únicamente cuando Supabase respondió correctamente, conservando la
-  // última copia válida ante cortes de red o errores transitorios.
-  if (!leadsR.error) state.leads = (leadsR.data || []).map(fromDbLead);
-  if (!discR.error) state.discoveries = Object.fromEntries((discR.data || []).map((r) => [r.lead_id, fromDbDiscovery(r)]));
-  if (!actR.error) state.activities = (actR.data || []).map(fromDbActivity);
-
+  let nextTemplates = null;
   if (!tplR.error) {
-    state.templates = (tplR.data || []).map(fromDbTemplate);
-    // La inicialización automática es una escritura. Un perfil visita (o cualquier
-    // rol sin permiso de INSERT por RLS) no debe intentar sembrar plantillas cada
-    // vez que hidrata una organización todavía vacía.
-    if (!state.templates.length && ['super', 'admin'].includes(session.profile?.role)) {
-      await seedDefaultTemplates();
+    nextTemplates = (tplR.data || []).map(fromDbTemplate);
+    // Si dos hidrataciones detectan una organización vacía casi al mismo tiempo,
+    // ambas comparten la misma siembra para no duplicar las plantillas de fábrica.
+    if (!nextTemplates.length && ['super', 'admin'].includes(session.profile?.role)) {
+      nextTemplates = await seedDefaultTemplates();
+      if (generation !== hydrateGeneration) return;
     }
   }
 
+  // Publicamos el snapshot en un solo tramo, después de cualquier await adicional.
+  // Así una hidratación antigua nunca deja estado parcial mientras llega otra más nueva.
+  if (!leadsR.error) state.leads = (leadsR.data || []).map(fromDbLead);
+  if (!discR.error) state.discoveries = Object.fromEntries((discR.data || []).map((r) => [r.lead_id, fromDbDiscovery(r)]));
+  if (!actR.error) state.activities = (actR.data || []).map(fromDbActivity);
+  if (nextTemplates) state.templates = nextTemplates;
   if (!teamR.error) {
     state.team = (teamR.data || []).map(fromDbProfile);
     state.me = state.team.find((t) => t.id === session.user?.id) || null;
@@ -222,13 +223,22 @@ export async function hydrate() {
 
 /** La primera vez que alguien entra no hay plantillas: se cargan las de fábrica una sola vez. */
 async function seedDefaultTemplates() {
-  const rows = DEFAULT_TEMPLATES.map(({ id, ...t }) => toDbTemplate(t));
-  const { data, error } = await supabase.from('templates').insert(rows).select();
-  if (error) throw error;
-  if (data?.length !== rows.length) {
-    throw new Error(`El servidor confirmó ${data?.length || 0} de ${rows.length} plantillas iniciales.`);
+  if (!seedTemplatesPromise) {
+    seedTemplatesPromise = (async () => {
+      const rows = DEFAULT_TEMPLATES.map(({ id, ...t }) => toDbTemplate(t));
+      const { data, error } = await supabase.from('templates').insert(rows).select();
+      if (error) throw error;
+      if (data?.length !== rows.length) {
+        throw new Error(`El servidor confirmó ${data?.length || 0} de ${rows.length} plantillas iniciales.`);
+      }
+      return data.map(fromDbTemplate);
+    })();
   }
-  state.templates = data.map(fromDbTemplate);
+  try {
+    return await seedTemplatesPromise;
+  } finally {
+    seedTemplatesPromise = null;
+  }
 }
 
 export function startRealtime() {
@@ -244,6 +254,7 @@ export function startRealtime() {
 }
 
 export function stopRealtime() {
+  hydrateGeneration += 1;
   if (channel) supabase.removeChannel(channel);
   channel = null;
   clearTimeout(realtimeHydrateTimer);
@@ -251,6 +262,7 @@ export function stopRealtime() {
 }
 
 export function clearLocal() {
+  hydrateGeneration += 1;
   state = emptyData();
   try {
     localStorage.removeItem(CFG.storageKey);
