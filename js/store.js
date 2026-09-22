@@ -532,16 +532,11 @@ export async function replaceState(data) {
       continue;
     }
     const record = { task: '', ...a, id: uid(), leadId: mappedLeadId };
-    state.activities.unshift(record);
-    persist();
-    const { error } = await supabase.from('activities').insert({ id: record.id, ...toDbActivity(record) });
-    if (error) {
-      state.activities = state.activities.filter((x) => x.id !== record.id);
-      persist();
-      reportError('No se pudo importar una actividad', error);
-      summary.failed += 1;
-    } else {
+    try {
+      await addActivityConfirmed(record);
       summary.activities += 1;
+    } catch {
+      summary.failed += 1;
     }
   }
 
