@@ -261,6 +261,7 @@ export function upsertLead(input) {
   if (lead.stage !== 'Perdido') lead.lossReason = '';
 
   const reassigned = existing && existing.owner !== lead.owner;
+  let reassignmentActivity = null;
 
   const idx = state.leads.findIndex((l) => l.id === id);
   if (idx >= 0) state.leads[idx] = lead;
@@ -268,7 +269,7 @@ export function upsertLead(input) {
 
   if (reassigned) {
     const actor = session.profile?.name || 'Usuario sin identificar';
-    addActivity(
+    reassignmentActivity = addActivity(
       {
         leadId: id,
         type: 'Asignación',
@@ -294,6 +295,9 @@ export function upsertLead(input) {
       else state.leads.unshift(before);
     } else {
       state.leads = state.leads.filter((l) => l.id !== id);
+    }
+    if (reassignmentActivity) {
+      state.activities = state.activities.filter((a) => a.id !== reassignmentActivity.id);
     }
     persist();
     reportError('No se pudo guardar el lead', error);
