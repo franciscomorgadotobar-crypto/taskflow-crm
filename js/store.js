@@ -80,8 +80,17 @@ const fromDbLead = (r) => ({
 });
 
 function resolveOwnerId(name) {
-  const t = state.team.find((x) => x.name === name);
-  return t ? t.id : null;
+  if (!name) return null;
+  // Si el nombre coincide con quien tiene la sesión, su UUID es inequívoco aunque
+  // exista otra persona con el mismo nombre visible en el equipo.
+  if (name === session.profile?.name && session.user?.id) return session.user.id;
+  const matches = state.team.filter((x) => x.name === name);
+  return matches.length === 1 ? matches[0].id : null;
+}
+
+function validatedOwnerId(name, candidateId = '') {
+  if (candidateId && state.team.some((x) => x.id === candidateId && x.name === name)) return candidateId;
+  return resolveOwnerId(name);
 }
 
 const toDbLead = (l) => ({
@@ -101,7 +110,7 @@ const toDbLead = (l) => ({
   next_action: l.nextAction || '',
   next_date: l.nextDate || null,
   next_type: l.nextType || '',
-  owner_id: resolveOwnerId(l.owner) || (l.owner && l.owner === session.profile?.name ? session.user.id : null),
+  owner_id: validatedOwnerId(l.owner, l.ownerId),
   owner_name: l.owner || '',
   loss_reason: l.lossReason || '',
   remarketing_reason: l.remarketingReason || '',
@@ -156,7 +165,7 @@ const toDbActivity = (a) => ({
   company: a.company || '',
   type: a.type || '',
   date: a.date || nowISO(),
-  owner_id: resolveOwnerId(a.owner) || (a.owner && a.owner === session.profile?.name ? session.user.id : null),
+  owner_id: validatedOwnerId(a.owner, a.ownerId),
   owner_name: a.owner || '',
   detail: a.detail || '',
   task: a.task || '',
@@ -922,7 +931,7 @@ export async function deleteTemplate(id) {
 
 /* ---------- Equipo ---------- */
 
-/** Nombres seleccionables como responsable: el equipo activo + cualquiera ya asignado a un lead. */
+/** Nombres para filtros: equipo activo + responsables históricos todavía presentes en leads. */
 export function ownerNames() {
   const names = [...state.team.filter((t) => t.active && t.name).map((t) => t.name), ...state.leads.map((l) => l.owner)].filter(
     Boolean
