@@ -74,6 +74,14 @@ function fromDbQuote(r, items = []) {
 /* ---------- Hidratación + Realtime ---------- */
 
 let channel = null;
+let realtimeHydrateTimer = null;
+
+function scheduleHydrate() {
+  clearTimeout(realtimeHydrateTimer);
+  realtimeHydrateTimer = setTimeout(() => {
+    hydrate().catch((err) => reportError('No se pudo sincronizar el cotizador', err));
+  }, 250);
+}
 
 export async function hydrate() {
   const [svcR, qR, itR] = await Promise.all([
@@ -99,15 +107,17 @@ export function startRealtime() {
   if (channel) return;
   channel = supabase
     .channel('crm-quotes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => hydrate())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, () => hydrate())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, () => hydrate())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, scheduleHydrate)
     .subscribe();
 }
 
 export function stopRealtime() {
   if (channel) supabase.removeChannel(channel);
   channel = null;
+  clearTimeout(realtimeHydrateTimer);
+  realtimeHydrateTimer = null;
 }
 
 export function clearLocal() {
