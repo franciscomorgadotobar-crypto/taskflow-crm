@@ -369,6 +369,7 @@ function submitActivity(e) {
   } else {
     const resolvesTask = $('activityResolveTask').checked;
     const pendingTask = resolvesTask ? taskOf(getLead(leadId)) : null;
+    if (pendingTask) payload.task = pendingTask.title;
     addActivity(payload);
     if (pendingTask) {
       updateLead(leadId, { nextType: '', nextAction: '', nextDate: '' });
@@ -606,6 +607,7 @@ function submitComplete(e) {
   const nextAction = $('completeNextAction').value.trim();
   const nextDate = $('completeNextDate').value;
   if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
+  if (nextDate && !nextType && !nextAction) return toast('Elige el tipo de la siguiente tarea o escribe una nota.', 'error');
   const task = taskOf(getLead(leadId));
   completeTask(leadId, {
     type: task?.type || 'Actividad',

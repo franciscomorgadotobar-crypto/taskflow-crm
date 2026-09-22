@@ -640,7 +640,7 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
     { leadId, type, date: date || nowISO(), owner: lead.owner || '', detail: result, task: closed?.title || '' },
     { silent: true }
   );
-  const hasNext = Boolean(nextType || nextAction);
+  const hasNext = Boolean(nextType || nextAction || nextDate);
   lead.nextType = hasNext ? nextType : '';
   lead.nextAction = hasNext ? nextAction : '';
   lead.nextDate = hasNext ? nextDate : '';
