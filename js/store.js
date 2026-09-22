@@ -460,6 +460,7 @@ export function addContact(leadId, contact) {
   const lead = getLead(leadId);
   if (!lead) return null;
   const record = { id: uid(), name: '', role: '', email: '', phone: '', ...contact };
+  const beforeContacts = structuredClone(lead.contacts || []);
   lead.contacts = [...(lead.contacts || []), record];
   lead.updatedAt = nowISO();
   persist();
@@ -467,13 +468,19 @@ export function addContact(leadId, contact) {
     .from('leads')
     .update({ contacts: lead.contacts })
     .eq('id', leadId)
-    .then(({ error }) => error && reportError('No se pudo guardar el contacto', error));
+    .then(({ error }) => {
+      if (!error) return;
+      lead.contacts = beforeContacts;
+      persist();
+      reportError('No se pudo guardar el contacto', error);
+    });
   return record;
 }
 
 export function updateContact(leadId, key, patch) {
   const lead = getLead(leadId);
   if (!lead) return null;
+  const before = structuredClone(lead);
   if (key === 'primary') {
     Object.assign(lead, { contact: patch.name, role: patch.role, email: patch.email, phone: patch.phone });
   } else {
@@ -487,13 +494,19 @@ export function updateContact(leadId, key, patch) {
     .from('leads')
     .update(toDbLead(lead))
     .eq('id', leadId)
-    .then(({ error }) => error && reportError('No se pudo actualizar el contacto', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(lead, before);
+      persist();
+      reportError('No se pudo actualizar el contacto', error);
+    });
   return lead;
 }
 
 export function deleteContact(leadId, contactId) {
   const lead = getLead(leadId);
   if (!lead) return;
+  const beforeContacts = structuredClone(lead.contacts || []);
   lead.contacts = (lead.contacts || []).filter((c) => c.id !== contactId);
   lead.updatedAt = nowISO();
   persist();
@@ -501,7 +514,12 @@ export function deleteContact(leadId, contactId) {
     .from('leads')
     .update({ contacts: lead.contacts })
     .eq('id', leadId)
-    .then(({ error }) => error && reportError('No se pudo eliminar el contacto', error));
+    .then(({ error }) => {
+      if (!error) return;
+      lead.contacts = beforeContacts;
+      persist();
+      reportError('No se pudo eliminar el contacto', error);
+    });
 }
 
 /* ---------- Levantamiento ---------- */
@@ -509,12 +527,19 @@ export function deleteContact(leadId, contactId) {
 export const getDiscovery = (leadId) => state.discoveries[leadId] || null;
 
 export function saveDiscovery(leadId, payload) {
+  const before = state.discoveries[leadId] ? structuredClone(state.discoveries[leadId]) : null;
   state.discoveries[leadId] = { ...payload, updatedAt: nowISO() };
   persist();
   supabase
     .from('discoveries')
     .upsert(toDbDiscovery(leadId, state.discoveries[leadId]))
-    .then(({ error }) => error && reportError('No se pudo guardar el levantamiento', error));
+    .then(({ error }) => {
+      if (!error) return;
+      if (before) state.discoveries[leadId] = before;
+      else delete state.discoveries[leadId];
+      persist();
+      reportError('No se pudo guardar el levantamiento', error);
+    });
 }
 
 /* ---------- Actividades ---------- */
