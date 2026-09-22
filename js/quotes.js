@@ -240,7 +240,8 @@ export async function saveQuote({ baseId = '', leadId, status, notes = '', valid
     items: items.map((it, i) => ({ ...it, id: it.id || uid(), position: i }))
   };
 
-  if (base) base.isCurrent = false;
+  const current = base ? currentQuoteOf(base.rootId) : null;
+  if (current) current.isCurrent = false;
   state.quotes = state.quotes.filter((q) => q.id !== id);
   state.quotes.unshift(quote);
   notify();
@@ -275,9 +276,10 @@ export async function saveQuote({ baseId = '', leadId, status, notes = '', valid
       const { error } = await supabase.rpc('create_quote_version', {
         p_quote: quoteRow,
         p_items: itemRows,
-        p_base_id: base?.id || null
+        p_base_id: current?.id || base?.id || null
       });
       if (error) throw error;
+      return quote;
   } catch (err) {
       // Si la operación compuesta falla, la copia optimista no debe quedar como
       // si la nueva versión existiera. La base puede haber alcanzado a guardar
@@ -291,9 +293,7 @@ export async function saveQuote({ baseId = '', leadId, status, notes = '', valid
       console.error('No se pudo resincronizar el cotizador', hydrateErr);
       }
     }
-  })();
-
-  return quote;
+    return null;
 }
 
 export function setQuoteStatus(id, status) {
@@ -328,7 +328,10 @@ export async function deleteQuote(id) {
   }
   notify();
   const { error } = await supabase.rpc('delete_quote_version', { p_quote_id: id });
-  if (!error) return true;
+  if (!error) {
+    await hydrate();
+    return true;
+  }
 
   state.quotes = beforeQuotes;
   notify();

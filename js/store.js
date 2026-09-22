@@ -470,9 +470,11 @@ export async function deleteLead(id) {
 }
 
 /** Elimina todas las oportunidades visibles para quien ejecuta (RLS decide el alcance real). */
-export function deleteAllVisibleLeads() {
+export async function deleteAllVisibleLeads() {
   const ids = state.leads.map((l) => l.id);
-  ids.forEach((id) => deleteLead(id));
+  const results = await Promise.allSettled(ids.map((id) => deleteLead(id)));
+  const deleted = results.filter((r) => r.status === 'fulfilled' && r.value === true).length;
+  return { total: ids.length, deleted, failed: ids.length - deleted };
 }
 
 /**
@@ -519,7 +521,7 @@ export async function replaceState(data) {
       summary.failed += 1;
       continue;
     }
-    const record = { id: uid(), task: '', ...a, id: uid(), leadId: mappedLeadId };
+    const record = { task: '', ...a, id: uid(), leadId: mappedLeadId };
     state.activities.unshift(record);
     persist();
     const { error } = await supabase.from('activities').insert({ id: record.id, ...toDbActivity(record) });
