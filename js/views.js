@@ -824,7 +824,7 @@ function quoteRow(q, { showCompany = false } = {}) {
       <div class="actions">
         <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver</button>
         <button class="small-btn" data-action="edit-quote" data-id="${q.id}">Editar</button>
-        <button class="small-btn" data-action="send-quote" data-id="${q.id}">Enviar</button>
+        <button class="small-btn" data-action="send-quote" data-id="${q.id}">Preparar correo</button>
         ${isAdmin() || q.ownerId === session.user?.id ? `<button class="small-btn danger" data-action="delete-quote" data-id="${q.id}">Eliminar</button>` : ''}
       </div>
     </div>
