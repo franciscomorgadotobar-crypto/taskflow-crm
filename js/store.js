@@ -261,26 +261,12 @@ export function upsertLead(input) {
   if (lead.stage !== 'Perdido') lead.lossReason = '';
 
   const reassigned = existing && existing.owner !== lead.owner;
-  let reassignmentActivity = null;
+  const previousOwner = existing?.owner || '';
+  const actor = reassigned ? session.profile?.name || 'Usuario sin identificar' : '';
 
   const idx = state.leads.findIndex((l) => l.id === id);
   if (idx >= 0) state.leads[idx] = lead;
   else state.leads.unshift(lead);
-
-  if (reassigned) {
-    const actor = session.profile?.name || 'Usuario sin identificar';
-    reassignmentActivity = addActivity(
-      {
-        leadId: id,
-        type: 'Asignación',
-        date: nowISO(),
-        owner: actor,
-        detail: `${actor} cambió el responsable de ${existing.owner || 'sin asignar'} a ${lead.owner || 'sin asignar'}.`,
-        system: true
-      },
-      { silent: true }
-    );
-  }
 
   persist();
 
@@ -288,16 +274,27 @@ export function upsertLead(input) {
     ? supabase.from('leads').update(toDbLead(lead)).eq('id', id)
     : supabase.from('leads').insert({ id, ...toDbLead(lead) });
   write.then(({ error }) => {
-    if (!error) return;
+    if (!error) {
+      // La trazabilidad se registra solo después de confirmar el cambio del lead.
+      // Así nunca se crea en Supabase una reasignación que finalmente fue rechazada.
+      if (reassigned) {
+        addActivity({
+          leadId: id,
+          type: 'Asignación',
+          date: nowISO(),
+          owner: actor,
+          detail: `${actor} cambió el responsable de ${previousOwner || 'sin asignar'} a ${lead.owner || 'sin asignar'}.`,
+          system: true
+        });
+      }
+      return;
+    }
     if (before) {
       const current = state.leads.findIndex((l) => l.id === id);
       if (current >= 0) state.leads[current] = before;
       else state.leads.unshift(before);
     } else {
       state.leads = state.leads.filter((l) => l.id !== id);
-    }
-    if (reassignmentActivity) {
-      state.activities = state.activities.filter((a) => a.id !== reassignmentActivity.id);
     }
     persist();
     reportError('No se pudo guardar el lead', error);
