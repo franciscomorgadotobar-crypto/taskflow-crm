@@ -1166,17 +1166,12 @@ async function claimNextRecord(campaignId) {
 async function releaseCurrentClaim() {
   const record = focus.record;
   if (!record?.id || record.claimedBy !== session.user?.id) return true;
-  const { data, error } = await supabase
-    .from('hyperfocus_records')
-    .update({ claimed_by: null, claimed_at: null })
-    .eq('id', record.id)
-    .eq('claimed_by', session.user.id)
-    .select('id');
+  const { data, error } = await supabase.rpc('hyperfocus_release_claim', { p_record_id: record.id });
   if (error) {
     toast(error.message || 'No se pudo liberar la empresa actual.', 'error');
     return false;
   }
-  if (!data?.length) {
+  if (data !== true) {
     toast('La empresa actual ya no está reservada por esta sesión. Recarga Híper Foco.', 'error');
     return false;
   }
