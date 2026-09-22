@@ -42,6 +42,7 @@ import {
   onChange,
   ownerNames,
   replaceState,
+  resolveTaskWithActivityAtomic,
   saveDiscovery,
   saveProfile,
   saveTemplate,
@@ -378,15 +379,8 @@ async function submitActivity(e) {
     const resolvesTask = $('activityResolveTask').checked;
     const pendingTask = resolvesTask ? taskOf(getLead(leadId)) : null;
     if (pendingTask) {
-      // Este caso aún conserva las dos escrituras históricas hasta activar el
-      // RPC específico que preserva contacto/responsable de la actividad manual.
       payload.task = pendingTask.title;
-      const activity = await addActivityConfirmed(payload);
-      if (!activity) return;
-      if (!(await updateLead(leadId, { nextType: '', nextAction: '', nextDate: '' }))) {
-        toast('La actividad quedó registrada, pero no se pudo resolver la tarea. Intenta nuevamente.', 'error');
-        return;
-      }
+      if (!(await resolveTaskWithActivityAtomic(payload))) return;
     } else if (!(await addActivityConfirmed(payload))) {
       return;
     }
