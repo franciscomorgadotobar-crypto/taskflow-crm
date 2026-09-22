@@ -1647,7 +1647,17 @@ async function start() {
   });
 
   const { initAuth } = await import('./auth.js');
-  await initAuth();
+  try {
+    await initAuth();
+  } catch (err) {
+    // Un fallo de getSession no debe dejar la aplicación detenida en el estado
+    // inicial sin ninguna explicación ni posibilidad de volver a autenticarse.
+    $('appShell').hidden = true;
+    $('authScreen').hidden = false;
+    authMode = 'signin';
+    renderAuthMode();
+    toast(`No se pudo comprobar la sesión: ${err.message}`, 'error');
+  }
 }
 
 start();
