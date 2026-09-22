@@ -15,7 +15,6 @@ import {
   TASK_TYPES
 } from './catalog.js';
 import {
-  addActivity,
   addActivityConfirmed,
   addContact,
   addTemplate,
@@ -52,7 +51,6 @@ import {
   stopRealtime,
   updateLead,
   updateUser,
-  upsertLead,
   upsertLeadConfirmed
 } from './store.js';
 import {
