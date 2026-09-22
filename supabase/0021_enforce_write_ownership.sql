@@ -228,6 +228,5 @@ create policy hyperfocus_interactions_insert on public.hyperfocus_interactions f
       where r.id = hyperfocus_interactions.record_id
         and r.campaign_id = hyperfocus_interactions.campaign_id
         and r.organization_id = internal.my_org()
-        and (internal.can_manage_all() or r.claimed_by = auth.uid())
     )
   );
