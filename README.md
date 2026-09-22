@@ -153,3 +153,8 @@ Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM
 ### Migración 0021 — solo lectura real y ownership de escrituras
 
 `supabase/0021_enforce_write_ownership.sql` hace efectivo el rol `visita` como solo lectura incluso si conserva ownership o claims históricos. También alinea las escrituras de `comercial` con las oportunidades realmente asignadas a su usuario: leads, levantamientos, actividades y cotizaciones usan el mismo criterio, mientras `admin/super` conservan gestión transversal. Los movimientos de historial generados por tareas o por el sistema quedan inmutables también a nivel RLS. Híper Foco exige rol escribible en INSERT/UPDATE/DELETE, impide suplantar `created_by`, valida que cada interacción pertenezca a un registro/campaña de la organización y limita la carga de registros al creador de la campaña o administración. El frontend replica estas reglas en los flujos normales; `Gestionar pendientes` mantiene su flujo existente.
+
+
+### Migración 0022 — integridad de claims Híper Foco
+
+`supabase/0022_hyperfocus_claim_integrity.sql` elimina la excepción de ownership detectada al validar 0021. La RLS vuelve a exigir que un comercial conserve su propio claim después de un UPDATE directo; claim, liberación y finalización legítimos pasan por RPCs SECURITY DEFINER que validan rol, organización y usuario. `hyperfocus_finalize_record` ignora cualquier intento del cliente de cambiar campaña/organización o transferir el claim a otro usuario, pero conserva el cierre atómico registro + interacción.
