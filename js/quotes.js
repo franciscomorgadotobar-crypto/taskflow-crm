@@ -250,17 +250,12 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
 
   (async () => {
     try {
-      if (base) {
-        const { error } = await supabase.from('quotes').update({ is_current: false }).eq('id', base.id);
-        if (error) throw error;
-      }
-      const { error: qErr } = await supabase.from('quotes').insert({
+      const quoteRow = {
         id,
-        root_id: rootId === id ? null : rootId,
+        root_id: rootId === id ? '' : rootId,
         version,
-        is_current: true,
         lead_id: leadId,
-        owner_id: quote.ownerId || null,
+        owner_id: quote.ownerId || '',
         owner_name: owner,
         status: quote.status,
         client_snapshot: client,
@@ -268,25 +263,25 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
         iva: totals.iva,
         total: totals.total,
         notes,
-        valid_until: validUntil || null
+        valid_until: validUntil || ''
+      };
+      const itemRows = quote.items.map((it) => ({
+        id: it.id,
+        service_id: it.serviceId || '',
+        name: it.name,
+        unit: it.unit,
+        quantity: it.quantity,
+        unit_price: it.unitPrice,
+        subtotal: Number(it.quantity || 0) * Number(it.unitPrice || 0),
+        position: it.position
+      }));
+
+      const { error } = await supabase.rpc('create_quote_version', {
+        p_quote: quoteRow,
+        p_items: itemRows,
+        p_base_id: base?.id || null
       });
-      if (qErr) throw qErr;
-      if (quote.items.length) {
-        const { error: itErr } = await supabase.from('quote_items').insert(
-          quote.items.map((it) => ({
-            id: it.id,
-            quote_id: id,
-            service_id: it.serviceId || null,
-            name: it.name,
-            unit: it.unit,
-            quantity: it.quantity,
-            unit_price: it.unitPrice,
-            subtotal: Number(it.quantity || 0) * Number(it.unitPrice || 0),
-            position: it.position
-          }))
-        );
-        if (itErr) throw itErr;
-      }
+      if (error) throw error;
     } catch (err) {
       // Si la operación compuesta falla, la copia optimista no debe quedar como
       // si la nueva versión existiera. La base puede haber alcanzado a guardar
