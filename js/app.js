@@ -1117,8 +1117,9 @@ const ACTIONS = {
       toast('Oportunidad eliminada.');
     }
   },
-  'new-template': () => {
-    const record = addTemplate(ui.templateChannel || 'both');
+  'new-template': async () => {
+    const record = await addTemplate(ui.templateChannel || 'both');
+    if (!record) return;
     ui.templateOpen = record.id;
     render();
     toast('Plantilla creada. Complétala y guárdala.');
@@ -1226,14 +1227,15 @@ function handleKeydown(ev) {
 
 /* ---------- Controles de vista ---------- */
 
-function handleViewInput(ev) {
+async function handleViewInput(ev) {
   const el = ev.target;
   const tplId = el.dataset.templateName || el.dataset.templateChannel || el.dataset.templateSubject || el.dataset.templateBody;
   if (tplId) return onTemplateEdit(tplId, el);
 
   if (el.dataset.userField) {
     if (ev.type !== 'change') return;
-    updateUser(el.dataset.id, { [el.dataset.userField]: el.type === 'checkbox' ? el.checked : el.value });
+    const saved = await updateUser(el.dataset.id, { [el.dataset.userField]: el.type === 'checkbox' ? el.checked : el.value });
+    if (!saved) render();
     return;
   }
 
@@ -1316,7 +1318,7 @@ function importJson(ev) {
   const file = ev.target.files?.[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const imported = JSON.parse(reader.result);
       if (!Array.isArray(imported.leads)) throw new Error('El archivo no tiene una lista de leads.');
