@@ -221,8 +221,11 @@ export async function hydrate() {
 async function seedDefaultTemplates() {
   const rows = DEFAULT_TEMPLATES.map(({ id, ...t }) => toDbTemplate(t));
   const { data, error } = await supabase.from('templates').insert(rows).select();
-  if (error) return console.error(error);
-  state.templates = (data || []).map(fromDbTemplate);
+  if (error) throw error;
+  if (data?.length !== rows.length) {
+    throw new Error(`El servidor confirmó ${data?.length || 0} de ${rows.length} plantillas iniciales.`);
+  }
+  state.templates = data.map(fromDbTemplate);
 }
 
 export function startRealtime() {
