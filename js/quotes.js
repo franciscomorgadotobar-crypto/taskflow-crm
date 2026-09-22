@@ -143,7 +143,7 @@ function reportError(action, err) {
 
 export const getService = (id) => state.services.find((s) => s.id === id) || null;
 
-export function upsertService(input) {
+export async function upsertService(input) {
   const id = input.id || uid();
   const existing = getService(id);
   const before = existing ? structuredClone(existing) : null;
@@ -156,38 +156,33 @@ export function upsertService(input) {
   const write = existing
     ? supabase.from('services').update(toDbService(record)).eq('id', id)
     : supabase.from('services').insert({ id, ...toDbService(record) });
-  write.then(({ error }) => {
-    if (!error) return;
-    if (before) {
-      const current = state.services.findIndex((s) => s.id === id);
-      if (current >= 0) state.services[current] = before;
-      else state.services.unshift(before);
-    } else {
-      state.services = state.services.filter((s) => s.id !== id);
-    }
-    notify();
-    reportError('No se pudo guardar el servicio', error);
-  });
-  return record;
+  const { error } = await write;
+  if (!error) return record;
+  if (before) {
+    const current = state.services.findIndex((s) => s.id === id);
+    if (current >= 0) state.services[current] = before;
+    else state.services.unshift(before);
+  } else {
+    state.services = state.services.filter((s) => s.id !== id);
+  }
+  notify();
+  reportError('No se pudo guardar el servicio', error);
+  return null;
 }
 
-export function deleteService(id) {
+export async function deleteService(id) {
   const index = state.services.findIndex((s) => s.id === id);
   const before = index >= 0 ? structuredClone(state.services[index]) : null;
   state.services = state.services.filter((s) => s.id !== id);
   notify();
-  supabase
-    .from('services')
-    .delete()
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error || !before) return;
-      if (!state.services.some((s) => s.id === id)) {
-        state.services.splice(Math.min(Math.max(index, 0), state.services.length), 0, before);
-      }
-      notify();
-      reportError('No se pudo eliminar el servicio', error);
-    });
+  const { error } = await supabase.from('services').delete().eq('id', id);
+  if (!error) return true;
+  if (before && !state.services.some((s) => s.id === id)) {
+    state.services.splice(Math.min(Math.max(index, 0), state.services.length), 0, before);
+  }
+  notify();
+  reportError('No se pudo eliminar el servicio', error);
+  return false;
 }
 
 /* ---------- Cotizaciones ---------- */

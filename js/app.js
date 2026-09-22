@@ -284,12 +284,12 @@ function openDiscovery(id) {
   $('discoveryDialog').showModal();
 }
 
-function submitDiscovery(e) {
+async function submitDiscovery(e) {
   e.preventDefault();
   const id = $('discoveryLeadId').value;
   const payload = Object.fromEntries(DISCOVERY_FIELDS.map((k) => [k, $(k).value.trim ? $(k).value.trim() : $(k).value]));
   payload.modules = $$('#moduleChecks input:checked').map((x) => x.value);
-  saveDiscovery(id, payload);
+  if (!(await saveDiscovery(id, payload))) return;
   $('discoveryDialog').close();
   toast('Levantamiento guardado.');
 }
@@ -403,7 +403,7 @@ function openContact(leadId, key = '') {
   setTimeout(() => $('contactName').focus(), 50);
 }
 
-function submitContact(e) {
+async function submitContact(e) {
   e.preventDefault();
   const leadId = $('contactLeadId').value;
   const key = $('contactKey').value;
@@ -416,8 +416,8 @@ function submitContact(e) {
     phone: $('contactPhone').value.trim(),
     email: $('contactEmail').value.trim()
   };
-  if (key) updateContact(leadId, key, payload);
-  else addContact(leadId, payload);
+  const saved = key ? await updateContact(leadId, key, payload) : await addContact(leadId, payload);
+  if (!saved) return;
 
   $('contactDialog').close();
   toast(key ? 'Contacto actualizado.' : 'Contacto agregado.');
@@ -958,11 +958,11 @@ function openService(id = '') {
   $('serviceDialog').showModal();
 }
 
-function submitService(e) {
+async function submitService(e) {
   e.preventDefault();
   const name = $('serviceName').value.trim();
   if (!name) return toast('El nombre es obligatorio.', 'error');
-  upsertService({
+  const saved = await upsertService({
     id: $('serviceId').value || undefined,
     name,
     unit: $('serviceUnit').value.trim() || 'unidad',
@@ -971,6 +971,7 @@ function submitService(e) {
     active: $('serviceActive').checked,
     description: $('serviceDescription').value.trim()
   });
+  if (!saved) return;
   $('serviceDialog').close();
   toast('Servicio guardado.');
 }
@@ -1089,11 +1090,8 @@ const ACTIONS = {
   },
   'add-contact': (id) => openContact(id),
   'edit-contact': (id, btn) => openContact(id, btn.dataset.contact),
-  'delete-contact': (id, btn) => {
-    if (confirm('¿Eliminar este contacto?')) {
-      deleteContact(id, btn.dataset.contact);
-      toast('Contacto eliminado.');
-    }
+  'delete-contact': async (id, btn) => {
+    if (confirm('¿Eliminar este contacto?') && await deleteContact(id, btn.dataset.contact)) toast('Contacto eliminado.');
   },
   'call-contact': (id, btn) => {
     const lead = getLead(id);
@@ -1127,17 +1125,17 @@ const ACTIONS = {
     render();
     toast('Plantilla creada. Complétala y guárdala.');
   },
-  'save-template': (id) => {
+  'save-template': async (id) => {
     const draft = templateDraft(id);
     if (!draft) return;
     if (!draft.name.trim()) return toast('El nombre de la plantilla es obligatorio.', 'error');
-    saveTemplate(id, {
+    const saved = await saveTemplate(id, {
       name: draft.name.trim(),
       channel: draft.channel || 'both',
       subject: draft.subject.trim(),
       body: draft.body
     });
-    toast('Plantilla guardada.');
+    if (saved) toast('Plantilla guardada.');
   },
   'delete-template': (id) => {
     if (!confirm('¿Eliminar esta plantilla?')) return;
@@ -1151,9 +1149,8 @@ const ACTIONS = {
     setStage(id, 'Contactado');
     toast(`${lead.company} volvió al embudo comercial.`);
   },
-  'save-profile': () => {
-    saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() });
-    toast('Datos guardados.');
+  'save-profile': async () => {
+    if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
   'change-password': async () => {
     const pass = $('newPassword').value;
@@ -1210,10 +1207,9 @@ const ACTIONS = {
   },
   'new-service': () => openService(),
   'edit-service': (id) => openService(id),
-  'delete-service': (id) => {
+  'delete-service': async (id) => {
     if (!confirm('¿Eliminar este servicio del catálogo?')) return;
-    deleteService(id);
-    toast('Servicio eliminado.');
+    if (await deleteService(id)) toast('Servicio eliminado.');
   }
 };
 
