@@ -472,7 +472,7 @@ async function copyComm() {
   toast(ok ? 'Copiado al portapapeles.' : 'No se pudo copiar.', ok ? 'info' : 'error');
 }
 
-function submitComm(e) {
+async function submitComm(e) {
   e.preventDefault();
   const leadId = $('commLeadId').value;
   const lead = getLead(leadId);
@@ -486,11 +486,11 @@ function submitComm(e) {
     if (!contact?.phone) return toast('Ese contacto no tiene teléfono.', 'error');
     const digits = contact.phone.replace(/\D/g, '');
     if (!digits) return toast('El teléfono no es válido.', 'error');
-    addActivity({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `WhatsApp preparado con plantilla "${templateName}" para ${contact.name || contact.phone}.` });
+    if (!(await addActivityConfirmed({ leadId, contactId: contactKey, type: 'WhatsApp', date: localDateTimeInput(), owner: lead.owner || '', detail: `WhatsApp preparado con plantilla "${templateName}" para ${contact.name || contact.phone}.` }))) return;
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(body)}`, '_blank', 'noopener');
   } else {
     if (!contact?.email) return toast('Ese contacto no tiene email.', 'error');
-    addActivity({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Correo preparado con plantilla "${templateName}" para ${contact.name || contact.email}.` });
+    if (!(await addActivityConfirmed({ leadId, contactId: contactKey, type: 'Correo', date: localDateTimeInput(), owner: lead.owner || '', detail: `Correo preparado con plantilla "${templateName}" para ${contact.name || contact.email}.` }))) return;
     openExternal(`mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent($('commSubject').value)}&body=${encodeURIComponent(body)}`);
   }
   $('commDialog').close();
@@ -933,19 +933,19 @@ function openQuoteSend(id) {
   $('quoteSendDialog').showModal();
 }
 
-function submitQuoteSend(e) {
+async function submitQuoteSend(e) {
   e.preventDefault();
   const id = $('quoteSendId').value;
   const q = getQuote(id);
   const lead = getLead(q?.leadId);
   if (!q || !lead) return;
-  addActivity({
+  if (!(await addActivityConfirmed({
     leadId: lead.id,
     type: 'Correo',
     date: localDateTimeInput(),
     owner: lead.owner || session.profile?.name || '',
     detail: `Correo preparado con cotización v${q.version} para ${lead.contact || lead.email}.`
-  });
+  }))) return;
   openExternal(`mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent($('quoteSendSubject').value)}&body=${encodeURIComponent($('quoteSendBody').value)}`);
   $('quoteSendDialog').close();
   if ($('quoteViewDialog').open) $('quoteViewDialog').close();
