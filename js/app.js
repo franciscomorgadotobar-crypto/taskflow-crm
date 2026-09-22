@@ -73,7 +73,7 @@ import {
   deleteService,
   versionsOf
 } from './quotes.js';
-import { isAdmin, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
+import { isAdmin, isReadOnly, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import {
   clearLocal as hyperFocusClearLocal,
   hydrate as hyperFocusHydrate,
@@ -955,6 +955,7 @@ async function submitQuoteSend(e) {
 /* ---------- Servicios (catálogo) ---------- */
 
 function openService(id = '') {
+  if (!isAdmin()) return toast('Solo un administrador puede modificar el catálogo.', 'error');
   const s = id ? getService(id) : null;
   $('serviceDialogTitle').textContent = s ? 'Editar servicio' : 'Nuevo servicio';
   $('serviceId').value = id;
@@ -969,6 +970,7 @@ function openService(id = '') {
 
 async function submitService(e) {
   e.preventDefault();
+  if (!isAdmin()) return toast('Solo un administrador puede modificar el catálogo.', 'error');
   const name = $('serviceName').value.trim();
   if (!name) return toast('El nombre es obligatorio.', 'error');
   const saved = await upsertService({
@@ -1215,6 +1217,7 @@ const ACTIONS = {
   'new-service': () => openService(),
   'edit-service': (id) => openService(id),
   'delete-service': async (id) => {
+    if (!isAdmin()) return toast('Solo un administrador puede modificar el catálogo.', 'error');
     if (!confirm('¿Eliminar este servicio del catálogo?')) return;
     if (await deleteService(id)) toast('Servicio eliminado.');
   }
@@ -1243,6 +1246,7 @@ async function handleViewInput(ev) {
 
   if (el.dataset.userField) {
     if (ev.type !== 'change') return;
+    if (!isAdmin()) return render();
     const saved = await updateUser(el.dataset.id, { [el.dataset.userField]: el.type === 'checkbox' ? el.checked : el.value });
     if (!saved) render();
     return;
