@@ -14,6 +14,7 @@ export const session = {
 const listeners = new Set();
 export const onAuthChange = (fn) => (listeners.add(fn), () => listeners.delete(fn));
 const notify = () => listeners.forEach((fn) => fn(session));
+let refreshGeneration = 0;
 
 export async function fetchProfile() {
   if (!session.user) return null;
@@ -26,13 +27,18 @@ export async function fetchProfile() {
 }
 
 async function refresh(user) {
+  const generation = ++refreshGeneration;
   session.user = user || null;
   if (!user) {
     session.profile = null;
     session.status = 'signed-out';
     return notify();
   }
-  session.profile = await fetchProfile();
+  const profile = await fetchProfile();
+  // Un fetch de perfil iniciado por una sesión anterior no puede revivirla si
+  // mientras tanto llegó un SIGNED_OUT u otro usuario inició sesión.
+  if (generation !== refreshGeneration || session.user?.id !== user.id) return;
+  session.profile = profile;
   session.status = 'signed-in';
   notify();
 }
