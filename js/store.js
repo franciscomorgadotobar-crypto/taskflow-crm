@@ -531,7 +531,7 @@ export function contactsOf(lead) {
 
 export const findContact = (lead, key) => contactsOf(lead).find((c) => c.key === key) || null;
 
-export function addContact(leadId, contact) {
+export async function addContact(leadId, contact) {
   const lead = getLead(leadId);
   if (!lead) return null;
   const record = { id: uid(), name: '', role: '', email: '', phone: '', ...contact };
@@ -539,20 +539,15 @@ export function addContact(leadId, contact) {
   lead.contacts = [...(lead.contacts || []), record];
   lead.updatedAt = nowISO();
   persist();
-  supabase
-    .from('leads')
-    .update({ contacts: lead.contacts })
-    .eq('id', leadId)
-    .then(({ error }) => {
-      if (!error) return;
-      lead.contacts = beforeContacts;
-      persist();
-      reportError('No se pudo guardar el contacto', error);
-    });
-  return record;
+  const { error } = await supabase.from('leads').update({ contacts: lead.contacts }).eq('id', leadId);
+  if (!error) return record;
+  lead.contacts = beforeContacts;
+  persist();
+  reportError('No se pudo guardar el contacto', error);
+  return null;
 }
 
-export function updateContact(leadId, key, patch) {
+export async function updateContact(leadId, key, patch) {
   const lead = getLead(leadId);
   if (!lead) return null;
   const before = structuredClone(lead);
@@ -565,56 +560,44 @@ export function updateContact(leadId, key, patch) {
   }
   lead.updatedAt = nowISO();
   persist();
-  supabase
-    .from('leads')
-    .update(toDbLead(lead))
-    .eq('id', leadId)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(lead, before);
-      persist();
-      reportError('No se pudo actualizar el contacto', error);
-    });
-  return lead;
+  const { error } = await supabase.from('leads').update(toDbLead(lead)).eq('id', leadId);
+  if (!error) return lead;
+  Object.assign(lead, before);
+  persist();
+  reportError('No se pudo actualizar el contacto', error);
+  return null;
 }
 
-export function deleteContact(leadId, contactId) {
+export async function deleteContact(leadId, contactId) {
   const lead = getLead(leadId);
   if (!lead) return;
   const beforeContacts = structuredClone(lead.contacts || []);
   lead.contacts = (lead.contacts || []).filter((c) => c.id !== contactId);
   lead.updatedAt = nowISO();
   persist();
-  supabase
-    .from('leads')
-    .update({ contacts: lead.contacts })
-    .eq('id', leadId)
-    .then(({ error }) => {
-      if (!error) return;
-      lead.contacts = beforeContacts;
-      persist();
-      reportError('No se pudo eliminar el contacto', error);
-    });
+  const { error } = await supabase.from('leads').update({ contacts: lead.contacts }).eq('id', leadId);
+  if (!error) return true;
+  lead.contacts = beforeContacts;
+  persist();
+  reportError('No se pudo eliminar el contacto', error);
+  return false;
 }
 
 /* ---------- Levantamiento ---------- */
 
 export const getDiscovery = (leadId) => state.discoveries[leadId] || null;
 
-export function saveDiscovery(leadId, payload) {
+export async function saveDiscovery(leadId, payload) {
   const before = state.discoveries[leadId] ? structuredClone(state.discoveries[leadId]) : null;
   state.discoveries[leadId] = { ...payload, updatedAt: nowISO() };
   persist();
-  supabase
-    .from('discoveries')
-    .upsert(toDbDiscovery(leadId, state.discoveries[leadId]))
-    .then(({ error }) => {
-      if (!error) return;
-      if (before) state.discoveries[leadId] = before;
-      else delete state.discoveries[leadId];
-      persist();
-      reportError('No se pudo guardar el levantamiento', error);
-    });
+  const { error } = await supabase.from('discoveries').upsert(toDbDiscovery(leadId, state.discoveries[leadId]));
+  if (!error) return true;
+  if (before) state.discoveries[leadId] = before;
+  else delete state.discoveries[leadId];
+  persist();
+  reportError('No se pudo guardar el levantamiento', error);
+  return false;
 }
 
 /* ---------- Actividades ---------- */
@@ -782,23 +765,18 @@ export function completeTaskAtomic(leadId, { type, date, result, nextType = '', 
 
 /* ---------- Plantillas ---------- */
 
-export function saveTemplate(id, patch) {
+export async function saveTemplate(id, patch) {
   const t = state.templates.find((x) => x.id === id);
   if (!t) return null;
   const before = structuredClone(t);
   Object.assign(t, patch);
   persist();
-  supabase
-    .from('templates')
-    .update(toDbTemplate(t))
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(t, before);
-      persist();
-      reportError('No se pudo guardar la plantilla', error);
-    });
-  return t;
+  const { error } = await supabase.from('templates').update(toDbTemplate(t)).eq('id', id);
+  if (!error) return t;
+  Object.assign(t, before);
+  persist();
+  reportError('No se pudo guardar la plantilla', error);
+  return null;
 }
 
 export function addTemplate(channel_ = 'both') {
@@ -817,7 +795,7 @@ export function addTemplate(channel_ = 'both') {
   return record;
 }
 
-export function deleteTemplate(id) {
+export async function deleteTemplate(id) {
   if (state.templates.length <= 1) return false;
   const index = state.templates.findIndex((t) => t.id === id);
   const before = index >= 0 ? state.templates[index] : null;
@@ -849,26 +827,24 @@ export function ownerNames() {
 }
 
 /** Guarda mi propio nombre/teléfono (el correo lo gestiona la sesión, no se edita acá). */
-export function saveProfile(patch) {
+export async function saveProfile(patch) {
   if (!state.me) return null;
   const before = structuredClone(state.me);
   Object.assign(state.me, patch);
   const idx = state.team.findIndex((t) => t.id === state.me.id);
   if (idx >= 0) state.team[idx] = state.me;
   persist();
-  supabase
+  const { error } = await supabase
     .from('profiles')
     .update({ name: patch.name ?? state.me.name, phone: patch.phone ?? state.me.phone })
-    .eq('id', state.me.id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(state.me, before);
-      const current = state.team.findIndex((t) => t.id === state.me.id);
-      if (current >= 0) state.team[current] = state.me;
-      persist();
-      reportError('No se pudo guardar tu perfil', error);
-    });
-  return state.me;
+    .eq('id', state.me.id);
+  if (!error) return state.me;
+  Object.assign(state.me, before);
+  const current = state.team.findIndex((t) => t.id === state.me.id);
+  if (current >= 0) state.team[current] = state.me;
+  persist();
+  reportError('No se pudo guardar tu perfil', error);
+  return null;
 }
 
 /** Edita el perfil de otra persona del equipo (rol/activo/nombre/teléfono) — solo admin/super por RLS. */
