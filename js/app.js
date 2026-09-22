@@ -63,7 +63,6 @@ import {
   hydrate as quotesHydrate,
   onChange as onQuotesChange,
   saveQuote,
-  setQuoteStatus,
   startRealtime as quotesStartRealtime,
   state as quoteState,
   stopRealtime as quotesStopRealtime,
