@@ -171,6 +171,14 @@ const fromDbProfile = (r) => ({ id: r.id, name: r.name || '', email: r.email || 
 /* ---------- Hidratación + Realtime ---------- */
 
 let channel = null;
+let realtimeHydrateTimer = null;
+
+function scheduleHydrate() {
+  clearTimeout(realtimeHydrateTimer);
+  realtimeHydrateTimer = setTimeout(() => {
+    hydrate().catch((err) => reportError('No se pudo sincronizar el CRM', err));
+  }, 250);
+}
 
 export async function hydrate() {
   const [leadsR, discR, actR, tplR, teamR] = await Promise.all([
@@ -205,17 +213,19 @@ export function startRealtime() {
   if (channel) return;
   channel = supabase
     .channel('crm-core')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => hydrate())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'discoveries' }, () => hydrate())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, () => hydrate())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'templates' }, () => hydrate())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => hydrate())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'discoveries' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'templates' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleHydrate)
     .subscribe();
 }
 
 export function stopRealtime() {
   if (channel) supabase.removeChannel(channel);
   channel = null;
+  clearTimeout(realtimeHydrateTimer);
+  realtimeHydrateTimer = null;
 }
 
 export function clearLocal() {
