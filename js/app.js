@@ -115,6 +115,66 @@ import {
 
 const CFG = window.TASKFLOW_CRM_CONFIG;
 
+let deferredPwaInstallPrompt = null;
+let pwaInstalled =
+  window.matchMedia?.('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+function isAppleMobile() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+}
+
+async function installPwa() {
+  if (pwaInstalled) {
+    toast('TaskFlow CRM ya está abierto como aplicación.');
+    return;
+  }
+
+  if (!deferredPwaInstallPrompt) {
+    if (isAppleMobile()) {
+      toast('En iPhone o iPad: Compartir → Añadir a pantalla de inicio.');
+    } else {
+      toast('La instalación aún no está disponible. Revisa el menú del navegador o vuelve a intentarlo en unos segundos.');
+    }
+    return;
+  }
+
+  const promptEvent = deferredPwaInstallPrompt;
+  deferredPwaInstallPrompt = null;
+  await promptEvent.prompt();
+  const choice = await promptEvent.userChoice;
+
+  if (choice?.outcome === 'accepted') {
+    toast('Instalando TaskFlow CRM…');
+  }
+}
+
+function initPwa() {
+  window.addEventListener('beforeinstallprompt', (ev) => {
+    ev.preventDefault();
+    deferredPwaInstallPrompt = ev;
+    if (ui?.view === 'settings') render();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    pwaInstalled = true;
+    deferredPwaInstallPrompt = null;
+    if (ui?.view === 'settings') render();
+    toast('TaskFlow CRM quedó instalado.');
+  });
+
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker
+    .register('./service-worker.js', { scope: './' })
+    .then((registration) => {
+      registration.update().catch(() => {});
+    })
+    .catch((err) => {
+      console.error('No se pudo registrar la PWA', err);
+    });
+}
+
 const ui = {
   view: 'dashboard',
   taskTab: 'overdue',
@@ -1235,6 +1295,7 @@ const ACTIONS = {
   'save-profile': async () => {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
+  'install-pwa': () => installPwa(),
   'change-password': async () => {
     const pass = $('newPassword').value;
     if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
@@ -1686,6 +1747,7 @@ let authSyncGeneration = 0;
 
 async function start() {
   document.title = `${CFG.appName} · ${CFG.companyName}`;
+  initPwa();
   fillStaticSelects();
   buildTaskTypeGroups();
   initHyperFocusUI();
