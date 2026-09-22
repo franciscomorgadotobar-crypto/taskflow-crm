@@ -708,8 +708,8 @@ export function renderSettings() {
       <div class="card-head"><h3>Equipo</h3></div>
       <div class="card-body">
         <div class="notice">
-          Para sumar a alguien, compárte el link del CRM: se registra con su propio correo y contraseña y aparece acá
-          para que le asignes el permiso. ${teamAdmin ? '' : 'Solo un súper administrador puede cambiar permisos y desactivar cuentas.'}
+          Las cuentas nuevas se crean de forma administrada. Cuando una cuenta esté creada y asociada a esta organización,
+          aparecerá acá para asignarle permisos. ${teamAdmin ? '' : 'Solo un súper administrador puede cambiar permisos y desactivar cuentas.'}
         </div>
         ${
           state.team.length
