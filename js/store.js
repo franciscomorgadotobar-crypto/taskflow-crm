@@ -430,6 +430,7 @@ export function deleteLead(id) {
   const beforeDiscovery = hadDiscovery ? structuredClone(state.discoveries[id]) : null;
   const beforeActivities = state.activities.filter((a) => a.leadId === id).map((a) => structuredClone(a));
   const deletionActivityId = uid();
+  const actor = session.profile?.name || state.me?.name || 'Usuario sin identificar';
 
   state.leads = state.leads.filter((l) => l.id !== id);
   delete state.discoveries[id];
@@ -440,8 +441,8 @@ export function deleteLead(id) {
     company: lead.company,
     type: 'Eliminación',
     date: nowISO(),
-    owner: lead.owner || '',
-    detail: `Se eliminó la oportunidad "${lead.company}" (etapa ${lead.stage}) con su levantamiento e historial.`,
+    owner: actor,
+    detail: `${actor} eliminó la oportunidad "${lead.company}" (etapa ${lead.stage}) con su levantamiento e historial.`,
     task: '',
     system: true
   };
