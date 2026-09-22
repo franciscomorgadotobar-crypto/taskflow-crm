@@ -282,6 +282,7 @@ async function submitLead(e) {
 const DISCOVERY_FIELDS = ['pain', 'currentManagement', 'technicians', 'locations', 'buyTrigger', 'integrations', 'successCriteria', 'technicalNotes'];
 
 function openDiscovery(id) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(id);
   if (!lead) return;
   const d = getDiscovery(id) || {};
@@ -294,6 +295,7 @@ function openDiscovery(id) {
 
 async function submitDiscovery(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const id = $('discoveryLeadId').value;
   const payload = Object.fromEntries(DISCOVERY_FIELDS.map((k) => [k, $(k).value.trim ? $(k).value.trim() : $(k).value]));
   payload.modules = $$('#moduleChecks input:checked').map((x) => x.value);
@@ -395,6 +397,7 @@ async function submitActivity(e) {
 /* ---------- Diálogo: contacto ---------- */
 
 function openContact(leadId, key = '') {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
   if (!lead) return;
   const contact = key ? findContact(lead, key) : null;
@@ -416,6 +419,7 @@ function openContact(leadId, key = '') {
 
 async function submitContact(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const leadId = $('contactLeadId').value;
   const key = $('contactKey').value;
   const name = $('contactName').value.trim();
@@ -665,6 +669,7 @@ async function submitTask(e) {
 /* ---------- Diálogo: mover de etapa ---------- */
 
 function openStage(id) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(id);
   if (!lead) return;
   $('stageLeadId').value = id;
@@ -689,6 +694,7 @@ function updateStageFields() {
 
 async function submitStage(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const id = $('stageLeadId').value;
   const stage = selectedStage();
   if (!stage) return;
