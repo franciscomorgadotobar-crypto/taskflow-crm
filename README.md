@@ -128,3 +128,8 @@ Para instalaciones existentes, aplica también `supabase/0011_activities_lead_ca
 ## Marca
 
 Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM · By 4R Labs.
+
+
+### Migración 0017 — actividad manual + tarea
+
+`supabase/0017_resolve_task_with_activity_rpc.sql` agrega `resolve_task_with_activity`, que registra una actividad manual y limpia la tarea pendiente del lead dentro de una sola transacción, preservando contacto y responsable. Usa `SECURITY INVOKER` y requiere ejecución autenticada.
