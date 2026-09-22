@@ -8,9 +8,9 @@
   <title>TaskFlow CRM</title>
   <link rel="icon" type="image/png" href="assets/isotipo-taskflow-trim.png" />
   <link rel="apple-touch-icon" href="assets/isotipo-taskflow.png" />
-  <link rel="stylesheet" href="styles.css?v=2026-09-22f" />
-  <link rel="stylesheet" href="ux-v2.css?v=2026-09-22f" />
-  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-22f" />
+  <link rel="stylesheet" href="styles.css?v=2026-09-22g" />
+  <link rel="stylesheet" href="ux-v2.css?v=2026-09-22g" />
+  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-22g" />
 </head>
 <body>
   <!-- Acceso -->
@@ -189,20 +189,18 @@
       </div>
       <input type="hidden" id="completeLeadId" />
       <div class="form-grid">
-        <label>¿Qué tipo de actividad fue?<select id="completeType"></select></label>
-        <label>Fecha en que ocurrió<input id="completeDate" type="datetime-local" /></label>
         <label class="span-2">¿Cómo resultó?<textarea id="completeResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
         <div class="span-2 task-type-row" data-task-type-group="complete">
-          <span class="task-type-label">Siguiente tarea</span>
+          <span class="task-type-label">¿Qué sigue?</span>
           <input type="hidden" id="completeNextType" />
         </div>
-        <label class="span-2">Nota<textarea id="completeNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
+        <label class="span-2">Objetivo / nota<textarea id="completeNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
         <label>Fecha de la siguiente<input id="completeNextDate" type="date" /></label>
-        <p class="span-2 muted form-note">Si no eliges tipo ni escribes nota, el prospecto queda <strong>sin próximo paso</strong> y aparecerá como pendiente de agendar.</p>
+        <p class="span-2 muted form-note">La gestión se registrará con la fecha y hora actuales. Si no defines un próximo paso, el prospecto quedará pendiente de agendar.</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
-        <button type="submit" class="primary-btn">Cerrar tarea</button>
+        <button type="submit" class="primary-btn">Guardar gestión</button>
       </div>
     </form>
   </dialog>
@@ -478,28 +476,28 @@
     Versión de publicación. GitHub Pages manda "guardar por 10 minutos", así que sin
     esto un arreglo recién publicado no se ve hasta que pase ese rato o el usuario
     recargue a la fuerza. Al subir cambios hay que cambiar este número en TODAS las
-    líneas de abajo (buscar y reemplazar v=2026-09-22f), incluidas las hojas de estilo
+    líneas de abajo (buscar y reemplazar v=2026-09-22g), incluidas las hojas de estilo
     de arriba: si un módulo quedara sin versión, el navegador cargaría dos copias del
     mismo archivo y el CRM tendría dos estados en paralelo.
   -->
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=2026-09-22f",
-      "./js/auth.js": "./js/auth.js?v=2026-09-22f",
-      "./js/catalog.js": "./js/catalog.js?v=2026-09-22f",
-      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-22f",
-      "./js/quotes.js": "./js/quotes.js?v=2026-09-22f",
-      "./js/store.js": "./js/store.js?v=2026-09-22f",
-      "./js/supabase.js": "./js/supabase.js?v=2026-09-22f",
-      "./js/utils.js": "./js/utils.js?v=2026-09-22f",
-      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-22f",
-      "./js/views.js": "./js/views.js?v=2026-09-22f"
+      "./js/app.js": "./js/app.js?v=2026-09-22g",
+      "./js/auth.js": "./js/auth.js?v=2026-09-22g",
+      "./js/catalog.js": "./js/catalog.js?v=2026-09-22g",
+      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-22g",
+      "./js/quotes.js": "./js/quotes.js?v=2026-09-22g",
+      "./js/store.js": "./js/store.js?v=2026-09-22g",
+      "./js/supabase.js": "./js/supabase.js?v=2026-09-22g",
+      "./js/utils.js": "./js/utils.js?v=2026-09-22g",
+      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-22g",
+      "./js/views.js": "./js/views.js?v=2026-09-22g"
     }
   }
   </script>
-  <script src="config.js?v=2026-09-22f"></script>
-  <script type="module" src="js/app.js?v=2026-09-22f"></script>
-  <script type="module" src="js/ux-v2.js?v=2026-09-22f"></script>
+  <script src="config.js?v=2026-09-22g"></script>
+  <script type="module" src="js/app.js?v=2026-09-22g"></script>
+  <script type="module" src="js/ux-v2.js?v=2026-09-22g"></script>
 </body>
 </html>
