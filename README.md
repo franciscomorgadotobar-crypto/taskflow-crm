@@ -107,6 +107,7 @@ Para activar las tablas y RLS ejecuta `supabase/0008_hyperfocus.sql` después de
 - Para instalaciones existentes, aplica también `supabase/0012_quote_version_integrity.sql`. Agrega restricciones de base de datos para impedir dos versiones vigentes o dos números de versión iguales dentro de una misma cadena de cotización.
 - Aplica después `supabase/0013_create_quote_version_rpc.sql`: el alta de una nueva versión, la desactivación de la anterior y sus ítems pasan a ejecutarse en una única transacción.
 - Aplica `supabase/0014_delete_quote_version_rpc.sql`: al eliminar la versión vigente, la reactivación de la versión anterior ocurre en la misma transacción.
+- Aplica `supabase/0015_delete_quote_root_version.sql`: permite eliminar también la versión raíz de una cadena, promoviendo y reenganchando las versiones posteriores de forma transaccional.
 - Preparar el correo de una cotización arma un mensaje con el detalle de los ítems y el total, lo deja editable y lo abre en el cliente de correo del comercial (`mailto:`). Abrir ese correo no marca la cotización como enviada, porque el CRM no puede confirmar el envío realizado por una aplicación externa.
 
 ## Datos
