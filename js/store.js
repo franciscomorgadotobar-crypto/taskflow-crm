@@ -396,7 +396,8 @@ export async function setStage(id, stage, { lossReason = '', remarketingReason =
   if (stage === 'Ganado' && !lead.nextAction) lead.nextAction = 'Coordinar kick-off e implementación';
   lead.updatedAt = nowISO();
   persist();
-  const { error } = await supabase.from('leads').update(toDbLead(lead)).eq('id', id);
+  const { data, error: updateError } = await supabase.from('leads').update(toDbLead(lead)).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó el cambio de etapa.') : null);
   if (!error) return lead;
   Object.assign(lead, before);
   persist();
@@ -410,7 +411,8 @@ export async function updateLead(id, patch) {
   const before = structuredClone(lead);
   Object.assign(lead, patch, { updatedAt: nowISO() });
   persist();
-  const { error } = await supabase.from('leads').update(toDbLead(lead)).eq('id', id);
+  const { data, error: updateError } = await supabase.from('leads').update(toDbLead(lead)).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó la actualización del lead.') : null);
   if (!error) return lead;
   Object.assign(lead, before);
   persist();
@@ -570,7 +572,8 @@ export async function addContact(leadId, contact) {
   lead.contacts = [...(lead.contacts || []), record];
   lead.updatedAt = nowISO();
   persist();
-  const { error } = await supabase.from('leads').update({ contacts: lead.contacts }).eq('id', leadId);
+  const { data, error: updateError } = await supabase.from('leads').update({ contacts: lead.contacts }).eq('id', leadId).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó el contacto.') : null);
   if (!error) return record;
   lead.contacts = beforeContacts;
   persist();
@@ -591,7 +594,8 @@ export async function updateContact(leadId, key, patch) {
   }
   lead.updatedAt = nowISO();
   persist();
-  const { error } = await supabase.from('leads').update(toDbLead(lead)).eq('id', leadId);
+  const { data, error: updateError } = await supabase.from('leads').update(toDbLead(lead)).eq('id', leadId).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó la actualización del contacto.') : null);
   if (!error) return lead;
   Object.assign(lead, before);
   persist();
@@ -606,7 +610,8 @@ export async function deleteContact(leadId, contactId) {
   lead.contacts = (lead.contacts || []).filter((c) => c.id !== contactId);
   lead.updatedAt = nowISO();
   persist();
-  const { error } = await supabase.from('leads').update({ contacts: lead.contacts }).eq('id', leadId);
+  const { data, error: updateError } = await supabase.from('leads').update({ contacts: lead.contacts }).eq('id', leadId).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó la eliminación del contacto.') : null);
   if (!error) return true;
   lead.contacts = beforeContacts;
   persist();
