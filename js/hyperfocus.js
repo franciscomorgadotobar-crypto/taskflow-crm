@@ -1,7 +1,6 @@
 import { INDUSTRIES, DEFAULT_PROBABILITY } from './catalog.js';
 import { isAdmin, isReadOnly, session } from './auth.js';
 import {
-  addActivity,
   addActivityConfirmed,
   hasActivity,
   getLead,
