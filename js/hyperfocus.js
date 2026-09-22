@@ -126,6 +126,7 @@ const focus = {
   phase: 'ready',
   skipped: new Set(),
   loading: false,
+  busy: false,
   messageOpened: false,
   attemptStarted: false,
   phoneSlot: 'primary',
@@ -281,6 +282,7 @@ export function clearLocal() {
   focus.campaignId = '';
   focus.queue = [];
   focus.record = null;
+  focus.busy = false;
   notify();
 }
 
@@ -1784,9 +1786,17 @@ async function saveAttemptAndPatch(patch, detail) {
   const record = focus.record;
   if (!record) return;
   const oldStatus = record.status;
-  // Si quedó texto sin guardar en la caja de observaciones, se va con este cierre.
-  const suelta = patch.notes === undefined ? pendingNote() : '';
-  if (suelta) patch = { ...patch, notes: mergeNotes(record, suelta) };
+  // Si quedó texto sin guardar en la caja de observaciones, se va con este cierre
+  // aunque el flujo ya traiga una nota propia (p. ej. reintento o descarte).
+  // Partimos desde patch.notes cuando existe para no perder ni duplicar el historial.
+  const suelta = pendingNote();
+  if (suelta) {
+    const baseNotes = patch.notes === undefined ? (record.notes || '') : (patch.notes || '');
+    patch = {
+      ...patch,
+      notes: [String(baseNotes).trim(), stampNote(suelta)].filter(Boolean).join('\n')
+    };
+  }
   const countAttempt = Boolean(focus.attemptStarted || focus.contactResult || focus.commercialResult);
   if (focus.contactResult === 'wrong_number') {
     const contact = selectedContact();
@@ -2160,7 +2170,11 @@ async function skipRecord() {
 
 function handleHyperFocusClickLocked(ev) {
   const btn = ev.target.closest?.('[data-hf-action]');
-  if (!btn || btn.dataset.hfBusy === '1') return;
+  if (!btn || btn.dataset.hfBusy === '1' || focus.busy) return;
+
+  // El bloqueo es de la sesión completa, no solo del botón pulsado. Así una
+  // finalización no puede competir con pausar/cerrar u otra escritura paralela.
+  focus.busy = true;
   btn.dataset.hfBusy = '1';
   btn.setAttribute('aria-disabled', 'true');
   if ('disabled' in btn) btn.disabled = true;
@@ -2171,6 +2185,7 @@ function handleHyperFocusClickLocked(ev) {
       toast(err.message || 'No se pudo completar la acción.', 'error');
     })
     .finally(() => {
+      focus.busy = false;
       if (!btn.isConnected) return;
       delete btn.dataset.hfBusy;
       btn.removeAttribute('aria-disabled');
@@ -2359,7 +2374,7 @@ async function handleHyperFocusClick(ev) {
 
 function handleHyperFocusKeydown(ev) {
   const dialog = byId('hfSessionDialog');
-  if (!dialog?.open || ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (!dialog?.open || focus.busy || ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey) return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(ev.target?.tagName)) return;
 
   const key = ev.key.toLowerCase();
@@ -2509,8 +2524,15 @@ export function initUI() {
   byId('hfSessionDialog')?.addEventListener('cancel', async (ev) => {
     // Escape no puede cerrar primero y liberar después: si la liberación falla,
     // el registro debe seguir visible en la sesión para no ocultar un claim activo.
+    // Tampoco puede liberar el claim mientras otra escritura de la sesión sigue viva.
     ev.preventDefault();
-    if (await releaseCurrentClaim()) byId('hfSessionDialog')?.close();
+    if (focus.busy) return;
+    focus.busy = true;
+    try {
+      if (await releaseCurrentClaim()) byId('hfSessionDialog')?.close();
+    } finally {
+      focus.busy = false;
+    }
   });
   bindImportControls();
 }
