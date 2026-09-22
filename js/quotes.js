@@ -197,6 +197,7 @@ export function computeTotals(items) {
  */
 export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil = '', client = {}, items }) {
   const base = baseId ? getQuote(baseId) : null;
+  const beforeQuotes = structuredClone(state.quotes);
   const id = uid();
   // La versión 1 es su propia raíz (root_id null en la base, FK a quotes.id no puede
   // apuntar a un uuid inventado que no exista todavía).
@@ -269,8 +270,17 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
         if (itErr) throw itErr;
       }
     } catch (err) {
+      // Si la operación compuesta falla, la copia optimista no debe quedar como
+      // si la nueva versión existiera. La base puede haber alcanzado a guardar
+      // una parte, por eso luego rehidratamos desde Supabase como fuente de verdad.
+      state.quotes = beforeQuotes;
+      notify();
       reportError('No se pudo guardar la cotización', err);
-      hydrate();
+      try {
+        await hydrate();
+      } catch (hydrateErr) {
+        console.error('No se pudo resincronizar el cotizador', hydrateErr);
+      }
     }
   })();
 
