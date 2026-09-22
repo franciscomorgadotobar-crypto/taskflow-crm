@@ -1259,10 +1259,40 @@ const ACTIONS = {
   }
 };
 
+function dispatchAction(btn) {
+  const action = ACTIONS[btn?.dataset.action];
+  if (!action || btn.dataset.actionBusy === '1') return;
+
+  let result;
+  try {
+    result = action(btn.dataset.id, btn);
+  } catch (err) {
+    console.error('Acción no completada', err);
+    toast(err.message || 'No se pudo completar la acción.', 'error');
+    return;
+  }
+
+  if (!result || typeof result.then !== 'function') return;
+  btn.dataset.actionBusy = '1';
+  btn.setAttribute('aria-disabled', 'true');
+  if ('disabled' in btn) btn.disabled = true;
+  Promise.resolve(result)
+    .catch((err) => {
+      console.error('Acción asíncrona no completada', err);
+      toast(err.message || 'No se pudo completar la acción.', 'error');
+    })
+    .finally(() => {
+      if (!btn.isConnected) return;
+      delete btn.dataset.actionBusy;
+      btn.removeAttribute('aria-disabled');
+      if ('disabled' in btn) btn.disabled = false;
+    });
+}
+
 function handleClick(ev) {
   const btn = ev.target.closest?.('[data-action]');
   if (!btn) return;
-  ACTIONS[btn.dataset.action]?.(btn.dataset.id, btn);
+  dispatchAction(btn);
 }
 
 function handleKeydown(ev) {
@@ -1270,7 +1300,7 @@ function handleKeydown(ev) {
   const el = ev.target.closest?.('[data-action][role="button"]');
   if (!el) return;
   ev.preventDefault();
-  ACTIONS[el.dataset.action]?.(el.dataset.id, el);
+  dispatchAction(el);
 }
 
 /* ---------- Controles de vista ---------- */
@@ -1504,6 +1534,26 @@ function openDataDialog() {
 
 /* ---------- Arranque ---------- */
 
+function bindSubmitOnce(formId, handler) {
+  const form = $(formId);
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (form.dataset.submitting === '1') return;
+    form.dataset.submitting = '1';
+    const btn = ev.submitter || form.querySelector('[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      await handler(ev);
+    } catch (err) {
+      console.error(`No se pudo completar ${formId}`, err);
+      toast(err.message || 'No se pudo completar la operación.', 'error');
+    } finally {
+      delete form.dataset.submitting;
+      if (btn?.isConnected) btn.disabled = false;
+    }
+  });
+}
+
 function bindEvents() {
   $$('.nav-item').forEach((btn) =>
     btn.addEventListener('click', () => {
@@ -1531,20 +1581,20 @@ function bindEvents() {
     if (ev.target === dlg) dlg.close();
   }));
 
-  $('leadForm').addEventListener('submit', submitLead);
+  bindSubmitOnce('leadForm', submitLead);
   $('stage').addEventListener('change', toggleLossField);
-  $('discoveryForm').addEventListener('submit', submitDiscovery);
-  $('activityForm').addEventListener('submit', submitActivity);
+  bindSubmitOnce('discoveryForm', submitDiscovery);
+  bindSubmitOnce('activityForm', submitActivity);
   $('activityLeadId').addEventListener('change', (ev) => {
     fillActivityContacts(ev.target.value);
     syncActivityTaskResolution(ev.target.value, Boolean($('activityId').value));
   });
-  $('contactForm').addEventListener('submit', submitContact);
-  $('commForm').addEventListener('submit', submitComm);
+  bindSubmitOnce('contactForm', submitContact);
+  bindSubmitOnce('commForm', submitComm);
   $('commTemplate').addEventListener('change', fillCommFields);
   $('commCopyBtn').addEventListener('click', copyComm);
-  $('completeForm').addEventListener('submit', submitComplete);
-  $('taskForm').addEventListener('submit', submitTask);
+  bindSubmitOnce('completeForm', submitComplete);
+  bindSubmitOnce('taskForm', submitTask);
   $('manageForm').addEventListener('submit', submitManage);
   $('managePrevBtn').addEventListener('click', () => manageStep(-1));
   $('manageNextBtn').addEventListener('click', () => manageStep(1));
@@ -1552,19 +1602,19 @@ function bindEvents() {
     const task = currentTask();
     if (task) openTask(task.lead.id);
   });
-  $('stageForm').addEventListener('submit', submitStage);
+  bindSubmitOnce('stageForm', submitStage);
   $('stageOptions').addEventListener('change', updateStageFields);
   $('exportBtn').addEventListener('click', exportJson);
   $('exportCsvBtn').addEventListener('click', exportCsv);
   $('importInput').addEventListener('change', importJson);
   $('resetBtn').addEventListener('click', resetAll);
 
-  $('serviceForm').addEventListener('submit', submitService);
-  $('quoteForm').addEventListener('submit', submitQuoteBuilder);
+  bindSubmitOnce('serviceForm', submitService);
+  bindSubmitOnce('quoteForm', submitQuoteBuilder);
   $('quoteItemsRoot').parentElement; // noop, root exists once quoteForm renders
   $('quoteForm').addEventListener('input', handleQuoteFieldChange);
   $('quoteForm').addEventListener('change', handleQuoteFieldChange);
-  $('quoteSendForm').addEventListener('submit', submitQuoteSend);
+  bindSubmitOnce('quoteSendForm', submitQuoteSend);
 
   $('authForm').addEventListener('submit', submitAuth);
   $('authToggleMode').addEventListener('click', () => {
