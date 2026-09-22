@@ -51,7 +51,7 @@ El registro público está desactivado en la configuración actual (`allowSignup
 **Primer arranque:** si todavía no existe un usuario con permisos de administración, promueve una cuenta existente una vez desde el SQL Editor de Supabase:
 
 ```sql
-update public.profiles set role = 'super' where email = 'tu-correo@taskflow.cl';
+update public.profiles set role = 'super', active = true where email = 'tu-correo@taskflow.cl';
 ```
 
 Desde ahí, esa persona ya puede asignar roles al resto del equipo desde Configuración → Equipo.
@@ -147,4 +147,4 @@ Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM
 
 ### Migración 0020 — protección de privilegios del equipo
 
-`supabase/0020_profile_privilege_guard.sql` cierra la auto-escalación de roles en `profiles`: cada usuario puede seguir editando sus datos personales, pero solo `super` puede administrar otros perfiles, cambiar roles/estado o eliminar cuentas. También impide desactivar, degradar, mover o eliminar al último super activo de una organización. La UI usa la misma separación: `admin` conserva administración operativa del CRM, mientras la administración del equipo queda reservada a `super`.
+`supabase/0020_profile_privilege_guard.sql` cierra la auto-escalación de roles en `profiles`: cada usuario puede seguir editando sus datos personales, pero solo `super` puede administrar otros perfiles, cambiar roles/estado o eliminar cuentas. También impide desactivar, degradar, mover o eliminar al último super activo de una organización. Como defensa adicional, toda cuenta nueva nace con `active=false`; así incluso un signup directo contra Auth queda sin acceso por RLS hasta que un super lo habilite. La UI usa la misma separación: `admin` conserva administración operativa del CRM, mientras la administración del equipo queda reservada a `super`.
