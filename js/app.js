@@ -1199,7 +1199,13 @@ const ACTIONS = {
     $('newPassword').value = '';
     toast('Contraseña actualizada.');
   },
-  'sign-out': () => signOut(),
+  'sign-out': async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      toast(`No se pudo cerrar la sesión: ${err.message}`, 'error');
+    }
+  },
   'load-demo': () => seedExample(),
   'clear-demo': () => resetAll(),
   'copy-template': async (id) => {
