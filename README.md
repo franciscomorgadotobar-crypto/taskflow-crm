@@ -37,7 +37,7 @@ supabase/*.sql       Migraciones del esquema, aplicadas en orden al proyecto de 
 
 El proyecto usa un proyecto de Supabase propio (Postgres + Auth + RLS + Realtime). `config.js` trae la URL del proyecto y la llave publicable (`anon key`) — ambas son públicas por diseño, la seguridad real la da Row Level Security en la base de datos, no mantener esos valores en secreto.
 
-Para levantar el esquema desde cero en un proyecto nuevo, aplica **todos** los archivos de `supabase/` en orden numérico desde el SQL Editor del panel de Supabase o con la CLI. En una instalación existente, aplica solamente las migraciones nuevas que aún no estén ejecutadas. Híper Foco requiere `0008_hyperfocus.sql`.
+Para levantar el esquema desde cero en un proyecto nuevo, aplica **todos** los archivos de `supabase/` en orden numérico desde el SQL Editor del panel de Supabase o con la CLI. En una instalación existente, aplica solamente las migraciones nuevas que aún no estén ejecutadas. El cierre transaccional de tareas requiere `0010_complete_task_rpc.sql`; el frontend actual sigue siendo compatible mientras esa migración no se haya aplicado. Híper Foco requiere `0008_hyperfocus.sql`.
 
 ### Acceso y roles
 
