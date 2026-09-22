@@ -91,15 +91,23 @@ export async function hydrate() {
   ]);
   [svcR, qR, itR].forEach((r) => r.error && console.error(r.error));
 
-  const itemsByQuote = new Map();
-  (itR.data || []).forEach((it) => {
-    const arr = itemsByQuote.get(it.quote_id) || [];
-    arr.push(it);
-    itemsByQuote.set(it.quote_id, arr);
-  });
+  // Una lectura fallida no debe interpretarse como una colección vacía.
+  // Conservamos la última copia válida y actualizamos cada bloque solo cuando
+  // Supabase respondió correctamente. Quotes + items se tratan como una unidad.
+  if (!svcR.error) {
+    state.services = (svcR.data || []).map(fromDbService);
+  }
 
-  state.services = (svcR.data || []).map(fromDbService);
-  state.quotes = (qR.data || []).map((q) => fromDbQuote(q, itemsByQuote.get(q.id) || []));
+  if (!qR.error && !itR.error) {
+    const itemsByQuote = new Map();
+    (itR.data || []).forEach((it) => {
+      const arr = itemsByQuote.get(it.quote_id) || [];
+      arr.push(it);
+      itemsByQuote.set(it.quote_id, arr);
+    });
+    state.quotes = (qR.data || []).map((q) => fromDbQuote(q, itemsByQuote.get(q.id) || []));
+  }
+
   notify();
 }
 
