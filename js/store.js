@@ -337,6 +337,10 @@ export async function upsertLeadConfirmed(input) {
   }
   if (lead.stage !== 'Perdido') lead.lossReason = '';
 
+  const reassigned = existing && existing.owner !== lead.owner;
+  const previousOwner = existing?.owner || '';
+  const actor = reassigned ? session.profile?.name || 'Usuario sin identificar' : '';
+
   const idx = state.leads.findIndex((l) => l.id === id);
   if (idx >= 0) state.leads[idx] = lead;
   else state.leads.unshift(lead);
@@ -357,6 +361,17 @@ export async function upsertLeadConfirmed(input) {
     persist();
     reportError('No se pudo confirmar el prospecto en el servidor', error);
     throw error;
+  }
+
+  if (reassigned) {
+    addActivity({
+      leadId: id,
+      type: 'Asignación',
+      date: nowISO(),
+      owner: actor,
+      detail: `${actor} cambió el responsable de ${previousOwner || 'sin asignar'} a ${lead.owner || 'sin asignar'}.`,
+      system: true
+    });
   }
 
   return lead;
