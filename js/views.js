@@ -794,8 +794,7 @@ export function renderSettings() {
           prospectos en remarketing y clientes ganados en implementación. Es el único lugar desde donde se cargan.
         </p>
         <div class="button-row">
-          <button class="ghost-btn" data-action="load-demo">Cargar datos demo</button>
-          <button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>
+          ${isAdmin() ? '<button class="ghost-btn" data-action="load-demo">Cargar datos demo</button><button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>' : '<span class="muted">Solo administración puede cargar ejemplos o ejecutar un borrado masivo.</span>'}
         </div>
       </div>
     </div>`;
