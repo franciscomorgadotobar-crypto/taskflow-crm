@@ -589,8 +589,6 @@ function openComplete(leadId) {
   if (!task) return toast('Este prospecto no tiene una tarea abierta.', 'error');
   $('completeLeadId').value = leadId;
   $('completeSubtitle').textContent = `${task.title} · ${lead.company}`;
-  $('completeType').value = task.type || ACTIVITY_TYPES[0];
-  $('completeDate').value = localDateTimeInput();
   $('completeResult').value = '';
   $('completeNextAction').value = '';
   $('completeNextDate').value = '';
@@ -609,9 +607,10 @@ function submitComplete(e) {
   const nextAction = $('completeNextAction').value.trim();
   const nextDate = $('completeNextDate').value;
   if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
+  const task = taskOf(getLead(leadId));
   completeTask(leadId, {
-    type: $('completeType').value,
-    date: $('completeDate').value || localDateTimeInput(),
+    type: task?.type || 'Actividad',
+    date: localDateTimeInput(),
     result,
     nextType,
     nextAction,
