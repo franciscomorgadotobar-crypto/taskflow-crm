@@ -675,12 +675,12 @@ function updateStageFields() {
   $('stageRemarketingField').hidden = stage !== 'Remarketing';
 }
 
-function submitStage(e) {
+async function submitStage(e) {
   e.preventDefault();
   const id = $('stageLeadId').value;
   const stage = selectedStage();
   if (!stage) return;
-  setStage(id, stage, { lossReason: $('stageLossReason').value, remarketingReason: $('stageRemarketingReason').value });
+  if (!(await setStage(id, stage, { lossReason: $('stageLossReason').value, remarketingReason: $('stageRemarketingReason').value }))) return;
   $('stageDialog').close();
   toast(`Movida a ${stage}.`);
 }
@@ -724,8 +724,7 @@ function bindKanbanDrag() {
       const lead = getLead(draggedId);
       if (!lead || lead.stage === target) return;
       if (target === 'Perdido') return openStage(lead.id);
-      setStage(lead.id, target);
-      toast(`${lead.company} → ${target}`);
+      if (await setStage(lead.id, target)) toast(`${lead.company} → ${target}`);
     });
   });
 }
@@ -1082,11 +1081,10 @@ const ACTIONS = {
     render();
   },
   'open-manage': () => openManage(),
-  'qualify-lead': (id) => {
+  'qualify-lead': async (id) => {
     const lead = getLead(id);
     if (!lead) return;
-    setStage(id, 'Contactado');
-    toast(`${lead.company} calificado → Contactado.`);
+    if (await setStage(id, 'Contactado')) toast(`${lead.company} calificado → Contactado.`);
   },
   'add-contact': (id) => openContact(id),
   'edit-contact': (id, btn) => openContact(id, btn.dataset.contact),
@@ -1102,19 +1100,18 @@ const ACTIONS = {
   'open-whatsapp': (id, btn) => openComm(id, btn.dataset.contact, 'whatsapp'),
   'open-email': (id, btn) => openComm(id, btn.dataset.contact, 'email'),
   'remarketing-email': (id, btn) => openComm(id, 'primary', 'email', btn.dataset.template),
-  'delete-activity': (id) => {
+  'delete-activity': async (id) => {
     const act = getActivity(id);
     if (act?.task || act?.system) return toast('Los movimientos del historial no se pueden eliminar.', 'error');
     if (confirm('¿Eliminar esta actividad?')) {
-      deleteActivity(id);
-      toast('Actividad eliminada.');
+      if (await deleteActivity(id)) toast('Actividad eliminada.');
     }
   },
-  'delete-lead': (id) => {
+  'delete-lead': async (id) => {
     const lead = getLead(id);
     if (!lead) return;
     if (confirm(`¿Eliminar "${lead.company}" con su levantamiento, actividades y cotizaciones?`)) {
-      deleteLead(id);
+      if (!(await deleteLead(id))) return;
       if ($('detailDialog').open) $('detailDialog').close();
       toast('Oportunidad eliminada.');
     }
@@ -1143,11 +1140,10 @@ const ACTIONS = {
     toast('Plantilla eliminada.');
   },
   'insert-var': (id, btn) => insertVariable(id, btn.dataset.var),
-  'back-to-pipeline': (id) => {
+  'back-to-pipeline': async (id) => {
     const lead = getLead(id);
     if (!lead) return;
-    setStage(id, 'Contactado');
-    toast(`${lead.company} volvió al embudo comercial.`);
+    if (await setStage(id, 'Contactado')) toast(`${lead.company} volvió al embudo comercial.`);
   },
   'save-profile': async () => {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');

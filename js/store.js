@@ -377,7 +377,7 @@ export async function upsertLeadConfirmed(input) {
   return lead;
 }
 
-export function setStage(id, stage, { lossReason = '', remarketingReason = '' } = {}) {
+export async function setStage(id, stage, { lossReason = '', remarketingReason = '' } = {}) {
   const lead = getLead(id);
   if (!lead || lead.stage === stage) return lead;
   const before = structuredClone(lead);
@@ -389,39 +389,29 @@ export function setStage(id, stage, { lossReason = '', remarketingReason = '' } 
   if (stage === 'Ganado' && !lead.nextAction) lead.nextAction = 'Coordinar kick-off e implementación';
   lead.updatedAt = nowISO();
   persist();
-  supabase
-    .from('leads')
-    .update(toDbLead(lead))
-.eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(lead, before);
-      persist();
-      reportError('No se pudo mover la oportunidad', error);
-    });
-  return lead;
+  const { error } = await supabase.from('leads').update(toDbLead(lead)).eq('id', id);
+  if (!error) return lead;
+  Object.assign(lead, before);
+  persist();
+  reportError('No se pudo mover la oportunidad', error);
+  return null;
 }
 
-export function updateLead(id, patch) {
+export async function updateLead(id, patch) {
   const lead = getLead(id);
   if (!lead) return null;
   const before = structuredClone(lead);
   Object.assign(lead, patch, { updatedAt: nowISO() });
   persist();
-  supabase
-    .from('leads')
-    .update(toDbLead(lead))
-.eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(lead, before);
-      persist();
-      reportError('No se pudo actualizar el lead', error);
-    });
-  return lead;
+  const { error } = await supabase.from('leads').update(toDbLead(lead)).eq('id', id);
+  if (!error) return lead;
+  Object.assign(lead, before);
+  persist();
+  reportError('No se pudo actualizar el lead', error);
+  return null;
 }
 
-export function deleteLead(id) {
+export async function deleteLead(id) {
   const lead = getLead(id);
   if (!lead) return;
   const leadIndex = state.leads.findIndex((l) => l.id === id);
@@ -448,11 +438,8 @@ export function deleteLead(id) {
   };
   state.activities.push(deletionActivity);
   persist();
-  supabase
-    .from('leads')
-    .delete()
-    .eq('id', id)
-    .then(async ({ error }) => {
+  const { error } = await supabase.from('leads').delete().eq('id', id);
+  if (!error) {
       if (!error) {
         // El registro de auditoría es global (lead_id NULL) para sobrevivir a la
         // eliminación del lead y a futuras rehidrataciones.
@@ -464,10 +451,10 @@ export function deleteLead(id) {
           persist();
           reportError('La oportunidad se eliminó, pero no se pudo registrar la auditoría', auditError);
         }
-        return;
-      }
+    return true;
+  }
 
-      // Restaura solo lo perteneciente a este lead. Así una eliminación fallida
+  // Restaura solo lo perteneciente a este lead. Así una eliminación fallida
       // no revive otras oportunidades que sí se eliminaron en paralelo.
       if (!state.leads.some((l) => l.id === id)) {
         state.leads.splice(Math.min(Math.max(leadIndex, 0), state.leads.length), 0, beforeLead);
@@ -478,8 +465,8 @@ export function deleteLead(id) {
       state.activities = state.activities.filter((a) => a.id !== deletionActivityId && a.leadId !== id);
       state.activities.push(...beforeActivities);
       persist();
-      reportError('No se pudo eliminar en el servidor', error);
-    });
+  reportError('No se pudo eliminar en el servidor', error);
+  return false;
 }
 
 /** Elimina todas las oportunidades visibles para quien ejecuta (RLS decide el alcance real). */
@@ -639,23 +626,19 @@ export function updateActivity(id, patch) {
 
 export const getActivity = (id) => state.activities.find((a) => a.id === id) || null;
 
-export function deleteActivity(id) {
+export async function deleteActivity(id) {
   const index = state.activities.findIndex((a) => a.id === id);
   const before = index >= 0 ? state.activities[index] : null;
   state.activities = state.activities.filter((a) => a.id !== id);
   persist();
-  supabase
-    .from('activities')
-    .delete()
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error || !before) return;
-      if (!state.activities.some((a) => a.id === id)) {
-        state.activities.splice(Math.min(Math.max(index, 0), state.activities.length), 0, before);
-      }
-      persist();
-      reportError('No se pudo eliminar la actividad', error);
-    });
+  const { error } = await supabase.from('activities').delete().eq('id', id);
+  if (!error) return true;
+  if (before && !state.activities.some((a) => a.id === id)) {
+    state.activities.splice(Math.min(Math.max(index, 0), state.activities.length), 0, before);
+  }
+  persist();
+  reportError('No se pudo eliminar la actividad', error);
+  return false;
 }
 
 export const activitiesOf = (leadId) =>
@@ -848,7 +831,7 @@ export async function saveProfile(patch) {
 }
 
 /** Edita el perfil de otra persona del equipo (rol/activo/nombre/teléfono) — solo admin/super por RLS. */
-export function updateUser(id, patch) {
+export async function updateUser(id, patch) {
   const t = state.team.find((x) => x.id === id);
   if (!t) return null;
   const before = structuredClone(t);
@@ -859,17 +842,12 @@ export function updateUser(id, patch) {
   if ('phone' in patch) payload.phone = patch.phone;
   if ('role' in patch) payload.role = patch.role;
   if ('active' in patch) payload.active = patch.active;
-  supabase
-    .from('profiles')
-    .update(payload)
-    .eq('id', id)
-    .then(({ error }) => {
-      if (!error) return;
-      Object.assign(t, before);
-      persist();
-      reportError('No se pudo actualizar a esa persona', error);
-    });
-  return t;
+  const { error } = await supabase.from('profiles').update(payload).eq('id', id);
+  if (!error) return t;
+  Object.assign(t, before);
+  persist();
+  reportError('No se pudo actualizar a esa persona', error);
+  return null;
 }
 
 /* ---------- Métricas ---------- */
