@@ -104,6 +104,7 @@ Para activar las tablas y RLS ejecuta `supabase/0008_hyperfocus.sql` después de
 - El catálogo de servicios (nombre, unidad, precio neto, categoría) lo administra un admin/super desde Cotizaciones → Catálogo de servicios; cualquiera puede usarlo para cotizar.
 - Cada cotización queda ligada a una empresa (lead) y muestra el desglose neto / IVA (19%) / total.
 - **Editar una cotización no la sobrescribe: crea una versión nueva.** La versión anterior queda en el historial (visible desde "Ver" → "Versiones") y deja de ser la vigente. Así siempre se puede ver qué se le mandó a un cliente en cada momento.
+- Para instalaciones existentes, aplica también `supabase/0012_quote_version_integrity.sql`. Agrega restricciones de base de datos para impedir dos versiones vigentes o dos números de versión iguales dentro de una misma cadena de cotización.
 - Preparar el correo de una cotización arma un mensaje con el detalle de los ítems y el total, lo deja editable y lo abre en el cliente de correo del comercial (`mailto:`). Abrir ese correo no marca la cotización como enviada, porque el CRM no puede confirmar el envío realizado por una aplicación externa.
 
 ## Datos
