@@ -1002,14 +1002,16 @@ async function createCampaignFromImport(event) {
   createBtn.disabled = true;
 
   try {
-    const { error: campaignError } = await supabase.from('hyperfocus_campaigns').insert(campaign);
+    const { data: campaignRows, error: campaignWriteError } = await supabase.from('hyperfocus_campaigns').insert(campaign).select('id');
+    const campaignError = campaignWriteError || (!campaignRows?.length ? new Error('El servidor no confirmó la campaña.') : null);
     if (campaignError) throw campaignError;
 
     const rows = records.map(({ id, ...r }) => ({ id, campaign_id: campaign.id, ...r }));
     const batchSize = 500;
     for (let i = 0; i < rows.length; i += batchSize) {
       const batch = rows.slice(i, i + batchSize);
-      const { error } = await supabase.from('hyperfocus_records').insert(batch);
+      const { data: insertedRows, error: batchError } = await supabase.from('hyperfocus_records').insert(batch).select('id');
+      const error = batchError || (insertedRows?.length !== batch.length ? new Error(`El servidor confirmó ${insertedRows?.length || 0} de ${batch.length} registros del lote.`) : null);
       if (error) throw error;
       const done = Math.min(i + batch.length, rows.length);
       const pct = Math.round((done / rows.length) * 100);
@@ -1024,7 +1026,8 @@ async function createCampaignFromImport(event) {
     toast(`Campaña creada: ${summary.actionable.toLocaleString('es-CL')} registros listos para gestionar.`);
   } catch (err) {
     console.error(err);
-    const { error: cleanupError } = await supabase.from('hyperfocus_campaigns').delete().eq('id', campaign.id);
+    const { data: cleanupRows, error: cleanupWriteError } = await supabase.from('hyperfocus_campaigns').delete().eq('id', campaign.id).select('id');
+    const cleanupError = cleanupWriteError || (!cleanupRows?.length ? new Error('El servidor no confirmó la limpieza de la campaña incompleta.') : null);
     if (cleanupError) {
       console.error('No se pudo revertir la campaña incompleta', cleanupError);
       await hydrate();
