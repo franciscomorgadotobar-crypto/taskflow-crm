@@ -138,3 +138,8 @@ Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM
 ### Migración 0018 — perfiles inactivos
 
 `supabase/0018_inactive_profiles_access.sql` hace que `internal.my_org()` e `internal.my_role()` solo reconozcan perfiles activos. Como las políticas RLS organizacionales dependen de esos helpers, un usuario desactivado deja de leer y escribir datos aunque conserve un token de Auth válido. El frontend además cierra su sesión al detectar el perfil inactivo.
+
+
+### Migración 0019 — permiso service_role en my_org
+
+`supabase/0019_service_role_my_org.sql` restaura el grant explícito de `service_role` sobre `internal.my_org()`. La migración 0018 eliminó correctamente el permiso heredado de `PUBLIC`, pero con ello también dejó a `service_role` sin EXECUTE explícito en esta función. `anon` y `PUBLIC` continúan sin permiso.
