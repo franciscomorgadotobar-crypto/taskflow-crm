@@ -223,6 +223,7 @@ const LEAD_FIELDS = [
 const OWNED_ELSEWHERE = ['stage', 'lossReason', 'nextAction', 'nextDate', 'nextType'];
 
 function openLead(id) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const l = getLead(id) || {};
   const editing = Boolean(id);
   $('leadDialogTitle').textContent = editing ? 'Editar datos de la empresa' : 'Nuevo lead';
@@ -253,6 +254,7 @@ function toggleLossField() {
 
 async function submitLead(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const company = $('company').value.trim();
   if (!company) return toast('La empresa es obligatoria.', 'error');
 
@@ -303,6 +305,7 @@ async function submitDiscovery(e) {
 /* ---------- Diálogo: actividad ---------- */
 
 function openActivity(leadId = '') {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   if (!state.leads.length) return toast('Primero registra una empresa.', 'error');
   $('activityId').value = '';
   $('activityDialogTitle').textContent = 'Nueva actividad';
@@ -356,6 +359,7 @@ function fillActivityContacts(leadId) {
 
 async function submitActivity(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const id = $('activityId').value;
   const leadId = $('activityLeadId').value;
   const detail = $('activityDetail').value.trim();
@@ -830,6 +834,7 @@ function renderQuoteItemsRoot() {
 }
 
 function openQuoteBuilder(leadId = '', baseId = '') {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const base = baseId ? getQuote(baseId) : null;
   ui.quoteBuilder = {
     leadId: base?.leadId || leadId,
@@ -853,6 +858,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
 
 async function submitQuoteBuilder(e) {
   e.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const leadId = $('quoteLeadId').value;
   if (!leadId) return toast('Selecciona una empresa.', 'error');
   const items = ui.quoteBuilder.items
