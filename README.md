@@ -143,3 +143,8 @@ Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM
 ### Migración 0019 — permiso service_role en my_org
 
 `supabase/0019_service_role_my_org.sql` restaura el grant explícito de `service_role` sobre `internal.my_org()`. La migración 0018 eliminó correctamente el permiso heredado de `PUBLIC`, pero con ello también dejó a `service_role` sin EXECUTE explícito en esta función. `anon` y `PUBLIC` continúan sin permiso.
+
+
+### Migración 0020 — protección de privilegios del equipo
+
+`supabase/0020_profile_privilege_guard.sql` cierra la auto-escalación de roles en `profiles`: cada usuario puede seguir editando sus datos personales, pero solo `super` puede administrar otros perfiles, cambiar roles/estado o eliminar cuentas. También impide desactivar, degradar, mover o eliminar al último super activo de una organización. La UI usa la misma separación: `admin` conserva administración operativa del CRM, mientras la administración del equipo queda reservada a `super`.

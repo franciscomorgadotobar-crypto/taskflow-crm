@@ -70,7 +70,7 @@ import {
   deleteService,
   versionsOf
 } from './quotes.js';
-import { isAdmin, isReadOnly, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
+import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import {
   clearLocal as hyperFocusClearLocal,
   hydrate as hyperFocusHydrate,
@@ -1312,7 +1312,7 @@ async function handleViewInput(ev) {
 
   if (el.dataset.userField) {
     if (ev.type !== 'change') return;
-    if (!isAdmin()) return render();
+    if (!isSuper()) return render();
     const saved = await updateUser(el.dataset.id, { [el.dataset.userField]: el.type === 'checkbox' ? el.checked : el.value });
     if (!saved) render();
     return;

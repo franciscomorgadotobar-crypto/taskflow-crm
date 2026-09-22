@@ -109,6 +109,7 @@ export async function resetPassword(email) {
   if (error) throw error;
 }
 
+export const isSuper = () => session.profile?.role === 'super';
 export const isAdmin = () => ['super', 'admin'].includes(session.profile?.role);
 export const canManageAll = isAdmin;
 export const isReadOnly = () => session.profile?.role === 'visita';
