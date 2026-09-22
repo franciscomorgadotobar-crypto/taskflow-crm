@@ -128,6 +128,7 @@ export const getService = (id) => state.services.find((s) => s.id === id) || nul
 export function upsertService(input) {
   const id = input.id || uid();
   const existing = getService(id);
+  const before = existing ? structuredClone(existing) : null;
   const record = { active: true, description: '', category: '', unit: 'unidad', ...existing, ...input, id };
   const idx = state.services.findIndex((s) => s.id === id);
   if (idx >= 0) state.services[idx] = record;
@@ -137,18 +138,38 @@ export function upsertService(input) {
   const write = existing
     ? supabase.from('services').update(toDbService(record)).eq('id', id)
     : supabase.from('services').insert({ id, ...toDbService(record) });
-  write.then(({ error }) => error && reportError('No se pudo guardar el servicio', error));
+  write.then(({ error }) => {
+    if (!error) return;
+    if (before) {
+      const current = state.services.findIndex((s) => s.id === id);
+      if (current >= 0) state.services[current] = before;
+      else state.services.unshift(before);
+    } else {
+      state.services = state.services.filter((s) => s.id !== id);
+    }
+    notify();
+    reportError('No se pudo guardar el servicio', error);
+  });
   return record;
 }
 
 export function deleteService(id) {
+  const index = state.services.findIndex((s) => s.id === id);
+  const before = index >= 0 ? structuredClone(state.services[index]) : null;
   state.services = state.services.filter((s) => s.id !== id);
   notify();
   supabase
     .from('services')
     .delete()
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo eliminar el servicio', error));
+    .then(({ error }) => {
+      if (!error || !before) return;
+      if (!state.services.some((s) => s.id === id)) {
+        state.services.splice(Math.min(Math.max(index, 0), state.services.length), 0, before);
+      }
+      notify();
+      reportError('No se pudo eliminar el servicio', error);
+    });
 }
 
 /* ---------- Cotizaciones ---------- */
@@ -259,6 +280,7 @@ export function saveQuote({ baseId = '', leadId, status, notes = '', validUntil 
 export function setQuoteStatus(id, status) {
   const q = getQuote(id);
   if (!q) return null;
+  const before = structuredClone(q);
   q.status = status;
   q.updatedAt = nowISO();
   notify();
@@ -266,7 +288,12 @@ export function setQuoteStatus(id, status) {
     .from('quotes')
     .update({ status })
     .eq('id', id)
-    .then(({ error }) => error && reportError('No se pudo actualizar el estado', error));
+    .then(({ error }) => {
+      if (!error) return;
+      Object.assign(q, before);
+      notify();
+      reportError('No se pudo actualizar el estado', error);
+    });
   return q;
 }
 
