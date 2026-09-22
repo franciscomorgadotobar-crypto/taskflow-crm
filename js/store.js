@@ -245,6 +245,7 @@ export const getLead = (id) => state.leads.find((l) => l.id === id) || null;
 export function upsertLead(input) {
   const id = input.id || uid();
   const existing = getLead(id);
+  const before = existing ? structuredClone(existing) : null;
   const lead = {
     ...(existing || { createdAt: nowISO(), stageHistory: [{ stage: input.stage || 'Lead', at: nowISO() }], contacts: [] }),
     ...input,
@@ -285,7 +286,18 @@ export function upsertLead(input) {
   const write = existing
     ? supabase.from('leads').update(toDbLead(lead)).eq('id', id)
     : supabase.from('leads').insert({ id, ...toDbLead(lead) });
-  write.then(({ error }) => error && reportError('No se pudo guardar el lead', error));
+  write.then(({ error }) => {
+    if (!error) return;
+    if (before) {
+      const current = state.leads.findIndex((l) => l.id === id);
+      if (current >= 0) state.leads[current] = before;
+      else state.leads.unshift(before);
+    } else {
+      state.leads = state.leads.filter((l) => l.id !== id);
+    }
+    persist();
+    reportError('No se pudo guardar el lead', error);
+  });
 
   return lead;
 }
@@ -652,7 +664,7 @@ export function completeTask(leadId, { type, date, result, nextType = '', nextAc
     { leadId, type, date: date || nowISO(), owner: lead.owner || '', detail: result, task: closed?.title || '' },
     { silent: true }
   );
-  const hasNext = Boolean(nextType || nextAction || nextDate);
+  const hasNext = Boolean(nextType || nextAction);
   lead.nextType = hasNext ? nextType : '';
   lead.nextAction = hasNext ? nextAction : '';
   lead.nextDate = hasNext ? nextDate : '';
