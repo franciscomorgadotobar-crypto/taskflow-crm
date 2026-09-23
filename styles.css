@@ -724,6 +724,16 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .quote-total-final { border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 8px; font-size: 15px !important; }
 .quote-total-final strong { font-size: 17px; color: var(--text) !important; }
 
+/* Listas de precios */
+.data-table th.num, .data-table td.num { text-align: right; white-space: nowrap; }
+.data-table tr.row-selected td { background: color-mix(in srgb, var(--panel) 88%, var(--sky)); }
+.price-items-table { min-width: 760px; }
+.price-import-preview { margin-top: 12px; }
+.price-import-table { max-height: 360px; overflow: auto; }
+.price-import-table .data-table { min-width: 720px; }
+.data-table tr.import-row-error td { background: color-mix(in srgb, var(--panel) 90%, var(--danger)); }
+.import-error { color: var(--danger); font-size: 13px; }
+
 @media (max-width: 760px) {
   .auth-card { padding: 22px 18px; }
   .top-action-label { display: none; }

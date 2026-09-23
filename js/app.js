@@ -58,17 +58,21 @@ import {
   buildQuoteEmail,
   clearLocal as quotesClearLocal,
   computeTotals,
+  deletePriceList,
+  deletePriceListItem,
   deleteQuote,
+  getPriceList,
+  getPriceListItem,
   getQuote,
-  getService,
   hydrate as quotesHydrate,
+  importPriceList,
   onChange as onQuotesChange,
+  savePriceListItem,
   saveQuote,
   startRealtime as quotesStartRealtime,
   state as quoteState,
   stopRealtime as quotesStopRealtime,
-  upsertService,
-  deleteService,
+  updatePriceList,
   versionsOf
 } from './quotes.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
@@ -78,6 +82,7 @@ import {
   hydrate as hyperFocusHydrate,
   initUI as initHyperFocusUI,
   onChange as onHyperFocusChange,
+  parseUploadedFile,
   renderHyperFocus,
   startRealtime as hyperFocusStartRealtime,
   stopRealtime as hyperFocusStopRealtime
@@ -103,6 +108,7 @@ import {
   addDaysISO,
   copyText,
   escapeHtml,
+  fmtAmount,
   fmtDate,
   fmtDateTime,
   fmtMoney,
@@ -190,6 +196,7 @@ const ui = {
   templateOpen: '',
   quotesView: 'list',
   quoteFilters: { status: '' },
+  priceListId: '',
   auditFilters: { query: '', entity: '', action: '' },
   quoteBuilder: null
 };
@@ -202,7 +209,7 @@ const VIEWS = {
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
-  quotes: ['Cotizaciones', 'Servicios, valores y cotizaciones para tus clientes.', renderQuotes],
+  quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
   audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
@@ -1171,38 +1178,246 @@ async function submitQuoteSend(e) {
   toast('Correo abierto.');
 }
 
-/* ---------- Servicios (catálogo) ---------- */
+/* ---------- Listas de precios ---------- */
 
-function openService(id = '') {
-  if (!isAdmin()) return toast('Solo un administrador puede modificar el catálogo.', 'error');
-  const s = id ? getService(id) : null;
-  $('serviceDialogTitle').textContent = s ? 'Editar servicio' : 'Nuevo servicio';
-  $('serviceId').value = id;
-  $('serviceName').value = s?.name || '';
-  $('serviceUnit').value = s?.unit || 'unidad';
-  $('serviceNetPrice').value = s?.netPrice ?? 0;
-  $('serviceCategory').value = s?.category || '';
-  $('serviceActive').checked = s ? s.active : true;
-  $('serviceDescription').value = s?.description || '';
-  $('serviceDialog').showModal();
+const ADMIN_ONLY_LISTS = 'Solo un administrador puede modificar las listas de precios.';
+
+const normalizeHeader = (value) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9$ ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// Encabezados aceptados por columna (ya normalizados: sin tildes y en minúscula).
+const PRICE_IMPORT_COLUMNS = {
+  code: ['codigo', 'cod', 'code', 'sku'],
+  name: ['nombre', 'servicio', 'nombre servicio', 'descripcion', 'name', 'item'],
+  price: ['precio', 'valor', 'precio neto', 'price'],
+  periodicity: ['periodicidad', 'periodo', 'frecuencia', 'cobro', 'tipo de cobro'],
+  category: ['categoria', 'category', 'familia', 'grupo'],
+  active: ['activo', 'estado', 'active', 'vigente']
+};
+
+const PRICE_IMPORT_LABEL = {
+  code: 'Código',
+  name: 'Nombre',
+  price: 'Precio',
+  periodicity: 'Periodicidad',
+  category: 'Categoría',
+  active: 'Activo'
+};
+
+const priceImport = { filename: '', headers: [], rows: [], mapping: {}, items: [], errors: [] };
+
+function detectPriceColumns(headers) {
+  const normalized = headers.map(normalizeHeader);
+  const mapping = {};
+  Object.entries(PRICE_IMPORT_COLUMNS).forEach(([field, names]) => {
+    let index = normalized.findIndex((h) => names.includes(h));
+    // "Precio UF", "Precio CLP", "Valor neto": basta con que empiece igual.
+    if (index < 0) index = normalized.findIndex((h) => names.some((n) => h.startsWith(`${n} `)));
+    if (index >= 0 && !Object.values(mapping).includes(index)) mapping[field] = index;
+  });
+  return mapping;
 }
 
-async function submitService(e) {
+function detectPriceCurrency(headers, mapping) {
+  const header = normalizeHeader(headers[mapping.price]);
+  if (/\bclp\b|\$|peso/.test(header)) return 'CLP';
+  if (/\buf\b/.test(header)) return 'UF';
+  return '';
+}
+
+/** Devuelve el precio como texto decimal con punto ("0.70") o null si no es válido. */
+function parseImportPrice(raw, currency) {
+  let s = String(raw ?? '').replace(/uf|clp|\$|\s/gi, '');
+  if (!s) return null;
+  if (s.includes('.') && s.includes(',')) {
+    s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (s.includes(',')) {
+    s = (s.match(/,/g) || []).length > 1 ? s.replace(/,/g, '') : s.replace(',', '.');
+  } else if (currency === 'CLP' && /^\d{1,3}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, '');
+  }
+  return /^\d+(\.\d+)?$/.test(s) ? s : null;
+}
+
+function parseImportPeriodicity(raw) {
+  const v = normalizeHeader(raw);
+  if (['unico', 'unica', 'pago unico', 'una vez', 'one time'].includes(v)) return 'unico';
+  if (['mensual', 'mes', 'monthly', 'recurrente'].includes(v)) return 'mensual';
+  return null;
+}
+
+function parseImportActive(raw) {
+  const v = normalizeHeader(raw);
+  if (!v || ['si', 's', 'yes', 'y', 'true', '1', 'activo', 'x', 'vigente'].includes(v)) return true;
+  if (['no', 'n', 'false', '0', 'inactivo'].includes(v)) return false;
+  return null;
+}
+
+function buildPriceImportItems() {
+  const currency = $('priceImportCurrency').value;
+  const { rows, mapping } = priceImport;
+  const cell = (row, field) => (mapping[field] == null ? '' : String(row[mapping[field]] ?? '').trim());
+  const seen = new Map();
+  priceImport.errors = [];
+  priceImport.items = rows.map((row, i) => {
+    const problems = [];
+    const code = cell(row, 'code');
+    const name = cell(row, 'name');
+    const price = parseImportPrice(cell(row, 'price'), currency);
+    const periodicity = parseImportPeriodicity(cell(row, 'periodicity'));
+    const active = parseImportActive(cell(row, 'active'));
+    if (!code) problems.push('falta el código');
+    else if (seen.has(code)) problems.push(`código repetido (fila ${seen.get(code)})`);
+    else seen.set(code, i + 1);
+    if (!name) problems.push('falta el nombre');
+    if (price == null) problems.push('precio no válido');
+    if (!periodicity) problems.push('periodicidad debe ser Único o Mensual');
+    if (active == null) problems.push('activo debe ser Sí o No');
+    if (problems.length) priceImport.errors.push({ row: i + 1, problems });
+    return { code, name, price, periodicity, category: cell(row, 'category'), active, problems };
+  });
+}
+
+function renderPriceImportPreview() {
+  const root = $('priceImportPreview');
+  const submit = $('priceImportSubmit');
+  submit.disabled = true;
+  if (!priceImport.rows.length) {
+    root.innerHTML = priceImport.filename ? '<p class="muted">El archivo no trae filas con datos.</p>' : '';
+    return;
+  }
+  const missing = ['code', 'name', 'price', 'periodicity'].filter((f) => priceImport.mapping[f] == null);
+  if (missing.length) {
+    root.innerHTML = `<p class="import-error">No encontré las columnas: <strong>${missing.map((f) => PRICE_IMPORT_LABEL[f]).join(', ')}</strong>. Encabezados del archivo: ${priceImport.headers.map((h) => escapeHtml(h)).join(', ')}.</p>`;
+    return;
+  }
+  buildPriceImportItems();
+  const currency = $('priceImportCurrency').value;
+  const items = priceImport.items;
+  const detected = Object.entries(priceImport.mapping)
+    .map(([f, idx]) => `${PRICE_IMPORT_LABEL[f]} ← "${escapeHtml(priceImport.headers[idx])}"`)
+    .join(' · ');
+  const errors = priceImport.errors.length;
+  root.innerHTML = `
+    <p class="muted">Columnas detectadas: ${detected}</p>
+    <p><strong>${items.length} servicio(s)</strong> · ${items.filter((it) => it.active === true).length} activos · ${items.filter((it) => it.periodicity === 'unico').length} de pago único · ${
+      errors ? `<span class="badge danger">${errors} fila(s) con error</span>` : '<span class="badge success">Sin errores</span>'
+    }</p>
+    <div class="table-wrap price-import-table"><table class="data-table">
+      <thead><tr><th>#</th><th>Código</th><th>Nombre</th><th class="num">Precio ${escapeHtml(currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th></tr></thead>
+      <tbody>${items
+        .map(
+          (it, i) => `<tr class="${it.problems.length ? 'import-row-error' : ''}">
+            <td>${i + 1}</td>
+            <td>${escapeHtml(it.code)}</td>
+            <td>${escapeHtml(it.name)}${it.problems.length ? `<div class="import-error">${escapeHtml(it.problems.join('; '))}</div>` : ''}</td>
+            <td class="num">${it.price == null ? '—' : fmtAmount(it.price, currency)}</td>
+            <td>${it.periodicity === 'unico' ? 'Único' : it.periodicity === 'mensual' ? 'Mensual' : '—'}</td>
+            <td>${escapeHtml(it.category || '—')}</td>
+            <td>${it.active == null ? '—' : it.active ? 'Sí' : 'No'}</td>
+          </tr>`
+        )
+        .join('')}</tbody>
+    </table></div>`;
+  submit.disabled = errors > 0 || !$('priceImportName').value.trim();
+}
+
+function openPriceImport() {
+  if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  Object.assign(priceImport, { filename: '', headers: [], rows: [], mapping: {}, items: [], errors: [] });
+  $('priceImportFile').value = '';
+  $('priceImportName').value = '';
+  $('priceImportCurrency').value = 'UF';
+  renderPriceImportPreview();
+  $('priceImportDialog').showModal();
+}
+
+async function handlePriceImportFile() {
+  const file = $('priceImportFile').files?.[0];
+  if (!file) return;
+  $('priceImportPreview').innerHTML = '<p class="muted">Leyendo archivo…</p>';
+  try {
+    const parsed = await parseUploadedFile(file);
+    Object.assign(priceImport, { filename: file.name, headers: parsed.headers, rows: parsed.rows });
+    priceImport.mapping = detectPriceColumns(parsed.headers);
+    const currency = detectPriceCurrency(parsed.headers, priceImport.mapping);
+    if (currency) $('priceImportCurrency').value = currency;
+    if (!$('priceImportName').value.trim()) $('priceImportName').value = file.name.replace(/\.[^.]+$/, '');
+  } catch (err) {
+    Object.assign(priceImport, { filename: file.name, headers: [], rows: [], mapping: {} });
+    $('priceImportPreview').innerHTML = `<p class="import-error">${escapeHtml(err.message || 'No se pudo leer el archivo.')}</p>`;
+    $('priceImportSubmit').disabled = true;
+    return;
+  }
+  renderPriceImportPreview();
+}
+
+async function submitPriceImport(e) {
   e.preventDefault();
-  if (!isAdmin()) return toast('Solo un administrador puede modificar el catálogo.', 'error');
-  const name = $('serviceName').value.trim();
-  if (!name) return toast('El nombre es obligatorio.', 'error');
-  const saved = await upsertService({
-    id: $('serviceId').value || undefined,
+  if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  const name = $('priceImportName').value.trim();
+  if (!name) return toast('Ponle un nombre a la lista.', 'error');
+  buildPriceImportItems();
+  if (!priceImport.items.length || priceImport.errors.length) return toast('Corrige las filas con error antes de importar.', 'error');
+  const id = await importPriceList({
     name,
-    unit: $('serviceUnit').value.trim() || 'unidad',
-    netPrice: Number($('serviceNetPrice').value || 0),
-    category: $('serviceCategory').value.trim(),
-    active: $('serviceActive').checked,
-    description: $('serviceDescription').value.trim()
+    currency: $('priceImportCurrency').value,
+    sourceFile: priceImport.filename,
+    items: priceImport.items.map(({ problems, ...it }) => it)
+  });
+  if (!id) return;
+  $('priceImportDialog').close();
+  ui.quotesView = 'lists';
+  ui.priceListId = id;
+  render();
+  toast(`Lista "${name}" importada con ${priceImport.items.length} servicios.`);
+}
+
+function openPriceItem(listId, itemId = '') {
+  if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  const item = itemId ? getPriceListItem(itemId) : null;
+  const list = getPriceList(item?.priceListId || listId);
+  if (!list) return;
+  $('priceItemDialogTitle').textContent = item ? 'Editar servicio' : 'Nuevo servicio';
+  $('priceItemDialogSubtitle').textContent = `Lista "${list.name}"`;
+  $('priceItemPriceLabel').textContent = `Precio ${list.currency}`;
+  $('priceItemId').value = item?.id || '';
+  $('priceItemListId').value = list.id;
+  $('priceItemCode').value = item?.code || '';
+  $('priceItemName').value = item?.name || '';
+  $('priceItemPrice').value = item ? item.price : '';
+  $('priceItemPeriodicity').value = item?.periodicity || 'mensual';
+  $('priceItemCategory').value = item?.category || '';
+  $('priceItemActive').checked = item ? item.active : true;
+  $('priceItemDialog').showModal();
+}
+
+async function submitPriceItem(e) {
+  e.preventDefault();
+  if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  const code = $('priceItemCode').value.trim();
+  const name = $('priceItemName').value.trim();
+  const price = $('priceItemPrice').value;
+  if (!code || !name) return toast('Código y nombre son obligatorios.', 'error');
+  if (price === '' || Number(price) < 0) return toast('Ingresa un precio válido.', 'error');
+  const saved = await savePriceListItem({
+    id: $('priceItemId').value || undefined,
+    priceListId: $('priceItemListId').value,
+    code,
+    name,
+    price: Number(price),
+    periodicity: $('priceItemPeriodicity').value,
+    category: $('priceItemCategory').value.trim(),
+    active: $('priceItemActive').checked
   });
   if (!saved) return;
-  $('serviceDialog').close();
+  $('priceItemDialog').close();
   toast('Servicio guardado.');
 }
 
@@ -1430,9 +1645,41 @@ const ACTIONS = {
     ui.quotesView = 'list';
     render();
   },
-  'quotes-view-catalog': () => {
-    ui.quotesView = 'catalog';
+  'quotes-view-lists': () => {
+    ui.quotesView = 'lists';
     render();
+  },
+  'view-price-list': (id) => {
+    ui.priceListId = id;
+    render();
+  },
+  'import-price-list': () => openPriceImport(),
+  'toggle-price-list': async (id) => {
+    if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+    const list = getPriceList(id);
+    if (!list) return;
+    const archive = list.status === 'vigente';
+    if (archive && !confirm(`¿Archivar "${list.name}"? No se podrá usar en cotizaciones nuevas; las existentes no cambian.`)) return;
+    if (await updatePriceList(id, { status: archive ? 'archivada' : 'vigente' })) toast(archive ? 'Lista archivada.' : 'Lista reactivada.');
+  },
+  'delete-price-list': async (id) => {
+    if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+    const list = getPriceList(id);
+    if (!list) return;
+    if (!confirm(`¿Eliminar la lista "${list.name}" con todos sus servicios?`)) return;
+    if (await deletePriceList(id)) {
+      if (ui.priceListId === id) ui.priceListId = '';
+      toast('Lista eliminada.');
+    }
+  },
+  'new-price-item': (id) => openPriceItem(id),
+  'edit-price-item': (id) => openPriceItem('', id),
+  'delete-price-item': async (id) => {
+    if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+    const item = getPriceListItem(id);
+    if (!item) return;
+    if (!confirm(`¿Eliminar "${item.code} · ${item.name}" de la lista?`)) return;
+    if (await deletePriceListItem(id)) toast('Servicio eliminado.');
   },
   'new-quote': (id) => openQuoteBuilder(id || ''),
   'edit-quote': (id, btn) => {
@@ -1463,13 +1710,6 @@ const ACTIONS = {
     ui.quoteBuilder.items.splice(i, 1);
     if (!ui.quoteBuilder.items.length) ui.quoteBuilder.items.push(emptyQuoteRow());
     renderQuoteItemsRoot();
-  },
-  'new-service': () => openService(),
-  'edit-service': (id) => openService(id),
-  'delete-service': async (id) => {
-    if (!isAdmin()) return toast('Solo un administrador puede modificar el catálogo.', 'error');
-    if (!confirm('¿Eliminar este servicio del catálogo?')) return;
-    if (await deleteService(id)) toast('Servicio eliminado.');
   }
 };
 
@@ -1563,13 +1803,7 @@ function handleQuoteFieldChange(ev) {
   const item = ui.quoteBuilder.items[row];
   if (!item) return;
   const field = el.dataset.quoteField;
-  if (field === 'serviceId') {
-    const svc = getService(el.value);
-    if (svc) Object.assign(item, { serviceId: svc.id, name: svc.name, unit: svc.unit, unitPrice: svc.netPrice });
-    else item.serviceId = '';
-    renderQuoteItemsRoot();
-    return;
-  }
+  if (field === 'serviceId') return;
   item[field] = field === 'quantity' || field === 'unitPrice' ? Number(el.value || 0) : el.value;
   // Solo repinta el total de la fila y no todo el bloque, para no perder el foco mientras se escribe.
   const totalCell = document.querySelector(`#quoteItemsRoot tr[data-row="${row}"] .quote-row-total`);
@@ -1590,6 +1824,8 @@ const AUDIT_ENTITY_LABEL = {
   activities: 'Actividad',
   discoveries: 'Levantamiento',
   quotes: 'Cotización',
+  price_lists: 'Lista de precios',
+  price_list_items: 'Servicio de lista',
   hyperfocus_campaigns: 'Campaña Híper Foco',
   profiles: 'Usuario'
 };
@@ -2403,7 +2639,13 @@ function bindEvents() {
   $('importInput').addEventListener('change', importJson);
   $('resetBtn').addEventListener('click', resetAll);
 
-  bindSubmitOnce('serviceForm', submitService);
+  bindSubmitOnce('priceImportForm', submitPriceImport);
+  $('priceImportFile').addEventListener('change', handlePriceImportFile);
+  $('priceImportCurrency').addEventListener('change', renderPriceImportPreview);
+  $('priceImportName').addEventListener('input', () => {
+    $('priceImportSubmit').disabled = !priceImport.items.length || priceImport.errors.length > 0 || !$('priceImportName').value.trim();
+  });
+  bindSubmitOnce('priceItemForm', submitPriceItem);
   bindSubmitOnce('quoteForm', submitQuoteBuilder);
   $('quoteItemsRoot').parentElement; // noop, root exists once quoteForm renders
   $('quoteForm').addEventListener('input', handleQuoteFieldChange);

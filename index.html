@@ -432,24 +432,45 @@
 
   <datalist id="serviceUnits"></datalist>
 
-  <!-- Servicio del catálogo -->
-  <dialog id="serviceDialog" class="modal">
-    <form id="serviceForm" class="modal-card narrow" novalidate>
+  <!-- Importar lista de precios -->
+  <dialog id="priceImportDialog" class="modal">
+    <form id="priceImportForm" class="modal-card wide" novalidate>
       <div class="modal-head">
-        <div><h2 id="serviceDialogTitle">Nuevo servicio</h2><p>Nombre, unidad y valor neto.</p></div>
-        <button type="button" class="icon-btn" data-close-dialog="serviceDialog" aria-label="Cerrar">×</button>
+        <div><h2>Importar lista de precios</h2><p>CSV o Excel con las columnas Código, Nombre, Precio, Periodicidad, Categoría y Activo. Cada archivo crea una lista nueva.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="priceImportDialog" aria-label="Cerrar">×</button>
       </div>
-      <input type="hidden" id="serviceId" />
       <div class="form-grid">
-        <label class="span-2">Nombre<input id="serviceName" required /></label>
-        <label>Unidad<input id="serviceUnit" list="serviceUnits" value="unidad" /></label>
-        <label>Precio neto CLP<input id="serviceNetPrice" type="number" min="0" step="100" inputmode="numeric" /></label>
-        <label>Categoría<input id="serviceCategory" placeholder="Opcional" /></label>
-        <label class="inline-check span-2"><input type="checkbox" id="serviceActive" checked /> Activo (disponible en el cotizador)</label>
-        <label class="span-2">Descripción<textarea id="serviceDescription" rows="3" placeholder="Opcional"></textarea></label>
+        <label class="span-2">Archivo<input id="priceImportFile" type="file" accept=".csv,.txt,.xlsx,.xls" /></label>
+        <label>Nombre de la lista<input id="priceImportName" required /></label>
+        <label>Moneda de los precios<select id="priceImportCurrency"><option value="UF">UF</option><option value="CLP">CLP</option></select></label>
+      </div>
+      <div id="priceImportPreview" class="price-import-preview"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="priceImportDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="priceImportSubmit" disabled>Importar lista</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Servicio de una lista de precios -->
+  <dialog id="priceItemDialog" class="modal">
+    <form id="priceItemForm" class="modal-card narrow" novalidate>
+      <div class="modal-head">
+        <div><h2 id="priceItemDialogTitle">Nuevo servicio</h2><p id="priceItemDialogSubtitle"></p></div>
+        <button type="button" class="icon-btn" data-close-dialog="priceItemDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="priceItemId" />
+      <input type="hidden" id="priceItemListId" />
+      <div class="form-grid">
+        <label>Código<input id="priceItemCode" required /></label>
+        <label><span id="priceItemPriceLabel">Precio</span><input id="priceItemPrice" type="number" min="0" step="any" inputmode="decimal" required /></label>
+        <label class="span-2">Nombre<input id="priceItemName" required /></label>
+        <label>Periodicidad<select id="priceItemPeriodicity"><option value="mensual">Mensual</option><option value="unico">Único</option></select></label>
+        <label>Categoría<input id="priceItemCategory" placeholder="Opcional" /></label>
+        <label class="inline-check span-2"><input type="checkbox" id="priceItemActive" checked /> Activo (disponible al cotizar)</label>
       </div>
       <div class="modal-actions">
-        <button type="button" class="ghost-btn" data-close-dialog="serviceDialog">Cancelar</button>
+        <button type="button" class="ghost-btn" data-close-dialog="priceItemDialog">Cancelar</button>
         <button type="submit" class="primary-btn">Guardar servicio</button>
       </div>
     </form>

@@ -9,6 +9,12 @@ export const fmtMoney = (n) =>
 
 export const fmtNumber = (n) => new Intl.NumberFormat('es-CL').format(Number(n || 0));
 
+/** Montos del cotizador: UF con 2 decimales (hasta 4 si el precio los trae) o CLP sin decimales. */
+export const fmtAmount = (n, currency = 'UF') =>
+  currency === 'CLP'
+    ? fmtMoney(n)
+    : new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(Number(n || 0));
+
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 /** Suma días a una fecha ISO (YYYY-MM-DD). */

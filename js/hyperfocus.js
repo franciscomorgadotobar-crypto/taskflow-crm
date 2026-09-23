@@ -728,7 +728,7 @@ function chooseHeaderAndRows(matrix) {
   return { headers, rows, headerIndex };
 }
 
-async function parseUploadedFile(file) {
+export async function parseUploadedFile(file) {
   const ext = file.name.split('.').pop()?.toLowerCase();
   const buffer = await file.arrayBuffer();
 

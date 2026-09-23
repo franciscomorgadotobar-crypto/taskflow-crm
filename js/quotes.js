@@ -10,7 +10,7 @@ import { fmtDate, fmtMoney, fmtNumber, nowISO, toast, uid } from './utils.js';
  * genera una VERSIÓN nueva (no se pisa la anterior): `rootId` agrupa todas las
  * versiones de una misma cotización y `isCurrent` marca la vigente.
  */
-export const state = { services: [], quotes: [] };
+export const state = { priceLists: [], priceListItems: [], quotes: [] };
 
 const listeners = new Set();
 export const onChange = (fn) => (listeners.add(fn), () => listeners.delete(fn));
@@ -18,23 +18,27 @@ const notify = () => listeners.forEach((fn) => fn(state));
 
 /* ---------- Mapeo ---------- */
 
-const fromDbService = (r) => ({
+const fromDbPriceList = (r) => ({
   id: r.id,
   name: r.name,
-  description: r.description || '',
-  unit: r.unit || 'unidad',
-  netPrice: Number(r.net_price || 0),
-  category: r.category || '',
-  active: r.active !== false
+  currency: r.currency || 'UF',
+  status: r.status || 'vigente',
+  sourceFile: r.source_file || '',
+  createdBy: r.created_by || '',
+  createdAt: r.created_at,
+  updatedAt: r.updated_at
 });
 
-const toDbService = (s) => ({
-  name: s.name || '',
-  description: s.description || '',
-  unit: s.unit || 'unidad',
-  net_price: Number(s.netPrice || 0),
-  category: s.category || '',
-  active: s.active !== false
+const fromDbPriceListItem = (r) => ({
+  id: r.id,
+  priceListId: r.price_list_id,
+  code: r.code,
+  name: r.name,
+  price: Number(r.price || 0),
+  periodicity: r.periodicity,
+  category: r.category || '',
+  active: r.active !== false,
+  position: r.position || 0
 });
 
 const fromDbItem = (r) => ({
@@ -86,19 +90,22 @@ function scheduleHydrate() {
 
 export async function hydrate() {
   const generation = ++hydrateGeneration;
-  const [svcR, qR, itR] = await Promise.all([
-    supabase.from('services').select('*').order('name'),
+  const [plR, pliR, qR, itR] = await Promise.all([
+    supabase.from('price_lists').select('*').order('created_at', { ascending: false }),
+    supabase.from('price_list_items').select('*').order('position'),
     supabase.from('quotes').select('*').order('created_at', { ascending: false }),
     supabase.from('quote_items').select('*')
   ]);
-  [svcR, qR, itR].forEach((r) => r.error && console.error(r.error));
+  [plR, pliR, qR, itR].forEach((r) => r.error && console.error(r.error));
   if (generation !== hydrateGeneration) return;
 
   // Una lectura fallida no debe interpretarse como una colección vacía.
   // Conservamos la última copia válida y actualizamos cada bloque solo cuando
-  // Supabase respondió correctamente. Quotes + items se tratan como una unidad.
-  if (!svcR.error) {
-    state.services = (svcR.data || []).map(fromDbService);
+  // Supabase respondió correctamente. Listas + servicios y quotes + items se
+  // tratan como unidades.
+  if (!plR.error && !pliR.error) {
+    state.priceLists = (plR.data || []).map(fromDbPriceList);
+    state.priceListItems = (pliR.data || []).map(fromDbPriceListItem);
   }
 
   if (!qR.error && !itR.error) {
@@ -118,7 +125,8 @@ export function startRealtime() {
   if (channel) return;
   channel = supabase
     .channel('crm-quotes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'price_lists' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'price_list_items' }, scheduleHydrate)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, scheduleHydrate)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, scheduleHydrate)
     .subscribe();
@@ -134,7 +142,8 @@ export function stopRealtime() {
 
 export function clearLocal() {
   hydrateGeneration += 1;
-  state.services = [];
+  state.priceLists = [];
+  state.priceListItems = [];
   state.quotes = [];
   notify();
 }
@@ -144,52 +153,103 @@ function reportError(action, err) {
   toast(`${action}: ${err.message || 'no se pudo guardar en el servidor'}`, 'error');
 }
 
-/* ---------- Servicios (catálogo) ---------- */
+/* ---------- Listas de precios ---------- */
 
-export const getService = (id) => state.services.find((s) => s.id === id) || null;
+// Las listas son de baja frecuencia y solo las modifica un administrador: se
+// escribe primero en el servidor y luego se rehidrata, sin copia optimista.
 
-export async function upsertService(input) {
-  const id = input.id || uid();
-  const existing = getService(id);
-  const before = existing ? structuredClone(existing) : null;
-  const record = { active: true, description: '', category: '', unit: 'unidad', ...existing, ...input, id };
-  const idx = state.services.findIndex((s) => s.id === id);
-  if (idx >= 0) state.services[idx] = record;
-  else state.services.unshift(record);
-  notify();
+export const getPriceList = (id) => state.priceLists.find((l) => l.id === id) || null;
 
-  const write = existing
-    ? supabase.from('services').update(toDbService(record)).eq('id', id).select('id')
-    : supabase.from('services').insert({ id, ...toDbService(record) }).select('id');
-  const { data, error: writeError } = await write;
-  const error = writeError || (!data?.length ? new Error('El servidor no confirmó el servicio.') : null);
-  if (!error) return record;
-  if (before) {
-    const current = state.services.findIndex((s) => s.id === id);
-    if (current >= 0) state.services[current] = before;
-    else state.services.unshift(before);
-  } else {
-    state.services = state.services.filter((s) => s.id !== id);
-  }
-  notify();
-  reportError('No se pudo guardar el servicio', error);
-  return null;
+export const getPriceListItem = (id) => state.priceListItems.find((it) => it.id === id) || null;
+
+export const itemsOfPriceList = (listId) =>
+  state.priceListItems.filter((it) => it.priceListId === listId).sort((a, b) => a.position - b.position || a.code.localeCompare(b.code));
+
+function friendlyListError(err) {
+  if (err?.code === '23505') return new Error('Ya existe un servicio con ese código en la lista.');
+  if (err?.code === '23503') return new Error('La lista está usada en cotizaciones. Archívala en vez de eliminarla.');
+  return err;
 }
 
-export async function deleteService(id) {
-  const index = state.services.findIndex((s) => s.id === id);
-  const before = index >= 0 ? structuredClone(state.services[index]) : null;
-  state.services = state.services.filter((s) => s.id !== id);
-  notify();
-  const { data, error: deleteError } = await supabase.from('services').delete().eq('id', id).select('id');
-  const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación del servicio.') : null);
-  if (!error) return true;
-  if (before && !state.services.some((s) => s.id === id)) {
-    state.services.splice(Math.min(Math.max(index, 0), state.services.length), 0, before);
+/** Crea una lista nueva desde un archivo ya validado. `items` usa code/name/price/periodicity/category/active. */
+export async function importPriceList({ name, currency, items, sourceFile = '' }) {
+  const { data, error } = await supabase.rpc('import_price_list', {
+    p_name: name,
+    p_currency: currency,
+    p_items: items,
+    p_source_file: sourceFile
+  });
+  if (error || !data) {
+    reportError('No se pudo importar la lista', error || new Error('El servidor no confirmó la lista.'));
+    return null;
   }
-  notify();
-  reportError('No se pudo eliminar el servicio', error);
-  return false;
+  await hydrate();
+  return data;
+}
+
+export async function updatePriceList(id, patch) {
+  const row = {};
+  if ('name' in patch) row.name = patch.name;
+  if ('status' in patch) row.status = patch.status;
+  const { data, error: updateError } = await supabase.from('price_lists').update(row).eq('id', id).select('id');
+  const error = updateError || (!data?.length ? new Error('El servidor no confirmó el cambio.') : null);
+  if (error) {
+    reportError('No se pudo actualizar la lista', friendlyListError(error));
+    return false;
+  }
+  await hydrate();
+  return true;
+}
+
+export async function deletePriceList(id) {
+  const { data, error: deleteError } = await supabase.from('price_lists').delete().eq('id', id).select('id');
+  const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación.') : null);
+  if (error) {
+    reportError('No se pudo eliminar la lista', friendlyListError(error));
+    return false;
+  }
+  await hydrate();
+  return true;
+}
+
+export async function savePriceListItem(input) {
+  const row = {
+    code: input.code,
+    name: input.name,
+    price: input.price,
+    periodicity: input.periodicity,
+    category: input.category || '',
+    active: input.active !== false
+  };
+  const write = input.id
+    ? supabase.from('price_list_items').update(row).eq('id', input.id).select('id')
+    : supabase
+        .from('price_list_items')
+        .insert({
+          ...row,
+          price_list_id: input.priceListId,
+          position: Math.max(-1, ...itemsOfPriceList(input.priceListId).map((it) => it.position)) + 1
+        })
+        .select('id');
+  const { data, error: writeError } = await write;
+  const error = writeError || (!data?.length ? new Error('El servidor no confirmó el servicio.') : null);
+  if (error) {
+    reportError('No se pudo guardar el servicio', friendlyListError(error));
+    return false;
+  }
+  await hydrate();
+  return true;
+}
+
+export async function deletePriceListItem(id) {
+  const { data, error: deleteError } = await supabase.from('price_list_items').delete().eq('id', id).select('id');
+  const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación.') : null);
+  if (error) {
+    reportError('No se pudo eliminar el servicio', friendlyListError(error));
+    return false;
+  }
+  await hydrate();
+  return true;
 }
 
 /* ---------- Cotizaciones ---------- */

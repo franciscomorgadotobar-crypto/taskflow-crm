@@ -23,12 +23,13 @@ import {
   state,
   taskOf
 } from './store.js';
-import { quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { itemsOfPriceList, quotesOf, state as quoteState, versionsOf } from './quotes.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import {
   addDaysISO,
   daysBetween,
   escapeHtml as e,
+  fmtAmount,
   fmtDate,
   fmtDateTime,
   fmtMoney,
@@ -895,32 +896,39 @@ export function renderQuotesSection(leadId) {
     : '<p class="muted">Sin cotizaciones para esta empresa.</p>';
 }
 
-function renderQuoteCatalog() {
-  const rows = quoteState.services;
+export const PERIODICITY_LABEL = { unico: 'Único', mensual: 'Mensual' };
+
+function renderPriceListItems(list) {
+  const items = itemsOfPriceList(list.id);
+  const admin = isAdmin();
   return `
-    <div class="card">
+    <div class="card" style="margin-top:16px">
       <div class="card-head">
-        <h3>Catálogo de servicios</h3>
-        ${isAdmin() ? '<button class="primary-btn" data-action="new-service">+ Nuevo servicio</button>' : ''}
+        <div>
+          <h3>${e(list.name)} <span class="badge">${e(list.currency)}</span> ${list.status === 'archivada' ? '<span class="badge warning">Archivada</span>' : ''}</h3>
+          <p class="muted">${items.length} servicio(s) registrado(s).</p>
+        </div>
+        ${admin ? `<button class="primary-btn" data-action="new-price-item" data-id="${list.id}">+ Agregar servicio</button>` : ''}
       </div>
       <div class="card-body">
         ${
-          rows.length
-            ? `<div class="table-wrap"><table class="data-table">
-                <thead><tr><th>Servicio</th><th>Unidad</th><th>Precio neto</th><th>Categoría</th><th>Estado</th>${isAdmin() ? '<th></th>' : ''}</tr></thead>
-                <tbody>${rows
+          items.length
+            ? `<div class="table-wrap"><table class="data-table price-items-table">
+                <thead><tr><th>Código</th><th>Nombre</th><th class="num">Precio ${e(list.currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th>${admin ? '<th>Acciones</th>' : ''}</tr></thead>
+                <tbody>${items
                   .map(
-                    (s) => `<tr>
-                      <td><strong>${e(s.name)}</strong>${s.description ? `<div class="muted">${e(s.description)}</div>` : ''}</td>
-                      <td>${e(s.unit)}</td>
-                      <td>${fmtMoney(s.netPrice)}</td>
-                      <td>${e(s.category || '—')}</td>
-                      <td>${s.active ? '<span class="badge success">Activo</span>' : '<span class="badge">Inactivo</span>'}</td>
+                    (it) => `<tr>
+                      <td><strong>${e(it.code)}</strong></td>
+                      <td>${e(it.name)}</td>
+                      <td class="num">${fmtAmount(it.price, list.currency)}</td>
+                      <td>${e(PERIODICITY_LABEL[it.periodicity] || it.periodicity)}</td>
+                      <td>${e(it.category || '—')}</td>
+                      <td>${it.active ? 'Sí' : '<span class="badge">No</span>'}</td>
                       ${
-                        isAdmin()
+                        admin
                           ? `<td><div class="actions">
-                              <button class="small-btn" data-action="edit-service" data-id="${s.id}">Editar</button>
-                              <button class="small-btn danger" data-action="delete-service" data-id="${s.id}">Eliminar</button>
+                              <button class="small-btn" data-action="edit-price-item" data-id="${it.id}">Editar</button>
+                              <button class="small-btn danger" data-action="delete-price-item" data-id="${it.id}">Eliminar</button>
                             </div></td>`
                           : ''
                       }
@@ -928,10 +936,58 @@ function renderQuoteCatalog() {
                   )
                   .join('')}</tbody>
               </table></div>`
-            : empty('Sin servicios en el catálogo', isAdmin() ? 'Crea el primero con "Nuevo servicio".' : 'Todavía no hay servicios cargados.')
+            : empty('Lista sin servicios', admin ? 'Agrega uno con "Agregar servicio".' : 'Todavía no hay servicios en esta lista.')
         }
       </div>
     </div>`;
+}
+
+function renderPriceLists(ui) {
+  const lists = quoteState.priceLists;
+  const admin = isAdmin();
+  const selected = lists.find((l) => l.id === ui.priceListId) || lists.find((l) => l.status === 'vigente') || lists[0] || null;
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Listas de precios</h3>
+          <p class="muted">Cada archivo importado crea una lista nueva. Al cotizar se elige la lista a usar.</p>
+        </div>
+        ${admin ? '<button class="primary-btn" data-action="import-price-list">Importar lista</button>' : ''}
+      </div>
+      <div class="card-body">
+        ${
+          lists.length
+            ? `<div class="table-wrap"><table class="data-table">
+                <thead><tr><th>Nombre</th><th>Moneda</th><th class="num">Servicios</th><th>Estado</th><th>Cargada</th><th>Acciones</th></tr></thead>
+                <tbody>${lists
+                  .map((l) => {
+                    const items = itemsOfPriceList(l.id);
+                    const active = items.filter((it) => it.active).length;
+                    return `<tr class="${selected?.id === l.id ? 'row-selected' : ''}">
+                      <td><strong>${e(l.name)}</strong>${l.sourceFile ? `<div class="muted">${e(l.sourceFile)}</div>` : ''}</td>
+                      <td>${e(l.currency)}</td>
+                      <td class="num">${active} de ${items.length} activos</td>
+                      <td>${l.status === 'vigente' ? '<span class="badge success">Vigente</span>' : '<span class="badge warning">Archivada</span>'}</td>
+                      <td>${fmtDate(l.createdAt)}</td>
+                      <td><div class="actions">
+                        <button class="small-btn" data-action="view-price-list" data-id="${l.id}">Ver</button>
+                        ${
+                          admin
+                            ? `<button class="small-btn" data-action="toggle-price-list" data-id="${l.id}">${l.status === 'vigente' ? 'Archivar' : 'Reactivar'}</button>
+                               <button class="small-btn danger" data-action="delete-price-list" data-id="${l.id}">Eliminar</button>`
+                            : ''
+                        }
+                      </div></td>
+                    </tr>`;
+                  })
+                  .join('')}</tbody>
+              </table></div>`
+            : empty('Sin listas de precios', admin ? 'Carga la primera con "Importar lista".' : 'Un administrador debe cargar una lista de precios.')
+        }
+      </div>
+    </div>
+    ${selected ? renderPriceListItems(selected) : ''}`;
 }
 
 function renderQuotesList(ui) {
@@ -968,10 +1024,10 @@ export function renderQuotes(ui) {
     <div class="toolbar" style="margin-bottom:16px">
       <div class="button-row">
         <button class="small-btn ${view === 'list' ? 'active-view' : ''}" data-action="quotes-view-list">Cotizaciones</button>
-        <button class="small-btn ${view === 'catalog' ? 'active-view' : ''}" data-action="quotes-view-catalog">Catálogo de servicios</button>
+        <button class="small-btn ${view === 'lists' ? 'active-view' : ''}" data-action="quotes-view-lists">Listas de precios</button>
       </div>
     </div>
-    ${view === 'catalog' ? renderQuoteCatalog() : renderQuotesList(ui)}`;
+    ${view === 'lists' ? renderPriceLists(ui) : renderQuotesList(ui)}`;
 }
 
 /**
@@ -979,7 +1035,7 @@ export function renderQuotes(ui) {
  * (no guardados todavía); se recalculan en cada input desde app.js.
  */
 export function quoteBuilderRows(items) {
-  const services = quoteState.services.filter((s) => s.active);
+  const services = [];
   return items
     .map(
       (it, i) => `<tr data-row="${i}">
