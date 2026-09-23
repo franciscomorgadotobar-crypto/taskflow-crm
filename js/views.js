@@ -1037,49 +1037,165 @@ const detailRow = (label, value) =>
   value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '';
 
 /** Actividad del historial: se expande para ver todo y editarla sin salir de la ficha. */
-function activityItem(a, lead) {
-  const contactName = a.contactId ? findContact(lead, a.contactId)?.name : '';
-  return `<details class="activity-item">
-    <summary>
-      <span class="activity-type">${e(a.type)}</span>
-      <span class="activity-peek">${e(a.task ? `Cerró: ${a.task} — ${a.detail}` : a.detail)}</span>
-      <span class="badge ${a.task ? 'success' : ''}">${e(fmtDateTime(a.date))}</span>
-    </summary>
-    <div class="activity-body">
-      ${detailRow('Fecha', fmtDateTime(a.date))}
-      ${detailRow('Contacto', contactName)}
-      ${detailRow('Responsable', a.owner)}
-      ${detailRow('Tarea cerrada', a.task)}
-      ${detailRow(a.task ? 'Resultado' : 'Detalle', a.detail)}
-      ${
-        editableActivity(a)
-          ? `<div class="actions">
-              <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
-              <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
-            </div>`
-          : '<p class="muted">Una tarea cerrada queda como registro histórico: no se edita ni se elimina.</p>'
-      }
-    </div>
-  </details>`;
+function timelineDateBadge(at) {
+  return `<span class="badge timeline-date">${e(fmtDateTime(at))}</span>`;
 }
 
-/** Un cambio de etapa dentro del historial. */
-const stageItem = (h) => `
-  <div class="history-stage">
-    <span class="history-stage-mark" aria-hidden="true"></span>
-    <span>Pasó a <strong>${e(h.stage)}</strong></span>
-    <span class="badge">${e(fmtDateTime(h.at))}</span>
-  </div>`;
+function activityTimelineItem(a, lead) {
+  const contactName = a.contactId ? findContact(lead, a.contactId)?.name : '';
+  const title = a.task ? `${a.type} · tarea cerrada` : a.type;
+  const summary = a.task ? `Cerró: ${a.task}` : a.detail;
 
-/** Historial unificado: actividades, tareas cerradas y movimientos de etapa en una sola línea de tiempo. */
-function renderHistory(lead, acts) {
+  return `
+    <div class="timeline-entry timeline-activity">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <details class="timeline-card activity-item">
+        <summary>
+          <span class="timeline-kind">Actividad</span>
+          <span class="activity-type">${e(title)}</span>
+          <span class="activity-peek">${e(summary)}</span>
+          ${timelineDateBadge(a.date)}
+        </summary>
+        <div class="activity-body">
+          ${detailRow('Fecha', fmtDateTime(a.date))}
+          ${detailRow('Contacto', contactName)}
+          ${detailRow('Responsable', a.owner)}
+          ${detailRow('Tarea cerrada', a.task)}
+          ${detailRow(a.task ? 'Resultado' : 'Detalle', a.detail)}
+          ${editableActivity(a)
+            ? `<div class="actions">
+                <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+                <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+              </div>`
+            : '<p class="muted">Este movimiento es parte del historial y no se modifica.</p>'}
+        </div>
+      </details>
+    </div>`;
+}
+
+function stageTimelineItem(h) {
+  return `
+    <div class="timeline-entry timeline-stage">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Etapa</span>
+          <strong>Pasó a ${e(h.stage)}</strong>
+        </div>
+        ${timelineDateBadge(h.at)}
+      </div>
+    </div>`;
+}
+
+function quoteTimelineItem(q, kind = 'created') {
+  const sent = kind === 'sent';
+  const status = QUOTE_STATUS_LABEL[q.status] || q.status || 'Sin estado';
+  const title = sent ? `Cotización v${q.version} enviada` : `Cotización v${q.version}`;
+  const detail = sent
+    ? `${fmtMoney(q.total)} · enviada al cliente`
+    : `${fmtMoney(q.total)} · estado actual: ${status}`;
+
+  return `
+    <div class="timeline-entry timeline-quote">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Cotización</span>
+          <strong>${e(title)}</strong>
+          <div class="muted">${e(detail)}</div>
+          <div class="actions timeline-actions">
+            <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver cotización</button>
+          </div>
+        </div>
+        ${timelineDateBadge(sent ? q.sentAt : q.createdAt)}
+      </div>
+    </div>`;
+}
+
+function discoveryTimelineItem(discovery) {
+  return `
+    <div class="timeline-entry timeline-discovery">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Levantamiento</span>
+          <strong>Levantamiento comercial actualizado</strong>
+          ${discovery.pain ? `<div class="muted">${e(discovery.pain)}</div>` : ''}
+        </div>
+        ${timelineDateBadge(discovery.updatedAt)}
+      </div>
+    </div>`;
+}
+
+function createdTimelineItem(lead) {
+  const detail = [
+    lead.source ? `Origen: ${lead.source}` : '',
+    lead.owner ? `Responsable: ${lead.owner}` : ''
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <div class="timeline-entry timeline-created">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">CRM</span>
+          <strong>Oportunidad creada</strong>
+          ${detail ? `<div class="muted">${e(detail)}</div>` : ''}
+        </div>
+        ${timelineDateBadge(lead.createdAt)}
+      </div>
+    </div>`;
+}
+
+function sameTimelineMoment(a, b, toleranceMs = 5000) {
+  const ta = new Date(a).getTime();
+  const tb = new Date(b).getTime();
+  return Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= toleranceMs;
+}
+
+function buildTimelineEntries(lead, acts, discovery, quotes) {
+  const stageHistory = [...(lead.stageHistory || [])];
+  const firstStageIndex = stageHistory.findIndex((h) => sameTimelineMoment(h.at, lead.createdAt));
+  if (firstStageIndex >= 0) stageHistory.splice(firstStageIndex, 1);
+
   const entries = [
-    ...acts.map((a) => ({ at: a.date, html: activityItem(a, lead) })),
-    ...(lead.stageHistory || []).map((h) => ({ at: h.at, html: stageItem(h) }))
-  ].sort((x, y) => String(y.at).localeCompare(String(x.at)));
+    ...acts.map((activity) => ({
+      at: activity.date,
+      type: 'activity',
+      html: activityTimelineItem(activity, lead)
+    })),
+    ...stageHistory.map((history) => ({
+      at: history.at,
+      type: 'stage',
+      html: stageTimelineItem(history)
+    })),
+    ...quotes.flatMap((quote) => {
+      const quoteEntries = [];
+      if (quote.createdAt) {
+        quoteEntries.push({ at: quote.createdAt, type: 'quote', html: quoteTimelineItem(quote, 'created') });
+      }
+      if (quote.sentAt && !sameTimelineMoment(quote.sentAt, quote.createdAt)) {
+        quoteEntries.push({ at: quote.sentAt, type: 'quote', html: quoteTimelineItem(quote, 'sent') });
+      }
+      return quoteEntries;
+    }),
+    ...(discovery?.updatedAt
+      ? [{ at: discovery.updatedAt, type: 'discovery', html: discoveryTimelineItem(discovery) }]
+      : []),
+    ...(lead.createdAt
+      ? [{ at: lead.createdAt, type: 'created', html: createdTimelineItem(lead) }]
+      : [])
+  ];
 
+  return entries
+    .filter((entry) => entry.at)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+
+function renderHistory(lead, acts, discovery = {}, quotes = []) {
+  const entries = buildTimelineEntries(lead, acts, discovery, quotes);
   return entries.length
-    ? `<div class="activity-list">${entries.map((x) => x.html).join('')}</div>`
+    ? `<div class="timeline-360">${entries.map((entry) => entry.html).join('')}</div>`
     : '<p class="muted">Sin movimientos registrados.</p>';
 }
 
@@ -1088,6 +1204,8 @@ export function renderLeadDetail(id) {
   if (!l) return empty('Oportunidad no encontrada', 'Puede haber sido eliminada.');
   const d = getDiscovery(id) || {};
   const acts = activitiesOf(id);
+  const leadQuotes = quotesOf(id);
+  const timelineEntries = buildTimelineEntries(l, acts, d, leadQuotes);
   const contacts = contactsOf(l);
   const sendable = contacts.filter((c) => c.email || c.phone);
   const today = todayISO();
@@ -1209,14 +1327,17 @@ export function renderLeadDetail(id) {
         'Cotizaciones',
         `${renderQuotesSection(l.id)}
         <button class="small-btn" data-action="new-quote" data-id="${l.id}">+ Nueva cotización</button>`,
-        { count: quotesOf(l.id).filter((q) => q.isCurrent).length }
+        { count: leadQuotes.filter((q) => q.isCurrent).length }
       )}
 
       ${section(
-        'Historial',
-        `${renderHistory(l, acts)}
-        <button class="small-btn" data-action="new-activity" data-id="${l.id}">Registrar actividad</button>`,
-        { count: acts.length + (l.stageHistory || []).length }
+        'Timeline 360',
+        `<div class="timeline-toolbar">
+           <div class="muted">Historia comercial completa de esta empresa, ordenada desde lo más reciente.</div>
+           <button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Registrar actividad</button>
+         </div>
+         ${renderHistory(l, acts, d, leadQuotes)}`,
+        { open: true, count: timelineEntries.length }
       )}
 
       ${section(
