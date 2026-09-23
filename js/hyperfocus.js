@@ -2660,6 +2660,32 @@ function dialogsMarkup() {
     </form>
   </dialog>
 
+  <dialog id="hfCrmCampaignDialog" class="modal hf-crm-campaign-dialog" data-keep-open="true">
+    <form id="hfCrmCampaignForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div><h2>Crear campaña desde el CRM</h2><p>Segmenta oportunidades existentes y llévalas a Híper Foco sin duplicarlas.</p></div>
+        <button type="button" class="icon-btn" data-close-hf="hfCrmCampaignDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="hf-crm-campaign-body">
+        <div class="hf-import-intro hf-crm-campaign-fields">
+          <label>Nombre de la campaña<input id="hfCrmCampaignName" placeholder="Ej. Reactivación septiembre" /></label>
+          <label>Tipo<select id="hfCrmCampaignType">${HF_TYPES.map((x) => `<option value="${e(x.id)}">${e(x.label)}</option>`).join('')}</select></label>
+          <label>Etapa<select id="hfCrmStage"></select></label>
+          <label>Responsable<select id="hfCrmOwner"></select></label>
+          <label>Rubro<select id="hfCrmIndustry"></select></label>
+          <label>Origen<select id="hfCrmSource"></select></label>
+          <label class="inline-check span-2"><input id="hfCrmWithChannel" type="checkbox" checked /> Solo incluir oportunidades con teléfono o correo</label>
+        </div>
+        <div class="hf-import-section-head"><div><h3>Vista previa del segmento</h3><p>Híper Foco quedará enlazado al mismo registro del CRM.</p></div></div>
+        <div id="hfCrmCampaignPreview" class="hf-crm-campaign-preview"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-hf="hfCrmCampaignDialog">Cancelar</button>
+        <button id="hfCreateCrmCampaignBtn" type="submit" class="primary-btn">Crear campaña</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="hfDiscardedDialog" class="modal hf-discarded-dialog">
     <div class="modal-card">
       <div class="modal-head">
@@ -2731,4 +2757,16 @@ export function initUI() {
     }
   });
   bindImportControls();
+
+  byId('hfCrmCampaignForm')?.addEventListener('submit', createCampaignFromCrm);
+  ['hfCrmStage', 'hfCrmOwner', 'hfCrmIndustry', 'hfCrmSource', 'hfCrmWithChannel'].forEach((id) => {
+    byId(id)?.addEventListener('change', () => {
+      if (id === 'hfCrmStage') {
+        const stage = byId('hfCrmStage')?.value || '';
+        if (stage === 'Remarketing') byId('hfCrmCampaignType').value = 'remarketing';
+        else if (stage === 'Perdido') byId('hfCrmCampaignType').value = 'reactivation';
+      }
+      renderCrmCampaignPreview();
+    });
+  });
 }
