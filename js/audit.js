@@ -92,10 +92,42 @@ function entityName(row) {
 }
 
 function changedSummary(row) {
-  if (row.action !== 'update') return '';
+  if (row.action !== 'update') return row.action === 'insert' ? 'Registro creado' : 'Registro eliminado';
   const fields = row.changed_fields || [];
   if (!fields.length) return 'Sin campos visibles';
   return fields.slice(0, 6).join(', ') + (fields.length > 6 ? ` +${fields.length - 6}` : '');
+}
+
+function auditValue(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'object') {
+    const text = JSON.stringify(value);
+    return text.length > 180 ? text.slice(0, 177) + '…' : text;
+  }
+  const text = String(value);
+  return text.length > 180 ? text.slice(0, 177) + '…' : text;
+}
+
+function changeDetails(row) {
+  if (row.action !== 'update' || !(row.changed_fields || []).length) {
+    return `<span class="muted">${e(changedSummary(row))}</span>`;
+  }
+
+  const before = row.before_data || {};
+  const after = row.after_data || {};
+  return `
+    <details class="audit-diff">
+      <summary>${e(changedSummary(row))}</summary>
+      <div class="audit-diff-list">
+        ${row.changed_fields.map((field) => `
+          <div>
+            <strong>${e(field)}</strong>
+            <span class="audit-before">${e(auditValue(before[field]))}</span>
+            <span aria-hidden="true">→</span>
+            <span class="audit-after">${e(auditValue(after[field]))}</span>
+          </div>`).join('')}
+      </div>
+    </details>`;
 }
 
 function filteredEntries() {
@@ -161,7 +193,7 @@ export function renderAudit() {
                     <td><span class="badge ${row.action === 'delete' ? 'danger' : row.action === 'insert' ? 'success' : ''}">${e(ACTION_LABEL[row.action] || row.action)}</span></td>
                     <td>${e(ENTITY_LABEL[row.entity_type] || row.entity_type)}</td>
                     <td>${e(entityName(row) || row.entity_id || '—')}</td>
-                    <td><span class="muted">${e(changedSummary(row) || '—')}</span></td>
+                    <td>${changeDetails(row)}</td>
                   </tr>`).join('')}
                 </tbody>
               </table></div>`
