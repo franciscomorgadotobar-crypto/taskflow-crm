@@ -218,6 +218,75 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .list-item:last-child { border: 0; }
 .list-side { text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
 
+/* ---------- Timeline 360 ---------- */
+
+.timeline-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.timeline-360 {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 26px;
+}
+.timeline-360::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-entry {
+  position: relative;
+}
+.timeline-dot {
+  position: absolute;
+  left: -23px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 2px var(--border);
+}
+.timeline-stage .timeline-dot { background: var(--navy); }
+.timeline-quote .timeline-dot { background: #d59b2d; }
+.timeline-discovery .timeline-dot { background: #6d78a8; }
+.timeline-created .timeline-dot { background: #5d8a63; }
+
+.timeline-card {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--bg));
+}
+.timeline-simple {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 13px 14px;
+}
+.timeline-simple > div:first-child { min-width: 0; }
+.timeline-kind {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.timeline-date { flex: none; white-space: nowrap; }
+.timeline-actions { margin-top: 8px; }
+.timeline-card.activity-item { border-bottom: 1px solid var(--border); }
+.timeline-card.activity-item summary { padding: 13px 14px; }
+
+
 .empty { padding: 34px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--text); margin-bottom: 6px; }
 .empty p { margin: 0; font-size: 14px; }
@@ -585,6 +654,9 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 
 @media (max-width: 760px) {
   .auth-card { padding: 22px 18px; }
+  .timeline-360 { padding-left: 22px; }
+  .timeline-simple { flex-direction: column; }
+  .timeline-date { align-self: flex-start; }
   .quote-totals { max-width: 100%; margin-left: 0; }
 }
 
