@@ -11,12 +11,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="TaskFlow CRM" />
   <title>TaskFlow CRM</title>
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-23df" />
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-23dg" />
   <link rel="icon" type="image/png" href="assets/isotipo-taskflow-trim.png" />
   <link rel="apple-touch-icon" href="assets/isotipo-taskflow.png" />
-  <link rel="stylesheet" href="styles.css?v=2026-09-23df" />
-  <link rel="stylesheet" href="ux-v2.css?v=2026-09-23df" />
-  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-23df" />
+  <link rel="stylesheet" href="styles.css?v=2026-09-23dg" />
+  <link rel="stylesheet" href="ux-v2.css?v=2026-09-23dg" />
+  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-23dg" />
 </head>
 <body>
   <!-- Acceso -->
@@ -53,6 +53,7 @@
         <button class="nav-item" data-view="implementation">Implementación</button>
         <button class="nav-item" data-view="templates">Plantillas</button>
         <button class="nav-item" data-view="quotes">Cotizaciones</button>
+        <button class="nav-item" id="auditNav" data-view="audit" hidden>Auditoría</button>
         <button class="nav-item" data-view="settings">Configuración</button>
       </nav>
 
@@ -73,7 +74,15 @@
           <h1 id="viewTitle">Resumen</h1>
           <p id="viewSubtitle">Gestión comercial y seguimiento de oportunidades TaskFlow.</p>
         </div>
-        <div class="top-actions"></div>
+        <div class="top-actions">
+          <button id="globalSearchBtn" type="button" class="top-action-btn" title="Buscar en TaskFlow">
+            <span aria-hidden="true">⌕</span><span class="top-action-label">Buscar</span>
+          </button>
+          <button id="notificationBtn" type="button" class="top-action-btn notification-btn" title="Notificaciones">
+            <span aria-hidden="true">◉</span><span class="top-action-label">Alertas</span>
+            <span id="notificationBadge" class="notification-badge" hidden>0</span>
+          </button>
+        </div>
       </header>
 
       <section id="viewRoot"></section>
@@ -81,6 +90,40 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Buscador global -->
+  <dialog id="globalSearchDialog" class="modal global-search-dialog">
+    <div class="modal-card global-search-card">
+      <div class="modal-head">
+        <div>
+          <h2>Buscar en TaskFlow</h2>
+          <p>Empresas, RUT, contactos, actividades, cotizaciones e Híper Foco.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="globalSearchDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="global-search-box">
+        <input id="globalSearchInput" autocomplete="off" placeholder="Empresa, RUT, teléfono, correo, contacto…" />
+        <span class="muted">Ctrl/⌘ + K</span>
+      </div>
+      <div id="globalSearchResults" class="global-search-results">
+        <div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Notificaciones -->
+  <dialog id="notificationDialog" class="modal notification-dialog">
+    <div class="modal-card notification-card">
+      <div class="modal-head">
+        <div>
+          <h2>Notificaciones</h2>
+          <p>Seguimientos comerciales que requieren atención.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="notificationDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="notificationBody" class="notification-body"></div>
+    </div>
+  </dialog>
 
   <!-- Lead -->
   <dialog id="leadDialog" class="modal">
@@ -503,28 +546,28 @@
     Versión de publicación. GitHub Pages manda "guardar por 10 minutos", así que sin
     esto un arreglo recién publicado no se ve hasta que pase ese rato o el usuario
     recargue a la fuerza. Al subir cambios hay que cambiar este número en TODAS las
-    líneas de abajo (buscar y reemplazar v=2026-09-23df), incluidas las hojas de estilo
+    líneas de abajo (buscar y reemplazar v=2026-09-23dg), incluidas las hojas de estilo
     de arriba: si un módulo quedara sin versión, el navegador cargaría dos copias del
     mismo archivo y el CRM tendría dos estados en paralelo.
   -->
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=2026-09-23df",
-      "./js/auth.js": "./js/auth.js?v=2026-09-23df",
-      "./js/catalog.js": "./js/catalog.js?v=2026-09-23df",
-      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-23df",
-      "./js/quotes.js": "./js/quotes.js?v=2026-09-23df",
-      "./js/store.js": "./js/store.js?v=2026-09-23df",
-      "./js/supabase.js": "./js/supabase.js?v=2026-09-23df",
-      "./js/utils.js": "./js/utils.js?v=2026-09-23df",
-      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-23df",
-      "./js/views.js": "./js/views.js?v=2026-09-23df"
+      "./js/app.js": "./js/app.js?v=2026-09-23dg",
+      "./js/auth.js": "./js/auth.js?v=2026-09-23dg",
+      "./js/catalog.js": "./js/catalog.js?v=2026-09-23dg",
+      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-23dg",
+      "./js/quotes.js": "./js/quotes.js?v=2026-09-23dg",
+      "./js/store.js": "./js/store.js?v=2026-09-23dg",
+      "./js/supabase.js": "./js/supabase.js?v=2026-09-23dg",
+      "./js/utils.js": "./js/utils.js?v=2026-09-23dg",
+      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-23dg",
+      "./js/views.js": "./js/views.js?v=2026-09-23dg"
     }
   }
   </script>
-  <script src="config.js?v=2026-09-23df"></script>
-  <script type="module" src="js/app.js?v=2026-09-23df"></script>
-  <script type="module" src="js/ux-v2.js?v=2026-09-23df"></script>
+  <script src="config.js?v=2026-09-23dg"></script>
+  <script type="module" src="js/app.js?v=2026-09-23dg"></script>
+  <script type="module" src="js/ux-v2.js?v=2026-09-23dg"></script>
 </body>
 </html>
