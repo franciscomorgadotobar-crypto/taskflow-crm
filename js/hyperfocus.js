@@ -322,8 +322,8 @@ export function renderHyperFocus() {
       campaigns.length
         ? `<div class="hf-campaign-grid">${campaigns.map(renderCampaignCard).join('')}</div>`
         : `<div class="card"><div class="card-body">
-            <div class="empty"><strong>Sin campañas todavía</strong><p>Sube una base CSV o Excel. Híper Foco la mantiene separada del CRM hasta que una empresa califique.</p>
-            ${writable ? '<button class="primary-btn" data-hf-action="new-campaign">Crear primera campaña</button>' : ''}</div>
+            <div class="empty"><strong>Sin campañas todavía</strong><p>Puedes importar una base externa o crear una campaña directamente con oportunidades que ya existen en el CRM.</p>
+            ${writable ? '<div class="button-row" style="justify-content:center"><button class="ghost-btn" data-hf-action="new-crm-campaign">Crear desde CRM</button><button class="primary-btn" data-hf-action="new-campaign">Importar una base</button></div>' : ''}</div>
           </div></div>`
     }
 
