@@ -73,7 +73,11 @@
           <h1 id="viewTitle">Resumen</h1>
           <p id="viewSubtitle">Gestión comercial y seguimiento de oportunidades TaskFlow.</p>
         </div>
-        <div class="top-actions"></div>
+        <div class="top-actions">
+          <button id="globalSearchBtn" type="button" class="top-action-btn" title="Buscar en TaskFlow">
+            <span aria-hidden="true">⌕</span><span class="top-action-label">Buscar</span>
+          </button>
+        </div>
       </header>
 
       <section id="viewRoot"></section>
@@ -81,6 +85,26 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Buscador global -->
+  <dialog id="globalSearchDialog" class="modal global-search-dialog">
+    <div class="modal-card global-search-card">
+      <div class="modal-head">
+        <div>
+          <h2>Buscar en TaskFlow</h2>
+          <p>Empresas, RUT, contactos, actividades, cotizaciones e Híper Foco.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="globalSearchDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="global-search-box">
+        <input id="globalSearchInput" autocomplete="off" placeholder="Empresa, RUT, teléfono, correo, contacto…" />
+        <span class="muted">Ctrl/⌘ + K</span>
+      </div>
+      <div id="globalSearchResults" class="global-search-results">
+        <div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>
+      </div>
+    </div>
+  </dialog>
 
   <!-- Lead -->
   <dialog id="leadDialog" class="modal">
