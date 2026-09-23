@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master]
+    branches: [master, feature-duplicate-merge]
   workflow_dispatch:
 
 permissions:
