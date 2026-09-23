@@ -115,6 +115,19 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 
 .button-row { display: flex; gap: 10px; flex-wrap: wrap; }
 
+.activity-date-presets { margin-top: 8px; }
+#activityFollowupControls { border-top: 1px solid var(--border); padding-top: 14px; }
+#activityFollowupControls > label { display: flex; flex-direction: column; gap: 6px; }
+#activityNextFields {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+#activityNextFields[hidden] { display: none; }
+#activityNextFields .task-type-row,
+#activityNextFields .span-2 { grid-column: 1 / -1; }
+
 .commercial-center-tabs { margin-bottom: 14px; }
 .commercial-center-tabs .small-btn { white-space: nowrap; }
 .commercial-center-content { min-height: 96px; }
