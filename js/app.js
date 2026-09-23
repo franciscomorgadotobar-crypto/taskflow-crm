@@ -42,7 +42,7 @@ import {
   onChange,
   ownerNames,
   replaceState,
-  resolveTaskWithActivityAtomic,
+  recordActivityWithFollowupAtomic,
   saveDiscovery,
   saveProfile,
   saveTemplate,
@@ -383,20 +383,93 @@ async function submitDiscovery(e) {
 
 /* ---------- Diálogo: actividad ---------- */
 
+function markActivityDatePreset(value) {
+  $$('[data-action="activity-date-preset"]').forEach((btn) => {
+    btn.classList.toggle('active-view', btn.dataset.value === value);
+  });
+}
+
+function setActivityDatePreset(value) {
+  const input = $('activityDate');
+  if (!input) return;
+
+  if (value === 'now') {
+    input.value = localDateTimeInput();
+  } else if (value === 'yesterday') {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    input.value = localDateTimeInput(date);
+  } else {
+    markActivityDatePreset('custom');
+    input.focus();
+    if (typeof input.showPicker === 'function') {
+      try { input.showPicker(); } catch {}
+    }
+    return;
+  }
+
+  markActivityDatePreset(value);
+}
+
+function syncActivityFollowupFields() {
+  const mode = $('activityFollowupMode')?.value || 'preserve';
+  const next = $('activityNextFields');
+  if (next) next.hidden = mode !== 'replace';
+
+  const lead = getLead($('activityLeadId')?.value);
+  const task = taskOf(lead);
+  const hint = $('activityFollowupHint');
+  if (!hint) return;
+
+  if (mode === 'resolve') {
+    hint.textContent = task
+      ? `Se cerrará la tarea pendiente: ${task.title}${task.date ? ` · ${fmtDate(task.date)}` : ''}.`
+      : 'No hay una tarea pendiente que cerrar.';
+  } else if (mode === 'replace') {
+    hint.textContent = task
+      ? `Esta actividad cerrará “${task.title}” y dejará el nuevo seguimiento indicado abajo.`
+      : 'La actividad quedará registrada y se creará el próximo seguimiento.';
+  } else {
+    hint.textContent = task
+      ? `La tarea pendiente se conservará sin cambios: ${task.title}${task.date ? ` · ${fmtDate(task.date)}` : ''}.`
+      : 'La actividad se agregará al historial sin crear una tarea nueva.';
+  }
+}
+
+function syncActivityFollowup(leadId, editing = false) {
+  const controls = $('activityFollowupControls');
+  if (!controls) return;
+  controls.hidden = editing;
+  if (editing) return;
+
+  const task = taskOf(getLead(leadId));
+  $('activityFollowupMode').innerHTML = [
+    '<option value="preserve">Solo registrar la actividad</option>',
+    task ? '<option value="resolve">Registrar y cerrar la tarea pendiente</option>' : '',
+    '<option value="replace">Registrar y dejar una próxima tarea</option>'
+  ].join('');
+  $('activityFollowupMode').value = 'preserve';
+  $('activityNextAction').value = '';
+  $('activityNextDate').value = '';
+  setTaskType('activity', '');
+  syncActivityFollowupFields();
+}
+
 function openActivity(leadId = '') {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   if (leadId && !canEditLeadLocally(leadId)) return toast('Solo puedes registrar actividad en oportunidades asignadas a ti.', 'error');
   if (!state.leads.length) return toast('Primero registra una empresa.', 'error');
+
   $('activityId').value = '';
-  $('activityDialogTitle').textContent = 'Nueva actividad';
+  $('activityDialogTitle').textContent = 'Registrar actividad';
   $('activitySubmitBtn').textContent = 'Guardar actividad';
   $('activityLeadId').innerHTML = leadOptions(leadId);
   fillActivityContacts(leadId);
   $('activityType').value = ACTIVITY_TYPES[0];
-  $('activityDate').value = localDateTimeInput();
-  $('activityOwner').value = getLead(leadId)?.owner || '';
+  $('activityOwner').value = getLead(leadId)?.owner || session.profile?.name || '';
   $('activityDetail').value = '';
-  syncActivityTaskResolution(leadId, false);
+  setActivityDatePreset('now');
+  syncActivityFollowup(leadId, false);
   $('activityDialog').showModal();
 }
 
@@ -405,6 +478,7 @@ function editActivity(id) {
   const act = getActivity(id);
   if (!act) return;
   if (act.leadId && !canEditLeadLocally(act.leadId)) return toast('Solo puedes editar actividad de oportunidades asignadas a ti.', 'error');
+
   $('activityId').value = id;
   $('activityDialogTitle').textContent = 'Editar actividad';
   $('activitySubmitBtn').textContent = 'Guardar cambios';
@@ -412,67 +486,92 @@ function editActivity(id) {
   fillActivityContacts(act.leadId);
   $('activityContactId').value = act.contactId || '';
   $('activityType').value = act.type || ACTIVITY_TYPES[0];
-  $('activityDate').value = act.date || localDateTimeInput();
+  $('activityDate').value = act.date ? localDateTimeInput(new Date(act.date)) : localDateTimeInput();
   $('activityOwner').value = act.owner || '';
   $('activityDetail').value = act.detail || '';
-  syncActivityTaskResolution(act.leadId, true);
+  markActivityDatePreset('custom');
+  syncActivityFollowup(act.leadId, true);
   $('activityDialog').showModal();
-}
-
-function syncActivityTaskResolution(leadId, editing = false) {
-  const task = taskOf(getLead(leadId));
-  $('activityResolveTask').checked = false;
-  $('activityResolveTaskField').hidden = editing || !task;
-  $('activityResolveTaskHint').textContent = editing
-    ? 'Editar esta actividad no modifica la tarea pendiente.'
-    : task
-      ? `Tarea pendiente: ${task.title}${task.date ? ` · ${fmtDate(task.date)}` : ''}. Puedes marcarla como resuelta si esta interacción la reemplazó.`
-      : 'Esta actividad queda registrada en el historial. La empresa no tiene una tarea pendiente que resolver.';
 }
 
 function fillActivityContacts(leadId) {
   const contacts = contactsOf(getLead(leadId));
   $('activityContactId').innerHTML =
-    `<option value="">Sin especificar</option>` +
+    '<option value="">Sin especificar</option>' +
     contacts
-      .map((c) => `<option value="${c.key}">${escapeHtml(c.name || 'Sin nombre')}${c.role ? ' · ' + escapeHtml(c.role) : ''}</option>`)
+      .map((contact) => `<option value="${contact.key}">${escapeHtml(contact.name || 'Sin nombre')}${contact.role ? ' · ' + escapeHtml(contact.role) : ''}</option>`)
       .join('');
 }
 
 async function submitActivity(e) {
   e.preventDefault();
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+
   const id = $('activityId').value;
   const leadId = $('activityLeadId').value;
-  if (!canEditLeadLocally(leadId)) return toast('Solo puedes registrar actividad en oportunidades asignadas a ti.', 'error');
-  const detail = $('activityDetail').value.trim();
   if (!leadId) return toast('Selecciona una empresa.', 'error');
+  if (!canEditLeadLocally(leadId)) return toast('Solo puedes registrar actividad en oportunidades asignadas a ti.', 'error');
+
+  const detail = $('activityDetail').value.trim();
   if (!detail) return toast('Escribe el detalle de la actividad.', 'error');
+
+  const dateValue = $('activityDate').value;
+  if (!dateValue) return toast('Indica cuándo ocurrió la actividad.', 'error');
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return toast('La fecha de la actividad no es válida.', 'error');
+  if (!id && date.getTime() > Date.now() + 5 * 60 * 1000) {
+    return toast('Una actividad realizada no puede quedar registrada en el futuro. Usa una tarea para programar lo que viene.', 'error');
+  }
 
   const payload = {
     leadId,
     contactId: $('activityContactId').value,
     type: $('activityType').value,
-    date: $('activityDate').value,
+    date: date.toISOString(),
     owner: $('activityOwner').value.trim(),
     detail
   };
 
   if (id) {
     if (!(await updateActivity(id, payload))) return;
-  } else {
-    const resolvesTask = $('activityResolveTask').checked;
-    const pendingTask = resolvesTask ? taskOf(getLead(leadId)) : null;
-    if (pendingTask) {
-      payload.task = pendingTask.title;
-      if (!(await resolveTaskWithActivityAtomic(payload))) return;
-    } else if (!(await addActivityConfirmed(payload))) {
-      return;
-    }
+    $('activityDialog').close();
+    toast('Actividad actualizada.');
+    return;
   }
 
+  const mode = $('activityFollowupMode').value || 'preserve';
+  const pendingTask = taskOf(getLead(leadId));
+  const setFollowup = mode === 'replace';
+  const resolveCurrentTask = mode === 'resolve' || (setFollowup && Boolean(pendingTask));
+  const nextType = setFollowup ? taskTypeValue('activity') : '';
+  const nextAction = setFollowup ? $('activityNextAction').value.trim() : '';
+  const nextDate = setFollowup ? $('activityNextDate').value : '';
+
+  if (setFollowup && !nextType && !nextAction) {
+    return toast('Elige el tipo de la próxima tarea o escribe su objetivo.', 'error');
+  }
+  if (setFollowup && !nextDate) {
+    return toast('Elige la fecha de la próxima tarea.', 'error');
+  }
+
+  const saved = await recordActivityWithFollowupAtomic(payload, {
+    resolveCurrentTask,
+    setFollowup,
+    nextType,
+    nextAction,
+    nextDate
+  });
+  if (!saved) return;
+
   $('activityDialog').close();
-  toast(id ? 'Actividad actualizada.' : 'Actividad registrada.');
+  toast(
+    setFollowup
+      ? 'Actividad registrada y próximo seguimiento agendado.'
+      : resolveCurrentTask
+        ? 'Actividad registrada y tarea pendiente cerrada.'
+        : 'Actividad registrada.'
+  );
 }
 
 /* ---------- Diálogo: contacto ---------- */
@@ -1161,6 +1260,7 @@ const ACTIONS = {
   'open-detail': (id) => openDetail(id),
   'open-discovery': (id) => openDiscovery(id),
   'new-activity': (id) => openActivity(id),
+  'activity-date-preset': (id, btn) => setActivityDatePreset(btn.dataset.value),
   'edit-activity': (id) => {
     const act = getActivity(id);
     if (act?.task || act?.system) return toast('Los movimientos del historial no se pueden editar.', 'error');
@@ -1697,8 +1797,11 @@ function bindEvents() {
   bindSubmitOnce('activityForm', submitActivity);
   $('activityLeadId').addEventListener('change', (ev) => {
     fillActivityContacts(ev.target.value);
-    syncActivityTaskResolution(ev.target.value, Boolean($('activityId').value));
+    $('activityOwner').value = getLead(ev.target.value)?.owner || session.profile?.name || '';
+    syncActivityFollowup(ev.target.value, Boolean($('activityId').value));
   });
+  $('activityFollowupMode').addEventListener('change', syncActivityFollowupFields);
+  $('activityDate').addEventListener('input', () => markActivityDatePreset('custom'));
   bindSubmitOnce('contactForm', submitContact);
   bindSubmitOnce('commForm', submitComm);
   $('commTemplate').addEventListener('change', fillCommFields);
