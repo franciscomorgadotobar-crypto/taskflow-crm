@@ -11,12 +11,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="TaskFlow CRM" />
   <title>TaskFlow CRM</title>
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-23dh" />
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-23di" />
   <link rel="icon" type="image/png" href="assets/isotipo-taskflow-trim.png" />
   <link rel="apple-touch-icon" href="assets/isotipo-taskflow.png" />
-  <link rel="stylesheet" href="styles.css?v=2026-09-23dh" />
-  <link rel="stylesheet" href="ux-v2.css?v=2026-09-23dh" />
-  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-23dh" />
+  <link rel="stylesheet" href="styles.css?v=2026-09-23di" />
+  <link rel="stylesheet" href="ux-v2.css?v=2026-09-23di" />
+  <link rel="stylesheet" href="hyperfocus.css?v=2026-09-23di" />
 </head>
 <body>
   <!-- Acceso -->
@@ -430,8 +430,6 @@
     </form>
   </dialog>
 
-  <datalist id="serviceUnits"></datalist>
-
   <!-- Importar lista de precios -->
   <dialog id="priceImportDialog" class="modal">
     <form id="priceImportForm" class="modal-card wide" novalidate>
@@ -477,24 +475,74 @@
   </dialog>
 
   <!-- Constructor de cotización -->
-  <dialog id="quoteDialog" class="modal">
+  <dialog id="quoteDialog" class="modal quote-modal">
     <form id="quoteForm" class="modal-card wide" novalidate>
       <div class="modal-head">
         <div><h2 id="quoteDialogTitle">Nueva cotización</h2><p id="quoteDialogSubtitle"></p></div>
+        <span id="quoteNumberBadge" class="badge"></span>
         <button type="button" class="icon-btn" data-close-dialog="quoteDialog" aria-label="Cerrar">×</button>
       </div>
       <input type="hidden" id="quoteBaseId" />
-      <div class="form-grid">
-        <label class="span-2">Empresa<select id="quoteLeadId" required></select></label>
-        <label>Válida hasta<input id="quoteValidUntil" type="date" /></label>
-        <label>Estado<select id="quoteStatusField"></select></label>
-      </div>
-      <div id="quoteItemsRoot"></div>
-      <div class="form-grid" style="margin-top:10px">
-        <label class="span-2">Notas (van en el correo)<textarea id="quoteNotes" rows="3" placeholder="Condiciones, plazos, forma de pago..."></textarea></label>
+      <div class="quote-builder-body">
+        <section class="quote-section">
+          <h4>Datos del cliente</h4>
+          <div class="form-grid">
+            <label class="span-2">Empresa<select id="quoteLeadId" required></select></label>
+            <label>RUT<input id="quoteClientRut" readonly /></label>
+            <label>Vendedor<input id="quoteOwner" readonly /></label>
+          </div>
+        </section>
+        <section class="quote-section">
+          <h4>Contacto</h4>
+          <div class="form-grid">
+            <label>Nombre del contacto *<input id="quoteContactName" /></label>
+            <label>Cargo<input id="quoteContactRole" /></label>
+            <label>Teléfono<input id="quoteContactPhone" /></label>
+            <label>Correo electrónico *<input id="quoteContactEmail" type="email" /></label>
+          </div>
+        </section>
+        <section class="quote-section">
+          <h4>Condiciones</h4>
+          <div class="form-grid">
+            <label class="span-2">Lista de precios<select id="quotePriceList"></select></label>
+            <label>Moneda<select id="quoteCurrency"><option value="UF">UF</option><option value="CLP">CLP</option></select></label>
+            <div class="quote-uf-field">
+              <label for="quoteUfValue">Valor UF <span id="quoteUfHint" class="muted"></span></label>
+              <div class="input-with-btn">
+                <input id="quoteUfValue" type="number" min="0" step="0.01" inputmode="decimal" />
+                <button type="button" class="small-btn" data-action="refresh-uf">Actualizar</button>
+              </div>
+            </div>
+            <label>Fecha cotización<input id="quoteDate" type="date" /></label>
+            <label>Vencimiento<input id="quoteValidUntil" type="date" /></label>
+            <label>Meses de contratación<input id="quoteContractMonths" type="number" min="1" max="120" step="1" /></label>
+            <label>Estado<select id="quoteStatusField"></select></label>
+            <label>Forma de pago *<select id="quotePaymentMethod"></select></label>
+            <label>Condición de pago *<select id="quotePaymentTerms"></select></label>
+            <label class="span-2">Observaciones<textarea id="quoteNotes" rows="2"></textarea></label>
+          </div>
+        </section>
+        <section class="quote-section">
+          <h4>Líneas de servicio</h4>
+          <div id="quoteLinesRoot"></div>
+          <div class="quote-add-row">
+            <label class="grow">Servicio<select id="quoteAddService"></select></label>
+            <label>Cantidad<input id="quoteAddQty" type="number" min="1" step="1" value="1" /></label>
+            <button type="button" class="ghost-btn" data-action="add-quote-line">Agregar línea</button>
+          </div>
+        </section>
+        <section class="quote-section">
+          <h4>Descuentos</h4>
+          <div id="quoteDiscountsRoot"></div>
+        </section>
+        <section class="quote-section quote-summary-section">
+          <h4>Resumen de la cotización</h4>
+          <div id="quoteSummaryRoot"></div>
+        </section>
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="quoteDialog">Cancelar</button>
+        <button type="button" class="ghost-btn" data-action="quote-builder-pdf">Descargar PDF</button>
         <button type="submit" class="primary-btn">Guardar cotización</button>
       </div>
     </form>
@@ -510,6 +558,7 @@
       <div id="quoteViewBody" class="detail-body"></div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="quoteViewDialog">Cerrar</button>
+        <button type="button" class="ghost-btn" id="quoteViewPdfBtn" data-action="quote-pdf">Descargar PDF</button>
         <button type="button" class="ghost-btn" id="quoteViewEditBtn" data-action="edit-quote">Editar (nueva versión)</button>
         <button type="button" class="primary-btn" id="quoteViewSendBtn" data-action="send-quote">Preparar correo</button>
       </div>
@@ -567,28 +616,28 @@
     Versión de publicación. GitHub Pages manda "guardar por 10 minutos", así que sin
     esto un arreglo recién publicado no se ve hasta que pase ese rato o el usuario
     recargue a la fuerza. Al subir cambios hay que cambiar este número en TODAS las
-    líneas de abajo (buscar y reemplazar v=2026-09-23dh), incluidas las hojas de estilo
+    líneas de abajo (buscar y reemplazar v=2026-09-23di), incluidas las hojas de estilo
     de arriba: si un módulo quedara sin versión, el navegador cargaría dos copias del
     mismo archivo y el CRM tendría dos estados en paralelo.
   -->
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=2026-09-23dh",
-      "./js/auth.js": "./js/auth.js?v=2026-09-23dh",
-      "./js/catalog.js": "./js/catalog.js?v=2026-09-23dh",
-      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-23dh",
-      "./js/quotes.js": "./js/quotes.js?v=2026-09-23dh",
-      "./js/store.js": "./js/store.js?v=2026-09-23dh",
-      "./js/supabase.js": "./js/supabase.js?v=2026-09-23dh",
-      "./js/utils.js": "./js/utils.js?v=2026-09-23dh",
-      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-23dh",
-      "./js/views.js": "./js/views.js?v=2026-09-23dh"
+      "./js/app.js": "./js/app.js?v=2026-09-23di",
+      "./js/auth.js": "./js/auth.js?v=2026-09-23di",
+      "./js/catalog.js": "./js/catalog.js?v=2026-09-23di",
+      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-09-23di",
+      "./js/quotes.js": "./js/quotes.js?v=2026-09-23di",
+      "./js/store.js": "./js/store.js?v=2026-09-23di",
+      "./js/supabase.js": "./js/supabase.js?v=2026-09-23di",
+      "./js/utils.js": "./js/utils.js?v=2026-09-23di",
+      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-09-23di",
+      "./js/views.js": "./js/views.js?v=2026-09-23di"
     }
   }
   </script>
-  <script src="config.js?v=2026-09-23dh"></script>
-  <script type="module" src="js/app.js?v=2026-09-23dh"></script>
-  <script type="module" src="js/ux-v2.js?v=2026-09-23dh"></script>
+  <script src="config.js?v=2026-09-23di"></script>
+  <script type="module" src="js/app.js?v=2026-09-23di"></script>
+  <script type="module" src="js/ux-v2.js?v=2026-09-23di"></script>
 </body>
 </html>

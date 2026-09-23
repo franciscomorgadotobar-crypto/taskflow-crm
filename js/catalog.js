@@ -273,9 +273,30 @@ export const TEMPLATE_VARIABLES = ['{{nombre}}', '{{nombreCompleto}}', '{{empres
 
 /* ---------- Cotizador ---------- */
 
-export const IVA_RATE = 0.19;
+// Emisor que aparece en el encabezado de la cotización y del PDF.
+export const QUOTE_ISSUER = { name: 'Cuatro Rlabs SpA', rut: '77.972.828-5' };
 
-export const SERVICE_UNITS = ['unidad', 'hora', 'mes', 'visita', 'm2', 'proyecto', 'licencia'];
+export const CURRENCIES = ['UF', 'CLP'];
+
+// Los id deben coincidir con los check de quotes.payment_method / payment_terms (0029).
+export const PAYMENT_METHODS = [
+  { id: 'transferencia', label: 'Transferencia Bancaria' },
+  { id: 'pac', label: 'PAC' },
+  { id: 'pat', label: 'PAT' }
+];
+
+export const PAYMENT_TERMS = [
+  { id: '5_dias_habiles', label: '5 días hábiles' },
+  { id: '30_dias', label: '30 días' },
+  { id: '60_dias', label: '60 días' }
+];
+
+export const DISCOUNT_KINDS = [
+  { id: 'percent', label: 'Porcentaje' },
+  { id: 'amount', label: 'Monto' },
+  { id: 'fixed_price', label: 'Precio fijo' },
+  { id: 'free', label: 'Gratis' }
+];
 
 export const QUOTE_STATUSES = [
   { id: 'borrador', label: 'Borrador' },

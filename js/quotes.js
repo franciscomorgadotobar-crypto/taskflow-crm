@@ -1,14 +1,13 @@
 import { supabase } from './supabase.js';
-import { session } from './auth.js';
-import { IVA_RATE } from './catalog.js';
-import { fmtDate, fmtMoney, fmtNumber, nowISO, toast, uid } from './utils.js';
+import { fmtAmount, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
 
 /**
- * Cotizador. Vive separado de store.js por prolijidad, pero sigue el mismo
- * patrón: `state` en memoria, mutaciones optimistas + escritura async en
- * Supabase, Realtime para que todos vean lo mismo. Cada cotización que se edita
- * genera una VERSIÓN nueva (no se pisa la anterior): `rootId` agrupa todas las
- * versiones de una misma cotización y `isCurrent` marca la vigente.
+ * Cotizador. Vive separado de store.js por prolijidad: `state` en memoria y
+ * Realtime para que todos vean lo mismo. Los montos los calcula el servidor
+ * (quote_preview / save_quote, migración 0029), así que las escrituras de
+ * cotizaciones y listas van primero a Supabase y luego se rehidrata. Cada
+ * cotización que se edita genera una VERSIÓN nueva (no se pisa la anterior):
+ * `rootId` agrupa las versiones, comparten número y `isCurrent` marca la vigente.
  */
 export const state = { priceLists: [], priceListItems: [], quotes: [] };
 
@@ -43,16 +42,32 @@ const fromDbPriceListItem = (r) => ({
 
 const fromDbItem = (r) => ({
   id: r.id,
-  serviceId: r.service_id || '',
+  priceListItemId: r.price_list_item_id || '',
+  code: r.code || '',
   name: r.name,
-  unit: r.unit || 'unidad',
+  periodicity: r.periodicity || 'mensual',
   quantity: Number(r.quantity || 0),
   unitPrice: Number(r.unit_price || 0),
+  listPrice: Number(r.list_price || 0),
+  listCurrency: r.list_currency || 'UF',
   subtotal: Number(r.subtotal || 0),
+  discount: Number(r.discount || 0),
+  total: Number(r.total || 0),
+  discountMonths: Number(r.discount_months || 0),
   position: r.position || 0
 });
 
-function fromDbQuote(r, items = []) {
+const fromDbDiscount = (r) => ({
+  id: r.id,
+  position: r.position,
+  scope: r.scope,
+  quoteItemId: r.quote_item_id || '',
+  kind: r.kind,
+  value: Number(r.value || 0),
+  months: r.months == null ? null : Number(r.months)
+});
+
+function fromDbQuote(r, items = [], discounts = []) {
   return {
     id: r.id,
     rootId: r.root_id || r.id,
@@ -62,6 +77,17 @@ function fromDbQuote(r, items = []) {
     ownerId: r.owner_id || '',
     owner: r.owner_name || '',
     status: r.status,
+    number: r.number || '',
+    priceListId: r.price_list_id || '',
+    currency: r.currency || 'UF',
+    ufValue: r.uf_value == null ? null : Number(r.uf_value),
+    ufDate: r.uf_date || '',
+    quoteDate: r.quote_date || '',
+    contractMonths: Number(r.contract_months || 12),
+    paymentMethod: r.payment_method || '',
+    paymentTerms: r.payment_terms || '',
+    ivaRate: Number(r.iva_rate ?? 0.19),
+    totals: r.totals || {},
     client: r.client_snapshot || {},
     subtotalNeto: Number(r.subtotal_neto || 0),
     iva: Number(r.iva || 0),
@@ -71,7 +97,8 @@ function fromDbQuote(r, items = []) {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     sentAt: r.sent_at || '',
-    items: items.map(fromDbItem).sort((a, b) => a.position - b.position)
+    items: items.map(fromDbItem).sort((a, b) => a.position - b.position),
+    discounts: discounts.map(fromDbDiscount).sort((a, b) => a.position - b.position)
   };
 }
 
@@ -90,13 +117,14 @@ function scheduleHydrate() {
 
 export async function hydrate() {
   const generation = ++hydrateGeneration;
-  const [plR, pliR, qR, itR] = await Promise.all([
+  const [plR, pliR, qR, itR, dR] = await Promise.all([
     supabase.from('price_lists').select('*').order('created_at', { ascending: false }),
     supabase.from('price_list_items').select('*').order('position'),
     supabase.from('quotes').select('*').order('created_at', { ascending: false }),
-    supabase.from('quote_items').select('*')
+    supabase.from('quote_items').select('*'),
+    supabase.from('quote_discounts').select('*')
   ]);
-  [plR, pliR, qR, itR].forEach((r) => r.error && console.error(r.error));
+  [plR, pliR, qR, itR, dR].forEach((r) => r.error && console.error(r.error));
   if (generation !== hydrateGeneration) return;
 
   // Una lectura fallida no debe interpretarse como una colección vacía.
@@ -108,14 +136,15 @@ export async function hydrate() {
     state.priceListItems = (pliR.data || []).map(fromDbPriceListItem);
   }
 
-  if (!qR.error && !itR.error) {
-    const itemsByQuote = new Map();
-    (itR.data || []).forEach((it) => {
-      const arr = itemsByQuote.get(it.quote_id) || [];
-      arr.push(it);
-      itemsByQuote.set(it.quote_id, arr);
-    });
-    state.quotes = (qR.data || []).map((q) => fromDbQuote(q, itemsByQuote.get(q.id) || []));
+  if (!qR.error && !itR.error && !dR.error) {
+    const byQuote = (rows) => {
+      const map = new Map();
+      (rows || []).forEach((row) => map.set(row.quote_id, [...(map.get(row.quote_id) || []), row]));
+      return map;
+    };
+    const itemsByQuote = byQuote(itR.data);
+    const discountsByQuote = byQuote(dR.data);
+    state.quotes = (qR.data || []).map((q) => fromDbQuote(q, itemsByQuote.get(q.id) || [], discountsByQuote.get(q.id) || []));
   }
 
   notify();
@@ -129,6 +158,7 @@ export function startRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'price_list_items' }, scheduleHydrate)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, scheduleHydrate)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_items' }, scheduleHydrate)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quote_discounts' }, scheduleHydrate)
     .subscribe();
 }
 
@@ -263,104 +293,76 @@ export const versionsOf = (rootId) => state.quotes.filter((q) => q.rootId === ro
 
 export const currentQuoteOf = (rootId) => versionsOf(rootId).find((q) => q.isCurrent) || versionsOf(rootId)[0] || null;
 
-export function computeTotals(items) {
-  const subtotalNeto = items.reduce((s, it) => s + Number(it.quantity || 0) * Number(it.unitPrice || 0), 0);
-  const iva = Math.round(subtotalNeto * IVA_RATE);
-  return { subtotalNeto, iva, total: subtotalNeto + iva };
+/**
+ * Convierte el borrador del constructor al formato de las RPC quote_preview /
+ * save_quote. Precios, conversión de moneda y totales los resuelve el servidor:
+ * aquí solo viajan servicio, cantidad y descuentos.
+ */
+function toRpcPayload(draft) {
+  return {
+    p_quote: {
+      lead_id: draft.leadId,
+      price_list_id: draft.priceListId,
+      currency: draft.currency,
+      uf_value: draft.ufValue ?? '',
+      uf_date: draft.ufDate || '',
+      quote_date: draft.quoteDate || '',
+      valid_until: draft.validUntil || '',
+      contract_months: draft.contractMonths,
+      payment_method: draft.paymentMethod || '',
+      payment_terms: draft.paymentTerms || '',
+      status: draft.status || 'borrador',
+      notes: draft.notes || '',
+      client_snapshot: draft.client || {}
+    },
+    p_items: draft.items.map((it) => ({ ref: it.ref, price_list_item_id: it.priceListItemId, quantity: it.quantity })),
+    p_discounts: draft.discounts.map((d) => ({
+      scope: d.scope,
+      item_ref: d.scope === 'line' ? d.itemRef : '',
+      kind: d.kind,
+      value: d.kind === 'free' ? 0 : d.value,
+      months: d.months ?? ''
+    }))
+  };
+}
+
+/** Cálculo del servidor sin guardar. Lanza el error con el mensaje de la RPC. */
+export async function previewQuote(draft) {
+  const { p_quote, p_items, p_discounts } = toRpcPayload(draft);
+  const { data, error } = await supabase.rpc('quote_preview', { p_quote, p_items, p_discounts });
+  if (error) throw error;
+  return data;
 }
 
 /**
- * Guarda una cotización. Sin `baseId` crea la versión 1. Con `baseId` (la
- * versión que se estaba editando) crea la siguiente versión del mismo grupo y
- * deja la anterior marcada como no vigente — nunca se pisa una cotización ya
- * guardada, según lo pedido.
+ * Guarda una cotización. Sin `baseId` crea la versión 1 con su número
+ * P-AAAAMM-NNNN. Con `baseId` (la versión vigente que se estaba editando) crea la
+ * siguiente versión con el mismo número y deja la anterior en el historial.
  */
-export async function saveQuote({ baseId = '', leadId, status, notes = '', validUntil = '', client = {}, items }) {
-  const base = baseId ? getQuote(baseId) : null;
-  const beforeQuotes = structuredClone(state.quotes);
-  const id = uid();
-  // La versión 1 es su propia raíz (root_id null en la base, FK a quotes.id no puede
-  // apuntar a un uuid inventado que no exista todavía).
-  const rootId = base ? base.rootId : id;
-  // Una versión puede abrirse desde el historial. El siguiente número debe salir
-  // de toda la cadena, no de la versión concreta que el usuario abrió.
-  const version = base ? Math.max(...versionsOf(base.rootId).map((q) => q.version), base.version) + 1 : 1;
-  const totals = computeTotals(items);
-  const owner = session.profile?.name || '';
-
-  const quote = {
-    id,
-    rootId,
-    version,
-    isCurrent: true,
-    leadId,
-    ownerId: session.user?.id || '',
-    owner,
-    status: status || 'borrador',
-    client,
-    ...totals,
-    notes,
-    validUntil,
-    createdAt: nowISO(),
-    updatedAt: nowISO(),
-    sentAt: '',
-    items: items.map((it, i) => ({ ...it, id: it.id || uid(), position: i }))
-  };
-
-  const current = base ? currentQuoteOf(base.rootId) : null;
-  if (current) current.isCurrent = false;
-  state.quotes = state.quotes.filter((q) => q.id !== id);
-  state.quotes.unshift(quote);
-  notify();
-
-  try {
-      const quoteRow = {
-        id,
-        root_id: rootId === id ? '' : rootId,
-        version,
-        lead_id: leadId,
-        owner_id: quote.ownerId || '',
-        owner_name: owner,
-        status: quote.status,
-        client_snapshot: client,
-        subtotal_neto: totals.subtotalNeto,
-        iva: totals.iva,
-        total: totals.total,
-        notes,
-        valid_until: validUntil || ''
-    };
-      const itemRows = quote.items.map((it) => ({
-        id: it.id,
-        service_id: it.serviceId || '',
-        name: it.name,
-        unit: it.unit,
-        quantity: it.quantity,
-        unit_price: it.unitPrice,
-        subtotal: Number(it.quantity || 0) * Number(it.unitPrice || 0),
-        position: it.position
-      }));
-
-      const { error } = await supabase.rpc('create_quote_version', {
-        p_quote: quoteRow,
-        p_items: itemRows,
-        p_base_id: current?.id || base?.id || null
-      });
-      if (error) throw error;
-      return quote;
-  } catch (err) {
-      // Si la operación compuesta falla, la copia optimista no debe quedar como
-      // si la nueva versión existiera. La base puede haber alcanzado a guardar
-      // una parte, por eso luego rehidratamos desde Supabase como fuente de verdad.
-    state.quotes = beforeQuotes;
-    notify();
-    reportError('No se pudo guardar la cotización', err);
-    try {
-      await hydrate();
-    } catch (hydrateErr) {
-      console.error('No se pudo resincronizar el cotizador', hydrateErr);
-      }
-    }
+export async function saveQuote(draft, baseId = '') {
+  const { p_quote, p_items, p_discounts } = toRpcPayload(draft);
+  const { data, error } = await supabase.rpc('save_quote', { p_quote, p_items, p_discounts, p_base_id: baseId || null });
+  if (error || !data?.id) {
+    reportError('No se pudo guardar la cotización', error || new Error('El servidor no confirmó la cotización.'));
     return null;
+  }
+  await hydrate();
+  return data;
+}
+
+/** Valor UF del día desde mindicador.cl. Devuelve null si no hay conexión o dato. */
+export async function fetchUfValue(dateISO) {
+  const [y, m, d] = String(dateISO || '').split('-');
+  if (!y || !m || !d) return null;
+  try {
+    const res = await fetch(`https://mindicador.cl/api/uf/${d}-${m}-${y}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const value = Number(json?.serie?.[0]?.valor);
+    return value > 0 ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function setQuoteStatus(id, status) {
@@ -408,20 +410,22 @@ const firstName = (full) => String(full || '').trim().split(/\s+/)[0] || '';
 
 /** Cuerpo y asunto por defecto: se muestran en un editor antes de enviar, así que son solo el punto de partida. */
 export function buildQuoteEmail(quote, lead) {
-  const name = firstName(lead?.contact) || 'equipo';
-  const lines = quote.items.map(
-    (it) => `- ${it.name} · ${fmtNumber(it.quantity)} ${it.unit} x ${fmtMoney(it.unitPrice)} = ${fmtMoney(it.subtotal ?? it.quantity * it.unitPrice)}`
-  );
+  const name = firstName(quote.client?.contact || lead?.contact) || 'equipo';
+  const cur = quote.currency;
+  const money = (n) => (cur === 'CLP' ? fmtAmount(n, cur) : `UF ${fmtAmount(n, cur)}`);
+  const line = (it) =>
+    `- ${it.name} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (dscto ${money(it.discount)})` : ''} = ${money(it.total)}`;
+  const setup = quote.items.filter((it) => it.periodicity === 'unico');
+  const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
+  const t = quote.totals || {};
   const body = [
     `Hola ${name},`,
     '',
-    `Te comparto la cotización de servicios para ${lead?.company || 'tu empresa'}:`,
+    `Te comparto la cotización ${quote.number || ''} de servicios para ${lead?.company || quote.client?.company || 'tu empresa'}:`,
     '',
-    ...lines,
-    '',
-    `Subtotal neto: ${fmtMoney(quote.subtotalNeto)}`,
-    `IVA (19%): ${fmtMoney(quote.iva)}`,
-    `Total: ${fmtMoney(quote.total)}`,
+    ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
+    ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
+    `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total ${money(quote.total)}`,
     quote.validUntil ? `` : '',
     quote.validUntil ? `Válida hasta ${fmtDate(quote.validUntil)}.` : '',
     quote.notes ? '' : '',
@@ -431,5 +435,5 @@ export function buildQuoteEmail(quote, lead) {
   ]
     .filter((l, i, arr) => !(l === '' && arr[i - 1] === ''))
     .join('\n');
-  return { subject: `Cotización TaskFlow — ${lead?.company || ''}`, body };
+  return { subject: `Cotización ${quote.number || 'TaskFlow'} — ${lead?.company || quote.client?.company || ''}`, body };
 }

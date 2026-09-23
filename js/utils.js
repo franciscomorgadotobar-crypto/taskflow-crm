@@ -15,6 +15,9 @@ export const fmtAmount = (n, currency = 'UF') =>
     ? fmtMoney(n)
     : new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(Number(n || 0));
 
+/** Monto con su moneda: "UF 2,03" o "$27.650". */
+export const fmtCurrency = (n, currency = 'UF') => (currency === 'CLP' ? fmtMoney(n) : `UF ${fmtAmount(n, 'UF')}`);
+
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 /** Suma días a una fecha ISO (YYYY-MM-DD). */

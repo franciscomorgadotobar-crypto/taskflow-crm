@@ -734,6 +734,73 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .data-table tr.import-row-error td { background: color-mix(in srgb, var(--panel) 90%, var(--danger)); }
 .import-error { color: var(--danger); font-size: 13px; }
 
+/* Constructor de cotización */
+.quote-modal { max-width: min(1040px, 96vw); }
+.quote-modal .modal-card.wide { max-width: 1040px; }
+.quote-modal .modal-head { align-items: center; }
+.quote-modal .modal-head > div { flex: 1; }
+.quote-builder-body { overflow: auto; padding: 16px 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.quote-section { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: color-mix(in srgb, var(--panel) 96%, var(--bg)); }
+.quote-summary-section { overflow-x: auto; }
+.quote-summary-section .quote-doc, #quoteViewBody .quote-doc { min-width: 680px; }
+.quote-section > h4 {
+  margin: 0 0 12px; padding-left: 8px; border-left: 3px solid var(--blue);
+  font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text);
+}
+.quote-section .form-grid { padding: 0; overflow: visible; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.quote-section .form-grid > *, .quote-section .form-grid input, .quote-section .form-grid select { min-width: 0; }
+.quote-section .form-grid input, .quote-section .form-grid select { width: 100%; }
+.quote-section .form-grid .span-2 { grid-column: span 2; }
+.quote-section .form-grid textarea { min-height: 60px; }
+.quote-uf-field { display: flex; flex-direction: column; gap: 6px; }
+.quote-uf-field > label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.input-with-btn { display: flex; gap: 6px; }
+.input-with-btn input { flex: 1; min-width: 0; }
+.quote-add-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.quote-add-row label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.quote-add-row label.grow { flex: 1 1 260px; min-width: 0; }
+.quote-add-row label.grow select { width: 100%; min-width: 0; }
+.quote-add-row input, .quote-add-row select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 10px; min-height: 40px; outline: none;
+}
+.quote-add-row input { width: 110px; }
+.quote-lines-table, .quote-discounts-table { min-width: 720px; }
+.quote-lines-table .cell-input.qty { width: 70px; text-align: right; }
+.quote-hint { font-size: 12px; margin: 6px 0 0; }
+
+/* Documento de cotización: "papel" blanco en ambos temas y en el PDF */
+.quote-doc {
+  background: #ffffff; color: #1c1a3a; border: 1px solid #dde4ee; border-radius: 10px;
+  padding: 18px 20px; font-size: 12px; line-height: 1.45;
+}
+.quote-doc h4 { margin: 18px 0 8px; font-size: 13px; color: #1c1a3a; }
+.qd-head { display: grid; grid-template-columns: 1fr 1.4fr 1.1fr; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid #dde4ee; }
+.qd-issuer { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+.qd-issuer img { max-width: 150px; height: auto; margin-bottom: 4px; }
+.qd-issuer span, .qd-muted, .qd-code { color: #697586; font-size: 11px; font-weight: 400; }
+.qd-notes { margin: 10px 0 0; }
+.qd-table { width: 100%; border-collapse: collapse; }
+.qd-table th, .qd-table td { border: 1px solid #dde4ee; padding: 6px 8px; text-align: left; vertical-align: top; }
+.qd-table th { background: #f3f6fa; font-size: 11px; }
+.qd-table .num { text-align: right; white-space: nowrap; }
+.qd-empty { color: #697586; }
+.qd-disc { color: #b42318; }
+.qd-totals { margin: 8px 0 0 auto; max-width: 300px; display: grid; gap: 2px; }
+.qd-totals > div { display: flex; justify-content: space-between; gap: 16px; padding: 3px 8px; }
+.qd-totals .qd-final { background: #dbe8f8; font-weight: 800; border-radius: 4px; }
+.qd-contract { max-width: 420px; margin-top: 14px; }
+.qd-months { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.qd-months > div { border: 1px solid #dde4ee; border-radius: 6px; background: #f7f9fc; padding: 6px; text-align: center; display: flex; flex-direction: column; }
+.qd-months span { font-size: 10px; color: #697586; font-weight: 700; }
+.quote-pdf-holder { position: fixed; left: -10000px; top: 0; width: 780px; }
+.quote-pdf-holder .quote-doc { border: 0; border-radius: 0; }
+
+/* El documento no se adapta al ancho: tiene ancho mínimo y se desplaza, así el PDF sale igual en cualquier equipo. */
+@media (max-width: 760px) {
+  .quote-section .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 760px) {
   .auth-card { padding: 22px 18px; }
   .top-action-label { display: none; }

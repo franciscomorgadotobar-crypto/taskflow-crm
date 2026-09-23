@@ -6,9 +6,10 @@ import {
   INDUSTRIES,
   LOSS_REASONS,
   MODULES,
+  PAYMENT_METHODS,
+  PAYMENT_TERMS,
   QUOTE_STATUSES,
   REMARKETING_REASONS,
-  SERVICE_UNITS,
   SOURCES,
   STAGE_TEMPLATE,
   STAGES,
@@ -57,16 +58,18 @@ import {
 import {
   buildQuoteEmail,
   clearLocal as quotesClearLocal,
-  computeTotals,
   deletePriceList,
   deletePriceListItem,
   deleteQuote,
+  fetchUfValue,
   getPriceList,
   getPriceListItem,
   getQuote,
   hydrate as quotesHydrate,
   importPriceList,
+  itemsOfPriceList,
   onChange as onQuotesChange,
+  previewQuote,
   savePriceListItem,
   saveQuote,
   startRealtime as quotesStartRealtime,
@@ -90,7 +93,10 @@ import {
 import {
   fillTemplate,
   filterPipeline,
-  quoteBuilderHtml,
+  quoteDiscountsHtml,
+  quoteDocFromSaved,
+  quoteDocHtml,
+  quoteLinesHtml,
   renderDashboard,
   renderImplementation,
   renderLeadDetail,
@@ -109,6 +115,7 @@ import {
   copyText,
   escapeHtml,
   fmtAmount,
+  fmtCurrency,
   fmtDate,
   fmtDateTime,
   fmtMoney,
@@ -265,7 +272,9 @@ function fillStaticSelects() {
     (v) => `<label><input type="checkbox" value="${escapeHtml(v)}"> ${escapeHtml(v)}</label>`
   ).join('');
   $('quoteStatusField').innerHTML = QUOTE_STATUSES.map((s) => `<option value="${s.id}">${escapeHtml(s.label)}</option>`).join('');
-  $('serviceUnits').innerHTML = SERVICE_UNITS.map((u) => `<option value="${escapeHtml(u)}">`).join('');
+  const choose = '<option value="">— Seleccione —</option>';
+  $('quotePaymentMethod').innerHTML = choose + PAYMENT_METHODS.map((m) => `<option value="${m.id}">${escapeHtml(m.label)}</option>`).join('');
+  $('quotePaymentTerms').innerHTML = choose + PAYMENT_TERMS.map((t) => `<option value="${t.id}">${escapeHtml(t.label)}</option>`).join('');
 }
 
 function fillOwnerSelect(selectedName = '', selectedId = '') {
@@ -1039,12 +1048,197 @@ function insertVariable(id, variable) {
 
 /* ---------- Cotizador ---------- */
 
-function emptyQuoteRow() {
-  return { serviceId: '', name: '', unit: 'unidad', quantity: 1, unitPrice: 0 };
+// El borrador vive en ui.quoteBuilder. Los montos nunca se calculan aquí: cada
+// cambio pide quote_preview al servidor (mismo cálculo que save_quote) y se
+// pinta lo que devuelve. Las líneas se identifican por `ref` para que los
+// descuentos por línea sigan apuntando bien aunque se quiten otras líneas.
+
+const quoteRef = () => uid().slice(0, 8);
+let quotePreviewTimer = null;
+let quotePreviewSeq = 0;
+
+const activePriceLists = () => quoteState.priceLists.filter((l) => l.status === 'vigente');
+const listItemOf = (id) => getPriceListItem(id);
+
+function readQuoteHeader() {
+  const b = ui.quoteBuilder;
+  const lead = getLead($('quoteLeadId').value);
+  Object.assign(b, {
+    leadId: $('quoteLeadId').value,
+    priceListId: $('quotePriceList').value,
+    currency: $('quoteCurrency').value,
+    ufValue: $('quoteUfValue').value === '' ? null : Number($('quoteUfValue').value),
+    quoteDate: $('quoteDate').value,
+    validUntil: $('quoteValidUntil').value,
+    contractMonths: Number($('quoteContractMonths').value || 0),
+    status: $('quoteStatusField').value,
+    paymentMethod: $('quotePaymentMethod').value,
+    paymentTerms: $('quotePaymentTerms').value,
+    notes: $('quoteNotes').value.trim(),
+    client: {
+      company: lead?.company || b.client?.company || '',
+      rut: lead?.rut || b.client?.rut || '',
+      contact: $('quoteContactName').value.trim(),
+      role: $('quoteContactRole').value.trim(),
+      phone: $('quoteContactPhone').value.trim(),
+      email: $('quoteContactEmail').value.trim()
+    }
+  });
 }
 
-function renderQuoteItemsRoot() {
-  $('quoteItemsRoot').innerHTML = quoteBuilderHtml(ui.quoteBuilder);
+function fillQuoteLeadFields(lead, withContact) {
+  $('quoteClientRut').value = lead?.rut || '';
+  if (!withContact) return;
+  $('quoteContactName').value = lead?.contact || '';
+  $('quoteContactRole').value = lead?.role || '';
+  $('quoteContactPhone').value = lead?.phone || '';
+  $('quoteContactEmail').value = lead?.email || '';
+}
+
+function fillQuoteServiceOptions() {
+  const b = ui.quoteBuilder;
+  const list = getPriceList(b.priceListId);
+  const items = itemsOfPriceList(b.priceListId).filter((it) => it.active);
+  const groups = new Map();
+  items.forEach((it) => groups.set(it.category || 'Sin categoría', [...(groups.get(it.category || 'Sin categoría') || []), it]));
+  $('quoteAddService').innerHTML = items.length
+    ? [...groups]
+        .map(
+          ([cat, rows]) =>
+            `<optgroup label="${escapeHtml(cat)}">${rows
+              .map((it) => `<option value="${it.id}">${escapeHtml(it.name)} · ${fmtCurrency(it.price, list?.currency)} ${it.periodicity === 'unico' ? 'único' : 'mensual'}</option>`)
+              .join('')}</optgroup>`
+        )
+        .join('')
+    : '<option value="">La lista no tiene servicios activos</option>';
+}
+
+/** Mismo formato que quoteDocFromSaved, armado desde el borrador y su último cálculo. */
+function builderDoc() {
+  const b = ui.quoteBuilder;
+  const calc = b.calc;
+  const lines = (calc?.items || []).map((ci) => {
+    const cl = calc.lines.find((l) => l.ref === ci.ref) || {};
+    return {
+      code: ci.code,
+      name: ci.name,
+      periodicity: ci.periodicity,
+      quantity: ci.quantity,
+      unitPrice: ci.unit_price,
+      subtotal: cl.subtotal,
+      discount: cl.discount,
+      total: cl.total,
+      discountMonths: cl.discount_months
+    };
+  });
+  return {
+    number: b.number,
+    version: b.version,
+    status: b.status,
+    owner: b.owner,
+    currency: b.currency,
+    ufValue: b.ufValue,
+    ufDate: b.ufDate,
+    quoteDate: b.quoteDate,
+    validUntil: b.validUntil,
+    contractMonths: b.contractMonths,
+    paymentMethod: b.paymentMethod,
+    paymentTerms: b.paymentTerms,
+    notes: b.notes,
+    client: b.client,
+    lines,
+    totals: calc || {}
+  };
+}
+
+function renderQuoteSummary() {
+  const b = ui.quoteBuilder;
+  $('quoteLinesRoot').innerHTML = quoteLinesHtml(b);
+  $('quoteSummaryRoot').innerHTML = b.calcError
+    ? `<p class="import-error">${escapeHtml(b.calcError)}</p>`
+    : b.calc
+      ? quoteDocHtml(builderDoc())
+      : '<p class="muted">Calculando…</p>';
+}
+
+function renderQuoteDiscounts() {
+  $('quoteDiscountsRoot').innerHTML = quoteDiscountsHtml(ui.quoteBuilder);
+  syncQuoteDiscountInputs();
+}
+
+function syncQuoteDiscountInputs() {
+  const b = ui.quoteBuilder;
+  const target = $('quoteDiscTarget')?.value || '';
+  const kind = $('quoteDiscKind')?.value || '';
+  if (!target) return;
+  const ref = target.startsWith('line:') ? target.slice(5) : '';
+  const line = b.items.find((it) => it.ref === ref);
+  const isSetup = target === 'setup_total' || listItemOf(line?.priceListItemId)?.periodicity === 'unico';
+  $('quoteDiscMonths').disabled = isSetup;
+  if (isSetup) $('quoteDiscMonths').value = '';
+  $('quoteDiscValue').disabled = kind === 'free';
+  if (kind === 'free') $('quoteDiscValue').value = '';
+  $('quoteDiscValue').placeholder = kind === 'percent' ? '%' : kind === 'free' ? '—' : b.currency === 'CLP' ? '$' : 'UF';
+}
+
+function scheduleQuotePreview() {
+  clearTimeout(quotePreviewTimer);
+  quotePreviewTimer = setTimeout(runQuotePreview, 300);
+}
+
+async function runQuotePreview() {
+  const b = ui.quoteBuilder;
+  if (!b || !$('quoteDialog').open) return;
+  readQuoteHeader();
+  const seq = ++quotePreviewSeq;
+  if (!b.priceListId || !b.items.length) {
+    b.calc = null;
+    b.calcError = b.priceListId ? 'Agrega al menos una línea de servicio para ver el resumen.' : 'Elige una lista de precios.';
+    renderQuoteSummary();
+    return;
+  }
+  try {
+    const calc = await previewQuote(b);
+    if (seq !== quotePreviewSeq || ui.quoteBuilder !== b) return;
+    Object.assign(b, { calc, calcError: '' });
+  } catch (err) {
+    if (seq !== quotePreviewSeq || ui.quoteBuilder !== b) return;
+    Object.assign(b, { calc: null, calcError: err.message || 'No se pudo calcular la cotización.' });
+  }
+  renderQuoteSummary();
+}
+
+async function loadQuoteUf({ force = false } = {}) {
+  const b = ui.quoteBuilder;
+  if (!b || (b.ufManual && !force)) return scheduleQuotePreview();
+  const date = $('quoteDate').value || todayISO();
+  $('quoteUfHint').textContent = '· consultando…';
+  const value = await fetchUfValue(date);
+  if (ui.quoteBuilder !== b) return;
+  if (value) {
+    $('quoteUfValue').value = value;
+    Object.assign(b, { ufDate: date, ufManual: false });
+    $('quoteUfHint').textContent = `· mindicador.cl ${fmtDate(date)}`;
+  } else {
+    $('quoteUfHint').textContent = '· sin dato: ingrésalo a mano';
+  }
+  scheduleQuotePreview();
+}
+
+/** Al cambiar de lista, cada línea se busca por código en la nueva; las que no existan se quitan. */
+function remapQuoteItems(newListId) {
+  const b = ui.quoteBuilder;
+  const target = itemsOfPriceList(newListId).filter((it) => it.active);
+  const dropped = [];
+  b.items = b.items.filter((it) => {
+    const code = listItemOf(it.priceListItemId)?.code;
+    const match = target.find((x) => x.code === code);
+    if (match) it.priceListItemId = match.id;
+    else dropped.push(it.ref);
+    return Boolean(match);
+  });
+  b.discounts = b.discounts.filter((d) => d.scope !== 'line' || !dropped.includes(d.itemRef));
+  return dropped.length;
 }
 
 function openQuoteBuilder(leadId = '', baseId = '') {
@@ -1053,80 +1247,250 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   const targetLeadId = base?.leadId || leadId;
   if (targetLeadId && !canEditLeadLocally(targetLeadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
   if (base && !isAdmin() && base.ownerId !== session.user?.id) return toast('Solo quien creó esta cotización puede generar una nueva versión.', 'error');
-  ui.quoteBuilder = {
-    leadId: base?.leadId || leadId,
-    // Al editar, cada item se guarda como fila nueva en la versión nueva: se descarta
-    // el id/posición/subtotal de la versión anterior para no chocar con su primary key.
-    items: base
-      ? base.items.map(({ serviceId, name, unit, quantity, unitPrice }) => ({ serviceId, name, unit, quantity, unitPrice }))
-      : [emptyQuoteRow()]
-  };
+  if (base && !base.isCurrent) return toast('Solo se puede editar la versión vigente de la cotización.', 'error');
+  const lists = activePriceLists();
+  if (!lists.length) {
+    return toast(isAdmin() ? 'Primero carga una lista de precios en "Listas de precios".' : 'No hay listas de precios vigentes. Pide a un administrador que cargue una.', 'error');
+  }
+
+  const lead = getLead(targetLeadId);
+  const refByItemId = new Map();
+  const items = (base?.items || [])
+    .filter((it) => it.priceListItemId && listItemOf(it.priceListItemId))
+    .map((it) => {
+      const ref = quoteRef();
+      refByItemId.set(it.id, ref);
+      return { ref, priceListItemId: it.priceListItemId, quantity: it.quantity };
+    });
+  const discounts = (base?.discounts || [])
+    .filter((d) => d.scope !== 'line' || refByItemId.has(d.quoteItemId))
+    .map((d) => ({ scope: d.scope, itemRef: d.scope === 'line' ? refByItemId.get(d.quoteItemId) : '', kind: d.kind, value: d.value, months: d.months }));
+
+  const b = (ui.quoteBuilder = {
+    baseId,
+    number: base?.number || '',
+    version: base ? Math.max(...versionsOf(base.rootId).map((q) => q.version)) + 1 : 1,
+    owner: base?.owner || session.profile?.name || '',
+    leadId: lead?.id || '',
+    priceListId: base?.priceListId || lists[0].id,
+    currency: base?.currency || 'UF',
+    ufValue: null,
+    ufDate: '',
+    ufManual: false,
+    quoteDate: todayISO(),
+    validUntil: addDaysISO(todayISO(), 7),
+    contractMonths: base?.contractMonths || 12,
+    status: base?.status || 'borrador',
+    paymentMethod: base?.paymentMethod || '',
+    paymentTerms: base?.paymentTerms || '',
+    notes: base?.notes || '',
+    client: base?.client || {},
+    items,
+    discounts,
+    calc: null,
+    calcError: ''
+  });
+
+  // La lista original puede haberse archivado: se pasa a una vigente buscando cada servicio por código.
+  let dropped = (base?.items.length || 0) - items.length;
+  if (!lists.some((l) => l.id === b.priceListId)) {
+    const from = getPriceList(b.priceListId);
+    b.priceListId = lists[0].id;
+    dropped += remapQuoteItems(b.priceListId);
+    toast(`La lista "${from?.name || 'original'}" ya no está vigente; se usó "${lists[0].name}".`);
+  }
+  if (dropped > 0) toast(`${dropped} línea(s) no existen en la lista vigente y se quitaron.`, 'error');
+
   $('quoteBaseId').value = baseId;
-  $('quoteDialogTitle').textContent = base ? `Editar cotización (crea versión ${base.version + 1})` : 'Nueva cotización';
-  $('quoteDialogSubtitle').textContent = base ? 'Guardar deja esta como nueva versión; la anterior queda en el historial.' : 'Selecciona la empresa y agrega los items.';
-  $('quoteLeadId').innerHTML = leadOptions(ui.quoteBuilder.leadId);
-  $('quoteLeadId').disabled = Boolean(leadId && !base);
-  $('quoteStatusField').value = base?.status || 'borrador';
-  $('quoteValidUntil').value = base?.validUntil || '';
-  $('quoteNotes').value = base?.notes || '';
-  renderQuoteItemsRoot();
+  $('quoteDialogTitle').textContent = base ? `Editar cotización ${base.number || ''}` : 'Nueva cotización';
+  $('quoteDialogSubtitle').textContent = base
+    ? `Guardar crea la versión ${b.version}; la anterior queda en el historial.`
+    : 'Elige la empresa y la lista de precios, agrega servicios y descuentos.';
+  $('quoteNumberBadge').textContent = base?.number || 'N° al guardar';
+  $('quoteLeadId').innerHTML = leadOptions(b.leadId);
+  $('quoteLeadId').disabled = Boolean(base || leadId);
+  $('quoteOwner').value = b.owner;
+  fillQuoteLeadFields(lead, !base);
+  if (base) {
+    $('quoteContactName').value = base.client?.contact || '';
+    $('quoteContactRole').value = base.client?.role || '';
+    $('quoteContactPhone').value = base.client?.phone || '';
+    $('quoteContactEmail').value = base.client?.email || '';
+  }
+  $('quotePriceList').innerHTML = lists.map((l) => `<option value="${l.id}">${escapeHtml(l.name)} (${l.currency})</option>`).join('');
+  $('quotePriceList').value = b.priceListId;
+  $('quoteCurrency').value = b.currency;
+  $('quoteUfValue').value = '';
+  $('quoteDate').value = b.quoteDate;
+  $('quoteValidUntil').value = b.validUntil;
+  $('quoteContractMonths').value = b.contractMonths;
+  $('quoteStatusField').value = b.status;
+  $('quotePaymentMethod').value = b.paymentMethod;
+  $('quotePaymentTerms').value = b.paymentTerms;
+  $('quoteNotes').value = b.notes;
+  $('quoteAddQty').value = 1;
+  fillQuoteServiceOptions();
+  renderQuoteDiscounts();
+  renderQuoteSummary();
   $('quoteDialog').showModal();
+  loadQuoteUf();
+}
+
+function handleQuoteFormChange(ev) {
+  const b = ui.quoteBuilder;
+  const el = ev.target;
+  if (!b || !el) return;
+  if (el.dataset.quoteLineQty) {
+    if (ev.type !== 'change') return;
+    const it = b.items.find((x) => x.ref === el.dataset.quoteLineQty);
+    if (!it) return;
+    it.quantity = Math.max(1, Math.round(Number(el.value) || 1));
+    el.value = it.quantity;
+    return scheduleQuotePreview();
+  }
+  switch (el.id) {
+    case 'quoteLeadId':
+      if (ev.type === 'change') fillQuoteLeadFields(getLead(el.value), true);
+      return scheduleQuotePreview();
+    case 'quotePriceList': {
+      if (ev.type !== 'change') return;
+      const dropped = remapQuoteItems(el.value);
+      b.priceListId = el.value;
+      if (dropped) toast(`${dropped} línea(s) no existen en la nueva lista y se quitaron.`, 'error');
+      fillQuoteServiceOptions();
+      renderQuoteDiscounts();
+      return scheduleQuotePreview();
+    }
+    case 'quoteUfValue':
+      Object.assign(b, { ufManual: true, ufDate: $('quoteDate').value });
+      $('quoteUfHint').textContent = '· ingresado a mano';
+      return scheduleQuotePreview();
+    case 'quoteDate':
+      if (ev.type === 'change') loadQuoteUf();
+      return;
+    case 'quoteCurrency':
+      b.currency = el.value;
+      renderQuoteDiscounts();
+      return scheduleQuotePreview();
+    case 'quoteDiscTarget':
+    case 'quoteDiscKind':
+      return syncQuoteDiscountInputs();
+    case 'quoteAddService':
+    case 'quoteAddQty':
+    case 'quoteDiscValue':
+    case 'quoteDiscMonths':
+      return;
+    default:
+      return scheduleQuotePreview();
+  }
+}
+
+function addQuoteLine() {
+  const b = ui.quoteBuilder;
+  const itemId = $('quoteAddService').value;
+  const qty = Math.max(1, Math.round(Number($('quoteAddQty').value) || 1));
+  if (!itemId) return toast('Elige un servicio.', 'error');
+  const existing = b.items.find((it) => it.priceListItemId === itemId);
+  if (existing) existing.quantity += qty;
+  else b.items.push({ ref: quoteRef(), priceListItemId: itemId, quantity: qty });
+  $('quoteAddQty').value = 1;
+  renderQuoteDiscounts();
+  renderQuoteSummary();
+  scheduleQuotePreview();
+}
+
+function addQuoteDiscount() {
+  const b = ui.quoteBuilder;
+  readQuoteHeader();
+  const target = $('quoteDiscTarget').value;
+  const kind = $('quoteDiscKind').value;
+  const scope = target.startsWith('line:') ? 'line' : target;
+  const itemRef = scope === 'line' ? target.slice(5) : '';
+  const line = b.items.find((it) => it.ref === itemRef);
+  const isSetup = scope === 'setup_total' || listItemOf(line?.priceListItemId)?.periodicity === 'unico';
+  const value = kind === 'free' ? 0 : Number($('quoteDiscValue').value);
+  const months = isSetup || $('quoteDiscMonths').value === '' ? null : Math.round(Number($('quoteDiscMonths').value));
+  if (scope === 'line' && !line) return toast('Elige a qué línea aplica el descuento.', 'error');
+  if (kind !== 'free' && !(value > 0)) return toast('Ingresa un valor mayor que cero.', 'error');
+  if (kind === 'percent' && value > 100) return toast('Un porcentaje no puede superar 100.', 'error');
+  if (months != null && (months < 1 || months > b.contractMonths)) return toast(`Los meses deben estar entre 1 y ${b.contractMonths}.`, 'error');
+  b.discounts.push({ scope, itemRef, kind, value, months });
+  renderQuoteDiscounts();
+  scheduleQuotePreview();
 }
 
 async function submitQuoteBuilder(e) {
   e.preventDefault();
+  const b = ui.quoteBuilder;
+  if (!b) return;
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
-  const leadId = $('quoteLeadId').value;
-  if (!canEditLeadLocally(leadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
-  if (!leadId) return toast('Selecciona una empresa.', 'error');
-  const items = ui.quoteBuilder.items
-    .filter((it) => it.name.trim() && Number(it.quantity) > 0)
-    .map((it) => ({ ...it, name: it.name.trim() }));
-  if (!items.length) return toast('Agrega al menos un item con cantidad.', 'error');
+  readQuoteHeader();
+  if (!b.leadId) return toast('Selecciona una empresa.', 'error');
+  if (!canEditLeadLocally(b.leadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
+  if (!b.client.contact) return toast('Ingresa el nombre del contacto.', 'error');
+  if (!b.client.email) return toast('Ingresa el correo del contacto.', 'error');
+  if (!b.paymentMethod) return toast('Selecciona la forma de pago.', 'error');
+  if (!b.paymentTerms) return toast('Selecciona la condición de pago.', 'error');
+  if (!b.items.length) return toast('Agrega al menos una línea de servicio.', 'error');
 
-  const lead = getLead(leadId);
-  const client = { company: lead.company, contact: lead.contact, email: lead.email, phone: lead.phone };
-  const baseId = $('quoteBaseId').value;
-
-  const saved = await saveQuote({
-    baseId,
-    leadId,
-    status: $('quoteStatusField').value,
-    notes: $('quoteNotes').value.trim(),
-    validUntil: $('quoteValidUntil').value,
-    client,
-    items
-  });
+  const saved = await saveQuote(b, b.baseId);
   if (!saved) return;
-
   $('quoteDialog').close();
-  toast(baseId ? 'Nueva versión guardada.' : 'Cotización creada.');
+  ui.quoteBuilder = null;
+  toast(`Cotización ${saved.number} guardada${saved.version > 1 ? ` como versión ${saved.version}` : ''}.`);
+}
+
+/* ---------- PDF ---------- */
+
+async function ensureHtml2Pdf() {
+  if (window.html2pdf) return window.html2pdf;
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.onload = resolve;
+    script.onerror = () => {
+      script.remove();
+      reject(new Error('No se pudo cargar el generador de PDF. Revisa la conexión.'));
+    };
+    document.head.appendChild(script);
+  });
+  return window.html2pdf;
+}
+
+async function downloadQuotePdf(doc) {
+  const html2pdf = await ensureHtml2Pdf();
+  const holder = document.createElement('div');
+  holder.className = 'quote-pdf-holder';
+  holder.innerHTML = quoteDocHtml(doc);
+  document.body.appendChild(holder);
+  const safe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
+  const filename = `${safe(doc.number) || 'cotizacion'}${doc.version > 1 ? `-v${doc.version}` : ''}-${safe(doc.client?.company)}.pdf`;
+  try {
+    await html2pdf()
+      .set({
+        margin: [10, 10, 12, 10],
+        filename,
+        image: { type: 'jpeg', quality: 0.96 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.qd-totals', '.qd-months', '.qd-head'] }
+      })
+      .from(holder.firstElementChild)
+      .save();
+  } finally {
+    holder.remove();
+  }
 }
 
 function openQuoteView(id) {
   const q = getQuote(id);
   if (!q) return;
   const lead = getLead(q.leadId);
-  $('quoteViewTitle').textContent = `${lead?.company || 'Empresa eliminada'} · versión ${q.version}`;
-  $('quoteViewSubtitle').textContent = `${q.owner || 'Sin responsable'} · actualizada ${fmtDateTime(q.updatedAt)}`;
+  $('quoteViewTitle').textContent = `${q.number || 'Cotización'} · ${lead?.company || q.client?.company || 'Empresa eliminada'}`;
+  $('quoteViewSubtitle').textContent = `Versión ${q.version}${q.isCurrent ? ' vigente' : ''} · ${q.owner || 'Sin responsable'} · actualizada ${fmtDateTime(q.updatedAt)}`;
   const versions = versionsOf(q.rootId);
   $('quoteViewBody').innerHTML = `
-    <div class="detail-row"><span>Estado</span><strong>${escapeHtml(QUOTE_STATUSES.find((s) => s.id === q.status)?.label || q.status)}</strong></div>
-    <div class="table-wrap"><table class="data-table">
-      <thead><tr><th>Item</th><th>Cant.</th><th>Unidad</th><th>Precio unit.</th><th>Subtotal</th></tr></thead>
-      <tbody>${q.items
-        .map(
-          (it) =>
-            `<tr><td>${escapeHtml(it.name)}</td><td>${it.quantity}</td><td>${escapeHtml(it.unit)}</td><td>${fmtMoney(it.unitPrice)}</td><td>${fmtMoney(it.subtotal ?? it.quantity * it.unitPrice)}</td></tr>`
-        )
-        .join('')}</tbody>
-    </table></div>
-    <div class="quote-totals">
-      <div><span>Subtotal neto</span><strong>${fmtMoney(q.subtotalNeto)}</strong></div>
-      <div><span>IVA (19%)</span><strong>${fmtMoney(q.iva)}</strong></div>
-      <div class="quote-total-final"><span>Total</span><strong>${fmtMoney(q.total)}</strong></div>
-    </div>
-    ${q.notes ? `<p class="detail-notes">${escapeHtml(q.notes)}</p>` : ''}
+    ${quoteDocHtml(quoteDocFromSaved(q))}
     ${
       versions.length > 1
         ? `<h4 class="settings-subtitle">Versiones</h4><div class="list">${versions
@@ -1137,8 +1501,9 @@ function openQuoteView(id) {
             .join('')}</div>`
         : ''
     }`;
-  $('quoteViewEditBtn').dataset.id = q.id;
+  $('quoteViewEditBtn').dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
   $('quoteViewSendBtn').dataset.id = q.id;
+  $('quoteViewPdfBtn').dataset.id = q.id;
   $('quoteViewDialog').showModal();
 }
 
@@ -1701,15 +2066,30 @@ const ACTIONS = {
     if (!confirm('¿Eliminar esta versión de la cotización?')) return;
     if (await deleteQuote(id)) toast('Cotización eliminada.');
   },
-  'add-quote-row': () => {
-    ui.quoteBuilder.items.push(emptyQuoteRow());
-    renderQuoteItemsRoot();
+  'add-quote-line': () => addQuoteLine(),
+  'remove-quote-line': (ref) => {
+    const b = ui.quoteBuilder;
+    b.items = b.items.filter((it) => it.ref !== ref);
+    b.discounts = b.discounts.filter((d) => d.scope !== 'line' || d.itemRef !== ref);
+    renderQuoteDiscounts();
+    renderQuoteSummary();
+    scheduleQuotePreview();
   },
-  'remove-quote-row': (id, btn) => {
-    const i = Number(btn.dataset.row);
-    ui.quoteBuilder.items.splice(i, 1);
-    if (!ui.quoteBuilder.items.length) ui.quoteBuilder.items.push(emptyQuoteRow());
-    renderQuoteItemsRoot();
+  'add-quote-discount': () => addQuoteDiscount(),
+  'remove-quote-discount': (index) => {
+    ui.quoteBuilder.discounts.splice(Number(index), 1);
+    renderQuoteDiscounts();
+    scheduleQuotePreview();
+  },
+  'refresh-uf': () => loadQuoteUf({ force: true }),
+  'quote-builder-pdf': async () => {
+    const b = ui.quoteBuilder;
+    if (!b?.calc) return toast(b?.calcError || 'Completa la cotización para generar el PDF.', 'error');
+    await downloadQuotePdf(builderDoc());
+  },
+  'quote-pdf': async (id, btn) => {
+    const q = getQuote(id || btn?.dataset.id);
+    if (q) await downloadQuotePdf(quoteDocFromSaved(q));
   }
 };
 
@@ -1793,21 +2173,6 @@ async function handleViewInput(ev) {
   if (!map[id]) return;
   map[id]();
   render();
-}
-
-/** Cambios dentro del constructor de cotización: no vive en #viewRoot, así que se escucha aparte. */
-function handleQuoteFieldChange(ev) {
-  const el = ev.target;
-  if (!el.dataset.quoteField) return;
-  const row = Number(el.dataset.row);
-  const item = ui.quoteBuilder.items[row];
-  if (!item) return;
-  const field = el.dataset.quoteField;
-  if (field === 'serviceId') return;
-  item[field] = field === 'quantity' || field === 'unitPrice' ? Number(el.value || 0) : el.value;
-  // Solo repinta el total de la fila y no todo el bloque, para no perder el foco mientras se escribe.
-  const totalCell = document.querySelector(`#quoteItemsRoot tr[data-row="${row}"] .quote-row-total`);
-  if (totalCell) totalCell.textContent = fmtMoney(Number(item.quantity || 0) * Number(item.unitPrice || 0));
 }
 
 /* ---------- Auditoría de cambios ---------- */
@@ -2086,15 +2451,15 @@ function localGlobalSearch(term) {
     const client = quote.client || {};
     const searchable = normalizeGlobalSearch([
       lead?.company, lead?.rut, client.company, client.rut, client.email,
-      client.phone, quote.notes, quote.status, quote.total
+      client.phone, client.contact, quote.number, quote.notes, quote.status, quote.total
     ].join(' '));
     if (!searchable.includes(needle)) return;
 
     results.push({
       key: `quote:${quote.id}`,
       kind: 'Cotización',
-      title: `${lead?.company || client.company || 'Cotización'} · v${quote.version}`,
-      meta: `${quote.status || 'Sin estado'} · ${fmtMoney(quote.total)}`,
+      title: `${lead?.company || client.company || 'Cotización'} · ${quote.number || ''} v${quote.version}`,
+      meta: `${quote.status || 'Sin estado'} · ${fmtCurrency(quote.total, quote.currency)}`,
       action: 'view-quote',
       id: quote.id
     });
@@ -2314,7 +2679,7 @@ function notificationItems() {
         priority: quote.validUntil < today ? 1 : 3,
         type: quote.validUntil < today ? 'Cotización vencida' : 'Cotización por vencer',
         title: lead?.company || quote.client?.company || 'Cotización',
-        detail: `v${quote.version} · ${fmtMoney(quote.total)} · válida hasta ${fmtDate(quote.validUntil)}`,
+        detail: `${quote.number || ''} v${quote.version} · ${fmtCurrency(quote.total, quote.currency)} · válida hasta ${fmtDate(quote.validUntil)}`,
         action: 'view-quote',
         id: quote.id
       });
@@ -2647,9 +3012,8 @@ function bindEvents() {
   });
   bindSubmitOnce('priceItemForm', submitPriceItem);
   bindSubmitOnce('quoteForm', submitQuoteBuilder);
-  $('quoteItemsRoot').parentElement; // noop, root exists once quoteForm renders
-  $('quoteForm').addEventListener('input', handleQuoteFieldChange);
-  $('quoteForm').addEventListener('change', handleQuoteFieldChange);
+  $('quoteForm').addEventListener('input', handleQuoteFormChange);
+  $('quoteForm').addEventListener('change', handleQuoteFormChange);
   bindSubmitOnce('quoteSendForm', submitQuoteSend);
 
   $('authForm').addEventListener('submit', submitAuth);

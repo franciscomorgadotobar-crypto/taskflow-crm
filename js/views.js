@@ -3,7 +3,11 @@ import {
   CHART_DIMENSIONS,
   CRM_CROSS,
   CRM_FLOW,
+  DISCOUNT_KINDS,
+  PAYMENT_METHODS,
+  PAYMENT_TERMS,
   PIPELINE_STAGES,
+  QUOTE_ISSUER,
   QUOTE_STATUSES,
   QUOTE_STATUS_LABEL,
   TEMPLATE_CHANNELS,
@@ -30,6 +34,7 @@ import {
   daysBetween,
   escapeHtml as e,
   fmtAmount,
+  fmtCurrency,
   fmtDate,
   fmtDateTime,
   fmtMoney,
@@ -872,13 +877,14 @@ function quoteRow(q, { showCompany = false } = {}) {
   const versions = versionsOf(q.rootId);
   return `<div class="list-item">
     <div>
-      <strong>${showCompany ? e(lead?.company || 'Empresa eliminada') + ' · ' : ''}Versión ${q.version}</strong>
+      <strong>${showCompany ? e(lead?.company || q.client?.company || 'Empresa eliminada') + ' · ' : ''}${e(q.number || 'Sin número')} · v${q.version}</strong>
       ${quoteStatusBadge(q.status)}
       ${versions.length > 1 ? `<span class="muted"> · ${versions.length} versiones</span>` : ''}
       <div class="muted">${e(q.owner || 'Sin responsable')} · ${e(fmtDateTime(q.updatedAt))}</div>
     </div>
     <div class="list-side">
-      <strong>${fmtMoney(q.total)}</strong>
+      <strong>${fmtCurrency(q.totals?.monthly?.net, q.currency)} / mes + IVA</strong>
+      <span class="muted">Contrato ${q.contractMonths} meses: ${fmtCurrency(q.total, q.currency)} IVA incl.</span>
       <div class="actions">
         <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver</button>
         <button class="small-btn" data-action="edit-quote" data-id="${q.id}">Editar</button>
@@ -994,7 +1000,12 @@ function renderQuotesList(ui) {
   const rows = quoteState.quotes.filter((q) => q.isCurrent);
   const status = ui.quoteFilters?.status || '';
   const filtered = status ? rows.filter((q) => q.status === status) : rows;
-  const total = filtered.reduce((s, q) => s + q.total, 0);
+  // Los totales se suman por moneda: UF y CLP no se mezclan.
+  const sums = {};
+  filtered.forEach((q) => (sums[q.currency] = (sums[q.currency] || 0) + q.total));
+  const totalLabel = Object.entries(sums)
+    .map(([cur, v]) => fmtCurrency(v, cur))
+    .join(' + ');
   return `
     <div class="card">
       <div class="card-head">
@@ -1007,7 +1018,7 @@ function renderQuotesList(ui) {
             <option value="">Todos los estados</option>
             ${QUOTE_STATUSES.map((s) => `<option value="${s.id}" ${status === s.id ? 'selected' : ''}>${e(s.label)}</option>`).join('')}
           </select>
-          <span class="toolbar-summary">${filtered.length} · ${fmtMoney(total)}</span>
+          <span class="toolbar-summary">${filtered.length}${totalLabel ? ` · ${totalLabel} (contratos, IVA incl.)` : ''}</span>
         </div>
         ${
           filtered.length
@@ -1030,50 +1041,216 @@ export function renderQuotes(ui) {
     ${view === 'lists' ? renderPriceLists(ui) : renderQuotesList(ui)}`;
 }
 
-/**
- * Filas editables del constructor de cotización. `rows` son items en memoria
- * (no guardados todavía); se recalculan en cada input desde app.js.
- */
-export function quoteBuilderRows(items) {
-  const services = [];
-  return items
-    .map(
-      (it, i) => `<tr data-row="${i}">
-        <td>
-          <select class="cell-input" data-quote-field="serviceId" data-row="${i}">
-            <option value="">Item personalizado</option>
-            ${services.map((s) => `<option value="${s.id}" ${it.serviceId === s.id ? 'selected' : ''}>${e(s.name)}</option>`).join('')}
-          </select>
-          ${it.serviceId ? '' : `<input class="cell-input" data-quote-field="name" data-row="${i}" value="${e(it.name)}" placeholder="Nombre del item" />`}
-        </td>
-        <td><input class="cell-input qty" type="number" min="0" step="1" data-quote-field="quantity" data-row="${i}" value="${e(it.quantity)}" /></td>
-        <td><input class="cell-input" data-quote-field="unit" data-row="${i}" value="${e(it.unit)}" list="serviceUnits" /></td>
-        <td><input class="cell-input" type="number" min="0" step="100" data-quote-field="unitPrice" data-row="${i}" value="${e(it.unitPrice)}" /></td>
-        <td class="quote-row-total">${fmtMoney(Number(it.quantity || 0) * Number(it.unitPrice || 0))}</td>
-        <td><button type="button" class="icon-btn" data-action="remove-quote-row" data-row="${i}" aria-label="Quitar">×</button></td>
-      </tr>`
-    )
-    .join('');
-}
+/* ---------- Documento de cotización (vista previa, "Ver" y PDF) ---------- */
 
-export function quoteBuilderHtml(builder) {
-  const totals = { subtotalNeto: 0, iva: 0, total: 0 };
-  builder.items.forEach((it) => (totals.subtotalNeto += Number(it.quantity || 0) * Number(it.unitPrice || 0)));
-  totals.iva = Math.round(totals.subtotalNeto * 0.19);
-  totals.total = totals.subtotalNeto + totals.iva;
+const optionLabel = (list, id) => list.find((x) => x.id === id)?.label || '—';
+
+/**
+ * Documento de una cotización. `doc` es la misma forma para un borrador (con el
+ * cálculo de quote_preview) y para una versión guardada: encabezado, líneas con
+ * sus montos por mes 1 y `totals` { setup, monthly, projection, contract }.
+ * Usa colores fijos (papel blanco) para verse igual en tema oscuro y en el PDF.
+ */
+export function quoteDocHtml(doc) {
+  const cur = doc.currency || 'UF';
+  const t = doc.totals || {};
+  const client = doc.client || {};
+  const setup = doc.lines.filter((l) => l.periodicity === 'unico');
+  const monthly = doc.lines.filter((l) => l.periodicity !== 'unico');
+  const amount = (n) => fmtAmount(n, cur);
+
+  const table = (rows, withMonths) => `
+    <table class="qd-table">
+      <thead><tr><th>Servicio</th><th class="num">Cant.</th><th class="num">P. unit. ${cur}</th><th class="num">Subtotal ${cur}</th><th class="num">Dscto ${cur}</th>${withMonths ? '<th class="num">Meses dscto</th>' : ''}<th class="num">Total ${cur}</th></tr></thead>
+      <tbody>${
+        rows.length
+          ? rows
+              .map(
+                (l) => `<tr>
+                  <td>${e(l.name)}${l.code ? `<div class="qd-code">${e(l.code)}</div>` : ''}</td>
+                  <td class="num">${fmtNumber(l.quantity)}</td>
+                  <td class="num">${amount(l.unitPrice)}</td>
+                  <td class="num">${amount(l.subtotal)}</td>
+                  <td class="num qd-disc">${amount(l.discount)}</td>
+                  ${withMonths ? `<td class="num">${l.discountMonths || '—'}</td>` : ''}
+                  <td class="num"><strong>${amount(l.total)}</strong></td>
+                </tr>`
+              )
+              .join('')
+          : `<tr><td colspan="${withMonths ? 7 : 6}" class="qd-empty">Sin líneas.</td></tr>`
+      }</tbody>
+    </table>`;
+
+  const totalsBox = (b, finalLabel) => `
+    <div class="qd-totals">
+      <div><span>Subtotal ${cur}</span><span>${amount(b?.subtotal)}</span></div>
+      <div class="qd-disc"><span>Descuentos ${cur}</span><span>${amount(b?.discount)}</span></div>
+      <div><span>Neto ${cur}</span><span>${amount(b?.net)}</span></div>
+      <div><span>IVA 19%</span><span>${amount(b?.iva)}</span></div>
+      <div class="qd-final"><span>${finalLabel}</span><span>${amount(b?.total)}</span></div>
+    </div>`;
 
   return `
-    <div class="table-wrap"><table class="data-table quote-items-table">
-      <thead><tr><th>Servicio</th><th>Cant.</th><th>Unidad</th><th>Precio unit.</th><th>Subtotal</th><th></th></tr></thead>
-      <tbody id="quoteRows">${quoteBuilderRows(builder.items)}</tbody>
-    </table></div>
-    <div class="button-row" style="margin:10px 0">
-      <button type="button" class="small-btn" data-action="add-quote-row">+ Agregar item</button>
-    </div>
-    <div class="quote-totals">
-      <div><span>Subtotal neto</span><strong>${fmtMoney(totals.subtotalNeto)}</strong></div>
-      <div><span>IVA (19%)</span><strong>${fmtMoney(totals.iva)}</strong></div>
-      <div class="quote-total-final"><span>Total</span><strong>${fmtMoney(totals.total)}</strong></div>
+    <div class="quote-doc">
+      <div class="qd-head">
+        <div class="qd-issuer">
+          <img src="assets/logo-taskflow-trim.png" alt="TaskFlow" />
+          <strong>${e(QUOTE_ISSUER.name)}</strong>
+          <span>RUT ${e(QUOTE_ISSUER.rut)}</span>
+        </div>
+        <div class="qd-client">
+          <div>Cliente: <strong>${e(client.company || '—')}</strong></div>
+          ${client.rut ? `<div>RUT: ${e(client.rut)}</div>` : ''}
+          <div>Cotización: <strong>${e(doc.number || 'Se asigna al guardar')}</strong>${doc.version > 1 ? ` · versión ${doc.version}` : ''}</div>
+          <div>Vendedor: <strong>${e(doc.owner || '—')}</strong></div>
+          <div>Contacto: ${e(client.contact || '—')}${client.role ? ` (${e(client.role)})` : ''}</div>
+          ${client.email || client.phone ? `<div>${e([client.email, client.phone].filter(Boolean).join(' · '))}</div>` : ''}
+        </div>
+        <div class="qd-meta">
+          <div>Fecha: ${e(fmtDate(doc.quoteDate) || '—')}</div>
+          <div>Vencimiento: ${e(fmtDate(doc.validUntil) || '—')}</div>
+          <div>Meses contrato: ${e(doc.contractMonths)}</div>
+          <div>Forma de pago: ${e(optionLabel(PAYMENT_METHODS, doc.paymentMethod))}</div>
+          <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
+          <div>Moneda: ${e(cur)}${doc.ufValue ? ` · UF $${e(fmtAmount(doc.ufValue, 'UF'))}${doc.ufDate ? ` (${e(fmtDate(doc.ufDate))})` : ''}` : ''}</div>
+          <div>Estado: ${e(QUOTE_STATUS_LABEL[doc.status] || doc.status || '—')}</div>
+        </div>
+      </div>
+      ${doc.notes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(doc.notes)}</p>` : ''}
+
+      <h4>Habilitación inicial (pago único)</h4>
+      ${table(setup, false)}
+      ${totalsBox(t.setup, `Total habilitación ${cur}`)}
+
+      <h4>Servicios mensuales</h4>
+      ${table(monthly, true)}
+      ${totalsBox(t.monthly, `Total mes 1 ${cur}`)}
+
+      <h4>Proyección mensual del contrato <span class="qd-muted">(neto, más IVA)</span></h4>
+      <div class="qd-months">${(t.projection || [])
+        .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.net)}</strong></div>`)
+        .join('')}</div>
+
+      <div class="qd-totals qd-contract">
+        <div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
+        <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>
+        <div class="qd-final"><span>Total contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
+      </div>
+    </div>`;
+}
+
+/** Documento a partir de una versión guardada. */
+export function quoteDocFromSaved(q) {
+  return {
+    number: q.number,
+    version: q.version,
+    status: q.status,
+    owner: q.owner,
+    currency: q.currency,
+    ufValue: q.ufValue,
+    ufDate: q.ufDate,
+    quoteDate: q.quoteDate,
+    validUntil: q.validUntil,
+    contractMonths: q.contractMonths,
+    paymentMethod: q.paymentMethod,
+    paymentTerms: q.paymentTerms,
+    notes: q.notes,
+    client: q.client,
+    lines: q.items,
+    totals: q.totals
+  };
+}
+
+/* ---------- Constructor de cotización ---------- */
+
+const PERIODICITY_BADGE = (p) => `<span class="badge">${p === 'unico' ? 'único' : 'mensual'}</span>`;
+
+/** Líneas del borrador. Los montos vienen del último cálculo del servidor (`builder.calc`). */
+export function quoteLinesHtml(builder) {
+  const cur = builder.currency;
+  const calcItem = (ref) => builder.calc?.items?.find((x) => x.ref === ref);
+  const calcLine = (ref) => builder.calc?.lines?.find((x) => x.ref === ref);
+  const dash = '—';
+  if (!builder.items.length) return '<p class="muted">Sin líneas. Elige un servicio de la lista y agrégalo.</p>';
+  return `<div class="table-wrap"><table class="data-table quote-lines-table">
+    <thead><tr><th>Servicio</th><th class="num">Cant.</th><th class="num">P. unit. ${cur}</th><th class="num">Subtotal</th><th class="num">Dscto</th><th class="num">Total</th><th></th></tr></thead>
+    <tbody>${builder.items
+      .map((it) => {
+        const li = quoteState.priceListItems.find((x) => x.id === it.priceListItemId);
+        const ci = calcItem(it.ref);
+        const cl = calcLine(it.ref);
+        return `<tr>
+          <td>${e(li?.name || 'Servicio no disponible')} ${PERIODICITY_BADGE(li?.periodicity)}<div class="qd-code">${e(li?.code || '')}</div></td>
+          <td class="num"><input class="cell-input qty" type="number" min="1" step="1" data-quote-line-qty="${e(it.ref)}" value="${e(it.quantity)}" /></td>
+          <td class="num">${ci ? fmtAmount(ci.unit_price, cur) : dash}</td>
+          <td class="num">${cl ? fmtAmount(cl.subtotal, cur) : dash}</td>
+          <td class="num qd-disc">${cl ? fmtAmount(cl.discount, cur) : dash}</td>
+          <td class="num"><strong>${cl ? fmtAmount(cl.total, cur) : dash}</strong></td>
+          <td><button type="button" class="small-btn danger" data-action="remove-quote-line" data-id="${e(it.ref)}">Quitar</button></td>
+        </tr>`;
+      })
+      .join('')}</tbody>
+  </table></div>`;
+}
+
+export function discountTargetLabel(builder, d) {
+  if (d.scope === 'monthly_total') return 'Total mensual';
+  if (d.scope === 'setup_total') return 'Total habilitación';
+  const it = builder.items.find((x) => x.ref === d.itemRef);
+  const li = quoteState.priceListItems.find((x) => x.id === it?.priceListItemId);
+  return li ? li.name : 'Línea eliminada';
+}
+
+function discountValueLabel(d, cur) {
+  if (d.kind === 'free') return 'Gratis';
+  if (d.kind === 'percent') return `${fmtNumber(d.value)}%`;
+  const v = fmtCurrency(d.value, cur);
+  return d.kind === 'fixed_price' ? `${v}${d.scope === 'line' ? ' c/u' : ''}` : v;
+}
+
+/** Descuentos del borrador en orden FIFO + fila para agregar uno nuevo. */
+export function quoteDiscountsHtml(builder) {
+  const cur = builder.currency;
+  const isSetupTarget = (d) =>
+    d.scope === 'setup_total' ||
+    (d.scope === 'line' && quoteState.priceListItems.find((x) => x.id === builder.items.find((i) => i.ref === d.itemRef)?.priceListItemId)?.periodicity === 'unico');
+  const lineOptions = builder.items
+    .map((it) => {
+      const li = quoteState.priceListItems.find((x) => x.id === it.priceListItemId);
+      return li ? `<option value="line:${e(it.ref)}">${e(li.name)} (${li.periodicity === 'unico' ? 'único' : 'mensual'})</option>` : '';
+    })
+    .join('');
+  return `
+    ${
+      builder.discounts.length
+        ? `<div class="table-wrap"><table class="data-table quote-discounts-table">
+            <thead><tr><th>#</th><th>Aplica a</th><th>Tipo</th><th class="num">Valor</th><th class="num">Meses</th><th></th></tr></thead>
+            <tbody>${builder.discounts
+              .map(
+                (d, i) => `<tr>
+                  <td>${i + 1}</td>
+                  <td>${e(discountTargetLabel(builder, d))}</td>
+                  <td>${e(optionLabel(DISCOUNT_KINDS, d.kind))}</td>
+                  <td class="num">${e(discountValueLabel(d, cur))}</td>
+                  <td class="num">${isSetupTarget(d) ? 'Pago único' : d.months ? `Primeros ${d.months}` : 'Todo el contrato'}</td>
+                  <td><button type="button" class="small-btn danger" data-action="remove-quote-discount" data-id="${i}">Quitar</button></td>
+                </tr>`
+              )
+              .join('')}</tbody>
+          </table></div>
+          <p class="muted quote-hint">Se aplican en este orden. Un descuento al total se reparte proporcionalmente entre las líneas.</p>`
+        : '<p class="muted">Sin descuentos.</p>'
+    }
+    <div class="quote-add-row">
+      <label class="grow">Aplica a<select id="quoteDiscTarget">
+        <option value="monthly_total">Total mensual</option>
+        <option value="setup_total">Total habilitación</option>
+        ${lineOptions}
+      </select></label>
+      <label>Tipo<select id="quoteDiscKind">${DISCOUNT_KINDS.map((k) => `<option value="${k.id}">${e(k.label)}</option>`).join('')}</select></label>
+      <label>Valor<input id="quoteDiscValue" type="number" min="0" step="any" inputmode="decimal" placeholder="${cur === 'CLP' ? '$' : 'UF'} o %" /></label>
+      <label>Meses<input id="quoteDiscMonths" type="number" min="1" step="1" placeholder="Todos" /></label>
+      <button type="button" class="ghost-btn" data-action="add-quote-discount">Agregar descuento</button>
     </div>`;
 }
 
@@ -1146,10 +1323,10 @@ function stageTimelineItem(h) {
 function quoteTimelineItem(q, kind = 'created') {
   const sent = kind === 'sent';
   const status = QUOTE_STATUS_LABEL[q.status] || q.status || 'Sin estado';
-  const title = sent ? `Cotización v${q.version} enviada` : `Cotización v${q.version}`;
+  const title = sent ? `Cotización ${q.number || ''} v${q.version} enviada` : `Cotización ${q.number || ''} v${q.version}`;
   const detail = sent
-    ? `${fmtMoney(q.total)} · enviada al cliente`
-    : `${fmtMoney(q.total)} · estado actual: ${status}`;
+    ? `${fmtCurrency(q.total, q.currency)} · enviada al cliente`
+    : `${fmtCurrency(q.total, q.currency)} · estado actual: ${status}`;
 
   return `
     <div class="timeline-entry timeline-quote">
