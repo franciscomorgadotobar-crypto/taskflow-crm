@@ -507,7 +507,7 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
 .detail-row span { color: var(--muted); flex: none; }
 .detail-row strong { text-align: right; overflow-wrap: anywhere; min-width: 0; }
-.detail-notes { font-size: 14px; background: var(--bg); border-radius: 10px; padding: 12px; }
+.detail-notes { font-size: 14px; background: var(--bg); border-radius: 10px; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .manage-lead h3 { margin: 0 0 6px; font-size: 18px; }
 .manage-current { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 13px; flex-wrap: wrap; }

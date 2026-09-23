@@ -1593,12 +1593,17 @@ async function saveNote() {
   const text = pendingNote();
   if (!record) return;
   if (!text) return toast('Escribe la observación antes de guardar.', 'error');
+  // La caja se vacía antes de guardar: saveAttemptAndPatch agrega lo que quede
+  // escrito en ella, y la nota ya va en el patch (así se duplicaba).
+  const box = byId('hfRecordNote');
   try {
     focus.noteDraft = '';
+    if (box) box.value = '';
     await saveAttemptAndPatch({ notes: mergeNotes(record, text) }, `Observación: ${text}`);
     renderSession();
     toast('Observación guardada.');
   } catch (err) {
+    if (box?.isConnected) box.value = text;
     focus.noteDraft = text;
     console.error(err);
     toast(err.message || 'No se pudo guardar la observación.', 'error');
