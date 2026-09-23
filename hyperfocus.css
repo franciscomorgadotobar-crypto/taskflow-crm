@@ -43,8 +43,27 @@
 /* El <dialog> hereda max-width:min(920px,94vw) de styles.css: si solo se ensancha
    la tarjeta, ésta se sale por la izquierda y hay que desplazarse para verla.
    Se ensanchan los dos, igual que se hizo con la ficha de empresa. */
-.hf-import-dialog { max-width:min(1080px,calc(100vw - 48px)); }
-.hf-import-dialog .modal-card { width:100%; max-height:92vh; overflow-y:auto; overflow-x:hidden; }
+.hf-crm-campaign-dialog { max-width:min(920px,calc(100vw - 48px)); }
+.hf-crm-campaign-dialog .modal-card { width:100%; max-height:92vh; overflow-y:auto; }
+.hf-crm-campaign-dialog .modal-head,
+.hf-crm-campaign-dialog .modal-actions { position:sticky; z-index:2; background:var(--v2-panel,var(--panel)); }
+.hf-crm-campaign-dialog .modal-head { top:0; }
+.hf-crm-campaign-dialog .modal-actions { bottom:0; border-top:1px solid var(--v2-line,var(--border)); }
+.hf-crm-campaign-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.hf-crm-campaign-preview { padding:4px 18px 18px; }
+.hf-crm-preview-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.hf-crm-preview-summary > div { padding:12px; border:1px solid var(--v2-line,var(--border)); border-radius:11px; background:var(--v2-panel-soft,var(--bg)); text-align:center; }
+.hf-crm-preview-summary strong, .hf-crm-preview-summary span { display:block; }
+.hf-crm-preview-summary strong { font-size:18px; }
+.hf-crm-preview-summary span { margin-top:2px; color:var(--v2-muted,var(--muted)); font-size:10px; }
+.hf-crm-preview-list { border:1px solid var(--v2-line,var(--border)); border-radius:12px; overflow:hidden; }
+.hf-crm-preview-row { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-bottom:1px solid var(--v2-line,var(--border)); }
+.hf-crm-preview-row:last-of-type { border-bottom:0; }
+.hf-crm-preview-row strong { font-size:12px; }
+.hf-crm-preview-row span { color:var(--v2-muted,var(--muted)); font-size:10px; text-align:right; }
+.hf-crm-preview-list > p { margin:10px 12px; }
+
+.hf-import-dialog { max-width:min(1080px,calc(100vw - 48px)); }.hf-import-dialog .modal-card { width:100%; max-height:92vh; overflow-y:auto; overflow-x:hidden; }
 .hf-import-card { gap:0; }
 .hf-import-intro { display:grid; grid-template-columns:1.3fr .8fr 1fr; gap:12px; padding:18px; }
 .hf-import-intro label, .hf-map-grid label, .hf-action-step label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--v2-muted,var(--muted)); min-width:0; }
@@ -99,6 +118,14 @@
 .hf-action-panel { position:sticky; top:96px; padding:22px; min-height:430px; }
 .hf-company-head { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
 .hf-company-head h2 { margin:3px 0 8px; font-size:28px; line-height:1.12; letter-spacing:-.035em; }
+.hf-company-identity { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:3px 0 8px; }
+.hf-company-identity h2 { margin:0; }
+.hf-rut-badge {
+  display:inline-flex; align-items:center; min-height:28px; padding:5px 9px; border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--v2-blue,var(--blue)) 35%,var(--v2-line,var(--border)));
+  background:color-mix(in srgb,var(--v2-soft-blue,#edf5ff) 55%,var(--v2-panel,var(--panel)));
+  color:var(--v2-blue,var(--blue)); font-size:11px; font-weight:800; white-space:nowrap;
+}
 .hf-eyebrow, .hf-step-label { display:block; color:var(--v2-blue,var(--blue)); font-size:10px; line-height:1.2; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
 .hf-company-meta { display:flex; flex-wrap:wrap; gap:6px; }
 .hf-company-meta span { padding:5px 8px; border-radius:999px; background:var(--v2-panel-soft,var(--bg)); color:var(--v2-muted,var(--muted)); font-size:10px; }
