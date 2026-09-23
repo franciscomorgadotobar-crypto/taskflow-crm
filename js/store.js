@@ -718,6 +718,57 @@ export async function addActivityConfirmed(activity, { silent = false } = {}) {
 }
 
 
+export async function recordActivityWithFollowupAtomic(
+  activity,
+  { resolveCurrentTask = false, setFollowup = false, nextType = '', nextAction = '', nextDate = '' } = {}
+) {
+  const lead = getLead(activity.leadId);
+  if (!lead) return null;
+
+  const currentTask = taskOf(lead);
+  const record = { id: activity.id || uid(), task: '', ...activity };
+  const ownerId = resolveOwnerId(record.owner) || (record.owner && record.owner === session.profile?.name ? session.user.id : null);
+
+  const { error } = await supabase.rpc('record_activity_with_followup', {
+    p_lead_id: record.leadId,
+    p_activity_id: record.id,
+    p_contact_key: record.contactId || '',
+    p_type: record.type || '',
+    p_date: record.date || nowISO(),
+    p_owner_id: ownerId,
+    p_owner_name: record.owner || '',
+    p_detail: record.detail || '',
+    p_resolve_current_task: Boolean(resolveCurrentTask),
+    p_set_followup: Boolean(setFollowup),
+    p_next_type: setFollowup ? nextType || '' : '',
+    p_next_action: setFollowup ? nextAction || '' : '',
+    p_next_date: setFollowup ? nextDate || null : null
+  });
+
+  if (error) {
+    reportError('No se pudo registrar la actividad', error);
+    return null;
+  }
+
+  record.task = resolveCurrentTask ? currentTask?.title || '' : '';
+  state.activities.unshift(record);
+
+  if (setFollowup) {
+    lead.nextType = nextType || '';
+    lead.nextAction = nextAction || '';
+    lead.nextDate = nextDate || '';
+    lead.updatedAt = nowISO();
+  } else if (resolveCurrentTask) {
+    lead.nextType = '';
+    lead.nextAction = '';
+    lead.nextDate = '';
+    lead.updatedAt = nowISO();
+  }
+
+  persist();
+  return record;
+}
+
 export async function resolveTaskWithActivityAtomic(activity) {
   const lead = getLead(activity.leadId);
   if (!lead) return null;
