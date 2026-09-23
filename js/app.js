@@ -72,6 +72,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
+import { supabase } from './supabase.js';
 import {
   clearLocal as hyperFocusClearLocal,
   hydrate as hyperFocusHydrate,
@@ -1569,6 +1570,219 @@ function handleQuoteFieldChange(ev) {
   if (totalCell) totalCell.textContent = fmtMoney(Number(item.quantity || 0) * Number(item.unitPrice || 0));
 }
 
+/* ---------- Buscador global ---------- */
+
+let globalSearchGeneration = 0;
+let globalSearchTimer = null;
+
+function normalizeGlobalSearch(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es');
+}
+
+function localGlobalSearch(term) {
+  const needle = normalizeGlobalSearch(term);
+  if (!needle) return [];
+
+  const results = [];
+
+  state.leads.forEach((lead) => {
+    const contacts = [
+      lead.contact, lead.role, lead.email, lead.phone,
+      ...(lead.contacts || []).flatMap((contact) => [contact.name, contact.role, contact.email, contact.phone])
+    ];
+
+    const searchable = normalizeGlobalSearch([
+      lead.company, lead.rut, lead.industry, lead.source, lead.stage, lead.owner,
+      lead.notes, lead.nextAction, ...contacts
+    ].join(' '));
+
+    if (!searchable.includes(needle)) return;
+
+    results.push({
+      key: `lead:${lead.id}`,
+      kind: 'Oportunidad',
+      title: lead.company,
+      meta: [lead.rut ? `RUT ${lead.rut}` : '', lead.stage, lead.owner].filter(Boolean).join(' · '),
+      action: 'open-detail',
+      id: lead.id
+    });
+  });
+
+  state.activities.forEach((activity) => {
+    if (!activity.leadId) return;
+    const searchable = normalizeGlobalSearch([
+      activity.company, activity.type, activity.detail, activity.task, activity.owner
+    ].join(' '));
+    if (!searchable.includes(needle)) return;
+
+    results.push({
+      key: `activity:${activity.id}`,
+      kind: 'Actividad',
+      title: activity.company || 'Actividad',
+      meta: [activity.type, activity.detail].filter(Boolean).join(' · '),
+      action: 'open-detail',
+      id: activity.leadId
+    });
+  });
+
+  quoteState.quotes.forEach((quote) => {
+    const lead = getLead(quote.leadId);
+    const client = quote.client || {};
+    const searchable = normalizeGlobalSearch([
+      lead?.company, lead?.rut, client.company, client.rut, client.email,
+      client.phone, quote.notes, quote.status, quote.total
+    ].join(' '));
+    if (!searchable.includes(needle)) return;
+
+    results.push({
+      key: `quote:${quote.id}`,
+      kind: 'Cotización',
+      title: `${lead?.company || client.company || 'Cotización'} · v${quote.version}`,
+      meta: `${quote.status || 'Sin estado'} · ${fmtMoney(quote.total)}`,
+      action: 'view-quote',
+      id: quote.id
+    });
+  });
+
+  return results.slice(0, 18);
+}
+
+async function hyperFocusGlobalSearch(term, generation) {
+  const value = String(term || '').trim();
+  if (value.length < 3) return [];
+
+  try {
+    const [companyR, rutR] = await Promise.all([
+      supabase
+        .from('hyperfocus_records')
+        .select('id,company,rut,status,existing_lead_id')
+        .ilike('company', `%${value}%`)
+        .limit(6),
+      supabase
+        .from('hyperfocus_records')
+        .select('id,company,rut,status,existing_lead_id')
+        .ilike('rut', `%${value}%`)
+        .limit(6)
+    ]);
+
+    if (generation !== globalSearchGeneration) return null;
+    if (companyR.error && rutR.error) return [];
+
+    const unique = new Map();
+    [...(companyR.data || []), ...(rutR.data || [])].forEach((row) => unique.set(row.id, row));
+
+    return [...unique.values()].slice(0, 8).map((row) => ({
+      key: `hf:${row.id}`,
+      kind: 'Híper Foco',
+      title: row.company,
+      meta: [row.rut ? `RUT ${row.rut}` : '', row.status].filter(Boolean).join(' · '),
+      action: row.existing_lead_id ? 'open-detail' : '',
+      id: row.existing_lead_id || '',
+      view: row.existing_lead_id ? '' : 'hyperfocus'
+    }));
+  } catch (err) {
+    console.error('Búsqueda Híper Foco no disponible', err);
+    return generation === globalSearchGeneration ? [] : null;
+  }
+}
+
+function renderGlobalSearchResults(localRows, remoteRows = [], { loading = false } = {}) {
+  const root = $('globalSearchResults');
+  if (!root) return;
+
+  const rows = [...localRows, ...(remoteRows || [])];
+  if (!rows.length && loading) {
+    root.innerHTML = '<div class="empty"><strong>Buscando también en Híper Foco…</strong></div>';
+    return;
+  }
+
+  if (!rows.length) {
+    root.innerHTML = '<div class="empty"><strong>Sin resultados</strong><p>Prueba con empresa, RUT, teléfono, correo o contacto.</p></div>';
+    return;
+  }
+
+  root.innerHTML = rows.map((row) => {
+    const attrs = row.action
+      ? `data-action="${escapeHtml(row.action)}" data-id="${escapeHtml(row.id)}"`
+      : `data-search-view="${escapeHtml(row.view || '')}"`;
+
+    return `<button type="button" class="global-search-result" ${attrs}>
+      <span class="global-search-kind">${escapeHtml(row.kind)}</span>
+      <strong>${escapeHtml(row.title)}</strong>
+      <span>${escapeHtml(row.meta || '')}</span>
+    </button>`;
+  }).join('');
+}
+
+async function runGlobalSearch() {
+  const input = $('globalSearchInput');
+  if (!input) return;
+
+  const term = input.value.trim();
+  const generation = ++globalSearchGeneration;
+
+  if (!term) {
+    $('globalSearchResults').innerHTML =
+      '<div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>';
+    return;
+  }
+
+  const localRows = localGlobalSearch(term);
+  renderGlobalSearchResults(localRows, [], { loading: term.length >= 3 });
+
+  if (term.length < 3) return;
+
+  const remoteRows = await hyperFocusGlobalSearch(term, generation);
+  if (remoteRows === null || generation !== globalSearchGeneration) return;
+  renderGlobalSearchResults(localRows, remoteRows);
+}
+
+function openGlobalSearch() {
+  const dialog = $('globalSearchDialog');
+  if (!dialog) return;
+  dialog.showModal();
+  $('globalSearchInput').focus();
+  runGlobalSearch();
+}
+
+function bindGlobalSearch() {
+  const button = $('globalSearchBtn');
+  const input = $('globalSearchInput');
+  const dialog = $('globalSearchDialog');
+  if (!button || !input || !dialog) return;
+
+  button.addEventListener('click', openGlobalSearch);
+  input.addEventListener('input', () => {
+    clearTimeout(globalSearchTimer);
+    globalSearchTimer = setTimeout(runGlobalSearch, 160);
+  });
+
+  dialog.addEventListener('click', (ev) => {
+    if (ev.target === dialog) {
+      dialog.close();
+      return;
+    }
+
+    const result = ev.target.closest?.('.global-search-result');
+    if (!result) return;
+
+    if (result.dataset.searchView) {
+      document.querySelector(`.nav-item[data-view="${result.dataset.searchView}"]`)?.click();
+    }
+    dialog.close();
+  });
+
+  document.addEventListener('keydown', (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLocaleLowerCase() === 'k') {
+      ev.preventDefault();
+      openGlobalSearch();
+    }
+  });
+}
+
 /* ---------- Datos y respaldo ---------- */
 
 function exportJson() {
@@ -1775,6 +1989,7 @@ function bindEvents() {
 
   $('dataBtn').addEventListener('click', openDataDialog);
   $('syncStatus').addEventListener('click', openDataDialog);
+  bindGlobalSearch();
 
   $('themeToggle').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme === 'dark';
