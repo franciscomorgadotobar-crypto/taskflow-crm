@@ -82,6 +82,14 @@ import {
   stopRealtime as hyperFocusStopRealtime
 } from './hyperfocus.js';
 import {
+  clearAudit,
+  hydrateAudit,
+  onAuditChange,
+  renderAudit,
+  setAuditFilter
+} from './audit.js';
+import { initWorkspace, refreshWorkspace } from './workspace.js';
+import {
   fillTemplate,
   filterPipeline,
   quoteBuilderHtml,
@@ -201,7 +209,8 @@ const VIEWS = {
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Servicios, valores y cotizaciones para tus clientes.', renderQuotes],
-  settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
+  settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings],
+  audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit]
 };
 
 /* ---------- Render ---------- */
@@ -1395,6 +1404,10 @@ const ACTIONS = {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
   'install-pwa': () => installPwa(),
+  'refresh-audit': async () => {
+    await hydrateAudit();
+    if (ui.view === 'audit') render();
+  },
   'change-password': async () => {
     const pass = $('newPassword').value;
     if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
@@ -1541,7 +1554,10 @@ async function handleViewInput(ev) {
     pipelineOwner: () => (ui.pipelineFilters.owner = value),
     templateLead: () => (ui.templateLead = value),
     templateChannel: () => (ui.templateChannel = value),
-    quoteStatus: () => (ui.quoteFilters.status = value)
+    quoteStatus: () => (ui.quoteFilters.status = value),
+    auditQuery: () => setAuditFilter('query', value),
+    auditEntity: () => setAuditFilter('entity', value),
+    auditAction: () => setAuditFilter('action', value)
   };
   if (!map[id]) return;
   map[id]();
@@ -1765,10 +1781,11 @@ function bindSubmitOnce(formId, handler) {
 }
 
 function bindEvents() {
-  $$('.nav-item').forEach((btn) =>
-    btn.addEventListener('click', () => {
+  $('.nav-item').forEach((btn) =>
+    btn.addEventListener('click', async () => {
       ui.view = btn.dataset.view;
-      $$('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
+      $('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
+      if (ui.view === 'audit' && isAdmin()) await hydrateAudit();
       render();
     })
   );
@@ -1853,19 +1870,25 @@ async function start() {
   fillStaticSelects();
   buildTaskTypeGroups();
   initHyperFocusUI();
+  initWorkspace();
   bindEvents();
   renderAuthMode();
 
   onChange(() => {
     render();
     refreshDetailIfOpen();
+    refreshWorkspace();
   });
   onQuotesChange(() => {
     if (ui.view === 'quotes') render();
     refreshDetailIfOpen();
+    refreshWorkspace();
   });
   onHyperFocusChange(() => {
     if (ui.view === 'hyperfocus') render();
+  });
+  onAuditChange(() => {
+    if (ui.view === 'audit') render();
   });
 
   onAuthChange(async (s) => {
@@ -1873,9 +1896,16 @@ async function start() {
     if (s.status === 'signed-in') {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
+      const auditNav = $('auditNav');
+      if (auditNav) auditNav.hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
-        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
+        await Promise.all([
+          hydrate(),
+          quotesHydrate(),
+          hyperFocusHydrate(),
+          isAdmin() ? hydrateAudit() : Promise.resolve()
+        ]);
         if (generation !== authSyncGeneration || session.status !== 'signed-in') {
           // Una hidratación iniciada por una sesión anterior no puede volver a
           // poblar el estado local ni reactivar Realtime después de cerrar sesión.
@@ -1885,11 +1915,13 @@ async function start() {
           clearLocal();
           quotesClearLocal();
           hyperFocusClearLocal();
+          clearAudit();
           return;
         }
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
+        refreshWorkspace();
         paintSync({ state: 'ok', message: 'Conectado' });
       } catch (err) {
         if (generation !== authSyncGeneration) return;
@@ -1903,6 +1935,7 @@ async function start() {
       clearLocal();
       quotesClearLocal();
       hyperFocusClearLocal();
+      clearAudit();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';
@@ -1916,6 +1949,7 @@ async function start() {
       clearLocal();
       quotesClearLocal();
       hyperFocusClearLocal();
+      clearAudit();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';
