@@ -372,6 +372,191 @@ function renderCampaignCard(c) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Campañas desde el CRM                                                       */
+/* -------------------------------------------------------------------------- */
+
+function editableCrmLeads() {
+  return crmState.leads.filter((lead) => canEditExistingLead(lead));
+}
+
+function uniqueLeadValues(leads, field) {
+  return [...new Set(leads.map((lead) => clean(lead[field])).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function crmCampaignFilters() {
+  return {
+    stage: byId('hfCrmStage')?.value || '',
+    owner: byId('hfCrmOwner')?.value || '',
+    industry: byId('hfCrmIndustry')?.value || '',
+    source: byId('hfCrmSource')?.value || '',
+    withChannel: Boolean(byId('hfCrmWithChannel')?.checked)
+  };
+}
+
+function crmLeadHasChannel(lead) {
+  if (truthyCell(lead.phone) || truthyCell(lead.email)) return true;
+  return (lead.contacts || []).some((contact) => truthyCell(contact.phone) || truthyCell(contact.email));
+}
+
+function filteredCrmLeads() {
+  const filters = crmCampaignFilters();
+  return editableCrmLeads()
+    .filter((lead) => !filters.stage || lead.stage === filters.stage)
+    .filter((lead) => !filters.owner || lead.owner === filters.owner)
+    .filter((lead) => !filters.industry || lead.industry === filters.industry)
+    .filter((lead) => !filters.source || lead.source === filters.source)
+    .filter((lead) => !filters.withChannel || crmLeadHasChannel(lead))
+    .sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
+}
+
+function fillCrmCampaignFilters() {
+  const leads = editableCrmLeads();
+  const fill = (id, values, label) => {
+    const el = byId(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">' + e(label) + '</option>' + values.map((value) => '<option value="' + e(value) + '">' + e(value) + '</option>').join('');
+  };
+  fill('hfCrmStage', uniqueLeadValues(leads, 'stage'), 'Todas las etapas');
+  fill('hfCrmOwner', uniqueLeadValues(leads, 'owner'), 'Todos los responsables');
+  fill('hfCrmIndustry', uniqueLeadValues(leads, 'industry'), 'Todos los rubros');
+  fill('hfCrmSource', uniqueLeadValues(leads, 'source'), 'Todos los orígenes');
+
+  const hasRemarketing = leads.some((lead) => lead.stage === 'Remarketing');
+  byId('hfCrmCampaignType').value = hasRemarketing ? 'remarketing' : 'reactivation';
+  byId('hfCrmCampaignName').value = (hasRemarketing ? 'Remarketing CRM · ' : 'Reactivación CRM · ') + todayISO();
+  if (hasRemarketing) byId('hfCrmStage').value = 'Remarketing';
+}
+
+function renderCrmCampaignPreview() {
+  const root = byId('hfCrmCampaignPreview');
+  const btn = byId('hfCreateCrmCampaignBtn');
+  if (!root || !btn) return;
+  const leads = filteredCrmLeads();
+  const noChannel = leads.filter((lead) => !crmLeadHasChannel(lead)).length;
+  btn.disabled = !leads.length;
+  if (!leads.length) {
+    root.innerHTML = '<div class="empty"><strong>Sin oportunidades para este segmento</strong><p>Ajusta los filtros o desactiva “Solo con teléfono o correo”.</p></div>';
+    return;
+  }
+  const preview = leads.slice(0, 8).map((lead) => {
+    const meta = [lead.rut ? 'RUT ' + lead.rut : '', lead.stage, lead.owner].filter(Boolean).map(e).join(' · ');
+    return '<div class="hf-crm-preview-row"><strong>' + e(lead.company) + '</strong><span>' + meta + '</span></div>';
+  }).join('');
+  root.innerHTML = '<div class="hf-crm-preview-summary">' +
+    '<div><strong>' + leads.length.toLocaleString('es-CL') + '</strong><span>oportunidades</span></div>' +
+    '<div><strong>' + (leads.length - noChannel).toLocaleString('es-CL') + '</strong><span>con canal</span></div>' +
+    '<div><strong>' + noChannel.toLocaleString('es-CL') + '</strong><span>sin canal</span></div>' +
+    '</div><div class="hf-crm-preview-list">' + preview +
+    (leads.length > 8 ? '<p class="muted">Y ' + (leads.length - 8).toLocaleString('es-CL') + ' más.</p>' : '') + '</div>';
+}
+
+function openCrmCampaignDialog() {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  if (!editableCrmLeads().length) return toast('No tienes oportunidades editables para crear una campaña.', 'error');
+  byId('hfCrmCampaignForm')?.reset();
+  fillCrmCampaignFilters();
+  byId('hfCrmWithChannel').checked = true;
+  renderCrmCampaignPreview();
+  byId('hfCrmCampaignDialog')?.showModal();
+}
+
+function crmLeadContacts(lead) {
+  const contacts = [];
+  const primary = makeContact({
+    name: lead.contact, role: lead.role, phone: lead.phone, email: lead.email, source: 'Contacto principal del CRM'
+  }, true);
+  if (primary) contacts.push(primary);
+  (lead.contacts || []).forEach((contact) => {
+    const item = makeContact({
+      name: contact.name, role: contact.role, phone: contact.phone, email: contact.email, source: 'Contacto adicional del CRM'
+    }, true);
+    if (item) contacts.push(item);
+  });
+  return dedupeContacts(contacts);
+}
+
+function crmLeadToHyperFocusRecord(lead, rowNumber) {
+  const contacts = crmLeadContacts(lead);
+  return {
+    id: uid(), row_number: rowNumber, company: lead.company, rut: lead.rut || '', industry: lead.industry || '',
+    region: '', comuna: '', city: '', address: '', website: '', contacts,
+    raw_data: {
+      'Origen CRM': lead.source || 'CRM TaskFlow',
+      'Etapa CRM': lead.stage || '',
+      'Responsable CRM': lead.owner || '',
+      'Próxima gestión': [lead.nextType, lead.nextAction].filter(Boolean).join(' · '),
+      'Fecha próxima gestión': lead.nextDate || '',
+      'Observaciones CRM': lead.notes || '',
+      'Actualizado CRM': lead.updatedAt || ''
+    },
+    existing_lead_id: lead.id, status: 'pending', priority: recordPriority(contacts)
+  };
+}
+
+async function activeHyperFocusLeadIds(leadIds) {
+  const active = new Set();
+  for (let i = 0; i < leadIds.length; i += 100) {
+    const batch = leadIds.slice(i, i + 100);
+    const { data, error } = await supabase.from('hyperfocus_records').select('existing_lead_id').in('existing_lead_id', batch).in('status', ['pending', 'retry']);
+    if (error) throw error;
+    (data || []).forEach((row) => row.existing_lead_id && active.add(row.existing_lead_id));
+  }
+  return active;
+}
+
+async function createCampaignFromCrm(event) {
+  event.preventDefault();
+  if (isReadOnly()) return;
+  const btn = byId('hfCreateCrmCampaignBtn');
+  const name = byId('hfCrmCampaignName')?.value.trim() || '';
+  if (!name) return toast('Ponle un nombre a la campaña.', 'error');
+  const selected = filteredCrmLeads();
+  if (!selected.length) return toast('No hay oportunidades para crear esta campaña.', 'error');
+  btn.disabled = true;
+  let campaign = null;
+  try {
+    const activeIds = await activeHyperFocusLeadIds(selected.map((lead) => lead.id));
+    const leads = selected.filter((lead) => !activeIds.has(lead.id));
+    if (!leads.length) {
+      toast('Todas las oportunidades seleccionadas ya están pendientes en otra campaña Híper Foco.', 'error');
+      return;
+    }
+    const filters = crmCampaignFilters();
+    campaign = {
+      id: uid(), created_by: session.user?.id || null, name,
+      campaign_type: byId('hfCrmCampaignType')?.value || 'reactivation',
+      source_filename: 'CRM TaskFlow', source_sheet: filters.stage || 'Segmento CRM',
+      default_industry: filters.industry || '', mapping: {}, options: { source: 'crm', ...filters },
+      source_meta: { source: 'crm', selected_records: selected.length, imported_records: leads.length, excluded_active_hyperfocus: activeIds.size, filters }
+    };
+    const { data: campaignRows, error: campaignWriteError } = await supabase.from('hyperfocus_campaigns').insert(campaign).select('id');
+    const campaignError = campaignWriteError || (!campaignRows?.length ? new Error('El servidor no confirmó la campaña.') : null);
+    if (campaignError) throw campaignError;
+    const rows = leads.map((lead, index) => ({ campaign_id: campaign.id, ...crmLeadToHyperFocusRecord(lead, index + 1) }));
+    for (let i = 0; i < rows.length; i += 500) {
+      const batch = rows.slice(i, i + 500);
+      const { data: insertedRows, error: batchError } = await supabase.from('hyperfocus_records').insert(batch).select('id');
+      const error = batchError || (insertedRows?.length !== batch.length ? new Error('El servidor no confirmó todos los registros del lote.') : null);
+      if (error) throw error;
+    }
+    byId('hfCrmCampaignDialog')?.close();
+    await hydrate();
+    const skipped = selected.length - leads.length;
+    toast(skipped ? 'Campaña creada con ' + leads.length.toLocaleString('es-CL') + ' oportunidades. ' + skipped.toLocaleString('es-CL') + ' ya estaban activas en Híper Foco y se omitieron.' : 'Campaña creada con ' + leads.length.toLocaleString('es-CL') + ' oportunidades del CRM.');
+  } catch (err) {
+    console.error(err);
+    if (campaign?.id) {
+      const { error: cleanupError } = await supabase.from('hyperfocus_campaigns').delete().eq('id', campaign.id);
+      if (cleanupError) console.error('No se pudo limpiar la campaña CRM incompleta', cleanupError);
+    }
+    await hydrate();
+    toast(err.message || 'No se pudo crear la campaña desde el CRM.', 'error');
+  } finally {
+    if (btn?.isConnected) btn.disabled = !filteredCrmLeads().length;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Importación y mapeo                                                         */
 /* -------------------------------------------------------------------------- */
 
