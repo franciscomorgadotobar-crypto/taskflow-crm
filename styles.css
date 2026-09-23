@@ -384,6 +384,22 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .notification-item strong { font-size: 14px; }
 .notification-item > span:last-child { grid-column: 2; color: var(--muted); font-size: 12px; }
 .notification-more { margin: 10px 4px 4px; }
+
+.audit-table td:first-child { white-space: nowrap; }
+.audit-table td:nth-child(2) { min-width: 150px; }
+.audit-table td:last-child { min-width: 240px; }
+.audit-diff summary { cursor: pointer; color: var(--blue); font-size: 12px; font-weight: 700; }
+.audit-diff-list { display: grid; gap: 7px; margin-top: 8px; }
+.audit-diff-list > div {
+  display: grid;
+  grid-template-columns: minmax(90px,.7fr) minmax(120px,1fr) auto minmax(120px,1fr);
+  gap: 7px; align-items: start; padding: 7px 0; border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+.audit-before, .audit-after {
+  overflow-wrap: anywhere; white-space: pre-wrap; padding: 5px 6px;
+  border-radius: 6px; background: var(--bg);
+}
 .modal-card.wide { max-width: 920px; }
 .modal-card.narrow { max-width: 480px; }
 .modal-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; padding: 20px 22px; border-bottom: 1px solid var(--border); }
