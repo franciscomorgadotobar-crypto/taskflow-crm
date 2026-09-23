@@ -1783,6 +1783,153 @@ function bindGlobalSearch() {
   });
 }
 
+/* ---------- Notificaciones internas ---------- */
+
+function latestActivityByLead() {
+  const map = new Map();
+  state.activities.forEach((activity) => {
+    if (!activity.leadId || !activity.date) return;
+    const current = map.get(activity.leadId);
+    if (!current || String(activity.date) > String(current)) map.set(activity.leadId, activity.date);
+  });
+  return map;
+}
+
+function notificationItems() {
+  const today = todayISO();
+  const soon = addDaysISO(today, 3);
+  const tasks = openTasks();
+  const open = metrics().open;
+  const lastActivity = latestActivityByLead();
+  const items = [];
+
+  tasks.filter((task) => !task.date || task.date < today).forEach((task) => {
+    items.push({
+      priority: 1,
+      type: 'Vencida',
+      title: task.lead.company,
+      detail: task.title + (task.date ? ` · ${fmtDate(task.date)}` : ' · sin fecha'),
+      action: 'open-detail',
+      id: task.lead.id
+    });
+  });
+
+  tasks.filter((task) => task.date === today).forEach((task) => {
+    items.push({
+      priority: 2,
+      type: 'Hoy',
+      title: task.lead.company,
+      detail: task.title,
+      action: 'open-detail',
+      id: task.lead.id
+    });
+  });
+
+  open.filter((lead) => !taskOf(lead)).forEach((lead) => {
+    items.push({
+      priority: 3,
+      type: 'Sin próxima acción',
+      title: lead.company,
+      detail: [lead.stage, lead.owner].filter(Boolean).join(' · '),
+      action: 'open-detail',
+      id: lead.id
+    });
+  });
+
+  open.forEach((lead) => {
+    const last = lastActivity.get(lead.id) || lead.updatedAt || lead.createdAt;
+    const timestamp = new Date(last).getTime();
+    const days = Number.isFinite(timestamp) ? Math.floor((Date.now() - timestamp) / 86400000) : 0;
+    if (days <= 14) return;
+
+    items.push({
+      priority: 4,
+      type: 'Estancada',
+      title: lead.company,
+      detail: `${days} días sin movimiento`,
+      action: 'open-detail',
+      id: lead.id
+    });
+  });
+
+  quoteState.quotes
+    .filter((quote) => quote.isCurrent && quote.validUntil && !['aceptada', 'rechazada'].includes(quote.status))
+    .filter((quote) => quote.validUntil <= soon)
+    .forEach((quote) => {
+      const lead = getLead(quote.leadId);
+      items.push({
+        priority: quote.validUntil < today ? 1 : 3,
+        type: quote.validUntil < today ? 'Cotización vencida' : 'Cotización por vencer',
+        title: lead?.company || quote.client?.company || 'Cotización',
+        detail: `v${quote.version} · ${fmtMoney(quote.total)} · válida hasta ${fmtDate(quote.validUntil)}`,
+        action: 'view-quote',
+        id: quote.id
+      });
+    });
+
+  const unique = new Map();
+  items.forEach((item) => {
+    const key = [item.type, item.id, item.detail].join('|');
+    if (!unique.has(key)) unique.set(key, item);
+  });
+
+  return [...unique.values()].sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title, 'es'));
+}
+
+function renderNotifications() {
+  const root = $('notificationBody');
+  if (!root) return;
+
+  const items = notificationItems();
+  if (!items.length) {
+    root.innerHTML = '<div class="empty"><strong>Todo al día</strong><p>No hay seguimientos que requieran atención.</p></div>';
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="notification-summary">${items.length.toLocaleString('es-CL')} pendiente${items.length === 1 ? '' : 's'}</div>
+    <div class="notification-list">
+      ${items.slice(0, 40).map((item) => `
+        <button type="button" class="notification-item" data-action="${escapeHtml(item.action)}" data-id="${escapeHtml(item.id)}">
+          <span class="badge ${item.priority === 1 ? 'danger' : item.priority === 2 ? 'warning' : ''}">${escapeHtml(item.type)}</span>
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.detail)}</span>
+        </button>`).join('')}
+    </div>
+    ${items.length > 40 ? '<p class="muted notification-more">Se muestran los 40 pendientes más prioritarios.</p>' : ''}`;
+}
+
+function refreshNotificationBadge() {
+  const badge = $('notificationBadge');
+  if (!badge) return;
+  const count = notificationItems().length;
+  badge.textContent = count > 99 ? '99+' : String(count);
+  badge.hidden = count === 0;
+  if ($('notificationDialog')?.open) renderNotifications();
+}
+
+function openNotifications() {
+  renderNotifications();
+  $('notificationDialog')?.showModal();
+}
+
+function bindNotifications() {
+  const button = $('notificationBtn');
+  const dialog = $('notificationDialog');
+  if (!button || !dialog) return;
+
+  button.addEventListener('click', openNotifications);
+  dialog.addEventListener('click', (ev) => {
+    if (ev.target === dialog) {
+      dialog.close();
+      return;
+    }
+    if (ev.target.closest?.('.notification-item')) dialog.close();
+  });
+
+  refreshNotificationBadge();
+}
+
 /* ---------- Datos y respaldo ---------- */
 
 function exportJson() {
@@ -1990,6 +2137,7 @@ function bindEvents() {
   $('dataBtn').addEventListener('click', openDataDialog);
   $('syncStatus').addEventListener('click', openDataDialog);
   bindGlobalSearch();
+  bindNotifications();
 
   $('themeToggle').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme === 'dark';
@@ -2074,10 +2222,12 @@ async function start() {
   onChange(() => {
     render();
     refreshDetailIfOpen();
+    refreshNotificationBadge();
   });
   onQuotesChange(() => {
     if (ui.view === 'quotes') render();
     refreshDetailIfOpen();
+    refreshNotificationBadge();
   });
   onHyperFocusChange(() => {
     if (ui.view === 'hyperfocus') render();
@@ -2105,6 +2255,7 @@ async function start() {
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
+        refreshNotificationBadge();
         paintSync({ state: 'ok', message: 'Conectado' });
       } catch (err) {
         if (generation !== authSyncGeneration) return;
