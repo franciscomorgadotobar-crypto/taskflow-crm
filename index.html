@@ -77,6 +77,10 @@
           <button id="globalSearchBtn" type="button" class="top-action-btn" title="Buscar en TaskFlow">
             <span aria-hidden="true">⌕</span><span class="top-action-label">Buscar</span>
           </button>
+          <button id="notificationBtn" type="button" class="top-action-btn notification-btn" title="Notificaciones">
+            <span aria-hidden="true">◉</span><span class="top-action-label">Alertas</span>
+            <span id="notificationBadge" class="notification-badge" hidden>0</span>
+          </button>
         </div>
       </header>
 
@@ -103,6 +107,20 @@
       <div id="globalSearchResults" class="global-search-results">
         <div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>
       </div>
+    </div>
+  </dialog>
+
+  <!-- Notificaciones -->
+  <dialog id="notificationDialog" class="modal notification-dialog">
+    <div class="modal-card notification-card">
+      <div class="modal-head">
+        <div>
+          <h2>Notificaciones</h2>
+          <p>Seguimientos comerciales que requieren atención.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="notificationDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="notificationBody" class="notification-body"></div>
     </div>
   </dialog>
 
