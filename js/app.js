@@ -72,6 +72,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
+import { supabase } from './supabase.js';
 import {
   clearLocal as hyperFocusClearLocal,
   hydrate as hyperFocusHydrate,
@@ -189,6 +190,7 @@ const ui = {
   templateOpen: '',
   quotesView: 'list',
   quoteFilters: { status: '' },
+  auditFilters: { query: '', entity: '', action: '' },
   quoteBuilder: null
 };
 
@@ -201,6 +203,7 @@ const VIEWS = {
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Servicios, valores y cotizaciones para tus clientes.', renderQuotes],
+  audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
 
@@ -1395,6 +1398,7 @@ const ACTIONS = {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
   'install-pwa': () => installPwa(),
+  'refresh-audit': () => hydrateAudit(),
   'change-password': async () => {
     const pass = $('newPassword').value;
     if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
@@ -1541,7 +1545,10 @@ async function handleViewInput(ev) {
     pipelineOwner: () => (ui.pipelineFilters.owner = value),
     templateLead: () => (ui.templateLead = value),
     templateChannel: () => (ui.templateChannel = value),
-    quoteStatus: () => (ui.quoteFilters.status = value)
+    quoteStatus: () => (ui.quoteFilters.status = value),
+    auditQuery: () => (ui.auditFilters.query = value),
+    auditEntity: () => (ui.auditFilters.entity = value),
+    auditAction: () => (ui.auditFilters.action = value)
   };
   if (!map[id]) return;
   map[id]();
@@ -1567,6 +1574,574 @@ function handleQuoteFieldChange(ev) {
   // Solo repinta el total de la fila y no todo el bloque, para no perder el foco mientras se escribe.
   const totalCell = document.querySelector(`#quoteItemsRoot tr[data-row="${row}"] .quote-row-total`);
   if (totalCell) totalCell.textContent = fmtMoney(Number(item.quantity || 0) * Number(item.unitPrice || 0));
+}
+
+/* ---------- Auditoría de cambios ---------- */
+
+const auditState = {
+  entries: [],
+  loading: false,
+  schemaReady: true,
+  loaded: false
+};
+
+const AUDIT_ENTITY_LABEL = {
+  leads: 'Oportunidad',
+  activities: 'Actividad',
+  discoveries: 'Levantamiento',
+  quotes: 'Cotización',
+  hyperfocus_campaigns: 'Campaña Híper Foco',
+  profiles: 'Usuario'
+};
+
+const AUDIT_ACTION_LABEL = {
+  insert: 'Creó',
+  update: 'Modificó',
+  delete: 'Eliminó'
+};
+
+function auditSchemaMissing(error) {
+  const msg = `${error?.code || ''} ${error?.message || ''}`.toLowerCase();
+  return msg.includes('42p01') || msg.includes('pgrst205') || msg.includes('audit_log');
+}
+
+async function hydrateAudit() {
+  if (!isAdmin()) {
+    auditState.entries = [];
+    auditState.loaded = false;
+    return;
+  }
+
+  auditState.loading = true;
+  if (ui.view === 'audit') render();
+
+  try {
+    const { data, error } = await supabase
+      .from('audit_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      if (auditSchemaMissing(error)) {
+        auditState.schemaReady = false;
+        auditState.entries = [];
+        auditState.loaded = true;
+        return;
+      }
+      console.error('No se pudo cargar la auditoría', error);
+      toast('No se pudo cargar la auditoría.', 'error');
+      return;
+    }
+
+    auditState.schemaReady = true;
+    auditState.entries = data || [];
+    auditState.loaded = true;
+  } catch (err) {
+    console.error('No se pudo cargar la auditoría', err);
+    toast('No se pudo cargar la auditoría.', 'error');
+  } finally {
+    auditState.loading = false;
+    if (ui.view === 'audit') render();
+  }
+}
+
+function auditEntityName(row) {
+  if (row.lead_id) {
+    const lead = getLead(row.lead_id);
+    if (lead?.company) return lead.company;
+  }
+
+  const after = row.after_data || {};
+  const before = row.before_data || {};
+  const data = Object.keys(after).length ? after : before;
+
+  return data.company || data.name || data.email || data.client_snapshot?.company || row.entity_id || '';
+}
+
+function auditValue(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'object') {
+    const text = JSON.stringify(value);
+    return text.length > 180 ? text.slice(0, 177) + '…' : text;
+  }
+  const text = String(value);
+  return text.length > 180 ? text.slice(0, 177) + '…' : text;
+}
+
+function auditChangeSummary(row) {
+  if (row.action === 'insert') return 'Registro creado';
+  if (row.action === 'delete') return 'Registro eliminado';
+
+  const fields = row.changed_fields || [];
+  if (!fields.length) return 'Sin campos visibles';
+  return fields.slice(0, 6).join(', ') + (fields.length > 6 ? ` +${fields.length - 6}` : '');
+}
+
+function auditChangeDetails(row) {
+  const fields = row.changed_fields || [];
+  if (row.action !== 'update' || !fields.length) {
+    return `<span class="muted">${escapeHtml(auditChangeSummary(row))}</span>`;
+  }
+
+  const before = row.before_data || {};
+  const after = row.after_data || {};
+
+  return `
+    <details class="audit-diff">
+      <summary>${escapeHtml(auditChangeSummary(row))}</summary>
+      <div class="audit-diff-list">
+        ${fields.map((field) => `
+          <div>
+            <strong>${escapeHtml(field)}</strong>
+            <span class="audit-before">${escapeHtml(auditValue(before[field]))}</span>
+            <span aria-hidden="true">→</span>
+            <span class="audit-after">${escapeHtml(auditValue(after[field]))}</span>
+          </div>`).join('')}
+      </div>
+    </details>`;
+}
+
+function filteredAuditEntries() {
+  const filters = ui.auditFilters;
+  const query = normalizeGlobalSearch(filters.query);
+
+  return auditState.entries.filter((row) => {
+    if (filters.entity && row.entity_type !== filters.entity) return false;
+    if (filters.action && row.action !== filters.action) return false;
+    if (!query) return true;
+
+    const searchable = normalizeGlobalSearch([
+      row.actor_name,
+      AUDIT_ENTITY_LABEL[row.entity_type] || row.entity_type,
+      AUDIT_ACTION_LABEL[row.action] || row.action,
+      auditEntityName(row),
+      ...(row.changed_fields || [])
+    ].join(' '));
+
+    return searchable.includes(query);
+  });
+}
+
+function renderAudit() {
+  if (!isAdmin()) {
+    return '<div class="card"><div class="card-body"><div class="empty"><strong>Acceso restringido</strong><p>La auditoría está disponible para administradores.</p></div></div></div>';
+  }
+
+  if (!auditState.schemaReady) {
+    return '<div class="card"><div class="card-body"><div class="notice warn">Falta aplicar la migración <strong>supabase/0027_audit_log.sql</strong>.</div></div></div>';
+  }
+
+  if (auditState.loading && !auditState.loaded) {
+    return '<div class="card"><div class="card-body"><div class="empty"><strong>Cargando auditoría…</strong></div></div></div>';
+  }
+
+  const rows = filteredAuditEntries();
+  const entityOptions = Object.entries(AUDIT_ENTITY_LABEL)
+    .map(([value, label]) =>
+      `<option value="${escapeHtml(value)}" ${ui.auditFilters.entity === value ? 'selected' : ''}>${escapeHtml(label)}</option>`
+    )
+    .join('');
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Auditoría de cambios</h3>
+          <div class="muted">Quién cambió qué, cuándo y sobre qué registro.</div>
+        </div>
+        <button class="small-btn" data-action="refresh-audit">Actualizar</button>
+      </div>
+      <div class="card-body">
+        <div class="toolbar">
+          <input id="auditQuery" placeholder="Buscar empresa, usuario o campo…" value="${escapeHtml(ui.auditFilters.query)}" />
+          <select id="auditEntity"><option value="">Todas las entidades</option>${entityOptions}</select>
+          <select id="auditAction">
+            <option value="">Todas las acciones</option>
+            <option value="insert" ${ui.auditFilters.action === 'insert' ? 'selected' : ''}>Creó</option>
+            <option value="update" ${ui.auditFilters.action === 'update' ? 'selected' : ''}>Modificó</option>
+            <option value="delete" ${ui.auditFilters.action === 'delete' ? 'selected' : ''}>Eliminó</option>
+          </select>
+          <span class="toolbar-summary">${rows.length} de ${auditState.entries.length}</span>
+        </div>
+
+        ${rows.length
+          ? `<div class="table-wrap"><table class="data-table audit-table">
+              <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Registro</th><th>Cambios</th></tr></thead>
+              <tbody>
+                ${rows.map((row) => `<tr>
+                  <td>${escapeHtml(fmtDateTime(row.created_at))}</td>
+                  <td>${escapeHtml(row.actor_name || 'Sistema')}</td>
+                  <td><span class="badge ${row.action === 'delete' ? 'danger' : row.action === 'insert' ? 'success' : ''}">${escapeHtml(AUDIT_ACTION_LABEL[row.action] || row.action)}</span></td>
+                  <td>${escapeHtml(AUDIT_ENTITY_LABEL[row.entity_type] || row.entity_type)}</td>
+                  <td>${escapeHtml(auditEntityName(row) || '—')}</td>
+                  <td>${auditChangeDetails(row)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table></div>`
+          : '<div class="empty"><strong>Sin resultados</strong><p>No hay movimientos que coincidan con los filtros.</p></div>'}
+      </div>
+    </div>`;
+}
+
+/* ---------- Buscador global ---------- */
+
+let globalSearchGeneration = 0;
+let globalSearchTimer = null;
+
+function normalizeGlobalSearch(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es');
+}
+
+function localGlobalSearch(term) {
+  const needle = normalizeGlobalSearch(term);
+  if (!needle) return [];
+
+  const results = [];
+
+  state.leads.forEach((lead) => {
+    const contacts = [
+      lead.contact, lead.role, lead.email, lead.phone,
+      ...(lead.contacts || []).flatMap((contact) => [contact.name, contact.role, contact.email, contact.phone])
+    ];
+
+    const searchable = normalizeGlobalSearch([
+      lead.company, lead.rut, lead.industry, lead.source, lead.stage, lead.owner,
+      lead.notes, lead.nextAction, ...contacts
+    ].join(' '));
+
+    if (!searchable.includes(needle)) return;
+
+    results.push({
+      key: `lead:${lead.id}`,
+      kind: 'Oportunidad',
+      title: lead.company,
+      meta: [lead.rut ? `RUT ${lead.rut}` : '', lead.stage, lead.owner].filter(Boolean).join(' · '),
+      action: 'open-detail',
+      id: lead.id
+    });
+  });
+
+  state.activities.forEach((activity) => {
+    if (!activity.leadId) return;
+    const searchable = normalizeGlobalSearch([
+      activity.company, activity.type, activity.detail, activity.task, activity.owner
+    ].join(' '));
+    if (!searchable.includes(needle)) return;
+
+    results.push({
+      key: `activity:${activity.id}`,
+      kind: 'Actividad',
+      title: activity.company || 'Actividad',
+      meta: [activity.type, activity.detail].filter(Boolean).join(' · '),
+      action: 'open-detail',
+      id: activity.leadId
+    });
+  });
+
+  quoteState.quotes.forEach((quote) => {
+    const lead = getLead(quote.leadId);
+    const client = quote.client || {};
+    const searchable = normalizeGlobalSearch([
+      lead?.company, lead?.rut, client.company, client.rut, client.email,
+      client.phone, quote.notes, quote.status, quote.total
+    ].join(' '));
+    if (!searchable.includes(needle)) return;
+
+    results.push({
+      key: `quote:${quote.id}`,
+      kind: 'Cotización',
+      title: `${lead?.company || client.company || 'Cotización'} · v${quote.version}`,
+      meta: `${quote.status || 'Sin estado'} · ${fmtMoney(quote.total)}`,
+      action: 'view-quote',
+      id: quote.id
+    });
+  });
+
+  return results.slice(0, 18);
+}
+
+async function hyperFocusGlobalSearch(term, generation) {
+  const value = String(term || '').trim();
+  if (value.length < 3) return [];
+
+  try {
+    const [companyR, rutR] = await Promise.all([
+      supabase
+        .from('hyperfocus_records')
+        .select('id,company,rut,status,existing_lead_id')
+        .ilike('company', `%${value}%`)
+        .limit(6),
+      supabase
+        .from('hyperfocus_records')
+        .select('id,company,rut,status,existing_lead_id')
+        .ilike('rut', `%${value}%`)
+        .limit(6)
+    ]);
+
+    if (generation !== globalSearchGeneration) return null;
+    if (companyR.error && rutR.error) return [];
+
+    const unique = new Map();
+    [...(companyR.data || []), ...(rutR.data || [])].forEach((row) => unique.set(row.id, row));
+
+    return [...unique.values()].slice(0, 8).map((row) => ({
+      key: `hf:${row.id}`,
+      kind: 'Híper Foco',
+      title: row.company,
+      meta: [row.rut ? `RUT ${row.rut}` : '', row.status].filter(Boolean).join(' · '),
+      action: row.existing_lead_id ? 'open-detail' : '',
+      id: row.existing_lead_id || '',
+      view: row.existing_lead_id ? '' : 'hyperfocus'
+    }));
+  } catch (err) {
+    console.error('Búsqueda Híper Foco no disponible', err);
+    return generation === globalSearchGeneration ? [] : null;
+  }
+}
+
+function renderGlobalSearchResults(localRows, remoteRows = [], { loading = false } = {}) {
+  const root = $('globalSearchResults');
+  if (!root) return;
+
+  const rows = [...localRows, ...(remoteRows || [])];
+  if (!rows.length && loading) {
+    root.innerHTML = '<div class="empty"><strong>Buscando también en Híper Foco…</strong></div>';
+    return;
+  }
+
+  if (!rows.length) {
+    root.innerHTML = '<div class="empty"><strong>Sin resultados</strong><p>Prueba con empresa, RUT, teléfono, correo o contacto.</p></div>';
+    return;
+  }
+
+  root.innerHTML = rows.map((row) => {
+    const attrs = row.action
+      ? `data-action="${escapeHtml(row.action)}" data-id="${escapeHtml(row.id)}"`
+      : `data-search-view="${escapeHtml(row.view || '')}"`;
+
+    return `<button type="button" class="global-search-result" ${attrs}>
+      <span class="global-search-kind">${escapeHtml(row.kind)}</span>
+      <strong>${escapeHtml(row.title)}</strong>
+      <span>${escapeHtml(row.meta || '')}</span>
+    </button>`;
+  }).join('');
+}
+
+async function runGlobalSearch() {
+  const input = $('globalSearchInput');
+  if (!input) return;
+
+  const term = input.value.trim();
+  const generation = ++globalSearchGeneration;
+
+  if (!term) {
+    $('globalSearchResults').innerHTML =
+      '<div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>';
+    return;
+  }
+
+  const localRows = localGlobalSearch(term);
+  renderGlobalSearchResults(localRows, [], { loading: term.length >= 3 });
+
+  if (term.length < 3) return;
+
+  const remoteRows = await hyperFocusGlobalSearch(term, generation);
+  if (remoteRows === null || generation !== globalSearchGeneration) return;
+  renderGlobalSearchResults(localRows, remoteRows);
+}
+
+function openGlobalSearch() {
+  const dialog = $('globalSearchDialog');
+  if (!dialog) return;
+  dialog.showModal();
+  $('globalSearchInput').focus();
+  runGlobalSearch();
+}
+
+function bindGlobalSearch() {
+  const button = $('globalSearchBtn');
+  const input = $('globalSearchInput');
+  const dialog = $('globalSearchDialog');
+  if (!button || !input || !dialog) return;
+
+  button.addEventListener('click', openGlobalSearch);
+  input.addEventListener('input', () => {
+    clearTimeout(globalSearchTimer);
+    globalSearchTimer = setTimeout(runGlobalSearch, 160);
+  });
+
+  dialog.addEventListener('click', (ev) => {
+    if (ev.target === dialog) {
+      dialog.close();
+      return;
+    }
+
+    const result = ev.target.closest?.('.global-search-result');
+    if (!result) return;
+
+    if (result.dataset.searchView) {
+      document.querySelector(`.nav-item[data-view="${result.dataset.searchView}"]`)?.click();
+    }
+    dialog.close();
+  });
+
+  document.addEventListener('keydown', (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLocaleLowerCase() === 'k') {
+      ev.preventDefault();
+      openGlobalSearch();
+    }
+  });
+}
+
+/* ---------- Notificaciones internas ---------- */
+
+function latestActivityByLead() {
+  const map = new Map();
+  state.activities.forEach((activity) => {
+    if (!activity.leadId || !activity.date) return;
+    const current = map.get(activity.leadId);
+    if (!current || String(activity.date) > String(current)) map.set(activity.leadId, activity.date);
+  });
+  return map;
+}
+
+function notificationItems() {
+  const today = todayISO();
+  const soon = addDaysISO(today, 3);
+  const tasks = openTasks();
+  const open = metrics().open;
+  const lastActivity = latestActivityByLead();
+  const items = [];
+
+  tasks.filter((task) => !task.date || task.date < today).forEach((task) => {
+    items.push({
+      priority: 1,
+      type: 'Vencida',
+      title: task.lead.company,
+      detail: task.title + (task.date ? ` · ${fmtDate(task.date)}` : ' · sin fecha'),
+      action: 'open-detail',
+      id: task.lead.id
+    });
+  });
+
+  tasks.filter((task) => task.date === today).forEach((task) => {
+    items.push({
+      priority: 2,
+      type: 'Hoy',
+      title: task.lead.company,
+      detail: task.title,
+      action: 'open-detail',
+      id: task.lead.id
+    });
+  });
+
+  open.filter((lead) => !taskOf(lead)).forEach((lead) => {
+    items.push({
+      priority: 3,
+      type: 'Sin próxima acción',
+      title: lead.company,
+      detail: [lead.stage, lead.owner].filter(Boolean).join(' · '),
+      action: 'open-detail',
+      id: lead.id
+    });
+  });
+
+  open.forEach((lead) => {
+    const last = lastActivity.get(lead.id) || lead.updatedAt || lead.createdAt;
+    const timestamp = new Date(last).getTime();
+    const days = Number.isFinite(timestamp) ? Math.floor((Date.now() - timestamp) / 86400000) : 0;
+    if (days <= 14) return;
+
+    items.push({
+      priority: 4,
+      type: 'Estancada',
+      title: lead.company,
+      detail: `${days} días sin movimiento`,
+      action: 'open-detail',
+      id: lead.id
+    });
+  });
+
+  quoteState.quotes
+    .filter((quote) => quote.isCurrent && quote.validUntil && !['aceptada', 'rechazada'].includes(quote.status))
+    .filter((quote) => quote.validUntil <= soon)
+    .forEach((quote) => {
+      const lead = getLead(quote.leadId);
+      items.push({
+        priority: quote.validUntil < today ? 1 : 3,
+        type: quote.validUntil < today ? 'Cotización vencida' : 'Cotización por vencer',
+        title: lead?.company || quote.client?.company || 'Cotización',
+        detail: `v${quote.version} · ${fmtMoney(quote.total)} · válida hasta ${fmtDate(quote.validUntil)}`,
+        action: 'view-quote',
+        id: quote.id
+      });
+    });
+
+  const unique = new Map();
+  items.forEach((item) => {
+    const key = [item.type, item.id, item.detail].join('|');
+    if (!unique.has(key)) unique.set(key, item);
+  });
+
+  return [...unique.values()].sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title, 'es'));
+}
+
+function renderNotifications() {
+  const root = $('notificationBody');
+  if (!root) return;
+
+  const items = notificationItems();
+  if (!items.length) {
+    root.innerHTML = '<div class="empty"><strong>Todo al día</strong><p>No hay seguimientos que requieran atención.</p></div>';
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="notification-summary">${items.length.toLocaleString('es-CL')} pendiente${items.length === 1 ? '' : 's'}</div>
+    <div class="notification-list">
+      ${items.slice(0, 40).map((item) => `
+        <button type="button" class="notification-item" data-action="${escapeHtml(item.action)}" data-id="${escapeHtml(item.id)}">
+          <span class="badge ${item.priority === 1 ? 'danger' : item.priority === 2 ? 'warning' : ''}">${escapeHtml(item.type)}</span>
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.detail)}</span>
+        </button>`).join('')}
+    </div>
+    ${items.length > 40 ? '<p class="muted notification-more">Se muestran los 40 pendientes más prioritarios.</p>' : ''}`;
+}
+
+function refreshNotificationBadge() {
+  const badge = $('notificationBadge');
+  if (!badge) return;
+  const count = notificationItems().length;
+  badge.textContent = count > 99 ? '99+' : String(count);
+  badge.hidden = count === 0;
+  if ($('notificationDialog')?.open) renderNotifications();
+}
+
+function openNotifications() {
+  renderNotifications();
+  $('notificationDialog')?.showModal();
+}
+
+function bindNotifications() {
+  const button = $('notificationBtn');
+  const dialog = $('notificationDialog');
+  if (!button || !dialog) return;
+
+  button.addEventListener('click', openNotifications);
+  dialog.addEventListener('click', (ev) => {
+    if (ev.target === dialog) {
+      dialog.close();
+      return;
+    }
+    if (ev.target.closest?.('.notification-item')) dialog.close();
+  });
+
+  refreshNotificationBadge();
 }
 
 /* ---------- Datos y respaldo ---------- */
@@ -1770,11 +2345,14 @@ function bindEvents() {
       ui.view = btn.dataset.view;
       $$('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
       render();
+      if (ui.view === 'audit' && isAdmin()) hydrateAudit();
     })
   );
 
   $('dataBtn').addEventListener('click', openDataDialog);
   $('syncStatus').addEventListener('click', openDataDialog);
+  bindGlobalSearch();
+  bindNotifications();
 
   $('themeToggle').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme === 'dark';
@@ -1859,10 +2437,12 @@ async function start() {
   onChange(() => {
     render();
     refreshDetailIfOpen();
+    refreshNotificationBadge();
   });
   onQuotesChange(() => {
     if (ui.view === 'quotes') render();
     refreshDetailIfOpen();
+    refreshNotificationBadge();
   });
   onHyperFocusChange(() => {
     if (ui.view === 'hyperfocus') render();
@@ -1873,6 +2453,7 @@ async function start() {
     if (s.status === 'signed-in') {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
+      if ($('auditNav')) $('auditNav').hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
@@ -1890,6 +2471,7 @@ async function start() {
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
+        refreshNotificationBadge();
         paintSync({ state: 'ok', message: 'Conectado' });
       } catch (err) {
         if (generation !== authSyncGeneration) return;
