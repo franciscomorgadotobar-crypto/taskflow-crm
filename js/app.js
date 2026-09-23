@@ -1647,14 +1647,15 @@ async function hydrateAudit() {
 }
 
 function auditEntityName(row) {
-  if (row.lead_id) {
-    const lead = getLead(row.lead_id);
-    if (lead?.company) return lead.company;
-  }
-
   const after = row.after_data || {};
   const before = row.before_data || {};
   const data = Object.keys(after).length ? after : before;
+
+  const leadId = row.lead_id || data.lead_id || before.lead_id || after.lead_id || '';
+  if (leadId) {
+    const lead = getLead(leadId);
+    if (lead?.company) return lead.company;
+  }
 
   return data.company || data.name || data.email || data.client_snapshot?.company || row.entity_id || '';
 }
@@ -1716,7 +1717,9 @@ function filteredAuditEntries() {
       AUDIT_ENTITY_LABEL[row.entity_type] || row.entity_type,
       AUDIT_ACTION_LABEL[row.action] || row.action,
       auditEntityName(row),
-      ...(row.changed_fields || [])
+      ...(row.changed_fields || []),
+      JSON.stringify(row.before_data || {}),
+      JSON.stringify(row.after_data || {})
     ].join(' '));
 
     return searchable.includes(query);
@@ -1754,7 +1757,7 @@ function renderAudit() {
       </div>
       <div class="card-body">
         <div class="toolbar">
-          <input id="auditQuery" placeholder="Buscar empresa, usuario o campo…" value="${escapeHtml(ui.auditFilters.query)}" />
+          <input id="auditQuery" placeholder="Buscar empresa, usuario, campo o valor…" value="${escapeHtml(ui.auditFilters.query)}" />
           <select id="auditEntity"><option value="">Todas las entidades</option>${entityOptions}</select>
           <select id="auditAction">
             <option value="">Todas las acciones</option>
