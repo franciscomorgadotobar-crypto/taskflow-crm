@@ -68,7 +68,7 @@ begin
       into v_changed
       from (
         select key as k
-          from jsonb_object_keys(v_before || v_after) as key
+          from jsonb_object_keys(v_before || v_after) as keys(key)
          where key not in ('updated_at')
            and (v_before -> key) is distinct from (v_after -> key)
       ) d;
