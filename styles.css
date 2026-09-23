@@ -115,6 +115,10 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 
 .button-row { display: flex; gap: 10px; flex-wrap: wrap; }
 
+.commercial-center-tabs { margin-bottom: 14px; }
+.commercial-center-tabs .small-btn { white-space: nowrap; }
+.commercial-center-content { min-height: 96px; }
+
 /* ---------- Estado de sincronización ---------- */
 
 .sync-pill {
