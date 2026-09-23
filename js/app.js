@@ -37,6 +37,7 @@ import {
   getDiscovery,
   getLead,
   hydrate,
+  mergeDuplicateLeads,
   metrics,
   openTasks,
   onChange,
@@ -87,6 +88,7 @@ import {
   filterPipeline,
   quoteBuilderHtml,
   renderDashboard,
+  renderDuplicates,
   renderImplementation,
   renderLeadDetail,
   renderLeads,
@@ -203,6 +205,7 @@ const VIEWS = {
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Servicios, valores y cotizaciones para tus clientes.', renderQuotes],
+  duplicates: ['Duplicados', 'Detecta y fusiona oportunidades repetidas sin perder historial.', renderDuplicates],
   audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
@@ -335,8 +338,19 @@ async function submitLead(e) {
   if (!company) return toast('La empresa es obligatoria.', 'error');
 
   const id = $('leadId').value;
-  const dup = findDuplicate(company, id);
-  if (dup && !confirm(`Ya existe "${dup.company}". ¿Guardar de todos modos?`)) return;
+  const dup = findDuplicate({
+    company,
+    rut: $('rut').value.trim(),
+    email: $('email').value.trim(),
+    phone: $('phone').value.trim()
+  }, id);
+
+  if (
+    dup &&
+    !confirm(
+      `Posible duplicado: "${dup.lead.company}". Coincide por ${dup.reasons.join(', ')}. ¿Guardar de todos modos?`
+    )
+  ) return;
 
   const payload = { id: id || undefined };
   const fields = id ? LEAD_FIELDS.filter((k) => !OWNED_ELSEWHERE.includes(k)) : LEAD_FIELDS;
@@ -1399,6 +1413,34 @@ const ACTIONS = {
   },
   'install-pwa': () => installPwa(),
   'refresh-audit': () => hydrateAudit(),
+  'merge-duplicate': async (id, btn) => {
+    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+
+    const target = getLead(id);
+    const source = getLead(btn.dataset.sourceId);
+    if (!target || !source) return toast('Una de las oportunidades ya no existe.', 'error');
+    if (!canEditLeadLocally(target) || !canEditLeadLocally(source)) {
+      return toast('Solo puedes fusionar oportunidades que puedes gestionar.', 'error');
+    }
+
+    const ok = confirm(
+      `¿Fusionar "${source.company}" dentro de "${target.company}"?\n\n` +
+      'Se conservarán etapa, valor, próxima tarea, responsable y privacidad de la oportunidad elegida. ' +
+      'La otra será eliminada después de trasladar su historial y relaciones.'
+    );
+    if (!ok) return;
+
+    const merged = await mergeDuplicateLeads(target.id, source.id);
+    if (!merged) return;
+
+    await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
+
+    if ($('detailDialog').open && detailLeadId === source.id) $('detailDialog').close();
+    if ($('detailDialog').open && detailLeadId === target.id) refreshDetailIfOpen();
+
+    if (ui.view === 'duplicates') render();
+    toast(`Fusionadas: "${source.company}" → "${target.company}".`);
+  },
   'change-password': async () => {
     const pass = $('newPassword').value;
     if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
@@ -2457,6 +2499,7 @@ async function start() {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
       if ($('auditNav')) $('auditNav').hidden = !isAdmin();
+      if ($('duplicatesNav')) $('duplicatesNav').hidden = isReadOnly();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
