@@ -315,7 +315,7 @@ export function renderHyperFocus() {
         <h2>Campañas</h2>
         <p>Convierte bases masivas en conversaciones útiles sin llenar el CRM de registros fríos.</p>
       </div>
-      ${writable ? '<button class="primary-btn" data-hf-action="new-campaign">+ Nueva campaña</button>' : ''}
+      ${writable ? `<div class="button-row"><button class="ghost-btn" data-hf-action="new-crm-campaign">+ Desde CRM</button><button class="primary-btn" data-hf-action="new-campaign">+ Importar base</button></div>` : ''}
     </section>
 
     ${
@@ -1332,12 +1332,11 @@ function renderRecord(record, campaign) {
       <div class="hf-company-head">
         <div>
           <div class="hf-eyebrow">Siguiente empresa</div>
-          <h2>${e(record.company)}</h2>
+          <div class="hf-company-identity"><h2>${e(record.company)}</h2>${record.rut ? `<span class="hf-rut-badge">RUT ${e(record.rut)}</span>` : ''}</div>
           <div class="hf-company-meta">
             ${record.industry ? `<span>${e(record.industry)}</span>` : ''}
             ${record.comuna ? `<span>${e(record.comuna)}</span>` : ''}
             ${record.region ? `<span>${e(record.region)}</span>` : ''}
-            ${record.rut ? `<span>RUT ${e(record.rut)}</span>` : ''}
           </div>
         </div>
         <div class="hf-attempts"><strong>${record.attempts}</strong><span>intento${record.attempts === 1 ? '' : 's'}</span></div>
@@ -2210,6 +2209,7 @@ async function handleHyperFocusClick(ev) {
   const action = btn.dataset.hfAction;
 
   if (action === 'new-campaign') return openImportDialog();
+  if (action === 'new-crm-campaign') return openCrmCampaignDialog();
   if (action === 'start-session') return openSession(btn.dataset.id);
   if (action === 'delete-campaign') return deleteCampaign(btn.dataset.id);
   if (action === 'open-discarded') return openDiscarded(btn.dataset.id);
