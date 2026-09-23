@@ -587,10 +587,140 @@ export async function replaceState(data) {
   return summary;
 }
 
-export function findDuplicate(company, excludeId = '') {
-  const key = String(company || '').trim().toLowerCase();
-  if (!key) return null;
-  return state.leads.find((l) => l.id !== excludeId && l.company.trim().toLowerCase() === key) || null;
+function normalizeDuplicateText(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('es')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeDuplicateCompany(value) {
+  return normalizeDuplicateText(value)
+    .replace(/\b(sociedad por acciones|sociedad anonima|limitada|spa|s a|sa|ltda|eirl)\b$/g, '')
+    .trim();
+}
+
+function normalizeDuplicateRut(value) {
+  return String(value ?? '').toUpperCase().replace(/[^0-9K]/g, '');
+}
+
+function normalizeDuplicatePhone(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.length > 8 ? digits.slice(-8) : digits;
+}
+
+function duplicateEmails(lead) {
+  return contactsOf(lead)
+    .map((contact) => String(contact.email || '').trim().toLocaleLowerCase('es'))
+    .filter(Boolean);
+}
+
+function duplicatePhones(lead) {
+  return contactsOf(lead)
+    .map((contact) => normalizeDuplicatePhone(contact.phone))
+    .filter((phone) => phone.length >= 8);
+}
+
+export function duplicateSignals(a, b) {
+  if (!a || !b || a.id === b.id) return { score: 0, reasons: [] };
+
+  let score = 0;
+  const reasons = [];
+
+  const rutA = normalizeDuplicateRut(a.rut);
+  const rutB = normalizeDuplicateRut(b.rut);
+  if (rutA && rutB && rutA === rutB) {
+    score += 100;
+    reasons.push('RUT');
+  }
+
+  const companyA = normalizeDuplicateCompany(a.company);
+  const companyB = normalizeDuplicateCompany(b.company);
+  if (companyA && companyB && companyA === companyB) {
+    score += 70;
+    reasons.push('Empresa');
+  }
+
+  const emailsA = duplicateEmails(a);
+  const emailsB = new Set(duplicateEmails(b));
+  if (emailsA.some((email) => emailsB.has(email))) {
+    score += 60;
+    reasons.push('Correo');
+  }
+
+  const phonesA = duplicatePhones(a);
+  const phonesB = new Set(duplicatePhones(b));
+  if (phonesA.some((phone) => phonesB.has(phone))) {
+    score += 45;
+    reasons.push('Teléfono');
+  }
+
+  return { score, reasons };
+}
+
+export function duplicatePairs() {
+  const pairs = [];
+  for (let i = 0; i < state.leads.length; i += 1) {
+    const a = state.leads[i];
+    if (!canEditLeadLocally(a)) continue;
+
+    for (let j = i + 1; j < state.leads.length; j += 1) {
+      const b = state.leads[j];
+      if (!canEditLeadLocally(b)) continue;
+
+      const match = duplicateSignals(a, b);
+      if (match.score < 60) continue;
+
+      pairs.push({ a, b, ...match });
+    }
+  }
+
+  return pairs.sort(
+    (x, y) =>
+      y.score - x.score ||
+      String(x.a.company || '').localeCompare(String(y.a.company || ''), 'es')
+  );
+}
+
+export function findDuplicate(candidate, excludeId = '') {
+  const input = typeof candidate === 'string' ? { company: candidate } : candidate || {};
+  const probe = {
+    id: '__probe__',
+    company: input.company || '',
+    rut: input.rut || '',
+    contact: input.contact || '',
+    role: input.role || '',
+    email: input.email || '',
+    phone: input.phone || '',
+    contacts: input.contacts || []
+  };
+
+  let best = null;
+  for (const lead of state.leads) {
+    if (lead.id === excludeId) continue;
+    const match = duplicateSignals(probe, lead);
+    if (match.score < 60) continue;
+    if (!best || match.score > best.score) best = { lead, ...match };
+  }
+
+  return best;
+}
+
+export async function mergeDuplicateLeads(targetId, sourceId) {
+  const { data, error } = await supabase.rpc('merge_duplicate_leads', {
+    p_target_id: targetId,
+    p_source_id: sourceId
+  });
+
+  if (error) {
+    reportError('No se pudo fusionar las oportunidades', error);
+    return null;
+  }
+
+  return data || { target_id: targetId, source_id: sourceId };
 }
 
 /* ---------- Contactos (viven dentro del lead, jsonb) ---------- */
