@@ -190,6 +190,7 @@ const ui = {
   templateOpen: '',
   quotesView: 'list',
   quoteFilters: { status: '' },
+  auditFilters: { query: '', entity: '', action: '' },
   quoteBuilder: null
 };
 
@@ -202,6 +203,7 @@ const VIEWS = {
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Servicios, valores y cotizaciones para tus clientes.', renderQuotes],
+  audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
 
@@ -1396,6 +1398,7 @@ const ACTIONS = {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
   'install-pwa': () => installPwa(),
+  'refresh-audit': () => hydrateAudit(),
   'change-password': async () => {
     const pass = $('newPassword').value;
     if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
@@ -1542,7 +1545,10 @@ async function handleViewInput(ev) {
     pipelineOwner: () => (ui.pipelineFilters.owner = value),
     templateLead: () => (ui.templateLead = value),
     templateChannel: () => (ui.templateChannel = value),
-    quoteStatus: () => (ui.quoteFilters.status = value)
+    quoteStatus: () => (ui.quoteFilters.status = value),
+    auditQuery: () => (ui.auditFilters.query = value),
+    auditEntity: () => (ui.auditFilters.entity = value),
+    auditAction: () => (ui.auditFilters.action = value)
   };
   if (!map[id]) return;
   map[id]();
@@ -1568,6 +1574,214 @@ function handleQuoteFieldChange(ev) {
   // Solo repinta el total de la fila y no todo el bloque, para no perder el foco mientras se escribe.
   const totalCell = document.querySelector(`#quoteItemsRoot tr[data-row="${row}"] .quote-row-total`);
   if (totalCell) totalCell.textContent = fmtMoney(Number(item.quantity || 0) * Number(item.unitPrice || 0));
+}
+
+/* ---------- Auditoría de cambios ---------- */
+
+const auditState = {
+  entries: [],
+  loading: false,
+  schemaReady: true,
+  loaded: false
+};
+
+const AUDIT_ENTITY_LABEL = {
+  leads: 'Oportunidad',
+  activities: 'Actividad',
+  discoveries: 'Levantamiento',
+  quotes: 'Cotización',
+  hyperfocus_campaigns: 'Campaña Híper Foco',
+  profiles: 'Usuario'
+};
+
+const AUDIT_ACTION_LABEL = {
+  insert: 'Creó',
+  update: 'Modificó',
+  delete: 'Eliminó'
+};
+
+function auditSchemaMissing(error) {
+  const msg = `${error?.code || ''} ${error?.message || ''}`.toLowerCase();
+  return msg.includes('42p01') || msg.includes('pgrst205') || msg.includes('audit_log');
+}
+
+async function hydrateAudit() {
+  if (!isAdmin()) {
+    auditState.entries = [];
+    auditState.loaded = false;
+    return;
+  }
+
+  auditState.loading = true;
+  if (ui.view === 'audit') render();
+
+  try {
+    const { data, error } = await supabase
+      .from('audit_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      if (auditSchemaMissing(error)) {
+        auditState.schemaReady = false;
+        auditState.entries = [];
+        auditState.loaded = true;
+        return;
+      }
+      console.error('No se pudo cargar la auditoría', error);
+      toast('No se pudo cargar la auditoría.', 'error');
+      return;
+    }
+
+    auditState.schemaReady = true;
+    auditState.entries = data || [];
+    auditState.loaded = true;
+  } catch (err) {
+    console.error('No se pudo cargar la auditoría', err);
+    toast('No se pudo cargar la auditoría.', 'error');
+  } finally {
+    auditState.loading = false;
+    if (ui.view === 'audit') render();
+  }
+}
+
+function auditEntityName(row) {
+  if (row.lead_id) {
+    const lead = getLead(row.lead_id);
+    if (lead?.company) return lead.company;
+  }
+
+  const after = row.after_data || {};
+  const before = row.before_data || {};
+  const data = Object.keys(after).length ? after : before;
+
+  return data.company || data.name || data.email || data.client_snapshot?.company || row.entity_id || '';
+}
+
+function auditValue(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'object') {
+    const text = JSON.stringify(value);
+    return text.length > 180 ? text.slice(0, 177) + '…' : text;
+  }
+  const text = String(value);
+  return text.length > 180 ? text.slice(0, 177) + '…' : text;
+}
+
+function auditChangeSummary(row) {
+  if (row.action === 'insert') return 'Registro creado';
+  if (row.action === 'delete') return 'Registro eliminado';
+
+  const fields = row.changed_fields || [];
+  if (!fields.length) return 'Sin campos visibles';
+  return fields.slice(0, 6).join(', ') + (fields.length > 6 ? ` +${fields.length - 6}` : '');
+}
+
+function auditChangeDetails(row) {
+  const fields = row.changed_fields || [];
+  if (row.action !== 'update' || !fields.length) {
+    return `<span class="muted">${escapeHtml(auditChangeSummary(row))}</span>`;
+  }
+
+  const before = row.before_data || {};
+  const after = row.after_data || {};
+
+  return `
+    <details class="audit-diff">
+      <summary>${escapeHtml(auditChangeSummary(row))}</summary>
+      <div class="audit-diff-list">
+        ${fields.map((field) => `
+          <div>
+            <strong>${escapeHtml(field)}</strong>
+            <span class="audit-before">${escapeHtml(auditValue(before[field]))}</span>
+            <span aria-hidden="true">→</span>
+            <span class="audit-after">${escapeHtml(auditValue(after[field]))}</span>
+          </div>`).join('')}
+      </div>
+    </details>`;
+}
+
+function filteredAuditEntries() {
+  const filters = ui.auditFilters;
+  const query = normalizeGlobalSearch(filters.query);
+
+  return auditState.entries.filter((row) => {
+    if (filters.entity && row.entity_type !== filters.entity) return false;
+    if (filters.action && row.action !== filters.action) return false;
+    if (!query) return true;
+
+    const searchable = normalizeGlobalSearch([
+      row.actor_name,
+      AUDIT_ENTITY_LABEL[row.entity_type] || row.entity_type,
+      AUDIT_ACTION_LABEL[row.action] || row.action,
+      auditEntityName(row),
+      ...(row.changed_fields || [])
+    ].join(' '));
+
+    return searchable.includes(query);
+  });
+}
+
+function renderAudit() {
+  if (!isAdmin()) {
+    return '<div class="card"><div class="card-body"><div class="empty"><strong>Acceso restringido</strong><p>La auditoría está disponible para administradores.</p></div></div></div>';
+  }
+
+  if (!auditState.schemaReady) {
+    return '<div class="card"><div class="card-body"><div class="notice warn">Falta aplicar la migración <strong>supabase/0027_audit_log.sql</strong>.</div></div></div>';
+  }
+
+  if (auditState.loading && !auditState.loaded) {
+    return '<div class="card"><div class="card-body"><div class="empty"><strong>Cargando auditoría…</strong></div></div></div>';
+  }
+
+  const rows = filteredAuditEntries();
+  const entityOptions = Object.entries(AUDIT_ENTITY_LABEL)
+    .map(([value, label]) =>
+      `<option value="${escapeHtml(value)}" ${ui.auditFilters.entity === value ? 'selected' : ''}>${escapeHtml(label)}</option>`
+    )
+    .join('');
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Auditoría de cambios</h3>
+          <div class="muted">Quién cambió qué, cuándo y sobre qué registro.</div>
+        </div>
+        <button class="small-btn" data-action="refresh-audit">Actualizar</button>
+      </div>
+      <div class="card-body">
+        <div class="toolbar">
+          <input id="auditQuery" placeholder="Buscar empresa, usuario o campo…" value="${escapeHtml(ui.auditFilters.query)}" />
+          <select id="auditEntity"><option value="">Todas las entidades</option>${entityOptions}</select>
+          <select id="auditAction">
+            <option value="">Todas las acciones</option>
+            <option value="insert" ${ui.auditFilters.action === 'insert' ? 'selected' : ''}>Creó</option>
+            <option value="update" ${ui.auditFilters.action === 'update' ? 'selected' : ''}>Modificó</option>
+            <option value="delete" ${ui.auditFilters.action === 'delete' ? 'selected' : ''}>Eliminó</option>
+          </select>
+          <span class="toolbar-summary">${rows.length} de ${auditState.entries.length}</span>
+        </div>
+
+        ${rows.length
+          ? `<div class="table-wrap"><table class="data-table audit-table">
+              <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Registro</th><th>Cambios</th></tr></thead>
+              <tbody>
+                ${rows.map((row) => `<tr>
+                  <td>${escapeHtml(fmtDateTime(row.created_at))}</td>
+                  <td>${escapeHtml(row.actor_name || 'Sistema')}</td>
+                  <td><span class="badge ${row.action === 'delete' ? 'danger' : row.action === 'insert' ? 'success' : ''}">${escapeHtml(AUDIT_ACTION_LABEL[row.action] || row.action)}</span></td>
+                  <td>${escapeHtml(AUDIT_ENTITY_LABEL[row.entity_type] || row.entity_type)}</td>
+                  <td>${escapeHtml(auditEntityName(row) || '—')}</td>
+                  <td>${auditChangeDetails(row)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table></div>`
+          : '<div class="empty"><strong>Sin resultados</strong><p>No hay movimientos que coincidan con los filtros.</p></div>'}
+      </div>
+    </div>`;
 }
 
 /* ---------- Buscador global ---------- */
@@ -2126,11 +2340,12 @@ function bindSubmitOnce(formId, handler) {
 }
 
 function bindEvents() {
-  $$('.nav-item').forEach((btn) =>
+  $('.nav-item').forEach((btn) =>
     btn.addEventListener('click', () => {
       ui.view = btn.dataset.view;
-      $$('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
+      $('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
       render();
+      if (ui.view === 'audit' && isAdmin()) hydrateAudit();
     })
   );
 
@@ -2238,6 +2453,7 @@ async function start() {
     if (s.status === 'signed-in') {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
+      if ($('auditNav')) $('auditNav').hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
