@@ -124,9 +124,7 @@ export function renderDashboard(ui) {
       ${kpi('Tareas vencidas', fmtNumber(overdueCount), overdueCount ? 'Requieren acción hoy' : 'Al día', overdueCount ? 'alert' : '')}
     </div>
 
-    ${m.stale.length ? `<div class="notice warn">${m.stale.length} oportunidad(es) sin próxima acción y sin movimiento hace más de 14 días.</div>` : ''}
-
-    ${renderPendingTasks(ui, tasks)}
+    ${renderCommercialCenter(ui, tasks, m.open)}
 
     <div class="chart-grid">
       ${chartCard('chartA', ui?.chartA || 'stage')}
@@ -174,45 +172,89 @@ function taskRow(t, isOverdue) {
  * de cada prospecto. Vencidas = ya pasó su fecha (o no tiene);
  * Próximas a vencer = vencen hoy o mañana; Agendadas = el resto, más adelante.
  */
-function renderPendingTasks(ui, all = openTasks()) {
-  const today = todayISO();
-  const limit = addDaysISO(today, 1);
-
-  const overdue = all.filter((t) => !t.date || t.date < today);
-  const soon = all.filter((t) => t.date && t.date >= today && t.date <= limit);
-  const scheduled = all.filter((t) => t.date && t.date > limit);
-
-  const tabs = [
-    { id: 'overdue', label: 'Vencidas', rows: overdue, emptyTitle: 'Sin tareas vencidas', emptyHint: 'Todo al día. Acá caen las tareas que pasaron su fecha o que quedaron sin fecha.' },
-    { id: 'soon', label: 'Próximas a vencer', rows: soon, emptyTitle: 'Nada vence hoy ni mañana', emptyHint: 'Acá aparecen las tareas con fecha para hoy o mañana.' },
-    { id: 'scheduled', label: 'Agendadas', rows: scheduled, emptyTitle: 'Sin tareas agendadas', emptyHint: 'Acá aparecen las tareas con fecha de pasado mañana en adelante.' }
-  ];
-  const active = tabs.find((t) => t.id === ui?.taskTab) || tabs[0];
-
-  return `
-    <div class="card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
-      <div class="card-head">
-        <h3>Próximas tareas</h3>
-        <div class="button-row">
-          ${tabs
-            .map(
-              (t) =>
-                `<button class="small-btn ${t.id === active.id ? 'active-view' : ''}" data-action="tasks-tab" data-tab="${t.id}">${e(t.label)} (${t.rows.length})</button>`
-            )
-            .join('')}
-          <button class="small-btn" data-action="open-manage">Gestionar</button>
-        </div>
-      </div>
-      <div class="card-body">
-        ${
-          active.rows.length
-            ? `<div class="list">${active.rows.map((t) => taskRow(t, active.id === 'overdue' && Boolean(t.date))).join('')}</div>`
-            : empty(active.emptyTitle, active.emptyHint)
-        }
-      </div>
-    </div>`;
+function latestTouchByLead() {
+  const map = new Map();
+  state.activities.forEach((activity) => {
+    if (!activity.leadId || !activity.date) return;
+    const current = map.get(activity.leadId);
+    if (!current || String(activity.date) > String(current)) map.set(activity.leadId, activity.date);
+  });
+  state.leads.forEach((lead) => {
+    const current = map.get(lead.id);
+    if (lead.updatedAt && (!current || String(lead.updatedAt) > String(current))) map.set(lead.id, lead.updatedAt);
+  });
+  return map;
 }
 
+function managementLeadRow(lead, { staleDays = 0 } = {}) {
+  const task = taskOf(lead);
+  const taskText = task?.title || 'Sin próxima acción';
+  const dateText = task?.date ? fmtDate(task.date) : 'Sin fecha';
+  return `<div class="list-item">
+    <div>
+      <button class="link-btn" data-action="open-detail" data-id="${lead.id}"><strong>${e(lead.company)}</strong></button>
+      <div class="muted">${e(lead.stage)}${lead.owner ? ` · ${e(lead.owner)}` : ''}</div>
+      <div class="muted">${e(taskText)}${staleDays ? ` · ${staleDays} días sin movimiento` : ''}</div>
+    </div>
+    <div class="list-side">
+      <span class="badge ${task?.date && task.date < todayISO() ? 'danger' : ''}">${e(dateText)}</span>
+      <div class="actions">
+        ${task
+          ? taskActions(lead.id)
+          : `<button class="small-btn" data-action="reschedule-task" data-id="${lead.id}">Agendar tarea</button>
+             <button class="small-btn" data-action="new-activity" data-id="${lead.id}">Registrar actividad</button>
+             <button class="small-btn" data-action="open-detail" data-id="${lead.id}">Ver ficha</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderCommercialCenter(ui, allTasks = openTasks(), openLeads = metrics().open) {
+  const today = todayISO();
+  const touchMap = latestTouchByLead();
+  const overdue = allTasks.filter((t) => !t.date || t.date < today);
+  const todayRows = allTasks.filter((t) => t.date === today);
+  const upcoming = allTasks.filter((t) => t.date && t.date > today);
+  const noNext = openLeads
+    .filter((lead) => !taskOf(lead))
+    .sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
+  const stale = openLeads
+    .map((lead) => ({ lead, days: daysBetween(touchMap.get(lead.id) || lead.updatedAt || lead.createdAt) }))
+    .filter((row) => row.days > 14)
+    .sort((a, b) => b.days - a.days);
+
+  const tabs = [
+    { id: 'overdue', label: 'Vencidos', rows: overdue, kind: 'tasks', emptyTitle: 'Sin tareas vencidas', emptyHint: 'Todo al día. Las tareas atrasadas aparecerán aquí.' },
+    { id: 'today', label: 'Hoy', rows: todayRows, kind: 'tasks', emptyTitle: 'Nada pendiente para hoy', emptyHint: 'Las tareas con fecha de hoy aparecerán aquí.' },
+    { id: 'upcoming', label: 'Próximos', rows: upcoming, kind: 'tasks', emptyTitle: 'Sin tareas futuras', emptyHint: 'Las tareas de mañana en adelante aparecerán aquí.' },
+    { id: 'no-next', label: 'Sin próxima acción', rows: noNext, kind: 'leads', emptyTitle: 'Todas las oportunidades tienen próximo paso', emptyHint: 'Aquí aparecen oportunidades abiertas que quedaron sin tarea agendada.' },
+    { id: 'stale', label: 'Estancados', rows: stale, kind: 'stale', emptyTitle: 'Sin oportunidades estancadas', emptyHint: 'Aquí aparecen oportunidades abiertas sin movimiento por más de 14 días.' }
+  ];
+  const active = tabs.find((tab) => tab.id === ui?.taskTab) || tabs[0];
+  const canBatchManage = active.kind === 'tasks' && active.rows.length > 0;
+
+  return `<div class="card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
+    <div class="card-head">
+      <div><h3>Centro de gestión comercial</h3><div class="muted">Qué requiere atención ahora y qué oportunidades están perdiendo seguimiento.</div></div>
+      ${canBatchManage ? '<button class="small-btn" data-action="open-manage">Gestionar esta lista</button>' : ''}
+    </div>
+    <div class="card-body">
+      <div class="button-row commercial-center-tabs">
+        ${tabs.map((tab) => `<button class="small-btn ${tab.id === active.id ? 'active-view' : ''}" data-action="tasks-tab" data-tab="${tab.id}">${e(tab.label)} (${tab.rows.length})</button>`).join('')}
+      </div>
+      <div class="commercial-center-content">
+        ${active.rows.length
+          ? `<div class="list">${active.kind === 'tasks'
+              ? active.rows.map((task) => taskRow(task, active.id === 'overdue')).join('')
+              : active.kind === 'stale'
+                ? active.rows.map((row) => managementLeadRow(row.lead, { staleDays: row.days })).join('')
+                : active.rows.map((lead) => managementLeadRow(lead)).join('')
+            }</div>`
+          : empty(active.emptyTitle, active.emptyHint)}
+      </div>
+    </div>
+  </div>`;
+}
 function renderRecentActivities() {
   const recent = [...state.activities].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 8);
   return `
