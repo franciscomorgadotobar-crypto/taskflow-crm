@@ -2340,10 +2340,10 @@ function bindSubmitOnce(formId, handler) {
 }
 
 function bindEvents() {
-  $('.nav-item').forEach((btn) =>
+  $$('.nav-item').forEach((btn) =>
     btn.addEventListener('click', () => {
       ui.view = btn.dataset.view;
-      $('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
+      $$('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
       render();
       if (ui.view === 'audit' && isAdmin()) hydrateAudit();
     })
