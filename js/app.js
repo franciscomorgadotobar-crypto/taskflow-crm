@@ -597,10 +597,9 @@ let manageIndex = 0;
 
 function tasksForTab() {
   const today = todayISO();
-  const limit = addDaysISO(today, 1);
   const all = openTasks();
-  if (ui.taskTab === 'soon') return all.filter((t) => t.date && t.date >= today && t.date <= limit);
-  if (ui.taskTab === 'scheduled') return all.filter((t) => t.date && t.date > limit);
+  if (ui.taskTab === 'today') return all.filter((t) => t.date === today);
+  if (ui.taskTab === 'upcoming') return all.filter((t) => t.date && t.date > today);
   return all.filter((t) => !t.date || t.date < today);
 }
 
