@@ -400,6 +400,30 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   overflow-wrap: anywhere; white-space: pre-wrap; padding: 5px 6px;
   border-radius: 6px; background: var(--bg);
 }
+
+.duplicate-list { display: grid; gap: 14px; margin-top: 14px; }
+.duplicate-pair {
+  border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--bg));
+}
+.duplicate-reasons {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.duplicate-columns {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.duplicate-lead {
+  border: 1px solid var(--border); border-radius: 12px; padding: 13px;
+  background: var(--panel); display: grid; gap: 7px;
+}
+.duplicate-lead-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.duplicate-lead .actions { margin-top: 4px; }
+
+@media (max-width: 760px) {
+  .duplicate-columns { grid-template-columns: 1fr; }
+}
 .modal-card.wide { max-width: 920px; }
 .modal-card.narrow { max-width: 480px; }
 .modal-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; padding: 20px 22px; border-bottom: 1px solid var(--border); }
