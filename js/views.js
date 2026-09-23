@@ -13,6 +13,7 @@ import {
 import {
   activitiesOf,
   contactsOf,
+  duplicatePairs,
   findContact,
   getDiscovery,
   getLead,
@@ -854,6 +855,74 @@ export function renderSettings() {
         <div class="button-row">
           ${isAdmin() ? '<button class="ghost-btn" data-action="load-demo">Cargar datos demo</button><button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>' : '<span class="muted">Solo administración puede cargar ejemplos o ejecutar un borrado masivo.</span>'}
         </div>
+      </div>
+    </div>`;
+}
+
+/* ---------------- Duplicados ---------------- */
+
+export function renderDuplicates() {
+  if (isReadOnly()) {
+    return '<div class="card"><div class="card-body">' +
+      empty('Acceso restringido', 'Tu perfil es de solo lectura.') +
+      '</div></div>';
+  }
+
+  const pairs = duplicatePairs();
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h3>Posibles duplicados</h3>
+          <div class="muted">Coincidencias por RUT, empresa, correo o teléfono.</div>
+        </div>
+        <span class="badge ${pairs.length ? 'warning' : 'success'}">${pairs.length}</span>
+      </div>
+      <div class="card-body">
+        <div class="notice">
+          Al fusionar, la oportunidad que eliges conservar mantiene su <strong>etapa, valor, próxima tarea,
+          responsable y privacidad</strong>. La otra aporta datos faltantes y se trasladan sus actividades,
+          levantamiento, cotizaciones y vínculos Híper Foco. La operación es transaccional.
+        </div>
+
+        ${pairs.length
+          ? `<div class="duplicate-list">
+              ${pairs.map((pair) => `
+                <article class="duplicate-pair">
+                  <div class="duplicate-reasons">
+                    <span class="muted">Coincide por</span>
+                    ${pair.reasons.map((reason) => `<span class="badge">${e(reason)}</span>`).join('')}
+                  </div>
+
+                  <div class="duplicate-columns">
+                    ${[pair.a, pair.b].map((lead, index) => `
+                      <section class="duplicate-lead">
+                        <div class="duplicate-lead-head">
+                          <strong>${e(lead.company)}</strong>
+                          ${stageBadge(lead.stage)}
+                        </div>
+                        <div class="muted">${lead.rut ? `RUT ${e(lead.rut)} · ` : ''}${e(lead.industry || 'Sin rubro')}</div>
+                        <div class="muted">${e(lead.contact || 'Sin contacto')}${lead.email ? ` · ${e(lead.email)}` : ''}${lead.phone ? ` · ${e(lead.phone)}` : ''}</div>
+                        <div class="muted">Responsable: ${e(lead.owner || 'Sin asignar')}</div>
+                        <div class="actions">
+                          <button class="small-btn" data-action="open-detail" data-id="${lead.id}">Ver ficha</button>
+                          <button
+                            class="primary-btn"
+                            data-action="merge-duplicate"
+                            data-id="${lead.id}"
+                            data-source-id="${index === 0 ? pair.b.id : pair.a.id}">
+                            Conservar esta
+                          </button>
+                        </div>
+                      </section>`).join('')}
+                  </div>
+                </article>`).join('')}
+            </div>`
+          : empty(
+              'No se detectan duplicados',
+              'Se revisan coincidencias de RUT, nombre de empresa, correo y teléfono entre las oportunidades que puedes gestionar.'
+            )}
       </div>
     </div>`;
 }
