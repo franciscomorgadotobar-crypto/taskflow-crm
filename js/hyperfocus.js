@@ -592,7 +592,11 @@ const ALIASES = {
   comuna: ['comuna'],
   city: ['ciudad', 'city'],
   address: ['direccion', 'domicilio', 'address'],
-  website: ['sitioweb', 'web', 'website', 'paginaweb'],
+  // Los términos más específicos van primero: si la base tiene además una columna
+  // ambigua tipo "URL LinkedIn", se prefiere "Página Web"/"Web Corporativa" antes
+  // de caer en el alias genérico "url" (ver findHeader: gana el primer alias que
+  // calce, buscando entre todos los encabezados).
+  website: ['sitioweb', 'paginaweb', 'paginaoficial', 'webcorporativa', 'webempresa', 'sitiointernet', 'website', 'dominio', 'url', 'web', 'www'],
   contactName: ['nombretomadordedecisiones', 'nombrecontacto', 'contacto', 'tomadordedecisiones'],
   contactRole: ['cargotd', 'cargocontacto', 'cargotomadordedecisiones', 'cargo'],
   contactPhone: ['telefonotd', 'celularcontacto', 'telefonocontacto', 'celular', 'telefono'],
@@ -619,8 +623,16 @@ function findHeader(headers, aliases, excluded = new Set()) {
 function detectMapping(headers) {
   const mapping = {};
   const used = new Set();
+  // "url"/"web"/"www" (alias genéricos de sitio web) también calzan con columnas de
+  // redes sociales ("URL LinkedIn", "Facebook"). Se excluyen esas columnas al buscar
+  // el sitio para no perder el sitio real por el perfil de una red social.
+  const normalizedHeaders = headers.map(norm);
+  const socialColumns = new Set(
+    normalizedHeaders.map((h, i) => (/linkedin|facebook|instagram|twitter|tiktok|redsocial/.test(h) ? i : -1)).filter((i) => i >= 0)
+  );
   for (const def of FIELD_DEFS) {
-    let ix = findHeader(headers, ALIASES[def.id] || [], def.id === 'contactPhone2' ? used : new Set());
+    const excluded = def.id === 'contactPhone2' ? used : def.id === 'website' ? socialColumns : new Set();
+    let ix = findHeader(headers, ALIASES[def.id] || [], excluded);
     // La segunda línea telefónica solo sirve si es realmente otra columna.
     if (def.id === 'contactPhone2' && ix === mapping.contactPhone) ix = -1;
     mapping[def.id] = ix;
