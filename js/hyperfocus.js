@@ -333,6 +333,11 @@ export function renderHyperFocus() {
     </div>`;
 }
 
+// Los nombres de campaña suelen venir del archivo ("Base_Targets_Telecomunicaciones_Chile")
+// y no tienen espacios: sin un punto de corte, en el celular la tarjeta se salía de la
+// pantalla. <wbr> tras cada guion bajo deja cortar ahí en vez de a mitad de palabra.
+const breakable = (text) => e(text).replace(/_/g, '_<wbr>');
+
 function renderCampaignCard(c) {
   const s = statsOf(c.id);
   const done = s.converted + s.remarketing + s.discarded;
@@ -344,8 +349,8 @@ function renderCampaignCard(c) {
     <div class="hf-campaign-top">
       <div>
         <span class="badge">${e(HF_TYPE_LABEL[c.type] || c.type)}</span>
-        <h3>${e(c.name)}</h3>
-        <p>${e(c.filename || 'Base importada')}${c.sheet ? ` · ${e(c.sheet)}` : ''}</p>
+        <h3>${breakable(c.name)}</h3>
+        <p>${breakable(c.filename || 'Base importada')}${c.sheet ? ` · ${e(c.sheet)}` : ''}</p>
       </div>
       <span class="hf-campaign-pct">${pct}%</span>
     </div>
@@ -1505,19 +1510,41 @@ function renderSession() {
   body.innerHTML = renderRecord(focus.record, campaign);
 }
 
+/*
+ * El sitio llega tal cual venía en la planilla: "www.empresa.cl", "http://empresa.cl/",
+ * "Web: empresa.cl" o "No registra". Solo se enlaza una dirección http(s) con dominio
+ * real; así un correo, un texto suelto o un "javascript:" nunca terminan en el href.
+ */
+function websiteLink(value) {
+  for (const token of clean(value).split(/[\s,;|]+/)) {
+    let url;
+    try {
+      url = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(token) ? token : `https://${token}`);
+    } catch {
+      continue;
+    }
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) continue;
+    if (!/\.[a-z][a-z\d-]*$/i.test(url.hostname)) continue;
+    const label = token.replace(/^[a-z][a-z\d+.-]*:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '');
+    return { href: url.href, label };
+  }
+  return null;
+}
+
 function renderRecord(record, campaign) {
   const contact = selectedContact();
   const contacts = [...record.contacts].sort((a, b) => contactScore(b) - contactScore(a));
   const lead = leadForRecord(record);
   const lockedLead = lockedExistingLead(record);
   const context = contextHighlights(record);
+  const site = websiteLink(record.website);
 
   return `<div class="hf-focus-layout">
     <section class="hf-company-panel">
       <div class="hf-company-head">
         <div>
           <div class="hf-eyebrow">Siguiente empresa</div>
-          <div class="hf-company-identity"><h2>${e(record.company)}</h2>${record.rut ? `<span class="hf-rut-badge">RUT ${e(record.rut)}</span>` : ''}</div>
+          <div class="hf-company-identity"><h2>${e(record.company)}</h2>${record.rut ? `<span class="hf-rut-badge">RUT ${e(record.rut)}</span>` : ''}${site ? `<a class="hf-site-link" href="${e(site.href)}" target="_blank" rel="noopener noreferrer" title="Abrir el sitio en una pestaña nueva">${e(site.label)} <span aria-hidden="true">↗</span></a>` : ''}</div>
           <div class="hf-company-meta">
             ${record.industry ? `<span>${e(record.industry)}</span>` : ''}
             ${record.comuna ? `<span>${e(record.comuna)}</span>` : ''}

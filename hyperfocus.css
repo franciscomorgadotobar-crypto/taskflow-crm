@@ -13,6 +13,10 @@
 .hf-campaign-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .hf-campaign-card { padding:18px; overflow:visible; }
 .hf-campaign-top { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+/* min-width:0 y overflow-wrap: un nombre sin espacios estiraba la tarjeta más allá
+   de la pantalla del celular y con ella toda la página (la barra superior quedaba corta). */
+.hf-campaign-top > div { min-width:0; }
+.hf-campaign-top h3, .hf-campaign-top p { overflow-wrap:anywhere; }
 .hf-campaign-top h3 { margin:9px 0 2px; font-size:18px; }
 .hf-campaign-top p { margin:0; color:var(--v2-muted,var(--muted)); font-size:12px; }
 .hf-campaign-pct { font-size:24px; font-weight:700; letter-spacing:-.04em; }
@@ -126,6 +130,15 @@
   background:color-mix(in srgb,var(--v2-soft-blue,#edf5ff) 55%,var(--v2-panel,var(--panel)));
   color:var(--v2-blue,var(--blue)); font-size:11px; font-weight:800; white-space:nowrap;
 }
+/* Sitio web de la empresa: se abre en otra pestaña para no cortar la sesión. */
+.hf-site-link {
+  display:inline-block; max-width:100%; padding:5px 0; line-height:18px;
+  color:var(--v2-blue,var(--blue)); font-size:12px; font-weight:600; overflow-wrap:anywhere;
+  text-decoration:underline; text-decoration-color:color-mix(in srgb,currentColor 40%,transparent); text-underline-offset:3px;
+}
+.hf-site-link:hover { text-decoration-color:currentColor; }
+/* El azul de marca no se lee bien sobre el panel oscuro; el celeste sí (6.7:1). */
+:root[data-theme="dark"] .hf-site-link { color:var(--v2-sky,var(--sky)); }
 .hf-eyebrow, .hf-step-label { display:block; color:var(--v2-blue,var(--blue)); font-size:10px; line-height:1.2; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
 .hf-company-meta { display:flex; flex-wrap:wrap; gap:6px; }
 .hf-company-meta span { padding:5px 8px; border-radius:999px; background:var(--v2-panel-soft,var(--bg)); color:var(--v2-muted,var(--muted)); font-size:10px; }
@@ -199,7 +212,7 @@
 .hf-done-icon { width:52px; height:52px; display:grid; place-items:center; margin:auto; border-radius:50%; background:var(--v2-success-soft,#effaf2); color:var(--success); font-weight:800; font-size:24px; }
 
 @media (max-width:1050px) {
-  .hf-campaign-grid { grid-template-columns:1fr; }
+  .hf-campaign-grid { grid-template-columns:minmax(0,1fr); }
   .hf-map-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .hf-import-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .hf-focus-layout { grid-template-columns:1fr; }
