@@ -127,7 +127,10 @@ const focus = {
   messageOpened: false,
   attemptStarted: false,
   phoneSlot: 'primary',
-  noteDraft: ''
+  noteDraft: '',
+  editingCompany: false,
+  savingCompany: false,
+  companyDraft: ''
 };
 
 const q = (sel, root = document) => root.querySelector(sel);
@@ -1475,6 +1478,9 @@ async function takeNextRecord() {
     focus.phase = 'ready';
     focus.messageOpened = false;
     focus.attemptStarted = false;
+    focus.editingCompany = false;
+    focus.savingCompany = false;
+    focus.companyDraft = '';
     focus.phoneSlot = preferredPhoneSlot(selectedContact());
   } finally {
     // También al fallar el claim: evita dejar la sesión bloqueada eternamente
@@ -1543,6 +1549,31 @@ function websiteLink(value) {
   return null;
 }
 
+/*
+ * El nombre de la empresa se puede corregir sin salir de la sesión: el mismo
+ * contacto a veces cambia de empleador entre que se importó la base y que se le
+ * llama. Solo se toca hyperfocus_records.company — si el registro ya está
+ * convertido o vinculado a un lead del CRM, ese lead se sigue editando aparte
+ * desde su ficha ("Editar datos de la empresa").
+ */
+function renderCompanyIdentity(record, site) {
+  if (focus.editingCompany) {
+    return `<div class="hf-company-identity hf-company-identity-editing">
+      <input id="hfCompanyNameInput" class="hf-company-name-input" maxlength="200" placeholder="Nombre de la empresa" value="${e(focus.companyDraft ?? record.company)}" ${focus.savingCompany ? 'disabled' : ''} />
+      <div class="button-row">
+        <button type="button" class="small-btn" data-hf-action="save-company-name" ${focus.savingCompany ? 'disabled' : ''}>${focus.savingCompany ? 'Guardando…' : 'Guardar'}</button>
+        <button type="button" class="small-btn" data-hf-action="cancel-company-name" ${focus.savingCompany ? 'disabled' : ''}>Cancelar</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="hf-company-identity">
+    <h2>${e(record.company)}</h2>
+    <button type="button" class="hf-company-edit-btn" data-hf-action="edit-company-name" title="Editar nombre de la empresa" aria-label="Editar nombre de la empresa">✎</button>
+    ${record.rut ? `<span class="hf-rut-badge">RUT ${e(record.rut)}</span>` : ''}
+    ${site ? `<a class="hf-site-link" href="${e(site.href)}" target="_blank" rel="noopener noreferrer" title="Abrir el sitio en una pestaña nueva">${e(site.label)} <span aria-hidden="true">↗</span></a>` : ''}
+  </div>`;
+}
+
 function renderRecord(record, campaign) {
   const contact = selectedContact();
   const contacts = [...record.contacts].sort((a, b) => contactScore(b) - contactScore(a));
@@ -1556,7 +1587,7 @@ function renderRecord(record, campaign) {
       <div class="hf-company-head">
         <div>
           <div class="hf-eyebrow">Siguiente empresa</div>
-          <div class="hf-company-identity"><h2>${e(record.company)}</h2>${record.rut ? `<span class="hf-rut-badge">RUT ${e(record.rut)}</span>` : ''}${site ? `<a class="hf-site-link" href="${e(site.href)}" target="_blank" rel="noopener noreferrer" title="Abrir el sitio en una pestaña nueva">${e(site.label)} <span aria-hidden="true">↗</span></a>` : ''}</div>
+          ${renderCompanyIdentity(record, site)}
           <div class="hf-company-meta">
             ${record.industry ? `<span>${e(record.industry)}</span>` : ''}
             ${record.comuna ? `<span>${e(record.comuna)}</span>` : ''}
@@ -1646,6 +1677,55 @@ async function saveNote() {
     focus.noteDraft = text;
     console.error(err);
     toast(err.message || 'No se pudo guardar la observación.', 'error');
+  }
+}
+
+function startEditCompany() {
+  if (!focus.record) return;
+  focus.editingCompany = true;
+  focus.companyDraft = focus.record.company;
+  renderSession();
+  const input = byId('hfCompanyNameInput');
+  if (input) {
+    input.focus();
+    input.select();
+  }
+}
+
+function cancelEditCompany() {
+  focus.editingCompany = false;
+  renderSession();
+}
+
+// Solo toca hyperfocus_records.company: el registro sigue perteneciendo a la
+// misma campaña, con el mismo contacto e historial. Requiere que el registro
+// siga reservado para esta sesión (mismo claim que exige guardar una gestión);
+// si ya no lo está, el update no afecta filas y se avisa en vez de fallar mudo.
+async function saveCompanyName() {
+  const record = focus.record;
+  const input = byId('hfCompanyNameInput');
+  if (!record || !input) return;
+  focus.companyDraft = input.value;
+  const name = clean(input.value);
+  if (!name) return toast('El nombre de la empresa no puede quedar vacío.', 'error');
+  if (name === record.company) return cancelEditCompany();
+
+  focus.savingCompany = true;
+  renderSession();
+  try {
+    const { data, error } = await supabase.from('hyperfocus_records').update({ company: name }).eq('id', record.id).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('Este registro ya no está reservado para tu sesión. Recarga Híper Foco.');
+    record.company = name;
+    focus.editingCompany = false;
+    renderSession();
+    toast('Nombre de la empresa actualizado.');
+  } catch (err) {
+    console.error(err);
+    toast(err.message || 'No se pudo actualizar el nombre de la empresa.', 'error');
+  } finally {
+    focus.savingCompany = false;
+    if (focus.editingCompany) renderSession();
   }
 }
 
@@ -2452,6 +2532,9 @@ async function handleHyperFocusClick(ev) {
     return;
   }
   if (action === 'save-note') return saveNote();
+  if (action === 'edit-company-name') return startEditCompany();
+  if (action === 'save-company-name') return saveCompanyName();
+  if (action === 'cancel-company-name') return cancelEditCompany();
   if (action === 'skip-record') return skipRecord();
   if (action === 'resolve-existing') {
     const lead = lockedExistingLead(focus.record);
@@ -2615,6 +2698,18 @@ async function handleHyperFocusClick(ev) {
 function handleHyperFocusKeydown(ev) {
   const dialog = byId('hfSessionDialog');
   if (!dialog?.open || focus.busy || ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+
+  // Enter guarda, Escape cancela solo la edición del nombre (no cierra la sesión).
+  if (ev.target?.id === 'hfCompanyNameInput') {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      q('[data-hf-action="save-company-name"]', byId('hfSessionBody'))?.click();
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      q('[data-hf-action="cancel-company-name"]', byId('hfSessionBody'))?.click();
+    }
+    return;
+  }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(ev.target?.tagName)) return;
 
   const key = ev.key.toLowerCase();
@@ -2775,6 +2870,7 @@ export function initUI() {
   // observaciones se guarda en memoria para no perderlo al cambiar de pantalla.
   document.addEventListener('input', (ev) => {
     if (ev.target?.id === 'hfRecordNote') focus.noteDraft = ev.target.value;
+    if (ev.target?.id === 'hfCompanyNameInput') focus.companyDraft = ev.target.value;
   });
   document.addEventListener('keydown', handleHyperFocusKeydown);
   qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
