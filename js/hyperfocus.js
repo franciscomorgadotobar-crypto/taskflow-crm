@@ -862,6 +862,13 @@ function contactPhones(c) {
   return [c?.phone, c?.phoneAlt].map((x) => clean(x).replace(/\D/g, '')).filter(Boolean);
 }
 
+function sameContactName(a, b) {
+  const nameA = norm(a?.name);
+  const nameB = norm(b?.name);
+  const generic = new Set(['contactosinnombre', 'contactoderegistro']);
+  return Boolean(nameA && nameB && nameA === nameB && !generic.has(nameA));
+}
+
 function sameImportedContact(a, b) {
   const emailA = norm(a?.email);
   const emailB = norm(b?.email);
@@ -869,10 +876,7 @@ function sameImportedContact(a, b) {
   const phonesA = contactPhones(a);
   const phonesB = contactPhones(b);
   if (phonesA.some((x) => phonesB.includes(x))) return true;
-  const nameA = norm(a?.name);
-  const nameB = norm(b?.name);
-  const generic = new Set(['contactosinnombre', 'contactoderegistro']);
-  return Boolean(nameA && nameB && nameA === nameB && !generic.has(nameA));
+  return sameContactName(a, b);
 }
 
 function mergeContactData(target, source) {
@@ -900,6 +904,39 @@ function dedupeContacts(contacts) {
     else out.push(contact);
   });
   return out;
+}
+
+// Igual que dedupeContacts, pero solo funde por nombre exactamente igual (nunca
+// por compartir teléfono o correo). La usa splitMultiContact: varias personas
+// separadas en la misma celda suelen compartir el teléfono/correo de la fila, y
+// con el criterio completo dedupeContacts las habría vuelto a fundir en una sola.
+function dedupeByName(contacts) {
+  const out = [];
+  contacts.filter(Boolean).forEach((contact) => {
+    const prev = out.find((candidate) => sameContactName(candidate, contact));
+    if (prev) mergeContactData(prev, contact);
+    else out.push(contact);
+  });
+  return out;
+}
+
+/*
+ * Algunas bases listan a varios tomadores de decisión en una sola celda,
+ * separados por ";", cada uno con su cargo entre paréntesis:
+ * "Nombre (Cargo); Nombre (Cargo); Nombre (Cargo)". Sin esto quedaban pegados
+ * como un solo contacto de nombre kilométrico y los demás desaparecían.
+ * Solo se activa con 2+ segmentos separados por ";": una celda con un único
+ * nombre y su cargo entre paréntesis sigue tratándose como hasta ahora.
+ */
+function splitMultiContact(rawName) {
+  const segments = clean(rawName).split(';').map((s) => s.trim()).filter(Boolean);
+  if (segments.length < 2) return null;
+  return segments
+    .map((seg) => {
+      const m = seg.match(/^(.+?)\s*\(([^()]+)\)$/);
+      return m ? { name: clean(m[1]), role: clean(m[2]) } : { name: seg, role: '' };
+    })
+    .filter((p) => p.name);
 }
 
 function makeContact({ name = '', role = '', phone = '', phoneAlt = '', email = '', source = '' }, makeIds = true) {
@@ -978,14 +1015,23 @@ function buildNormalizedRecord(row, rowNumber, duplicateMaps, makeIds, { repHead
   const company = mapped(row, 'company');
   if (!company) return null;
 
-  const primary = makeContact({
-    name: mapped(row, 'contactName'),
-    role: mapped(row, 'contactRole'),
-    phone: mapped(row, 'contactPhone'),
-    phoneAlt: mapped(row, 'contactPhone2'),
-    email: mapped(row, 'contactEmail'),
-    source: 'Contacto principal / tomador de decisiones'
-  }, makeIds);
+  const contactName = mapped(row, 'contactName');
+  const contactPhone = mapped(row, 'contactPhone');
+  const contactPhoneAlt = mapped(row, 'contactPhone2');
+  const contactEmail = mapped(row, 'contactEmail');
+  const multiContact = splitMultiContact(contactName);
+  // Con varias personas en la misma celda, todas comparten el mismo teléfono/correo
+  // de la fila: se dedupean primero solo por nombre exacto para que no se fundan en
+  // una sola por compartir ese canal (ver dedupeByName).
+  const primaryContacts = multiContact
+    ? dedupeByName(multiContact.map((p) => makeContact({
+        name: p.name, role: p.role, phone: contactPhone, phoneAlt: contactPhoneAlt, email: contactEmail,
+        source: 'Contacto principal / tomador de decisiones'
+      }, makeIds)))
+    : [makeContact({
+        name: contactName, role: mapped(row, 'contactRole'), phone: contactPhone, phoneAlt: contactPhoneAlt, email: contactEmail,
+        source: 'Contacto principal / tomador de decisiones'
+      }, makeIds)].filter(Boolean);
 
   const general = makeContact({
     name: 'Contacto de registro',
@@ -1011,7 +1057,16 @@ function buildNormalizedRecord(row, rowNumber, duplicateMaps, makeIds, { repHead
     source: 'Correo adicional de la base'
   }, makeIds));
 
-  const contacts = dedupeContacts([primary, general, representative, ...extraEmails]);
+  // Los contactos ya separados por splitMultiContact no se vuelven a fundir entre
+  // sí (por eso no pasan por dedupeContacts de nuevo); sí se funden con el contacto
+  // de registro, el representante legal o un correo adicional si alguno de esos
+  // resulta ser la misma persona (mismo nombre, teléfono o correo).
+  const contacts = [...primaryContacts];
+  [general, representative, ...extraEmails].filter(Boolean).forEach((other) => {
+    const match = contacts.find((c) => sameImportedContact(c, other));
+    if (match) mergeContactData(match, other);
+    else contacts.push(other);
+  });
   const rut = mapped(row, 'rut');
   const duplicate = (rut && duplicateMaps.byRut.get(normRut(rut))) || duplicateMaps.byCompany.get(normCompany(company)) || null;
 
