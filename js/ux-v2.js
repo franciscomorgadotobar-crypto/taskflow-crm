@@ -320,30 +320,50 @@ function renderDashboardSummary() {
   if (summary.dataset.signature !== signature) {
     summary.dataset.signature = signature;
     summary.innerHTML = `
-      <article class="v2-summary-kpi">
-        <span>Pipeline activo</span>
+      <article class="v2-summary-kpi v2-pipeline-hero">
+        <div class="v2-kpi-label-row">
+          <span>Pipeline activo</span>
+          <span class="v2-kpi-info" aria-label="Valor total de oportunidades abiertas">i</span>
+        </div>
         <strong>${esc(money(m.pipelineValue))}</strong>
-        <small>Valor de oportunidades abiertas</small>
+        <small><b>${m.open.length}</b> ${m.open.length === 1 ? 'oportunidad abierta' : 'oportunidades abiertas'}</small>
+        <div class="v2-pipeline-trend" aria-label="Comparación mensual">
+          <strong>—&nbsp; 0%</strong>
+          <span>vs. mes anterior</span>
+        </div>
+        <div class="v2-pipeline-chart" aria-hidden="true">
+          <span style="--h:18%"></span><span style="--h:25%"></span><span style="--h:34%"></span>
+          <span style="--h:47%"></span><span style="--h:62%"></span><span style="--h:74%"></span><span style="--h:92%"></span>
+          <i></i>
+        </div>
       </article>
-      <article class="v2-summary-kpi">
+      <article class="v2-summary-kpi v2-kpi-opportunities">
+        <span class="v2-kpi-icon" aria-hidden="true">▦</span>
         <span>Oportunidades</span>
         <strong>${m.open.length}</strong>
         <small>Activas en el pipeline</small>
+        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
       </article>
-      <article class="v2-summary-kpi ${counts.today ? 'attention' : ''}">
+      <article class="v2-summary-kpi v2-kpi-today ${counts.today ? 'attention' : ''}">
+        <span class="v2-kpi-icon" aria-hidden="true">✓</span>
         <span>Pendientes hoy</span>
         <strong>${counts.today}</strong>
-        <small>${counts.today === 1 ? '1 seguimiento para hoy' : `${counts.today} seguimientos para hoy`}</small>
+        <small>Seguimientos para hoy</small>
+        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
       </article>
-      <article class="v2-summary-kpi ${counts.overdue ? 'danger' : ''}">
+      <article class="v2-summary-kpi v2-kpi-overdue ${counts.overdue ? 'danger' : ''}">
+        <span class="v2-kpi-icon" aria-hidden="true">!</span>
         <span>Tareas vencidas</span>
         <strong>${counts.overdue}</strong>
-        <small>${counts.overdue ? 'Requieren acción' : 'Sin atrasos'}</small>
+        <small>Requieren acción</small>
+        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
       </article>
-      <article class="v2-summary-kpi">
+      <article class="v2-summary-kpi v2-kpi-close">
+        <span class="v2-kpi-icon" aria-hidden="true">▥</span>
         <span>Tasa de cierre</span>
         <strong>${esc(closeRate.value)}</strong>
         <small>${esc(closeRate.hint)}</small>
+        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
       </article>`;
   }
 
