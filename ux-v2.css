@@ -3556,3 +3556,711 @@ html[data-theme="dark"][data-crm-view="pipeline"] .kanban-col {
 
 /* ---------- End progressive task flow 2026-10-03 ---------- */
 
+/* ---------- Final remaining-view parity 2026-10-03 ---------- */
+/* Vistas restantes: misma gramática visual del Resumen. */
+html[data-crm-view="templates"] #viewRoot > .card,
+html[data-crm-view="quotes"] #viewRoot > .card,
+html[data-crm-view="settings"] #viewRoot > .card,
+html[data-crm-view="audit"] #viewRoot > .card,
+html[data-crm-view="implementation"] #viewRoot > .card {
+  border:1px solid #e1e8f1;
+  border-radius:15px;
+  background:var(--v2-panel);
+  box-shadow:0 4px 18px rgba(27,50,87,.055);
+}
+
+/* Plantillas */
+html[data-crm-view="templates"] .template-list {
+  gap:10px;
+}
+
+html[data-crm-view="templates"] .template-item {
+  overflow:hidden;
+  border:1px solid #e1e8f1;
+  border-radius:13px;
+  background:var(--v2-panel);
+  box-shadow:0 3px 12px rgba(27,50,87,.04);
+}
+
+html[data-crm-view="templates"] .template-item > summary {
+  min-height:58px;
+  padding:12px 13px;
+  background:#fff;
+}
+
+html[data-crm-view="templates"] .template-title {
+  color:#132849;
+  font-size:12px;
+  font-weight:700;
+}
+
+html[data-crm-view="templates"] .template-peek {
+  color:#6b7b91;
+  font-size:9px;
+}
+
+html[data-crm-view="templates"] .template-preview {
+  border:1px solid #e1e8f1;
+  border-radius:12px;
+  background:#f8fbff;
+}
+
+html[data-crm-view="templates"] .var-chip {
+  border:1px solid #d9e3ef;
+  border-radius:999px;
+  background:#fff;
+  color:#46617f;
+}
+
+html[data-crm-view="templates"] .template-actions {
+  padding-top:10px;
+  border-top:1px solid #e7ecf2;
+}
+
+/* Cotizaciones */
+html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child {
+  width:max-content;
+  max-width:100%;
+  padding:4px !important;
+  border:1px solid #e0e7f0 !important;
+  border-radius:12px !important;
+  background:#fff !important;
+  box-shadow:0 3px 12px rgba(27,50,87,.045) !important;
+}
+
+html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child .button-row {
+  gap:3px;
+}
+
+html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child .small-btn {
+  min-height:36px;
+  padding:7px 12px;
+  border-color:transparent;
+  background:transparent;
+  color:#607187;
+}
+
+html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child .small-btn.active-view {
+  border-color:#c8ddf4;
+  background:#eef6ff;
+  color:#126bb9;
+}
+
+html[data-crm-view="quotes"] #viewRoot .list {
+  gap:8px;
+}
+
+html[data-crm-view="quotes"] #viewRoot .list > .list-item {
+  position:relative;
+  overflow:hidden;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 3px 12px rgba(27,50,87,.04);
+}
+
+html[data-crm-view="quotes"] #viewRoot .list > .list-item::before {
+  content:"";
+  position:absolute;
+  inset:0 auto 0 0;
+  width:3px;
+  background:#3b9cf5;
+}
+
+html[data-crm-view="quotes"] #viewRoot .list > .list-item > div:first-child > strong,
+html[data-crm-view="quotes"] #viewRoot .list-side > strong {
+  color:#10264a;
+}
+
+html[data-crm-view="quotes"] .quote-section {
+  border-color:#e1e8f1;
+  border-radius:13px;
+  background:#fff;
+  box-shadow:0 3px 12px rgba(27,50,87,.035);
+}
+
+html[data-crm-view="quotes"] .quote-section > h4 {
+  border-left-color:#3b9cf5;
+  color:#173153;
+}
+
+/* Configuración */
+html[data-crm-view="settings"] .settings-grid input,
+html[data-crm-view="settings"] .cell-input,
+html[data-crm-view="settings"] select {
+  border-color:#dfe6ef;
+  background:#f8fbff;
+}
+
+html[data-crm-view="settings"] .settings-subtitle {
+  color:#5c6d83;
+}
+
+html[data-crm-view="settings"] .role-list {
+  gap:8px;
+}
+
+html[data-crm-view="settings"] .role-row {
+  padding:10px 11px;
+  border:1px solid #e5eaf1;
+  border-radius:11px;
+  background:#f8fbff;
+}
+
+html[data-crm-view="settings"] .role-row strong {
+  color:#173153;
+}
+
+html[data-crm-view="settings"] .flow-node {
+  border-color:#e1e8f1;
+  border-radius:12px;
+  background:#fff;
+}
+
+html[data-crm-view="settings"] .flow-node > summary {
+  min-height:52px;
+  padding:12px 13px;
+}
+
+html[data-crm-view="settings"] .flow-step {
+  background:#1d71b8;
+}
+
+html[data-crm-view="settings"] .flow-arrow {
+  color:#76aee8;
+}
+
+/* Auditoría */
+html[data-crm-view="audit"] #viewRoot .toolbar {
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+
+html[data-crm-view="audit"] #viewRoot .toolbar input,
+html[data-crm-view="audit"] #viewRoot .toolbar select {
+  min-height:38px;
+  border:1px solid #dfe6ef;
+  border-radius:10px;
+  background:#fff;
+  color:#1d2f4f;
+}
+
+html[data-crm-view="audit"] #viewRoot .toolbar-summary {
+  min-height:38px;
+  padding:0 10px;
+  border:1px solid #e1e7ef;
+  border-radius:10px;
+  background:#f6f9fc;
+  color:#617188;
+}
+
+/* Implementación */
+html[data-crm-view="implementation"] #viewRoot .data-table tr::before {
+  background:#27a86b;
+}
+
+html[data-crm-view="implementation"] #viewRoot > .card > .card-head .muted {
+  color:#6b7b91;
+}
+
+@media (max-width:900px) {
+  /* Header interno: nombre del módulo, no saludo repetido. */
+  html:not([data-crm-view="dashboard"]) .v2-mobile-heading strong {
+    font-size:19px;
+  }
+
+  html:not([data-crm-view="dashboard"]) .v2-mobile-heading span {
+    max-width:230px;
+    font-size:10.5px;
+    opacity:.88;
+  }
+
+  /* Plantillas */
+  html[data-crm-view="templates"] #viewRoot > .card > .card-head .primary-btn {
+    min-height:38px;
+    padding:7px 10px;
+    font-size:9px;
+  }
+
+  html[data-crm-view="templates"] #viewRoot > .card > .card-body {
+    padding:0 12px 13px !important;
+  }
+
+  html[data-crm-view="templates"] #viewRoot .notice {
+    margin:0 0 10px;
+    padding:10px 11px;
+    font-size:9px;
+    line-height:1.4;
+  }
+
+  html[data-crm-view="templates"] #viewRoot .toolbar {
+    margin:0 0 10px !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+    flex-wrap:nowrap;
+  }
+
+  html[data-crm-view="templates"] #viewRoot .toolbar select {
+    min-width:155px;
+    min-height:38px;
+    border:1px solid #dfe6ef;
+    border-radius:10px;
+    background:#fff;
+    color:#1d2f4f;
+    font-size:10px;
+  }
+
+  html[data-crm-view="templates"] .template-item > summary {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:4px 8px;
+    min-height:54px;
+    padding:11px 12px;
+  }
+
+  html[data-crm-view="templates"] .template-title {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  html[data-crm-view="templates"] .template-peek {
+    grid-column:1 / -1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  html[data-crm-view="templates"] .unsaved-flag {
+    grid-column:1 / -1;
+  }
+
+  html[data-crm-view="templates"] .template-editor {
+    padding:0 12px 12px;
+  }
+
+  html[data-crm-view="templates"] .template-fields {
+    grid-template-columns:1fr;
+  }
+
+  html[data-crm-view="templates"] .template-fields > * {
+    grid-column:1 !important;
+  }
+
+  html[data-crm-view="templates"] .template-fields input,
+  html[data-crm-view="templates"] .template-fields select,
+  html[data-crm-view="templates"] .template-fields textarea {
+    font-size:16px;
+  }
+
+  html[data-crm-view="templates"] .var-chips {
+    gap:6px;
+    overflow-x:auto;
+    flex-wrap:nowrap;
+    scrollbar-width:none;
+  }
+
+  html[data-crm-view="templates"] .var-chips::-webkit-scrollbar {
+    display:none;
+  }
+
+  html[data-crm-view="templates"] .var-chip {
+    flex:0 0 auto;
+  }
+
+  html[data-crm-view="templates"] .template-actions {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+
+  html[data-crm-view="templates"] .template-actions .danger {
+    margin-right:0;
+  }
+
+  html[data-crm-view="templates"] .template-actions .primary-btn {
+    grid-column:1 / -1;
+  }
+
+  /* Cotizaciones y listas de precios */
+  html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child {
+    margin-bottom:10px !important;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-head {
+    min-height:62px !important;
+    padding:14px 14px 10px !important;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-head h3 {
+    font-size:17px !important;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-head .primary-btn {
+    min-height:38px;
+    padding:7px 10px;
+    font-size:9px;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-body {
+    padding:0 12px 13px !important;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .toolbar:not(:first-child) {
+    margin:0 0 10px !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .toolbar select {
+    min-height:38px;
+    border:1px solid #dfe6ef;
+    border-radius:10px;
+    background:#fff;
+    color:#1d2f4f;
+    font-size:10px;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .toolbar-summary {
+    min-height:38px;
+    padding:8px 10px;
+    border:1px solid #e1e7ef;
+    border-radius:10px;
+    background:#f6f9fc;
+    color:#617188;
+    font-size:9px;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .list > .list-item {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    padding:12px 11px 11px 14px;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .list-side {
+    width:100%;
+    align-items:flex-start;
+    text-align:left;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .actions {
+    width:100%;
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    flex-wrap:nowrap;
+    scrollbar-width:none;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .actions::-webkit-scrollbar {
+    display:none;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .actions .small-btn {
+    flex:0 0 auto;
+    min-height:34px !important;
+    padding:7px 9px !important;
+    font-size:8.5px !important;
+  }
+
+  /* Tablas de Cotizaciones/Configuración/Auditoría -> tarjetas móviles. */
+  html[data-crm-view="quotes"] #viewRoot .table-wrap,
+  html[data-crm-view="settings"] #viewRoot .table-wrap,
+  html[data-crm-view="audit"] #viewRoot .table-wrap {
+    overflow:visible;
+    border:0;
+    background:transparent;
+    box-shadow:none;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table,
+  html[data-crm-view="settings"] #viewRoot .data-table,
+  html[data-crm-view="audit"] #viewRoot .data-table {
+    display:block;
+    min-width:0;
+    width:100%;
+    border:0;
+    background:transparent;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table thead,
+  html[data-crm-view="settings"] #viewRoot .data-table thead,
+  html[data-crm-view="audit"] #viewRoot .data-table thead {
+    display:none;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table tbody,
+  html[data-crm-view="settings"] #viewRoot .data-table tbody,
+  html[data-crm-view="audit"] #viewRoot .data-table tbody {
+    display:grid;
+    gap:8px;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table tr,
+  html[data-crm-view="settings"] #viewRoot .data-table tr,
+  html[data-crm-view="audit"] #viewRoot .data-table tr {
+    position:relative;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px 10px;
+    padding:12px 11px 11px 14px;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    border-radius:12px;
+    background:#fff;
+    box-shadow:0 3px 12px rgba(27,50,87,.04);
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table tr::before,
+  html[data-crm-view="settings"] #viewRoot .data-table tr::before,
+  html[data-crm-view="audit"] #viewRoot .data-table tr::before {
+    content:"";
+    position:absolute;
+    inset:0 auto 0 0;
+    width:3px;
+    background:#3b9cf5;
+  }
+
+  html[data-crm-view="settings"] #viewRoot .data-table tr::before {
+    background:#7c67df;
+  }
+
+  html[data-crm-view="audit"] #viewRoot .data-table tr::before {
+    background:#6d7d90;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table td,
+  html[data-crm-view="settings"] #viewRoot .data-table td,
+  html[data-crm-view="audit"] #viewRoot .data-table td {
+    display:block;
+    min-width:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    color:#213653;
+    font-size:9.5px;
+    line-height:1.35;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table td::before,
+  html[data-crm-view="settings"] #viewRoot .data-table td::before,
+  html[data-crm-view="audit"] #viewRoot .data-table td::before {
+    display:block;
+    margin-bottom:2px;
+    color:#7b899b;
+    font-size:7.4px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(1)::before { content:"Fecha"; }
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(2)::before { content:"Usuario"; }
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(3)::before { content:"Acción"; }
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(4)::before { content:"Entidad"; }
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(5)::before { content:"Registro"; }
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(6)::before { content:"Cambios"; }
+
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(5),
+  html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(6) {
+    grid-column:1 / -1;
+  }
+
+  html[data-crm-view="audit"] .audit-diff-list > div {
+    grid-template-columns:1fr;
+    gap:4px;
+    padding:7px 0;
+  }
+
+  html[data-crm-view="audit"] .audit-diff-list > div > span[aria-hidden="true"] {
+    display:none;
+  }
+
+  html[data-crm-view="audit"] .audit-before::before {
+    content:"Antes";
+    display:block;
+    margin-bottom:3px;
+    color:#7b899b;
+    font-size:7px;
+    font-weight:800;
+    text-transform:uppercase;
+  }
+
+  html[data-crm-view="audit"] .audit-after::before {
+    content:"Después";
+    display:block;
+    margin-bottom:3px;
+    color:#7b899b;
+    font-size:7px;
+    font-weight:800;
+    text-transform:uppercase;
+  }
+
+  /* Configuración */
+  html[data-crm-view="settings"] #viewRoot > .card > .card-head {
+    min-height:58px !important;
+    padding:14px 14px 10px !important;
+  }
+
+  html[data-crm-view="settings"] #viewRoot > .card > .card-head h3 {
+    font-size:16px !important;
+  }
+
+  html[data-crm-view="settings"] #viewRoot > .card > .card-body {
+    padding:13px !important;
+  }
+
+  html[data-crm-view="settings"] .settings-grid {
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  html[data-crm-view="settings"] .settings-grid input,
+  html[data-crm-view="settings"] .cell-input,
+  html[data-crm-view="settings"] select {
+    min-height:42px;
+    font-size:16px;
+  }
+
+  html[data-crm-view="settings"] .button-row {
+    gap:7px;
+  }
+
+  html[data-crm-view="settings"] .button-row > button {
+    min-height:38px;
+  }
+
+  html[data-crm-view="settings"] .role-row {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:3px;
+  }
+
+  html[data-crm-view="settings"] .role-row strong {
+    flex:auto;
+    font-size:10.5px;
+  }
+
+  html[data-crm-view="settings"] .role-row .muted {
+    font-size:9px;
+    line-height:1.4;
+  }
+
+  html[data-crm-view="settings"] .flow-map {
+    gap:7px;
+  }
+
+  html[data-crm-view="settings"] .flow-arrow {
+    display:none;
+  }
+
+  html[data-crm-view="settings"] .flow-node > summary {
+    padding:11px 12px;
+  }
+
+  html[data-crm-view="settings"] .flow-heading strong {
+    font-size:11px;
+  }
+
+  html[data-crm-view="settings"] .flow-heading .muted {
+    font-size:8.5px;
+  }
+
+  html[data-crm-view="settings"] .flow-body {
+    padding:0 12px 12px;
+  }
+
+  html[data-crm-view="settings"] .flow-detail,
+  html[data-crm-view="settings"] .flow-cols ul {
+    font-size:9.5px;
+    line-height:1.45;
+  }
+
+  /* Auditoría */
+  html[data-crm-view="audit"] #viewRoot > .card > .card-head {
+    min-height:62px !important;
+    padding:14px 14px 10px !important;
+  }
+
+  html[data-crm-view="audit"] #viewRoot > .card > .card-head h3 {
+    font-size:17px !important;
+  }
+
+  html[data-crm-view="audit"] #viewRoot > .card > .card-head .muted {
+    margin-top:3px;
+    font-size:9px;
+  }
+
+  html[data-crm-view="audit"] #viewRoot > .card > .card-body {
+    padding:0 12px 13px !important;
+  }
+
+  html[data-crm-view="audit"] #viewRoot .toolbar {
+    margin:0 0 10px !important;
+    padding:0 !important;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+
+  html[data-crm-view="audit"] #viewRoot .toolbar::-webkit-scrollbar {
+    display:none;
+  }
+
+  html[data-crm-view="audit"] #viewRoot .toolbar input {
+    min-width:min(72vw,280px);
+  }
+
+  html[data-crm-view="audit"] #viewRoot .toolbar select {
+    min-width:140px;
+  }
+
+  /* Implementación */
+  html[data-crm-view="implementation"] #viewRoot > .card > .card-head {
+    min-height:62px !important;
+    padding:14px 14px 10px !important;
+  }
+
+  html[data-crm-view="implementation"] #viewRoot > .card > .card-head h3 {
+    font-size:17px !important;
+  }
+}
+
+@media (max-width:520px) {
+  html[data-crm-view="templates"] .template-actions {
+    grid-template-columns:1fr;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table tr,
+  html[data-crm-view="settings"] #viewRoot .data-table tr,
+  html[data-crm-view="audit"] #viewRoot .data-table tr {
+    grid-template-columns:1fr;
+  }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table td,
+  html[data-crm-view="settings"] #viewRoot .data-table td,
+  html[data-crm-view="audit"] #viewRoot .data-table td {
+    grid-column:1;
+  }
+}
+
+html[data-theme="dark"][data-crm-view="templates"] .template-item,
+html[data-theme="dark"][data-crm-view="templates"] .template-preview,
+html[data-theme="dark"][data-crm-view="quotes"] #viewRoot .list > .list-item,
+html[data-theme="dark"][data-crm-view="settings"] .role-row,
+html[data-theme="dark"][data-crm-view="settings"] .flow-node,
+html[data-theme="dark"][data-crm-view="audit"] #viewRoot .data-table tr {
+  border-color:var(--v2-line);
+  background:var(--v2-panel);
+}
+
+/* ---------- End final remaining-view parity 2026-10-03 ---------- */
+
