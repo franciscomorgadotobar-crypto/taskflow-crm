@@ -1,5 +1,5 @@
-import { metrics, onChange } from './store.js?v=2026-09-28dn';
-import { onAuthChange, session } from './auth.js?v=2026-09-28dn';
+import { metrics, onChange } from './store.js';
+import { onAuthChange, session } from './auth.js';
 
 const AVATARS = {
   neutral: 'https://s.t13.cl/sites/default/files/styles/manualcrop_1600x800/public/t13/field-imagen/2015-09/1442590410-auno1203211dea4.jpg.jpeg?itok=_CMLOtE2',
@@ -19,6 +19,60 @@ let hideTimer = null;
 let snapshot = null;
 let lastShownAt = 0;
 let startupShownForUser = '';
+
+const MASCOT_PREF_PREFIX = 'taskflow.crm.mascot.enabled';
+
+function mascotPreferenceKey() {
+  return `${MASCOT_PREF_PREFIX}:${session.user?.id || 'default'}`;
+}
+
+export function isBonvalletEnabled() {
+  try {
+    return localStorage.getItem(mascotPreferenceKey()) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function writeBonvalletPreference(enabled) {
+  try {
+    localStorage.setItem(mascotPreferenceKey(), enabled ? '1' : '0');
+  } catch {
+    // La preferencia visual no debe impedir el uso del CRM.
+  }
+}
+
+function hideBonvallet({ immediate = false } = {}) {
+  clearTimeout(hideTimer);
+  const host = document.getElementById('bonvalletMessage');
+  if (!host) return;
+
+  host.classList.remove('is-visible');
+  if (immediate) {
+    host.hidden = true;
+    return;
+  }
+
+  window.setTimeout(() => {
+    if (!host.classList.contains('is-visible')) host.hidden = true;
+  }, 380);
+}
+
+export function setBonvalletEnabled(enabled) {
+  const next = Boolean(enabled);
+  writeBonvalletPreference(next);
+
+  if (!next) {
+    snapshot = null;
+    startupShownForUser = '';
+    hideBonvallet();
+    return;
+  }
+
+  snapshot = null;
+  startupShownForUser = '';
+  showStartupOnce();
+}
 
 function ensureHost() {
   let host = document.getElementById('bonvalletMessage');
@@ -65,7 +119,7 @@ function startupMessage(m) {
 }
 
 export function showBonvalletMessage({ text, mood = 'neutral', duration = 7000, force = false }) {
-  if (!text || session.status !== 'signed-in') return;
+  if (!text || session.status !== 'signed-in' || !isBonvalletEnabled()) return;
 
   const now = Date.now();
   if (!force && now - lastShownAt < 8000) return;
@@ -90,10 +144,7 @@ export function showBonvalletMessage({ text, mood = 'neutral', duration = 7000, 
 
   lastShownAt = now;
   hideTimer = setTimeout(() => {
-    host.classList.remove('is-visible');
-    setTimeout(() => {
-      if (!host.classList.contains('is-visible')) host.hidden = true;
-    }, 280);
+    hideBonvallet();
   }, duration);
 }
 
@@ -130,17 +181,12 @@ export function resetBonvallet() {
   lastShownAt = 0;
   startupShownForUser = '';
   clearTimeout(hideTimer);
-
-  const host = document.getElementById('bonvalletMessage');
-  if (host) {
-    host.classList.remove('is-visible');
-    host.hidden = true;
-  }
+  hideBonvallet({ immediate: true });
 }
 
 function showStartupOnce() {
   const userId = session.user?.id || '';
-  if (session.status !== 'signed-in' || !userId || startupShownForUser === userId) return;
+  if (!isBonvalletEnabled() || session.status !== 'signed-in' || !userId || startupShownForUser === userId) return;
 
   startupShownForUser = userId;
   window.setTimeout(() => {
@@ -150,7 +196,7 @@ function showStartupOnce() {
 }
 
 onChange(() => {
-  if (session.status !== 'signed-in') return;
+  if (session.status !== 'signed-in' || !isBonvalletEnabled()) return;
   if (!startupShownForUser) {
     showStartupOnce();
     return;
@@ -164,6 +210,16 @@ onAuthChange((auth) => {
   } else if (auth.status === 'signed-out' || auth.status === 'profile-error') {
     resetBonvallet();
   }
+});
+
+
+document.addEventListener('taskflow:mascot-preference', (event) => {
+  setBonvalletEnabled(Boolean(event.detail?.enabled));
+});
+
+window.addEventListener('storage', (event) => {
+  if (event.key !== mascotPreferenceKey()) return;
+  setBonvalletEnabled(event.newValue !== '0');
 });
 
 if (session.status === 'signed-in') showStartupOnce();
