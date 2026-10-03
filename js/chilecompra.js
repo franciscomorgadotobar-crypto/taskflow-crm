@@ -304,6 +304,7 @@ function resultHeading(rows) {
     return `${rows.length} resultados para ${c?.name || 'campaña'}`;
   }
   if (chilecompraState.tab === 'buscar') {
+    if (!chilecompraState.query && rows.length) return `${rows.length} oportunidades detectadas`;
     if (!chilecompraState.query) return 'Escribe una búsqueda para comenzar';
     return `${rows.length} resultados para “${e(chilecompraState.query)}”`;
   }
