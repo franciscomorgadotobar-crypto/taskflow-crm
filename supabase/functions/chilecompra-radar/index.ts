@@ -10,26 +10,33 @@ const API_BASE = "https://api.mercadopublico.cl/servicios/v1/publico";
 const MP_SEARCH_URL = "https://www.mercadopublico.cl/BuscarLicitacion";
 
 const CAPABILITIES = [
-  { solution:"NEOFF", capability:"Telemetría", weight:34, terms:["telemetria","monitoreo remoto","supervision remota","adquisicion de datos","variables operacionales","m2m"] },
-  { solution:"NEOFF", capability:"IoT", weight:30, terms:["iot","internet de las cosas","gateway","sensores","sensor","dispositivo conectado"] },
-  { solution:"NEOFF", capability:"SCADA / integración", weight:32, terms:["scada","modbus","bacnet","mqtt","opc","protocolo industrial","integracion de protocolos"] },
-  { solution:"NEOFF", capability:"RFID", weight:36, terms:["rfid","radiofrecuencia","tag rfid","tags rfid","lector rfid","lectores rfid","identificacion por radiofrecuencia"] },
-  { solution:"NEOFF", capability:"Control balístico", weight:42, terms:["control balistico","trazabilidad de armamento","armamento","municion","arsenal","arsenales"] },
-  { solution:"TaskFlow", capability:"Órdenes de trabajo", weight:34, terms:["orden de trabajo","ordenes de trabajo","ot digital","ordenes digitales","gestion de mantenimiento"] },
-  { solution:"TaskFlow", capability:"Mantenimiento", weight:30, terms:["mantenimiento preventivo","mantenimiento correctivo","mantenimiento","servicio tecnico"] },
-  { solution:"TaskFlow", capability:"Técnicos en terreno", weight:28, terms:["tecnicos en terreno","tecnico en terreno","personal en terreno","cuadrillas","visitas tecnicas"] },
-  { solution:"TaskFlow", capability:"Checklists y evidencias", weight:26, terms:["checklist","lista de chequeo","inspeccion","evidencia fotografica","firma digital"] },
-  { solution:"TaskFlow", capability:"Inventario y repuestos", weight:26, terms:["inventario","repuestos","bodega tecnica","stock de repuestos"] },
-  { solution:"TaskFlow", capability:"Laboratorio técnico", weight:30, terms:["laboratorio tecnico","diagnostico","reparacion de equipos"] },
-  { solution:"TaskFlow", capability:"Gestión de activos", weight:28, terms:["gestion de activos","trazabilidad de activos","activos fisicos"] },
-  { solution:"TaskFlow + NEOFF", capability:"HVAC", weight:34, terms:["hvac","climatizacion","aire acondicionado","chiller","ventilacion"] },
-  { solution:"TaskFlow + NEOFF", capability:"Facility", weight:30, terms:["facility","mantenimiento de infraestructura","infraestructura critica","operacion de edificios"] },
-  { solution:"TaskFlow + NEOFF", capability:"Grupos electrógenos", weight:36, terms:["grupo electrogeno","grupos electrogenos","generador electrico","generadores"] },
-  { solution:"TaskFlow + NEOFF", capability:"Telecomunicaciones", weight:34, terms:["telecomunicaciones","fibra optica","torres","nodos","lte","5g","radioenlace","antenas","conectividad"] },
-  { solution:"TaskFlow + NEOFF", capability:"Transporte vertical", weight:34, terms:["ascensor","ascensores","elevador","elevadores","transporte vertical"] },
-  { solution:"NEOFF", capability:"Industria / variables operacionales", weight:28, terms:["planta industrial","linea de produccion","temperatura","presion","caudal","nivel","vibracion"] },
-  { solution:"NEOFF", capability:"Utilities", weight:28, terms:["agua potable","tratamiento de agua","energia","utilities","medicion remota"] },
-  { solution:"TaskFlow + NEOFF", capability:"Minería y túneles", weight:32, terms:["mineria","tunel","tuneles","faena minera"] },
+  // NEOFF = software de conectividad operacional. No presta mantenimiento.
+  { solution:"NEOFF", capability:"Telemetría y monitoreo remoto", weight:38, terms:["telemetria","monitoreo remoto","supervision remota","monitoreo en tiempo real","adquisicion de datos","variables operacionales","m2m"] },
+  { solution:"NEOFF", capability:"IoT y equipos conectados", weight:34, terms:["iot","internet de las cosas","gateway","dispositivo conectado","equipos conectados","sensores conectados"] },
+  { solution:"NEOFF", capability:"Integración de protocolos", weight:36, terms:["scada","modbus","bacnet","mqtt","opc","protocolo industrial","integracion de protocolos","integracion de equipos"] },
+  { solution:"NEOFF", capability:"RFID y trazabilidad", weight:38, terms:["rfid","radiofrecuencia","tag rfid","tags rfid","lector rfid","lectores rfid","identificacion por radiofrecuencia","trazabilidad rfid"] },
+  { solution:"NEOFF", capability:"Control balístico digital", weight:42, terms:["control balistico","trazabilidad de armamento","control de armamento","control de municion","arsenal digital"] },
+  { solution:"NEOFF", capability:"Software de monitoreo e integración", weight:34, terms:["plataforma de monitoreo","software de monitoreo","plataforma de telemetria","software de telemetria","integracion de sensores","integracion iot"] },
+
+  // TaskFlow = software para gestionar la operación, el trabajo y la mantención.
+  { solution:"TaskFlow", capability:"Órdenes de trabajo", weight:36, terms:["orden de trabajo","ordenes de trabajo","ot digital","ordenes digitales","gestion de mantenimiento"] },
+  { solution:"TaskFlow", capability:"Gestión de mantenimiento", weight:32, terms:["software de mantenimiento","sistema de mantenimiento","gestion de mantenimiento","mantenimiento preventivo","mantenimiento correctivo"] },
+  { solution:"TaskFlow", capability:"Técnicos en terreno", weight:30, terms:["tecnicos en terreno","tecnico en terreno","personal en terreno","cuadrillas","visitas tecnicas"] },
+  { solution:"TaskFlow", capability:"Checklists y evidencias", weight:28, terms:["checklist","lista de chequeo","inspeccion","evidencia fotografica","firma digital"] },
+  { solution:"TaskFlow", capability:"Inventario y repuestos", weight:28, terms:["inventario de repuestos","control de repuestos","bodega tecnica","stock de repuestos","inventario tecnico"] },
+  { solution:"TaskFlow", capability:"Laboratorio técnico", weight:32, terms:["laboratorio tecnico","diagnostico de equipos","reparacion de equipos","servicio tecnico con trazabilidad"] },
+  { solution:"TaskFlow", capability:"Gestión de activos", weight:30, terms:["gestion de activos","trazabilidad de activos","activos fisicos","historial de activos"] },
+
+  // Contextos donde pueden aplicar uno u otro producto, pero el rubro por sí solo
+  // NO debe clasificar una compra como NEOFF, TaskFlow ni ambos.
+  { solution:null, capability:"HVAC", weight:5, terms:["hvac","climatizacion","aire acondicionado","chiller","ventilacion"] },
+  { solution:null, capability:"Facility", weight:5, terms:["facility","infraestructura critica","operacion de edificios"] },
+  { solution:null, capability:"Grupos electrógenos", weight:5, terms:["grupo electrogeno","grupos electrogenos","generador electrico","generadores"] },
+  { solution:null, capability:"Telecomunicaciones", weight:5, terms:["telecomunicaciones","fibra optica","torres","nodos","lte","5g","radioenlace","antenas"] },
+  { solution:null, capability:"Transporte vertical", weight:5, terms:["ascensor","ascensores","elevador","elevadores","transporte vertical"] },
+  { solution:null, capability:"Industria", weight:5, terms:["planta industrial","linea de produccion","proceso industrial"] },
+  { solution:null, capability:"Utilities", weight:5, terms:["agua potable","tratamiento de agua","utilities","distribucion electrica"] },
+  { solution:null, capability:"Minería y túneles", weight:5, terms:["mineria","tunel","tuneles","faena minera"] },
 ];
 
 function json(body, status=200) {
@@ -92,11 +99,15 @@ function scoreText(raw) {
     if (!matched.length) continue;
     score += cap.weight + Math.min(12,(matched.length-1)*4);
     capabilities.add(cap.capability);
-    cap.solution.split(" + ").forEach(s=>solutions.add(s));
+    if (cap.solution) cap.solution.split(" + ").forEach(s=>solutions.add(s));
     reasons.push(cap.capability+": "+matched.slice(0,3).join(", "));
   }
-  if (capabilities.size>=2) score+=12;
-  if (solutions.size>=2) score+=8;
+  const productCapabilities = [...capabilities].filter((name) =>
+    !["HVAC","Facility","Grupos electrógenos","Telecomunicaciones","Transporte vertical","Industria","Utilities","Minería y túneles"].includes(name)
+  );
+  if (productCapabilities.length>=2) score+=12;
+  if (solutions.size>=2) score+=10;
+  if (solutions.size===0) score=0;
   score=Math.min(100,Math.round(score));
   return {
     score,
