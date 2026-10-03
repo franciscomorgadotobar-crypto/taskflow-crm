@@ -152,8 +152,7 @@
 
 @media (max-width:1200px){
   .cc-layout{grid-template-columns:220px minmax(0,1fr)}
-  .cc-detail{grid-column:1/-1;position:static;max-height:none;border-top:1px solid var(--cc-border);display:none}
-  .cc-detail.cc-mobile-visible{display:block}
+  .cc-detail{grid-column:1/-1;position:static;max-height:none;border-top:1px solid var(--cc-border);display:block}
 }
 @media (max-width:900px){
   .cc-radar-head{align-items:flex-start;flex-direction:column}
