@@ -210,3 +210,170 @@
 [data-theme="dark"] .cc-results-toolbar select{background:#182a40;color:#e6edf5;border-color:#31445a}
 [data-theme="dark"] .cc-tag{background:#213b59;color:#9ecaff}
 [data-theme="dark"] .cc-meta-row span{background:#22364d;color:#b9c8d8}
+
+/* ChileCompra · buscador tradicional + 3 campañas fijas */
+.cc-radar-head--search{
+  border-radius:18px 18px 0 0;
+}
+.cc-traditional-search{
+  display:grid;
+  gap:6px;
+  padding:16px 20px;
+  background:var(--surface,#fff);
+  border:1px solid var(--cc-border);
+  border-top:0;
+}
+.cc-traditional-search-box{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  border:1px solid #cdd8e4;
+  border-radius:12px;
+  padding:6px 6px 6px 12px;
+  background:#fff;
+}
+.cc-traditional-search-box>span{
+  color:#7c8a9c;
+  font-size:20px;
+}
+.cc-traditional-search-box input{
+  min-width:0;
+  border:0!important;
+  outline:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  height:38px;
+  font-size:14px;
+}
+.cc-traditional-search small{
+  color:var(--cc-muted);
+  font-size:11px;
+}
+.cc-sidebar-help{
+  margin:-4px 0 12px;
+  color:var(--cc-muted);
+  font-size:10px;
+  line-height:1.4;
+}
+.cc-fixed-campaigns{
+  display:grid;
+  gap:8px;
+}
+.cc-fixed-campaign{
+  appearance:none;
+  width:100%;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) 18px;
+  gap:10px;
+  align-items:center;
+  padding:10px;
+  border:1px solid var(--cc-border);
+  border-radius:10px;
+  background:#fff;
+  text-align:left;
+  cursor:pointer;
+  transition:.16s ease;
+}
+.cc-fixed-campaign:hover{
+  border-color:#9fc7f2;
+  box-shadow:0 4px 14px #1d71b812;
+}
+.cc-fixed-campaign.active{
+  border-color:#5da9f5;
+  background:#f3f8ff;
+  box-shadow:0 0 0 1px #5da9f51f;
+}
+.cc-fixed-campaign-icon{
+  width:38px;
+  height:38px;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  background:#eaf4ff;
+  color:#0b73df;
+  font-size:11px;
+  font-weight:900;
+}
+.cc-fixed-campaign-copy{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.cc-fixed-campaign-copy strong{
+  font-size:12px;
+}
+.cc-fixed-campaign-copy small{
+  font-size:9px;
+  color:#64758b;
+  line-height:1.35;
+}
+.cc-fixed-campaign-copy em{
+  font-size:9px;
+  color:#8a97a7;
+  font-style:normal;
+}
+.cc-fixed-campaign-arrow{
+  font-size:22px;
+  color:#597087;
+}
+.cc-result-title{
+  font-size:12px;
+  color:#405269;
+}
+.cc-empty--search{
+  min-height:180px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:6px;
+}
+.cc-empty--search strong{
+  color:#33465c;
+  font-size:14px;
+}
+.cc-empty--search span{
+  max-width:360px;
+  color:#7d8997;
+  font-size:11px;
+}
+
+[data-theme="dark"] .cc-traditional-search,
+[data-theme="dark"] .cc-traditional-search-box,
+[data-theme="dark"] .cc-fixed-campaign{
+  background:#182a40;
+  color:#e6edf5;
+  border-color:#31445a;
+}
+[data-theme="dark"] .cc-fixed-campaign.active{
+  background:#1b3551;
+  border-color:#579ee7;
+}
+[data-theme="dark"] .cc-fixed-campaign-copy small,
+[data-theme="dark"] .cc-fixed-campaign-copy em,
+[data-theme="dark"] .cc-traditional-search small{
+  color:#9cabbb;
+}
+
+@media (max-width:680px){
+  .cc-traditional-search{
+    padding:12px;
+  }
+  .cc-traditional-search-box{
+    grid-template-columns:auto minmax(0,1fr);
+    padding:6px 10px;
+  }
+  .cc-traditional-search-box .primary-btn{
+    grid-column:1/-1;
+    width:100%;
+  }
+  .cc-fixed-campaigns{
+    display:flex;
+    overflow:auto;
+    gap:9px;
+    padding-bottom:3px;
+  }
+  .cc-fixed-campaign{
+    min-width:230px;
+  }
+}
