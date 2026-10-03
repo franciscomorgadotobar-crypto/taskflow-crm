@@ -1386,3 +1386,515 @@ textarea:focus {
 }
 /* ---------- End mobile dashboard 2026-10-03 ---------- */
 
+/* ---------- System-wide UX refresh 2026-10-03 ---------- */
+/* La misma jerarquía visual del Resumen se extiende al resto de las vistas. */
+#viewRoot {
+  min-width: 0;
+}
+
+#viewRoot > .card,
+#viewRoot > .toolbar,
+#viewRoot > .notice,
+#viewRoot > .template-list,
+#viewRoot > .flow-map {
+  animation: v2-view-in .2s ease both;
+}
+
+@keyframes v2-view-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#viewRoot > .card {
+  border-radius: 18px;
+  border-color: var(--v2-line);
+  box-shadow: var(--v2-shadow);
+}
+
+#viewRoot > .card + .card {
+  margin-top: 14px !important;
+}
+
+#viewRoot > .card .card-head {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--v2-panel) 98%, var(--v2-soft-blue)), var(--v2-panel));
+}
+
+#viewRoot > .card .card-head h3 {
+  color: var(--v2-text);
+  letter-spacing: -.02em;
+}
+
+#viewRoot > .toolbar {
+  padding: 10px;
+  border: 1px solid var(--v2-line);
+  border-radius: 14px;
+  background: var(--v2-panel);
+  box-shadow: 0 5px 20px rgba(27,50,87,.045);
+}
+
+#viewRoot .toolbar input,
+#viewRoot .toolbar select {
+  border-radius: 10px;
+  background: var(--v2-panel-soft);
+}
+
+#viewRoot .table-wrap {
+  background: var(--v2-panel);
+  box-shadow: inset 0 0 0 1px var(--v2-line);
+}
+
+#viewRoot .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#viewRoot .list {
+  gap: 8px;
+}
+
+#viewRoot .list > .list-item {
+  padding: 12px 13px;
+  border: 1px solid var(--v2-line);
+  border-radius: 12px;
+  background: var(--v2-panel);
+}
+
+.kanban {
+  gap: 10px;
+  padding: 2px 2px 12px;
+}
+
+.kanban-col {
+  border-radius: 16px;
+  border-color: var(--v2-line);
+  background: color-mix(in srgb, var(--v2-panel) 96%, var(--v2-bg));
+  box-shadow: 0 5px 20px rgba(27,50,87,.045);
+}
+
+.kanban-head {
+  color: var(--v2-text);
+}
+
+.deal-card {
+  border-radius: 13px;
+  border-color: var(--v2-line);
+  box-shadow: 0 3px 12px rgba(27,50,87,.045);
+}
+
+.template-item,
+.flow-node,
+.quote-section {
+  border-radius: 14px;
+  border-color: var(--v2-line);
+  box-shadow: 0 3px 14px rgba(27,50,87,.035);
+}
+
+.template-item > summary,
+.flow-node > summary {
+  min-height: 52px;
+}
+
+.notice {
+  border-radius: 13px;
+}
+
+.empty {
+  border-radius: 14px;
+}
+
+/* Preferencia de mascota en Configuración. */
+.v2-mascot-settings-card .card-head > div {
+  min-width: 0;
+}
+
+.v2-mascot-settings-card .badge {
+  align-self: center;
+}
+
+.v2-setting-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 70px;
+  padding: 14px 15px;
+  border: 1px solid var(--v2-line);
+  border-radius: 14px;
+  background: var(--v2-panel-soft);
+  cursor: pointer;
+}
+
+.v2-setting-toggle__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.v2-setting-toggle__copy strong {
+  color: var(--v2-text);
+  font-size: 13px;
+}
+
+.v2-setting-toggle__copy small {
+  max-width: 620px;
+  color: var(--v2-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.v2-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex: 0 0 48px;
+}
+
+.v2-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.v2-switch__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  box-shadow: inset 0 0 0 1px rgba(27,50,87,.08);
+  transition: background .18s ease;
+}
+
+.v2-switch__track::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15,32,62,.2);
+  transition: transform .2s cubic-bezier(.22,.8,.24,1);
+}
+
+.v2-switch input:checked + .v2-switch__track {
+  background: var(--v2-blue);
+}
+
+.v2-switch input:checked + .v2-switch__track::after {
+  transform: translateX(20px);
+}
+
+.v2-switch input:focus-visible + .v2-switch__track {
+  outline: 3px solid color-mix(in srgb, var(--v2-blue) 20%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  /* Todas las vistas comparten el shell móvil nuevo. */
+  #viewRoot {
+    padding-bottom: 4px;
+  }
+
+  #viewRoot > .card,
+  #viewRoot > .notice,
+  #viewRoot > .toolbar {
+    border-radius: 18px;
+  }
+
+  #viewRoot > .card .card-head {
+    min-height: 58px;
+    padding: 15px 15px 12px;
+  }
+
+  #viewRoot > .card .card-body {
+    padding: 14px 15px 16px;
+  }
+
+  #viewRoot > .toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 14px !important;
+    padding: 10px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  #viewRoot > .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  #viewRoot > .toolbar input,
+  #viewRoot > .toolbar select,
+  #viewRoot > .toolbar .small-btn,
+  #viewRoot > .toolbar .button-row {
+    flex: 0 0 auto;
+  }
+
+  #viewRoot > .toolbar input {
+    min-width: min(72vw, 280px);
+  }
+
+  #viewRoot > .toolbar select {
+    min-width: 150px;
+  }
+
+  #viewRoot > .toolbar .toolbar-summary {
+    align-self: center;
+    min-width: max-content;
+    margin-left: 2px;
+  }
+
+  .table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .data-table {
+    min-width: 720px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 11px 12px;
+    font-size: 11px;
+  }
+
+  .data-table th {
+    font-size: 9px;
+  }
+
+  .kanban {
+    grid-auto-flow: column;
+    grid-auto-columns: min(84vw, 350px);
+    grid-template-columns: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .kanban::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kanban-col {
+    scroll-snap-align: center;
+    min-height: 300px;
+  }
+
+  .deal-card {
+    padding: 13px;
+  }
+
+  .template-list {
+    gap: 9px;
+  }
+
+  .template-item > summary {
+    padding: 13px 14px;
+  }
+
+  .template-editor {
+    padding: 0 13px 14px;
+  }
+
+  .flow-node > summary {
+    padding: 13px 14px;
+  }
+
+  .flow-body {
+    padding: 0 14px 14px;
+  }
+
+  .quote-section {
+    padding: 13px;
+  }
+
+  .quote-add-row {
+    align-items: stretch;
+  }
+
+  .settings-grid,
+  .template-fields,
+  .flow-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-grid input,
+  .cell-input,
+  .template-fields input,
+  .template-fields select,
+  .template-fields textarea {
+    font-size: 16px;
+  }
+
+  .v2-setting-toggle {
+    min-height: 76px;
+  }
+
+  /* Los dialogs se comportan como hojas móviles, sin perder contenido. */
+  .modal:not(#detailDialog) {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    margin: auto auto 6px;
+  }
+
+  .modal:not(#detailDialog) .modal-card {
+    max-height: min(88dvh, 760px);
+    border-radius: 22px;
+  }
+
+  .modal:not(#detailDialog) .modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 16px;
+    background: var(--v2-panel);
+  }
+
+  .modal:not(#detailDialog) .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding: 12px 14px;
+    background: color-mix(in srgb, var(--v2-panel) 96%, var(--v2-bg));
+  }
+
+  .modal:not(#detailDialog) .form-grid {
+    padding: 16px;
+  }
+
+  .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    z-index: 1200;
+  }
+}
+
+@media (max-width: 620px) {
+  #viewRoot > .card .card-head {
+    gap: 8px;
+  }
+
+  #viewRoot > .card .card-head h3 {
+    font-size: 16px;
+  }
+
+  #viewRoot .button-row {
+    gap: 7px;
+  }
+
+  #viewRoot .small-btn,
+  #viewRoot .ghost-btn,
+  #viewRoot .primary-btn {
+    min-height: 40px;
+  }
+
+  #viewRoot .list > .list-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  #viewRoot .list > .list-item .list-side {
+    width: 100%;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  #viewRoot .list > .list-item .actions {
+    width: 100%;
+  }
+
+  #viewRoot .list > .list-item .actions > button,
+  #viewRoot .list > .list-item .actions > a {
+    flex: 1 1 auto;
+  }
+
+  .quote-section .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quote-section .form-grid .span-2 {
+    grid-column: auto !important;
+  }
+
+  .quote-add-row label,
+  .quote-add-row label.grow,
+  .quote-add-row input,
+  .quote-add-row select {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .v2-setting-toggle {
+    padding: 13px;
+  }
+
+  .v2-setting-toggle__copy small {
+    font-size: 10.5px;
+  }
+
+  .modal:not(#detailDialog) {
+    width: 100vw;
+    max-width: 100vw;
+    margin: auto 0 0;
+  }
+
+  .modal:not(#detailDialog) .modal-card {
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+    max-height: 91dvh;
+  }
+
+  .modal-actions {
+    gap: 8px;
+  }
+
+  .modal-actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+:root[data-theme="dark"] #viewRoot > .toolbar,
+:root[data-theme="dark"] #viewRoot .list > .list-item,
+:root[data-theme="dark"] .v2-setting-toggle {
+  background: var(--v2-panel);
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="dark"] body,
+  :root[data-theme="dark"] .app-shell,
+  :root[data-theme="dark"] .main {
+    background: var(--v2-bg);
+  }
+
+  :root[data-theme="dark"] .sidebar {
+    background: color-mix(in srgb, var(--v2-panel) 96%, transparent);
+    border-top-color: var(--v2-line);
+  }
+
+  :root[data-theme="dark"] .nav-item {
+    color: var(--v2-muted);
+  }
+
+  :root[data-theme="dark"] .nav-item.active {
+    color: var(--v2-sky);
+  }
+
+  :root[data-theme="dark"] .v2-summary-kpi,
+  :root[data-theme="dark"] .commercial-center-content .list-item,
+  :root[data-theme="dark"] .commercial-center-tabs .small-btn {
+    background: var(--v2-panel);
+    border-color: var(--v2-line);
+  }
+}
+/* ---------- End system-wide UX refresh 2026-10-03 ---------- */
+
