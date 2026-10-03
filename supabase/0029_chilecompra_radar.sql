@@ -102,6 +102,12 @@ create index if not exists chilecompra_opportunities_close_idx
   on public.chilecompra_opportunities (organization_id, close_at);
 create index if not exists chilecompra_campaigns_org_active_idx
   on public.chilecompra_campaigns (organization_id, active);
+create index if not exists chilecompra_matches_opportunity_idx
+  on public.chilecompra_campaign_matches (opportunity_id);
+create index if not exists chilecompra_campaigns_created_by_idx
+  on public.chilecompra_campaigns (created_by);
+create index if not exists chilecompra_opportunities_lead_idx
+  on public.chilecompra_opportunities (lead_id);
 
 alter table public.chilecompra_campaigns enable row level security;
 alter table public.chilecompra_opportunities enable row level security;
@@ -116,7 +122,7 @@ create policy chilecompra_campaigns_insert on public.chilecompra_campaigns
 for insert with check (
   organization_id = internal.my_org()
   and internal.my_role() in ('super','admin','comercial')
-  and coalesce(created_by, auth.uid()) = auth.uid()
+  and coalesce(created_by, (select auth.uid())) = (select auth.uid())
 );
 
 drop policy if exists chilecompra_campaigns_update on public.chilecompra_campaigns;
