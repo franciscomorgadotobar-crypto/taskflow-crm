@@ -3083,10 +3083,10 @@ html[data-crm-view="pipeline"] .deal-card .money {
   }
 }
 
-:root[data-theme="dark"] html[data-crm-view] #viewRoot > .card,
-:root[data-theme="dark"] html[data-crm-view] #viewRoot .data-table tr,
-:root[data-theme="dark"] html[data-crm-view="pipeline"] .deal-card,
-:root[data-theme="dark"] html[data-crm-view="pipeline"] .kanban-col {
+html[data-theme="dark"][data-crm-view] #viewRoot > .card,
+html[data-theme="dark"][data-crm-view] #viewRoot .data-table tr,
+html[data-theme="dark"][data-crm-view="pipeline"] .deal-card,
+html[data-theme="dark"][data-crm-view="pipeline"] .kanban-col {
   border-color:var(--v2-line);
   background:var(--v2-panel);
 }
