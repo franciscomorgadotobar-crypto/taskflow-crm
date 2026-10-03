@@ -174,10 +174,17 @@ function updateHeaderIdentity() {
 function updateMobileHeader() {
   const fullName = currentName().trim();
   const first = fullName.split(/\s+/)[0] || 'Usuario';
-  const view = $('viewTitle')?.textContent?.trim() || 'Resumen';
-  if ($('v2MobileGreeting')) $('v2MobileGreeting').textContent = `Hola, ${first}`;
-  if ($('v2MobileContext')) $('v2MobileContext').textContent = view === 'Resumen' ? 'Resumen comercial' : view;
+  const title = $('viewTitle')?.textContent?.trim() || 'Resumen';
+  const subtitle = $('viewSubtitle')?.textContent?.trim() || '';
   const activeView = q('.nav-item.active')?.dataset.view || 'dashboard';
+
+  if ($('v2MobileGreeting')) {
+    $('v2MobileGreeting').textContent = activeView === 'dashboard' ? `Hola, ${first}` : title;
+  }
+  if ($('v2MobileContext')) {
+    $('v2MobileContext').textContent = activeView === 'dashboard' ? 'Resumen comercial' : subtitle;
+  }
+
   document.documentElement.dataset.crmView = activeView;
 }
 
