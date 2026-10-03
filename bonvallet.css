@@ -1,7 +1,8 @@
 .bonvallet-message {
   position: fixed;
   right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  top: clamp(150px, 22vh, 260px);
+  bottom: auto;
   z-index: 1600;
   width: min(390px, calc(100vw - 32px));
   display: grid;
@@ -18,8 +19,8 @@
   -webkit-backdrop-filter: blur(14px);
   pointer-events: none;
   opacity: 0;
-  transform: translate3d(0, 18px, 0) scale(.98);
-  transition: opacity .22s ease, transform .26s cubic-bezier(.22,.8,.24,1);
+  transform: translate3d(calc(100% + 48px), 0, 0) scale(.985);
+  transition: opacity .24s ease, transform .34s cubic-bezier(.22,.8,.24,1);
 }
 
 .bonvallet-message[hidden] { display: none; }
@@ -81,7 +82,8 @@ html[data-theme="dark"] .bonvallet-message__meta span { color: #aab4c5; }
 @media (max-width: 640px) {
   .bonvallet-message {
     right: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom));
+    top: clamp(132px, 21vh, 210px);
+    bottom: auto;
     width: calc(100vw - 24px);
     grid-template-columns: 52px minmax(0, 1fr);
     border-radius: 16px;
@@ -95,6 +97,9 @@ html[data-theme="dark"] .bonvallet-message__meta span { color: #aab4c5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bonvallet-message { transition: opacity .12s linear; transform: none; }
-  .bonvallet-message.is-visible { transform: none; }
+  .bonvallet-message {
+    transition: opacity .12s linear;
+    transform: translate3d(0, 0, 0);
+  }
+  .bonvallet-message.is-visible { transform: translate3d(0, 0, 0); }
 }
