@@ -42,6 +42,36 @@ function currentEmail() {
   return session.user?.email || state.me?.email || '';
 }
 
+const MASCOT_PREF_PREFIX = 'taskflow.crm.mascot.enabled';
+
+function mascotPreferenceKey() {
+  return `${MASCOT_PREF_PREFIX}:${session.user?.id || 'default'}`;
+}
+
+function mascotEnabled() {
+  try {
+    return localStorage.getItem(mascotPreferenceKey()) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function setMascotPreference(enabled) {
+  const next = Boolean(enabled);
+  try {
+    localStorage.setItem(mascotPreferenceKey(), next ? '1' : '0');
+  } catch {
+    // La preferencia visual no debe bloquear Configuración.
+  }
+
+  document.dispatchEvent(new CustomEvent('taskflow:mascot-preference', {
+    detail: { enabled: next }
+  }));
+
+  const status = $('v2MascotStatus');
+  if (status) status.textContent = next ? 'Activada' : 'Desactivada';
+}
+
 /* ---------- Navegación ---------- */
 function decorateNavigation() {
   const nav = $('nav');
@@ -141,6 +171,8 @@ function updateMobileHeader() {
   const view = $('viewTitle')?.textContent?.trim() || 'Resumen';
   if ($('v2MobileGreeting')) $('v2MobileGreeting').textContent = `Hola, ${first}`;
   if ($('v2MobileContext')) $('v2MobileContext').textContent = view === 'Resumen' ? 'Resumen comercial' : view;
+  const activeView = q('.nav-item.active')?.dataset.view || 'dashboard';
+  document.documentElement.dataset.crmView = activeView;
 }
 
 function toggleUserMenu(force) {
@@ -466,6 +498,47 @@ function setDetailTab(id) {
 }
 
 /* ---------- Settings ---------- */
+function injectMascotSettingsCard() {
+  if ($('viewTitle')?.textContent.trim() !== 'Configuración') return;
+  const root = $('viewRoot');
+  if (!root || q('.v2-mascot-settings-card', root)) return;
+
+  const cards = qa(':scope > .card', root);
+  if (!cards.length) return;
+
+  const enabled = mascotEnabled();
+  const card = document.createElement('div');
+  card.className = 'card v2-mascot-settings-card';
+  card.innerHTML = `
+    <div class="card-head">
+      <div>
+        <h3>Mascota</h3>
+        <span class="muted">Preferencia visual</span>
+      </div>
+      <span id="v2MascotStatus" class="badge ${enabled ? 'success' : ''}">${enabled ? 'Activada' : 'Desactivada'}</span>
+    </div>
+    <div class="card-body">
+      <label class="v2-setting-toggle" for="v2MascotToggle">
+        <span class="v2-setting-toggle__copy">
+          <strong>Activar mascota</strong>
+          <small>Muestra al personaje con mensajes contextuales. Aparece en la zona media-alta derecha y se retira automáticamente.</small>
+        </span>
+        <span class="v2-switch">
+          <input id="v2MascotToggle" type="checkbox" ${enabled ? 'checked' : ''} />
+          <span class="v2-switch__track" aria-hidden="true"></span>
+        </span>
+      </label>
+    </div>`;
+
+  const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación TaskFlow');
+  if (appCard) appCard.insertAdjacentElement('afterend', card);
+  else cards[0].insertAdjacentElement('afterend', card);
+
+  $('v2MascotToggle')?.addEventListener('change', (event) => {
+    setMascotPreference(event.currentTarget.checked);
+  });
+}
+
 function injectSettingsDataCard() {
   if ($('viewTitle')?.textContent.trim() !== 'Configuración') return;
   const root = $('viewRoot');
@@ -507,6 +580,7 @@ function refineDialogs() {
 function enhanceCurrentView() {
   updateMobileHeader();
   renderDashboardSummary();
+  injectMascotSettingsCard();
   injectSettingsDataCard();
 }
 
@@ -591,7 +665,17 @@ function init() {
   onAuthChange(() => queueMicrotask(() => {
     updateHeaderIdentity();
     updateSystemStatus();
+    enhanceCurrentView();
   }));
+
+  window.addEventListener('storage', (event) => {
+    if (event.key !== mascotPreferenceKey()) return;
+    const toggle = $('v2MascotToggle');
+    const enabled = event.newValue !== '0';
+    if (toggle) toggle.checked = enabled;
+    const status = $('v2MascotStatus');
+    if (status) status.textContent = enabled ? 'Activada' : 'Desactivada';
+  });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
