@@ -10,42 +10,46 @@ const AVATARS = {
 // Frases textuales documentadas de Eduardo Bonvallet.
 // No se generan paráfrasis "al estilo de": la mascota rota únicamente citas verificadas.
 const QUOTES = {
-  hype: [
+  arenga: [
     { mood: 'serious', text: '¡Levántate chileno!' },
     { mood: 'neutral', text: 'Créete el cuento chileno.' },
     { mood: 'neutral', text: 'Ya te creíste el cuento chileno.' },
     { mood: 'ironic', text: 'Avíspate reweón, avíspate, ¡grita!' },
-    { mood: 'serious', text: 'Monje, fakir o guerrero, o sencillamente te pierdes.' },
-    { mood: 'neutral', text: 'Mira el horizonte.' },
-    { mood: 'ironic', text: 'Las águilas no cazan moscas.' },
     { mood: 'serious', text: 'Sal a la calle a luchar.' },
-    { mood: 'ironic', text: 'Soy tu sensei, tu Dalai Lama, soy el mejor, soy el Gurú.' },
+    { mood: 'serious', text: 'Para ser campeones, para ganar hay que ser guerrero, fakir y monje.' },
+    { mood: 'serious', text: 'Ir de frente.' }
+  ],
+  levantarse: [
     { mood: 'serious', text: 'Es bueno conocer la derrota.' },
     { mood: 'serious', text: 'A los grandes hombres las derrotas los hacen más grandes, pero primero hay que levantarse.' },
-    { mood: 'neutral', text: 'Diviértanse, yo sólo pienso.' }
+    { mood: 'serious', text: 'Nunca se tiene que perder la dignidad, la fortaleza. Hay que luchar contra el dolor.' },
+    { mood: 'neutral', text: 'Me tuvo mal, pero me estoy levantando.' }
   ],
-  overdue: [
-    '¡Levántate chileno!',
-    'Avíspate reweón, avíspate, ¡grita!',
-    'Sal a la calle a luchar.',
-    'A los grandes hombres las derrotas los hacen más grandes, pero primero hay que levantarse.'
+  foco: [
+    { mood: 'neutral', text: 'Mira el horizonte.' },
+    { mood: 'ironic', text: 'Las águilas no cazan moscas.' },
+    { mood: 'serious', text: 'Monje, fakir o guerrero, o sencillamente te pierdes.' },
+    { mood: 'neutral', text: 'No debe precipitarse, debe tomarse todo el tiempo del mundo.' },
+    { mood: 'neutral', text: 'Tiene que aprender a escuchar.' }
   ],
-  stale: [
-    'Mira el horizonte.',
-    'Las águilas no cazan moscas.',
-    'Monje, fakir o guerrero, o sencillamente te pierdes.'
+  confianza: [
+    { mood: 'neutral', text: 'Créete el cuento chileno.' },
+    { mood: 'neutral', text: 'Ya te creíste el cuento chileno.' },
+    { mood: 'ironic', text: 'Soy tu sensei, tu Dalai Lama, soy el mejor, soy el Gurú.' }
   ],
-  good: [
-    'Ya te creíste el cuento chileno.',
-    'Créete el cuento chileno.',
-    'Mira el horizonte.'
-  ],
-  lost: [
-    'Es bueno conocer la derrota.',
-    'A los grandes hombres las derrotas los hacen más grandes, pero primero hay que levantarse.',
-    '¡Levántate chileno!'
+  humor: [
+    { mood: 'neutral', text: 'Diviértanse, yo sólo pienso.' },
+    { mood: 'ironic', text: 'Me llevo toda la audiencia porque soy un genio.' },
+    { mood: 'ironic', text: 'Soy un todo.' },
+    { mood: 'ironic', text: 'Yo soy el genio de la historia en este país.' }
   ]
 };
+
+const ALL_QUOTES = [...new Map(
+  Object.values(QUOTES)
+    .flat()
+    .map((quote) => [quote.text, quote])
+).values()];
 
 let hideTimer = null;
 let rotationTimer = null;
@@ -148,32 +152,36 @@ function rememberQuote(text) {
   recentQuotes = [text, ...recentQuotes.filter((item) => item !== text)].slice(0, 5);
 }
 
-function quoteObject(text) {
-  return QUOTES.hype.find((quote) => quote.text === text) || { mood: 'neutral', text };
+function pickFromQuotes(quotes = []) {
+  const candidates = quotes.filter((quote) => !recentQuotes.includes(quote.text));
+  const pool = candidates.length ? candidates : quotes;
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function pickFromTexts(texts = []) {
-  const candidates = texts.filter((text) => !recentQuotes.includes(text));
-  const pool = candidates.length ? candidates : texts;
-  if (!pool.length) return null;
-  const index = Math.floor(Math.random() * pool.length);
-  return quoteObject(pool[index]);
+function pickGeneralQuote() {
+  const roll = Math.random();
+  if (roll < 0.34) return pickFromQuotes(QUOTES.arenga);
+  if (roll < 0.58) return pickFromQuotes(QUOTES.confianza);
+  if (roll < 0.82) return pickFromQuotes(QUOTES.foco);
+  if (roll < 0.94) return pickFromQuotes(QUOTES.levantarse);
+  return pickFromQuotes(QUOTES.humor);
 }
 
 function rotatingMessage(m = metrics()) {
   const state = capture(m);
-  let preferred = [];
 
-  if (state.overdue > 0) preferred = QUOTES.overdue;
-  else if (state.stale > 0) preferred = QUOTES.stale;
-  else if (state.won > 0) preferred = QUOTES.good;
+  if (state.overdue > 0 && Math.random() < 0.68) {
+    return pickFromQuotes([...QUOTES.arenga, ...QUOTES.levantarse]) || pickGeneralQuote();
+  }
+  if (state.stale > 0 && Math.random() < 0.68) {
+    return pickFromQuotes(QUOTES.foco) || pickGeneralQuote();
+  }
+  if (state.won > 0 && Math.random() < 0.55) {
+    return pickFromQuotes(QUOTES.confianza) || pickGeneralQuote();
+  }
 
-  const preferredPick = preferred.length && Math.random() < 0.62 ? pickFromTexts(preferred) : null;
-  if (preferredPick) return preferredPick;
-
-  const candidates = QUOTES.hype.filter((quote) => !recentQuotes.includes(quote.text));
-  const pool = candidates.length ? candidates : QUOTES.hype;
-  return pool[Math.floor(Math.random() * pool.length)] || QUOTES.hype[0];
+  return pickGeneralQuote() || ALL_QUOTES[0];
 }
 
 function clearRotationTimer() {
@@ -196,9 +204,9 @@ function scheduleBonvalletRotation({ sooner = false } = {}) {
 
 function startupMessage(m) {
   const state = capture(m);
-  if (state.overdue > 0) return pickFromTexts(QUOTES.overdue) || QUOTES.hype[0];
-  if (state.stale > 0) return pickFromTexts(QUOTES.stale) || QUOTES.hype[0];
-  if (state.won > 0) return pickFromTexts(QUOTES.good) || QUOTES.hype[0];
+  if (state.overdue > 0) return pickFromQuotes([...QUOTES.arenga, ...QUOTES.levantarse]) || ALL_QUOTES[0];
+  if (state.stale > 0) return pickFromQuotes(QUOTES.foco) || ALL_QUOTES[0];
+  if (state.won > 0) return pickFromQuotes(QUOTES.confianza) || ALL_QUOTES[0];
   return rotatingMessage(m);
 }
 
@@ -249,13 +257,13 @@ export function syncBonvallet(m = metrics()) {
 
   let message = null;
   if (next.won > snapshot.won) {
-    message = pickFromTexts(QUOTES.good);
+    message = pickFromQuotes(QUOTES.confianza);
   } else if (next.lost > snapshot.lost) {
-    message = pickFromTexts(QUOTES.lost);
+    message = pickFromQuotes(QUOTES.levantarse);
   } else if (next.overdue > snapshot.overdue) {
-    message = pickFromTexts(QUOTES.overdue);
+    message = pickFromQuotes([...QUOTES.arenga, ...QUOTES.levantarse]);
   } else if (next.stale > snapshot.stale) {
-    message = pickFromTexts(QUOTES.stale);
+    message = pickFromQuotes(QUOTES.foco);
   }
 
   snapshot = next;
