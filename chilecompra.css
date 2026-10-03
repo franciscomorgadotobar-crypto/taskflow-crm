@@ -193,3 +193,21 @@
   .v2-cc-brand{grid-column:1/-1}
   .v2-cc-open{grid-column:1/-1;justify-self:stretch;width:100%}
 }
+
+.nav-new-badge{
+  margin-left:auto;font-size:9px;line-height:1;padding:4px 6px;border-radius:999px;
+  background:#e8f3ff;color:#0b73df;font-weight:800
+}
+.v2-cc-number{
+  appearance:none;border:0;background:transparent;padding:8px;border-radius:10px;cursor:pointer;color:inherit
+}
+.v2-cc-number:hover{background:#ffffffaa}
+[data-theme="dark"] .cc-root{--cc-text:#e6edf5;--cc-muted:#9cabbb;--cc-border:#31445a}
+[data-theme="dark"] .cc-radar-head,
+[data-theme="dark"] .cc-tabs,
+[data-theme="dark"] .cc-layout{background:#142337}
+[data-theme="dark"] .cc-opportunity,
+[data-theme="dark"] .cc-search-wrap,
+[data-theme="dark"] .cc-results-toolbar select{background:#182a40;color:#e6edf5;border-color:#31445a}
+[data-theme="dark"] .cc-tag{background:#213b59;color:#9ecaff}
+[data-theme="dark"] .cc-meta-row span{background:#22364d;color:#b9c8d8}
