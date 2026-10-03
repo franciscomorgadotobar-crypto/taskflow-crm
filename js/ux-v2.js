@@ -94,6 +94,9 @@ function buildHeaderTools() {
         <div id="v2UserMenu" class="v2-user-menu" role="menu" hidden>
           <div class="v2-menu-profile"><strong id="v2MenuName">Usuario</strong><span id="v2MenuEmail"></span></div>
           <button class="v2-menu-item" type="button" data-v2-action="profile"><span>Mi cuenta</span><span>›</span></button>
+          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="implementation"><span>Implementación</span><span>›</span></button>
+          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="templates"><span>Plantillas</span><span>›</span></button>
+          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="quotes"><span>Cotizaciones</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="data"><span>Datos y respaldo</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="theme"><span>Cambiar apariencia</span><span>◐</span></button>
           <button class="v2-menu-item danger" type="button" data-v2-action="signout"><span>Cerrar sesión</span><span>↗</span></button>
@@ -102,7 +105,15 @@ function buildHeaderTools() {
       </div>
     </div>`;
 
-  $('v2GlobalSearch')?.addEventListener('input', renderSearchResults);
+  const titleWrap = q('.topbar > div:first-child');
+  if (titleWrap && !q('.v2-mobile-heading', titleWrap)) {
+    const mobileHeading = document.createElement('div');
+    mobileHeading.className = 'v2-mobile-heading';
+    mobileHeading.innerHTML = '<strong id="v2MobileGreeting">Hola</strong><span id="v2MobileContext">Resumen comercial</span>';
+    titleWrap.prepend(mobileHeading);
+  }
+
+    $('v2GlobalSearch')?.addEventListener('input', renderSearchResults);
   $('v2GlobalSearch')?.addEventListener('focus', renderSearchResults);
   $('v2UserBtn')?.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -121,6 +132,15 @@ function updateHeaderIdentity() {
   if ($('v2UserRole')) $('v2UserRole').textContent = role;
   if ($('v2MenuName')) $('v2MenuName').textContent = name;
   if ($('v2MenuEmail')) $('v2MenuEmail').textContent = currentEmail();
+  updateMobileHeader();
+}
+
+function updateMobileHeader() {
+  const fullName = currentName().trim();
+  const first = fullName.split(/\s+/)[0] || 'Usuario';
+  const view = $('viewTitle')?.textContent?.trim() || 'Resumen';
+  if ($('v2MobileGreeting')) $('v2MobileGreeting').textContent = `Hola, ${first}`;
+  if ($('v2MobileContext')) $('v2MobileContext').textContent = view === 'Resumen' ? 'Resumen comercial' : view;
 }
 
 function toggleUserMenu(force) {
@@ -133,10 +153,12 @@ function toggleUserMenu(force) {
 }
 
 async function handleMenuAction(ev) {
-  const btn = ev.target.closest('[data-v2-action]');
+  const btn = ev.target.closest('[data-v2-action], [data-v2-view]');
   if (!btn) return;
   const action = btn.dataset.v2Action;
+  const view = btn.dataset.v2View;
   toggleUserMenu(false);
+  if (view) gotoView(view);
   if (action === 'profile') gotoView('settings');
   if (action === 'data') $('dataBtn')?.click();
   if (action === 'theme') $('themeToggle')?.click();
@@ -483,6 +505,7 @@ function refineDialogs() {
 
 /* ---------- Vista actual ---------- */
 function enhanceCurrentView() {
+  updateMobileHeader();
   renderDashboardSummary();
   injectSettingsDataCard();
 }
