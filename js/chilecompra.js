@@ -7,19 +7,19 @@ const CAMPAIGNS = [
   {
     id: 'NEOFF',
     name: 'NEOFF',
-    subtitle: 'IoT · telemetría · RFID · sensores · integración',
+    subtitle: 'Software · conectividad · telemetría · IoT · RFID',
     scope: 'NEOFF'
   },
   {
     id: 'TaskFlow',
     name: 'TaskFlow',
-    subtitle: 'OT · mantenimiento · terreno · inventario · activos',
+    subtitle: 'Software · OT · mantenimiento · terreno · inventario',
     scope: 'TaskFlow'
   },
   {
     id: 'BOTH',
     name: 'TaskFlow + NEOFF',
-    subtitle: 'Operación conectada · equipos · infraestructura',
+    subtitle: 'Conectividad de equipos + gestión operacional',
     scope: 'BOTH'
   }
 ];
