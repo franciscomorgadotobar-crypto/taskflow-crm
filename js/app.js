@@ -775,12 +775,19 @@ function renderManage() {
 
   $('managePrevBtn').disabled = manageIndex === 0;
   $('manageNextBtn').disabled = manageIndex === manageQueue.length - 1;
-  $('manageCallBtn').hidden = !contact?.phone;
-  $('manageWhatsappBtn').hidden = !contact?.phone;
-  $('manageEmailBtn').hidden = !contact?.email;
-  [$('manageCallBtn'), $('manageWhatsappBtn'), $('manageEmailBtn')].forEach((btn) => {
+
+  const manageChannels = [
+    [$('manageCallBtn'), Boolean(contact?.phone), 'Sin teléfono registrado'],
+    [$('manageWhatsappBtn'), Boolean(contact?.phone), 'Sin teléfono registrado'],
+    [$('manageEmailBtn'), Boolean(contact?.email), 'Sin correo registrado']
+  ];
+  manageChannels.forEach(([btn, available, unavailableTitle]) => {
+    btn.hidden = false;
+    btn.disabled = !available;
+    btn.title = available ? '' : unavailableTitle;
     btn.dataset.id = lead.id;
-    if (contact) btn.dataset.contact = contact.key;
+    if (contact?.key) btn.dataset.contact = contact.key;
+    else delete btn.dataset.contact;
   });
   $('manageOpenFichaBtn').dataset.id = lead.id;
 }
@@ -860,6 +867,22 @@ function openComplete(leadId) {
   $('completeResult').value = '';
   $('completeNextAction').value = '';
   $('completeNextDate').value = '';
+
+  const contact = contactsOf(lead)[0] || null;
+  const completeChannels = [
+    [$('completeCallBtn'), Boolean(contact?.phone), 'Sin teléfono registrado'],
+    [$('completeWhatsappBtn'), Boolean(contact?.phone), 'Sin teléfono registrado'],
+    [$('completeEmailBtn'), Boolean(contact?.email), 'Sin correo registrado']
+  ];
+  completeChannels.forEach(([btn, available, unavailableTitle]) => {
+    btn.disabled = !available;
+    btn.title = available ? '' : unavailableTitle;
+    btn.dataset.id = lead.id;
+    if (contact?.key) btn.dataset.contact = contact.key;
+    else delete btn.dataset.contact;
+  });
+  $('completeOpenFichaBtn').dataset.id = lead.id;
+
   setTaskType('complete', '');
   setCompleteTaskStep(1);
   $('completeDialog').showModal();
