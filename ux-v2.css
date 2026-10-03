@@ -2621,3 +2621,475 @@ textarea:focus {
 
 /* ---------- End exact dashboard reference 2026-10-03 ---------- */
 
+/* ---------- CRM visual parity 2026-10-03 ---------- */
+/* Ningún KPI de portada sugiere interacción si no la tiene. */
+.v2-kpi-arrow { display:none !important; }
+
+/* Lenguaje común: las vistas de trabajo heredan la misma tarjeta de la portada. */
+html[data-crm-view="leads"] #viewRoot > .card,
+html[data-crm-view="pipeline"] #viewRoot > .card,
+html[data-crm-view="remarketing"] #viewRoot > .card,
+html[data-crm-view="implementation"] #viewRoot > .card,
+html[data-crm-view="templates"] #viewRoot > .card,
+html[data-crm-view="quotes"] #viewRoot > .card,
+html[data-crm-view="audit"] #viewRoot > .card,
+html[data-crm-view="settings"] #viewRoot > .card {
+  overflow:hidden;
+  border:1px solid #e1e8f1;
+  border-radius:15px;
+  background:var(--v2-panel);
+  box-shadow:0 4px 18px rgba(27,50,87,.055);
+}
+
+html[data-crm-view] #viewRoot > .card > .card-head {
+  background:var(--v2-panel);
+}
+
+html[data-crm-view] #viewRoot > .card > .card-head h3 {
+  color:var(--v2-text);
+}
+
+html[data-crm-view] #viewRoot .notice {
+  border:1px solid color-mix(in srgb,var(--v2-blue) 18%,var(--v2-line));
+  border-radius:12px;
+  background:color-mix(in srgb,var(--v2-soft-blue) 62%,var(--v2-panel));
+  color:var(--v2-text);
+}
+
+html[data-crm-view] #viewRoot .primary-btn {
+  border-radius:10px;
+  background:#0879dc;
+  box-shadow:none;
+}
+
+html[data-crm-view] #viewRoot .small-btn,
+html[data-crm-view] #viewRoot .ghost-btn {
+  border-radius:9px;
+}
+
+html[data-crm-view] #viewRoot .badge {
+  border-radius:999px;
+}
+
+/* Pipeline: selector de vista como control segmentado y columnas con la misma superficie. */
+html[data-crm-view="pipeline"] #viewRoot > .toolbar:first-child {
+  width:max-content;
+  max-width:100%;
+  padding:4px;
+  border:1px solid #e0e7f0;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 3px 12px rgba(27,50,87,.045);
+}
+
+html[data-crm-view="pipeline"] #viewRoot > .toolbar:first-child .button-row {
+  gap:3px;
+}
+
+html[data-crm-view="pipeline"] #viewRoot > .toolbar:first-child .small-btn {
+  min-height:36px;
+  padding:7px 12px;
+  border-color:transparent;
+  background:transparent;
+  color:#5f7087;
+}
+
+html[data-crm-view="pipeline"] #viewRoot > .toolbar:first-child .small-btn.active-view {
+  border-color:#c8ddf4;
+  background:#eef6ff;
+  color:#126bb9;
+}
+
+html[data-crm-view="pipeline"] .kanban-col {
+  overflow:hidden;
+  border:1px solid #e1e8f1;
+  border-radius:15px;
+  background:#f8fbff;
+  box-shadow:0 4px 18px rgba(27,50,87,.045);
+}
+
+html[data-crm-view="pipeline"] .kanban-head {
+  padding:13px 13px 7px;
+  color:#132849;
+  font-size:12px;
+}
+
+html[data-crm-view="pipeline"] .kanban-count {
+  min-width:24px;
+  text-align:center;
+  background:#eaf3ff;
+  color:#126bb9;
+}
+
+html[data-crm-view="pipeline"] .kanban-sum {
+  padding:0 13px 11px;
+  color:#617188;
+  font-size:10px;
+}
+
+html[data-crm-view="pipeline"] .deal-card {
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 3px 12px rgba(27,50,87,.045);
+}
+
+html[data-crm-view="pipeline"] .deal-card .deal-company {
+  color:#132849;
+}
+
+html[data-crm-view="pipeline"] .deal-card .money {
+  color:#0f2b52;
+}
+
+@media (max-width:900px) {
+  /* Header coherente con la nomenclatura de la navegación inferior. */
+  html[data-crm-view="pipeline"] .v2-mobile-heading span {
+    font-size:0;
+  }
+  html[data-crm-view="pipeline"] .v2-mobile-heading span::after {
+    content:"Pipeline";
+    font-size:12px;
+  }
+
+  /* Leads: la acción global + ya está arriba, se evita duplicarla dentro de la tarjeta. */
+  html[data-crm-view="leads"] #viewRoot > .card > .card-head .primary-btn[data-action="new-lead"] {
+    display:none;
+  }
+
+  html[data-crm-view="leads"] #viewRoot > .card > .card-head,
+  html[data-crm-view="remarketing"] #viewRoot > .card > .card-head,
+  html[data-crm-view="implementation"] #viewRoot > .card > .card-head {
+    min-height:62px !important;
+    padding:15px 14px 10px !important;
+  }
+
+  html[data-crm-view="leads"] #viewRoot > .card > .card-head h3,
+  html[data-crm-view="remarketing"] #viewRoot > .card > .card-head h3,
+  html[data-crm-view="implementation"] #viewRoot > .card > .card-head h3 {
+    font-size:17px !important;
+    line-height:1.15;
+  }
+
+  html[data-crm-view="leads"] #viewRoot > .card > .card-body,
+  html[data-crm-view="remarketing"] #viewRoot > .card > .card-body,
+  html[data-crm-view="implementation"] #viewRoot > .card > .card-body {
+    padding:0 12px 13px !important;
+  }
+
+  html[data-crm-view="leads"] #viewRoot .notice,
+  html[data-crm-view="remarketing"] #viewRoot .notice,
+  html[data-crm-view="pipeline"] #viewRoot .notice,
+  html[data-crm-view="implementation"] #viewRoot .notice {
+    margin:0 0 10px;
+    padding:10px 11px;
+    font-size:9.5px;
+    line-height:1.4;
+  }
+
+  /* Filtros con el mismo tratamiento de chips/controles del Centro de gestión. */
+  html[data-crm-view="leads"] #viewRoot .toolbar,
+  html[data-crm-view="pipeline"] #viewRoot .toolbar:not(:first-child),
+  html[data-crm-view="remarketing"] #viewRoot .toolbar,
+  html[data-crm-view="implementation"] #viewRoot .toolbar {
+    margin:0 0 10px !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+
+  html[data-crm-view="leads"] #viewRoot .toolbar input,
+  html[data-crm-view="leads"] #viewRoot .toolbar select,
+  html[data-crm-view="pipeline"] #viewRoot .toolbar input,
+  html[data-crm-view="pipeline"] #viewRoot .toolbar select {
+    min-height:38px;
+    border:1px solid #dfe6ef;
+    border-radius:10px;
+    background:#fff;
+    color:#1d2f4f;
+    font-size:10px;
+  }
+
+  html[data-crm-view="leads"] #viewRoot .toolbar-summary,
+  html[data-crm-view="pipeline"] #viewRoot .toolbar-summary {
+    display:flex;
+    align-items:center;
+    min-height:38px;
+    padding:0 10px;
+    border:1px solid #e1e7ef;
+    border-radius:10px;
+    background:#f6f9fc;
+    color:#617188;
+    font-size:9px;
+  }
+
+  /* Tablas operativas -> tarjetas mobile, como las filas del Centro de gestión. */
+  html[data-crm-view="leads"] .table-wrap,
+  html[data-crm-view="remarketing"] .table-wrap,
+  html[data-crm-view="implementation"] .table-wrap,
+  html[data-crm-view="pipeline"] .table-wrap {
+    overflow:visible;
+    border:0;
+    box-shadow:none;
+    background:transparent;
+  }
+
+  html[data-crm-view="leads"] .data-table,
+  html[data-crm-view="remarketing"] .data-table,
+  html[data-crm-view="implementation"] .data-table,
+  html[data-crm-view="pipeline"] .data-table {
+    display:block;
+    min-width:0;
+    width:100%;
+    border:0;
+    background:transparent;
+  }
+
+  html[data-crm-view="leads"] .data-table thead,
+  html[data-crm-view="remarketing"] .data-table thead,
+  html[data-crm-view="implementation"] .data-table thead,
+  html[data-crm-view="pipeline"] .data-table thead {
+    display:none;
+  }
+
+  html[data-crm-view="leads"] .data-table tbody,
+  html[data-crm-view="remarketing"] .data-table tbody,
+  html[data-crm-view="implementation"] .data-table tbody,
+  html[data-crm-view="pipeline"] .data-table tbody {
+    display:grid;
+    gap:8px;
+  }
+
+  html[data-crm-view="leads"] .data-table tr,
+  html[data-crm-view="remarketing"] .data-table tr,
+  html[data-crm-view="implementation"] .data-table tr,
+  html[data-crm-view="pipeline"] .data-table tr {
+    position:relative;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px 10px;
+    padding:12px 12px 11px;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    border-radius:12px;
+    background:#fff;
+    box-shadow:0 3px 12px rgba(27,50,87,.04);
+  }
+
+  html[data-crm-view="leads"] .data-table tr::before,
+  html[data-crm-view="remarketing"] .data-table tr::before,
+  html[data-crm-view="implementation"] .data-table tr::before,
+  html[data-crm-view="pipeline"] .data-table tr::before {
+    content:"";
+    position:absolute;
+    inset:0 auto 0 0;
+    width:3px;
+    background:#3b9cf5;
+  }
+
+  html[data-crm-view="leads"] .data-table td,
+  html[data-crm-view="remarketing"] .data-table td,
+  html[data-crm-view="implementation"] .data-table td,
+  html[data-crm-view="pipeline"] .data-table td {
+    display:block;
+    min-width:0;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    color:#213653;
+    font-size:10px;
+    line-height:1.3;
+  }
+
+  html[data-crm-view="leads"] .data-table td:first-child,
+  html[data-crm-view="remarketing"] .data-table td:first-child,
+  html[data-crm-view="implementation"] .data-table td:first-child,
+  html[data-crm-view="pipeline"] .data-table td:first-child {
+    grid-column:1 / -1;
+    padding-right:4px !important;
+  }
+
+  html[data-crm-view="leads"] .data-table td:first-child .link-btn,
+  html[data-crm-view="remarketing"] .data-table td:first-child .link-btn,
+  html[data-crm-view="implementation"] .data-table td:first-child .link-btn,
+  html[data-crm-view="pipeline"] .data-table td:first-child .link-btn {
+    color:#132849;
+    font-size:12px;
+    font-weight:700;
+    line-height:1.2;
+  }
+
+  html[data-crm-view="leads"] .data-table td .muted,
+  html[data-crm-view="remarketing"] .data-table td .muted,
+  html[data-crm-view="implementation"] .data-table td .muted,
+  html[data-crm-view="pipeline"] .data-table td .muted {
+    margin-top:2px;
+    color:#6a798e;
+    font-size:8.7px;
+  }
+
+  html[data-crm-view="leads"] .data-table td::before,
+  html[data-crm-view="remarketing"] .data-table td::before,
+  html[data-crm-view="implementation"] .data-table td::before,
+  html[data-crm-view="pipeline"] .data-table td::before {
+    display:block;
+    margin-bottom:2px;
+    color:#7b899b;
+    font-size:7.5px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+
+  html[data-crm-view="leads"] .data-table td:nth-child(2)::before { content:"Contacto"; }
+  html[data-crm-view="leads"] .data-table td:nth-child(3)::before { content:"Valor"; }
+  html[data-crm-view="leads"] .data-table td:nth-child(4)::before { content:"Próxima acción"; }
+  html[data-crm-view="leads"] .data-table td:nth-child(5)::before { content:"Responsable"; }
+
+  html[data-crm-view="remarketing"] .data-table td:nth-child(2)::before { content:"Contacto"; }
+  html[data-crm-view="remarketing"] .data-table td:nth-child(3)::before { content:"Motivo"; }
+  html[data-crm-view="remarketing"] .data-table td:nth-child(4)::before { content:"Valor"; }
+  html[data-crm-view="remarketing"] .data-table td:nth-child(5)::before { content:"Próxima acción"; }
+
+  html[data-crm-view="implementation"] .data-table td:nth-child(2)::before { content:"Contacto"; }
+  html[data-crm-view="implementation"] .data-table td:nth-child(3)::before { content:"Valor"; }
+  html[data-crm-view="implementation"] .data-table td:nth-child(4)::before { content:"Alcance"; }
+  html[data-crm-view="implementation"] .data-table td:nth-child(5)::before { content:"Integraciones"; }
+  html[data-crm-view="implementation"] .data-table td:nth-child(6)::before { content:"Próximo paso"; }
+
+  html[data-crm-view="pipeline"] .data-table td:nth-child(2)::before { content:"Contacto"; }
+  html[data-crm-view="pipeline"] .data-table td:nth-child(3)::before { content:"Etapa"; }
+  html[data-crm-view="pipeline"] .data-table td:nth-child(4)::before { content:"Valor"; }
+  html[data-crm-view="pipeline"] .data-table td:nth-child(5)::before { content:"Próxima tarea"; }
+  html[data-crm-view="pipeline"] .data-table td:nth-child(6)::before { content:"Responsable"; }
+
+  html[data-crm-view="leads"] .data-table td:last-child,
+  html[data-crm-view="remarketing"] .data-table td:last-child,
+  html[data-crm-view="implementation"] .data-table td:last-child,
+  html[data-crm-view="pipeline"] .data-table td:last-child {
+    grid-column:1 / -1;
+    padding-top:3px !important;
+  }
+
+  html[data-crm-view="leads"] .data-table td:last-child::before,
+  html[data-crm-view="remarketing"] .data-table td:last-child::before,
+  html[data-crm-view="implementation"] .data-table td:last-child::before,
+  html[data-crm-view="pipeline"] .data-table td:last-child::before {
+    display:none;
+  }
+
+  html[data-crm-view="leads"] .data-table .actions,
+  html[data-crm-view="remarketing"] .data-table .actions,
+  html[data-crm-view="implementation"] .data-table .actions,
+  html[data-crm-view="pipeline"] .data-table .actions {
+    display:flex;
+    width:100%;
+    gap:6px;
+    overflow-x:auto;
+    flex-wrap:nowrap;
+    scrollbar-width:none;
+  }
+
+  html[data-crm-view="leads"] .data-table .actions::-webkit-scrollbar,
+  html[data-crm-view="remarketing"] .data-table .actions::-webkit-scrollbar,
+  html[data-crm-view="implementation"] .data-table .actions::-webkit-scrollbar,
+  html[data-crm-view="pipeline"] .data-table .actions::-webkit-scrollbar {
+    display:none;
+  }
+
+  html[data-crm-view="leads"] .data-table .actions .small-btn,
+  html[data-crm-view="remarketing"] .data-table .actions .small-btn,
+  html[data-crm-view="implementation"] .data-table .actions .small-btn,
+  html[data-crm-view="pipeline"] .data-table .actions .small-btn {
+    min-height:34px !important;
+    flex:0 0 auto !important;
+    padding:7px 9px !important;
+    font-size:8.5px !important;
+  }
+
+  html[data-crm-view="leads"] .data-table .actions .small-btn:not(.danger):first-child,
+  html[data-crm-view="pipeline"] .data-table .actions .small-btn:first-child {
+    border-color:#b8d7f2;
+    background:#eef6ff;
+    color:#126bb9;
+  }
+
+  /* Pipeline embudo: una columna por pantalla y tarjetas con el ritmo de la portada. */
+  html[data-crm-view="pipeline"] .kanban {
+    grid-auto-columns:min(88vw,350px);
+    gap:10px;
+    padding-bottom:8px;
+  }
+
+  html[data-crm-view="pipeline"] .kanban-col {
+    min-height:280px;
+  }
+
+  html[data-crm-view="pipeline"] .deal-card {
+    padding:11px;
+  }
+
+  html[data-crm-view="pipeline"] .deal-card .deal-company {
+    font-size:11.5px;
+  }
+
+  html[data-crm-view="pipeline"] .deal-card .meta {
+    margin-top:4px;
+    font-size:9px;
+  }
+
+  html[data-crm-view="pipeline"] .deal-card .money {
+    margin-top:7px;
+    font-size:12px;
+  }
+
+  html[data-crm-view="pipeline"] .card-actions .small-btn {
+    min-height:33px !important;
+    padding:7px 9px !important;
+    font-size:8.5px !important;
+  }
+
+  /* Plantillas/configuración/cotizaciones: mismo ritmo vertical y cabeceras compactas. */
+  html[data-crm-view="templates"] .template-item,
+  html[data-crm-view="settings"] .flow-node,
+  html[data-crm-view="quotes"] #viewRoot > .card {
+    border-radius:12px;
+    border-color:#e2e8f0;
+    box-shadow:0 3px 12px rgba(27,50,87,.035);
+  }
+
+  html[data-crm-view="templates"] .template-item > summary,
+  html[data-crm-view="settings"] .flow-node > summary {
+    min-height:48px;
+    padding:11px 12px;
+  }
+}
+
+@media (max-width:430px) {
+  html[data-crm-view="leads"] .data-table tr,
+  html[data-crm-view="remarketing"] .data-table tr,
+  html[data-crm-view="implementation"] .data-table tr,
+  html[data-crm-view="pipeline"] .data-table tr {
+    gap:7px 8px;
+    padding:11px 10px;
+  }
+
+  html[data-crm-view="leads"] .data-table td,
+  html[data-crm-view="remarketing"] .data-table td,
+  html[data-crm-view="implementation"] .data-table td,
+  html[data-crm-view="pipeline"] .data-table td {
+    font-size:9.4px;
+  }
+}
+
+:root[data-theme="dark"] html[data-crm-view] #viewRoot > .card,
+:root[data-theme="dark"] html[data-crm-view] #viewRoot .data-table tr,
+:root[data-theme="dark"] html[data-crm-view="pipeline"] .deal-card,
+:root[data-theme="dark"] html[data-crm-view="pipeline"] .kanban-col {
+  border-color:var(--v2-line);
+  background:var(--v2-panel);
+}
+
+/* ---------- End CRM visual parity 2026-10-03 ---------- */
+
