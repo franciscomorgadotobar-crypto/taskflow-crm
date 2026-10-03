@@ -181,6 +181,35 @@ function commercialTaskTone(type = '') {
   return 'call';
 }
 
+function commercialTaskIconAction(type = '', contact = null) {
+  const tone = commercialTaskTone(type);
+  if (tone === 'mail') {
+    return {
+      action: 'open-email',
+      available: Boolean(contact?.email),
+      label: 'Enviar correo',
+      unavailable: 'Sin correo registrado'
+    };
+  }
+  if (tone === 'whatsapp') {
+    return {
+      action: 'open-whatsapp',
+      available: Boolean(contact?.phone),
+      label: 'Abrir WhatsApp',
+      unavailable: 'Sin teléfono registrado'
+    };
+  }
+  if (tone === 'call') {
+    return {
+      action: 'call-contact',
+      available: Boolean(contact?.phone),
+      label: 'Llamar',
+      unavailable: 'Sin teléfono registrado'
+    };
+  }
+  return null;
+}
+
 function taskDateCopy(t, isOverdue) {
   if (!t.date) return 'Sin fecha';
   const today = todayISO();
@@ -197,9 +226,22 @@ function taskDateCopy(t, isOverdue) {
 function taskRow(t, isOverdue) {
   const contact = contactsOf(t.lead)[0] || null;
   const tone = commercialTaskTone(t.type);
+  const iconAction = commercialTaskIconAction(t.type, contact);
+  const iconControl = iconAction
+    ? `<button
+        type="button"
+        class="commercial-task-icon commercial-task-icon--action ${tone}"
+        data-action="${iconAction.action}"
+        data-id="${t.lead.id}"
+        data-contact="${e(contact?.key || '')}"
+        aria-label="${e(iconAction.available ? iconAction.label : iconAction.unavailable)}"
+        title="${e(iconAction.available ? iconAction.label : iconAction.unavailable)}"
+        ${iconAction.available ? '' : 'disabled'}
+      >${commercialTaskIcon(t.type)}</button>`
+    : `<div class="commercial-task-icon ${tone}" aria-hidden="true">${commercialTaskIcon(t.type)}</div>`;
   const due = taskDateCopy(t, isOverdue);
   return `<div class="list-item commercial-task-row ${isOverdue ? 'is-overdue' : ''}">
-    <div class="commercial-task-icon ${tone}">${commercialTaskIcon(t.type)}</div>
+    ${iconControl}
     <div class="commercial-task-main">
       <button class="link-btn commercial-task-title" data-action="open-detail" data-id="${t.lead.id}"><strong>${e(t.title)}</strong></button>
       <div class="commercial-task-company">${e(t.lead.company)}</div>
