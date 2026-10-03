@@ -2018,18 +2018,25 @@ const ACTIONS = {
     render();
   },
   'open-manage': () => openManage(),
-  'open-chilecompra': (id, btn) => {
+  'open-chilecompra': async (id, btn) => {
     ui.view = 'chilecompra';
+    const { chilecompraState } = await import('./chilecompra.js');
+    chilecompraState.tab = 'buscar';
+    chilecompraState.activeCampaign = '';
+    chilecompraState.query = '';
     if (btn?.dataset.fit) {
       const level = btn.dataset.fit;
-      import('./chilecompra.js').then(({ chilecompraState }) => {
-        chilecompraState.tab = 'para-ti';
-        chilecompraState.fit = new Set(level === 'alto' ? ['alto'] : level === 'parcial' ? ['parcial'] : ['alto','parcial']);
-        render();
-      });
+      chilecompraState.fit = new Set([level]);
+      chilecompraState.results = chilecompraState.opportunities.filter(
+        (o) => o.radar_state === 'nuevo' && o.fit_level === level
+      );
+      chilecompraState.selectedId = chilecompraState.results[0]?.id || '';
     } else {
-      render();
+      chilecompraState.fit = new Set(['alto','parcial','bajo']);
+      chilecompraState.results = [];
+      chilecompraState.selectedId = '';
     }
+    render();
     $('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
   },
   'qualify-lead': async (id) => {
