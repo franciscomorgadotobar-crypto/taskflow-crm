@@ -377,3 +377,72 @@
     min-width:230px;
   }
 }
+
+/* Ficha de licitación en modal: click siempre visible */
+.cc-layout{
+  grid-template-columns:minmax(210px,250px) minmax(0,1fr);
+}
+.cc-results{
+  border-right:0;
+}
+.cc-opportunity-dialog{
+  width:min(920px,calc(100vw - 28px));
+  max-width:920px;
+}
+.cc-opportunity-modal-card{
+  width:100%;
+  max-width:920px;
+  max-height:min(88vh,900px);
+  overflow:auto;
+}
+.cc-opportunity-modal-head{
+  position:sticky;
+  top:0;
+  z-index:4;
+  background:var(--surface,#fff);
+}
+.cc-opportunity-modal-body .cc-detail{
+  display:block!important;
+  position:static;
+  max-height:none;
+  overflow:visible;
+  border:0;
+  padding:4px 2px 2px;
+}
+.cc-opportunity-modal-body .cc-detail>h2{
+  font-size:24px;
+}
+.cc-opportunity-modal-body .cc-detail-actions{
+  position:sticky;
+  bottom:-1px;
+  z-index:3;
+  background:var(--surface,#fff);
+  padding:12px 0 2px;
+  border-top:1px solid var(--cc-border);
+}
+[data-theme="dark"] .cc-opportunity-modal-head,
+[data-theme="dark"] .cc-opportunity-modal-body .cc-detail-actions{
+  background:#142337;
+}
+@media (max-width:680px){
+  .cc-opportunity-dialog{
+    width:calc(100vw - 12px);
+    max-width:none;
+    margin:auto;
+  }
+  .cc-opportunity-modal-card{
+    width:100%;
+    max-width:none;
+    max-height:94vh;
+    border-radius:16px;
+  }
+  .cc-opportunity-modal-body .cc-detail>h2{
+    font-size:19px;
+  }
+  .cc-opportunity-modal-body .cc-detail-actions{
+    grid-template-columns:1fr 1fr;
+  }
+  .cc-opportunity-modal-body .cc-detail-actions .primary-btn{
+    grid-column:1/-1;
+  }
+}
