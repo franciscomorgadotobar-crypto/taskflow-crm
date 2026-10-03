@@ -1499,40 +1499,73 @@ export function renderLeadDetail(id) {
 
   const primary = contacts[0] || null;
   const nextTaskBody = task
-    ? `<div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
-        <strong>${e(task.title)}</strong>
-        <span class="badge ${taskOverdue ? 'danger' : ''}">${e(task.date ? fmtDate(task.date) : 'Sin fecha')}</span>
-        ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
-      </div>
-      ${
-        primary?.phone || primary?.email
-          ? `<div class="actions">
-              ${primary.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary.key}">Llamar</button>` : ''}
-              ${primary.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary.key}">WhatsApp</button>` : ''}
-              ${primary.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary.key}">Correo</button>` : ''}
-            </div>`
-          : ''
-      }
-      <div class="task-form">
-        <label class="span-2">¿Cómo resultó?<textarea id="fichaResult" rows="3" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <div class="span-2 task-type-row" data-task-type-group="ficha">
-          <span class="task-type-label">¿Qué sigue?</span>
-          <input type="hidden" id="fichaNextType" />
+    ? `<div class="task-flow task-flow--ficha" data-task-flow="ficha">
+        <div class="task-flow-progress" aria-label="Flujo de gestión">
+          <span class="is-active" data-flow-indicator="1"><b>1</b> Gestión</span>
+          <i></i>
+          <span data-flow-indicator="2"><b>2</b> Siguiente acción</span>
         </div>
-        <label class="span-2">Objetivo / nota<textarea id="fichaNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
-        <label>Fecha de la siguiente<input id="fichaNextDate" type="date" /></label>
-        <p class="span-2 muted form-note">La gestión se registrará con la fecha y hora actuales. Si no hubo gestión, usa <strong>Reagendar</strong>.</p>
-      </div>
-      <div class="actions task-form-actions">
-        <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
-        <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Guardar gestión</button>
+
+        <section class="task-flow-step is-active" data-flow-step="1">
+          <div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
+            <div>
+              <span class="task-flow-eyebrow">Gestión pendiente</span>
+              <strong>${e(task.title)}</strong>
+            </div>
+            <div class="task-flow-status">
+              <span class="badge ${taskOverdue ? 'danger' : ''}">${e(task.date ? fmtDate(task.date) : 'Sin fecha')}</span>
+              ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
+            </div>
+          </div>
+          ${
+            primary?.phone || primary?.email
+              ? `<div class="actions task-flow-channels">
+                  ${primary.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary.key}">Llamar</button>` : ''}
+                  ${primary.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary.key}">WhatsApp</button>` : ''}
+                  ${primary.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary.key}">Correo</button>` : ''}
+                </div>`
+              : ''
+          }
+          <div class="task-form task-flow-current-form">
+            <label class="span-2">¿Cómo resultó?
+              <textarea id="fichaResult" rows="4" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
+            </label>
+          </div>
+          <p class="muted form-note task-flow-note">Si no pudiste realizarla, reagéndala sin cerrarla.</p>
+          <div class="actions task-form-actions task-flow-footer">
+            <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
+            <button class="primary-btn" data-action="ficha-task-continue" data-id="${l.id}">Continuar →</button>
+          </div>
+        </section>
+
+        <section class="task-flow-step" data-flow-step="2" hidden>
+          <div class="task-flow-completed-summary">
+            <span class="task-flow-check">✓</span>
+            <div><strong>Resultado listo</strong><span>Ahora define qué debe ocurrir después.</span></div>
+          </div>
+          <div class="task-form">
+            <div class="span-2 task-type-row" data-task-type-group="ficha">
+              <span class="task-type-label">Siguiente acción</span>
+              <input type="hidden" id="fichaNextType" />
+            </div>
+            <label class="span-2">Objetivo de la siguiente acción
+              <textarea id="fichaNextAction" rows="3" placeholder="Ej. Confirmar reunión con jefe de operaciones"></textarea>
+            </label>
+            <label class="span-2">Fecha de la siguiente acción<input id="fichaNextDate" type="date" /></label>
+          </div>
+          <div class="actions task-form-actions task-flow-footer task-flow-footer--stack">
+            <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Guardar y agendar</button>
+            <button class="ghost-btn" data-action="ficha-task-close-no-next" data-id="${l.id}">Cerrar sin próxima acción</button>
+            <button class="link-btn task-flow-back" data-action="ficha-task-back" data-id="${l.id}">← Volver al resultado</button>
+          </div>
+        </section>
       </div>`
-    : `<p class="muted">Sin tarea agendada para este prospecto.</p>
+    : `<p class="muted">Sin gestión pendiente para este prospecto.</p>
        <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
 
   return `
     <div class="detail-grid">
-      ${section('Próxima tarea', nextTaskBody, { open: true })}
+      ${section('Gestión pendiente', nextTaskBody, { open: true })}
 
       ${section(
         'Datos comerciales',
