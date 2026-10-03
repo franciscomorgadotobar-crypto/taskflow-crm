@@ -1517,15 +1517,11 @@ export function renderLeadDetail(id) {
               ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
             </div>
           </div>
-          ${
-            primary?.phone || primary?.email
-              ? `<div class="actions task-flow-channels">
-                  ${primary.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary.key}">Llamar</button>` : ''}
-                  ${primary.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary.key}">WhatsApp</button>` : ''}
-                  ${primary.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary.key}">Correo</button>` : ''}
-                </div>`
-              : ''
-          }
+          <div class="actions task-flow-channels" aria-label="Canales para realizar la gestión">
+            <button class="small-btn task-flow-channel-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>Llamar</button>
+            <button class="small-btn task-flow-channel-btn task-flow-channel-btn--whatsapp" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>WhatsApp</button>
+            <button class="small-btn task-flow-channel-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.email ? '' : 'disabled title="Sin correo registrado"'}>Correo</button>
+          </div>
           <div class="task-form task-flow-current-form">
             <label class="span-2">¿Cómo resultó?
               <textarea id="fichaResult" rows="4" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
