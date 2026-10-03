@@ -91,6 +91,14 @@ import {
   stopRealtime as hyperFocusStopRealtime
 } from './hyperfocus.js';
 import {
+  chilecompraDashboardStats,
+  clearChileCompra,
+  hydrateChileCompra,
+  mountChileCompraView,
+  onChileCompraChange,
+  renderChileCompra
+} from './chilecompra.js';
+import {
   fillTemplate,
   filterPipeline,
   quoteDiscountsHtml,
@@ -214,6 +222,7 @@ const VIEWS = {
   hyperfocus: ['Híper Foco', 'Gestiona bases grandes una empresa a la vez, sin llenar el CRM de registros fríos.', renderHyperFocus],
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
+  chilecompra: ['ChileCompra', 'Radar comercial de oportunidades públicas por encaje con TaskFlow y NEOFF.', renderChileCompra],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
@@ -243,6 +252,7 @@ function render() {
   }
   if (ui.view === 'pipeline') bindKanbanDrag();
   if (ui.view === 'templates') bindTemplateAccordion();
+  if (ui.view === 'chilecompra') mountChileCompraView();
 }
 
 function refreshDetailIfOpen() {
@@ -2009,6 +2019,20 @@ const ACTIONS = {
     render();
   },
   'open-manage': () => openManage(),
+  'open-chilecompra': (id, btn) => {
+    ui.view = 'chilecompra';
+    if (btn?.dataset.fit) {
+      const level = btn.dataset.fit;
+      import('./chilecompra.js').then(({ chilecompraState }) => {
+        chilecompraState.tab = 'para-ti';
+        chilecompraState.fit = new Set(level === 'alto' ? ['alto'] : level === 'parcial' ? ['parcial'] : ['alto','parcial']);
+        render();
+      });
+    } else {
+      render();
+    }
+    $('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
+  },
   'qualify-lead': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const lead = getLead(id);
@@ -3175,6 +3199,9 @@ async function start() {
   onHyperFocusChange(() => {
     if (ui.view === 'hyperfocus') render();
   });
+  onChileCompraChange(() => {
+    if (ui.view === 'dashboard') render();
+  });
 
   onAuthChange(async (s) => {
     const generation = ++authSyncGeneration;
@@ -3184,7 +3211,7 @@ async function start() {
       if ($('auditNav')) $('auditNav').hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
-        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate()]);
+        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra()]);
         if (generation !== authSyncGeneration || session.status !== 'signed-in') {
           // Una hidratación iniciada por una sesión anterior no puede volver a
           // poblar el estado local ni reactivar Realtime después de cerrar sesión.
@@ -3213,6 +3240,7 @@ async function start() {
       clearLocal();
       quotesClearLocal();
       hyperFocusClearLocal();
+      clearChileCompra();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';
@@ -3226,6 +3254,7 @@ async function start() {
       clearLocal();
       quotesClearLocal();
       hyperFocusClearLocal();
+      clearChileCompra();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';
