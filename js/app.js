@@ -91,7 +91,6 @@ import {
   stopRealtime as hyperFocusStopRealtime
 } from './hyperfocus.js';
 import {
-  chilecompraDashboardStats,
   clearChileCompra,
   hydrateChileCompra,
   mountChileCompraView,
@@ -3221,6 +3220,7 @@ async function start() {
           clearLocal();
           quotesClearLocal();
           hyperFocusClearLocal();
+          clearChileCompra();
           return;
         }
         startRealtime();
