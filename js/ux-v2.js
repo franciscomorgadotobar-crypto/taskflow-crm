@@ -3,6 +3,7 @@
 import { state, onChange, openTasks, metrics } from './store.js';
 import { OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
+import { chilecompraDashboardStats, onChileCompraChange } from './chilecompra.js';
 
 const $ = (id) => document.getElementById(id);
 const q = (sel, root = document) => root.querySelector(sel);
@@ -131,6 +132,7 @@ function buildHeaderTools() {
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="implementation"><span>Implementación</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="templates"><span>Plantillas</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="quotes"><span>Cotizaciones</span><span>›</span></button>
+          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="chilecompra"><span>ChileCompra</span><span>›</span></button>
           <button id="v2AuditMenu" class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="audit" hidden><span>Auditoría</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="data"><span>Datos y respaldo</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="theme"><span>Cambiar apariencia</span><span>◐</span></button>
@@ -335,6 +337,7 @@ function renderDashboardSummary() {
   const counts = dashboardTaskCounts();
   const closeRate = readCloseRateFromOriginalDashboard(root);
   const pipelineSnapshot = pipelineStageSnapshot(m.open);
+  const chilecompra = chilecompraDashboardStats();
 
   let summary = q('.v2-dashboard-summary', root);
   if (!summary) {
@@ -350,7 +353,10 @@ function renderDashboardSummary() {
     counts.overdue,
     closeRate.value,
     closeRate.hint,
-    pipelineSnapshot.counts.map((row) => row.value)
+    pipelineSnapshot.counts.map((row) => row.value),
+    chilecompra.total,
+    chilecompra.high,
+    chilecompra.partial
   ]);
   if (summary.dataset.signature !== signature) {
     summary.dataset.signature = signature;
@@ -397,6 +403,19 @@ function renderDashboardSummary() {
         <strong>${esc(closeRate.value)}</strong>
         <small>${esc(closeRate.hint)}</small>
         
+      </article>
+      <article class="v2-summary-kpi v2-chilecompra-card" data-action="open-chilecompra" role="button" tabindex="0" aria-label="Abrir Radar ChileCompra">
+        <div class="v2-cc-brand">
+          <span class="v2-cc-brand-icon" aria-hidden="true">⌖</span>
+          <div><strong>Oportunidades ChileCompra</strong><small><b>${chilecompra.total}</b> nuevas oportunidades detectadas</small></div>
+        </div>
+        <button type="button" class="v2-cc-number v2-cc-high" data-action="open-chilecompra" data-fit="alto" aria-label="Ver ${chilecompra.high} oportunidades de encaje alto">
+          <strong>${chilecompra.high}</strong><span>● Encaje alto</span>
+        </button>
+        <button type="button" class="v2-cc-number v2-cc-partial" data-action="open-chilecompra" data-fit="parcial" aria-label="Ver ${chilecompra.partial} oportunidades de encaje parcial">
+          <strong>${chilecompra.partial}</strong><span>● Encaje parcial</span>
+        </button>
+        <button type="button" class="primary-btn v2-cc-open" data-action="open-chilecompra">Ver radar →</button>
       </article>`;
   }
 
@@ -725,6 +744,10 @@ function init() {
     updateHeaderIdentity();
     updateSystemStatus();
     enhanceCurrentView();
+  }));
+
+  onChileCompraChange(() => queueMicrotask(() => {
+    renderDashboardSummary();
   }));
 
   window.addEventListener('storage', (event) => {
