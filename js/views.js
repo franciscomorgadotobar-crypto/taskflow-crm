@@ -530,7 +530,7 @@ function renderPipelineList(ui) {
               ${sortableTh('Contacto', 'contact', sort)}
               ${sortableTh('Etapa', 'stage', sort)}
               ${sortableTh('Valor', 'value', sort)}
-              ${sortableTh('Próxima tarea', 'nextDate', sort)}
+              ${sortableTh('Gestión pendiente', 'nextDate', sort)}
               ${sortableTh('Responsable', 'owner', sort)}
               <th></th>
             </tr></thead>
