@@ -159,17 +159,65 @@ export function taskActions(leadId, { includeFicha = true } = {}) {
     ${includeFicha ? `<button class="small-btn" data-action="open-detail" data-id="${leadId}">Ver ficha</button>` : ''}`;
 }
 
-/** Una tarea en el resumen: se gestiona sin salir del home. */
+function commercialTaskIcon(type = '') {
+  const key = String(type || '').toLocaleLowerCase('es');
+  if (key.includes('correo') || key.includes('email')) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h17v11h-17z"/><path d="m4.5 7.5 7.5 5.8 7.5-5.8"/></svg>';
+  }
+  if (key.includes('reun') || key.includes('demo')) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v12H9l-5 3v-15z"/><path d="M8 9h8M8 13h5"/></svg>';
+  }
+  if (key.includes('whatsapp')) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8 8 0 0 0-6.9 12l-1.1 4 4.1-1.1A8 8 0 1 0 12 3.5z"/><path d="M9 8.5c.5 2.9 2 4.5 5 5.5"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 4.5 10 8l-2 2.2c1.4 2.8 3.1 4.5 5.9 5.9l2.2-2 3.4 2.6-.8 2.5c-.3.9-1.2 1.4-2.1 1.3C9.2 19.5 4.5 14.8 3.5 7.4c-.1-.9.4-1.8 1.3-2.1z"/></svg>';
+}
+
+function commercialTaskTone(type = '') {
+  const key = String(type || '').toLocaleLowerCase('es');
+  if (key.includes('correo') || key.includes('email')) return 'mail';
+  if (key.includes('reun') || key.includes('demo')) return 'meeting';
+  if (key.includes('whatsapp')) return 'whatsapp';
+  return 'call';
+}
+
+function taskDateCopy(t, isOverdue) {
+  if (!t.date) return 'Sin fecha';
+  const today = todayISO();
+  if (isOverdue || t.date < today) {
+    const days = Math.max(1, daysBetween(t.date, today));
+    return `Vencido hace ${days} ${days === 1 ? 'día' : 'días'}`;
+  }
+  if (t.date === today) return 'Hoy';
+  if (t.date === addDaysISO(today, 1)) return 'Mañana';
+  return fmtDate(t.date);
+}
+
+/** Una tarea en el resumen: visualmente replica la tarjeta de gestión del dashboard móvil. */
 function taskRow(t, isOverdue) {
-  return `<div class="list-item">
-    <div>
-      <strong>${e(t.title)}</strong>
-      <div class="muted">${e(t.lead.company)} · ${e(t.lead.stage)}${t.lead.owner ? ` · ${e(t.lead.owner)}` : ''}</div>
+  const contact = contactsOf(t.lead)[0] || null;
+  const tone = commercialTaskTone(t.type);
+  const due = taskDateCopy(t, isOverdue);
+  return `<div class="list-item commercial-task-row ${isOverdue ? 'is-overdue' : ''}">
+    <div class="commercial-task-icon ${tone}">${commercialTaskIcon(t.type)}</div>
+    <div class="commercial-task-main">
+      <button class="link-btn commercial-task-title" data-action="open-detail" data-id="${t.lead.id}"><strong>${e(t.title)}</strong></button>
+      <div class="commercial-task-company">${e(t.lead.company)}</div>
+      <div class="commercial-task-meta">
+        <span class="badge commercial-stage-badge">${e(t.lead.stage)}</span>
+        ${t.lead.owner ? `<span class="commercial-meta-dot">•</span><span class="commercial-owner-icon" aria-hidden="true">♙</span><span>${e(t.lead.owner)}</span>` : ''}
+      </div>
+      <div class="commercial-task-due ${isOverdue ? 'danger' : ''}">
+        <span class="commercial-calendar-icon" aria-hidden="true">▣</span><span>${e(due)}</span>
+      </div>
     </div>
-    <div class="list-side">
-      <span class="badge ${isOverdue ? 'danger' : ''}">${t.date ? e(fmtDate(t.date)) : 'Sin fecha'}</span>
-      <div class="actions">${taskActions(t.lead.id)}</div>
+    <div class="commercial-task-actions">
+      <button class="primary-btn commercial-manage-btn" data-action="complete-task" data-id="${t.lead.id}">
+        <span aria-hidden="true">✓</span><span>Gestionar</span>
+      </button>
+      ${contact?.phone ? `<button class="commercial-whatsapp-btn" data-action="open-whatsapp" data-id="${t.lead.id}" data-contact="${e(contact.key)}" aria-label="Abrir WhatsApp"><span aria-hidden="true">◉</span></button>` : ''}
     </div>
+    <button class="commercial-task-chevron" data-action="open-detail" data-id="${t.lead.id}" aria-label="Ver ficha">›</button>
   </div>`;
 }
 
@@ -239,14 +287,14 @@ function renderCommercialCenter(ui, allTasks = openTasks(), openLeads = metrics(
   const active = tabs.find((tab) => tab.id === ui?.taskTab) || tabs[0];
   const canBatchManage = active.kind === 'tasks' && active.rows.length > 0;
 
-  return `<div class="card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
+  return `<div class="card commercial-center-card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
     <div class="card-head">
       <div><h3>Centro de gestión comercial</h3><div class="muted">Qué requiere atención ahora y qué oportunidades están perdiendo seguimiento.</div></div>
-      ${canBatchManage ? '<button class="small-btn" data-action="open-manage">Gestionar esta lista</button>' : ''}
+      ${canBatchManage ? '<button class="small-btn commercial-see-all" data-action="open-manage">Ver todo <span aria-hidden="true">→</span></button>' : ''}
     </div>
     <div class="card-body">
       <div class="button-row commercial-center-tabs">
-        ${tabs.map((tab) => `<button class="small-btn ${tab.id === active.id ? 'active-view' : ''}" data-action="tasks-tab" data-tab="${tab.id}">${e(tab.label)} (${tab.rows.length})</button>`).join('')}
+        ${tabs.map((tab) => `<button class="small-btn ${tab.id === active.id ? 'active-view' : ''}" data-action="tasks-tab" data-tab="${tab.id}"><span class="commercial-tab-label">${e(tab.label)}</span><span class="commercial-tab-count">${tab.rows.length}</span></button>`).join('')}
       </div>
       <div class="commercial-center-content">
         ${active.rows.length
