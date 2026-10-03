@@ -387,8 +387,22 @@ function renderInner() {
         </div>
       </main>
 
-      ${detailPanel(selected)}
-    </div>`;
+    </div>
+
+    <dialog id="ccOpportunityDialog" class="modal cc-opportunity-dialog">
+      <div class="modal-card wide cc-opportunity-modal-card">
+        <div class="modal-head cc-opportunity-modal-head">
+          <div>
+            <h2>Detalle de licitación</h2>
+            <p>${selected ? `ID ${e(selected.external_code)}` : 'ChileCompra'}</p>
+          </div>
+          <button type="button" class="icon-btn" data-cc-detail-close aria-label="Cerrar">×</button>
+        </div>
+        <div class="cc-opportunity-modal-body">
+          ${detailPanel(selected)}
+        </div>
+      </div>
+    </dialog>`;
 }
 
 export function renderChileCompra() {
@@ -399,6 +413,12 @@ function rerender() {
   const root = document.getElementById('chilecompraRoot');
   if (!root) return;
   root.innerHTML = renderInner();
+}
+
+function openDetailDialog() {
+  const dialog = document.getElementById('ccOpportunityDialog');
+  if (!dialog) return;
+  if (!dialog.open) dialog.showModal();
 }
 
 async function invokeRadar(body) {
@@ -458,7 +478,7 @@ function replaceEverywhere(updated) {
   if (ri >= 0) chilecompraState.results[ri] = updated;
 }
 
-async function loadDetail(id) {
+async function loadDetail(id, { reopen = false } = {}) {
   const current = [...chilecompraState.results, ...chilecompraState.opportunities].find((o) => o.id === id);
   if (!current || current.detail_loaded) return;
   try {
@@ -467,6 +487,7 @@ async function loadDetail(id) {
       replaceEverywhere(data.opportunity);
       notify();
       rerender();
+      if (reopen) openDetailDialog();
     }
   } catch (err) {
     console.error('No se pudo cargar detalle ChileCompra', err);
@@ -476,11 +497,13 @@ async function loadDetail(id) {
 
 async function patchOpportunity(id, patch) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const reopen = Boolean(document.getElementById('ccOpportunityDialog')?.open);
   const { data, error } = await supabase.from('chilecompra_opportunities').update(patch).eq('id', id).select('*').single();
   if (error) throw error;
   replaceEverywhere(data);
   notify();
   rerender();
+  if (reopen) openDetailDialog();
 }
 
 async function convertToCrm(id) {
@@ -518,7 +541,13 @@ export function mountChileCompraView() {
       chilecompraState.selectedId = select.dataset.ccSelect;
       chilecompraState.detailTab = 'resumen';
       rerender();
-      await loadDetail(chilecompraState.selectedId);
+      openDetailDialog();
+      await loadDetail(chilecompraState.selectedId, { reopen: true });
+      return;
+    }
+
+    if (ev.target.closest('[data-cc-detail-close]')) {
+      document.getElementById('ccOpportunityDialog')?.close();
       return;
     }
 
@@ -545,8 +574,10 @@ export function mountChileCompraView() {
 
     const detailTab = ev.target.closest('[data-cc-detail-tab]');
     if (detailTab) {
+      const reopen = Boolean(document.getElementById('ccOpportunityDialog')?.open);
       chilecompraState.detailTab = detailTab.dataset.ccDetailTab;
       rerender();
+      if (reopen) openDetailDialog();
       return;
     }
 
