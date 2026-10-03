@@ -7,18 +7,52 @@ const AVATARS = {
   ironic: 'https://img.soy-chile.cl/Fotos/2016/12/26/file_20161226184555.jpg'
 };
 
+// Frases textuales documentadas de Eduardo Bonvallet.
+// No se generan paráfrasis "al estilo de": la mascota rota únicamente citas verificadas.
 const QUOTES = {
-  neutral: 'Créete el cuento chileno',
-  good: 'Ya te creíste el cuento chileno',
-  overdue: '¡Levántate chileno!',
-  stale: 'Avíspate reweón, avíspate, ¡grita!',
-  lost: 'Es bueno conocer la derrota'
+  hype: [
+    { mood: 'serious', text: '¡Levántate chileno!' },
+    { mood: 'neutral', text: 'Créete el cuento chileno.' },
+    { mood: 'neutral', text: 'Ya te creíste el cuento chileno.' },
+    { mood: 'ironic', text: 'Avíspate reweón, avíspate, ¡grita!' },
+    { mood: 'serious', text: 'Monje, fakir o guerrero, o sencillamente te pierdes.' },
+    { mood: 'neutral', text: 'Mira el horizonte.' },
+    { mood: 'ironic', text: 'Las águilas no cazan moscas.' },
+    { mood: 'serious', text: 'Sal a la calle a luchar.' },
+    { mood: 'ironic', text: 'Soy tu sensei, tu Dalai Lama, soy el mejor, soy el Gurú.' },
+    { mood: 'serious', text: 'Es bueno conocer la derrota.' },
+    { mood: 'serious', text: 'A los grandes hombres las derrotas los hacen más grandes, pero primero hay que levantarse.' },
+    { mood: 'neutral', text: 'Diviértanse, yo sólo pienso.' }
+  ],
+  overdue: [
+    '¡Levántate chileno!',
+    'Avíspate reweón, avíspate, ¡grita!',
+    'Sal a la calle a luchar.',
+    'A los grandes hombres las derrotas los hacen más grandes, pero primero hay que levantarse.'
+  ],
+  stale: [
+    'Mira el horizonte.',
+    'Las águilas no cazan moscas.',
+    'Monje, fakir o guerrero, o sencillamente te pierdes.'
+  ],
+  good: [
+    'Ya te creíste el cuento chileno.',
+    'Créete el cuento chileno.',
+    'Mira el horizonte.'
+  ],
+  lost: [
+    'Es bueno conocer la derrota.',
+    'A los grandes hombres las derrotas los hacen más grandes, pero primero hay que levantarse.',
+    '¡Levántate chileno!'
+  ]
 };
 
 let hideTimer = null;
+let rotationTimer = null;
 let snapshot = null;
 let lastShownAt = 0;
 let startupShownForUser = '';
+let recentQuotes = [];
 
 const MASCOT_PREF_PREFIX = 'taskflow.crm.mascot.enabled';
 
@@ -65,6 +99,7 @@ export function setBonvalletEnabled(enabled) {
   if (!next) {
     snapshot = null;
     startupShownForUser = '';
+    clearRotationTimer();
     hideBonvallet();
     return;
   }
@@ -104,18 +139,67 @@ function capture(m) {
     won: m?.won?.length || 0,
     lost: m?.lost?.length || 0,
     overdue: m?.overdue?.length || 0,
-    stale: m?.stale?.length || 0
+    stale: m?.stale?.length || 0,
+    open: m?.open?.length || 0
   };
 }
 
+function rememberQuote(text) {
+  recentQuotes = [text, ...recentQuotes.filter((item) => item !== text)].slice(0, 5);
+}
+
+function quoteObject(text) {
+  return QUOTES.hype.find((quote) => quote.text === text) || { mood: 'neutral', text };
+}
+
+function pickFromTexts(texts = []) {
+  const candidates = texts.filter((text) => !recentQuotes.includes(text));
+  const pool = candidates.length ? candidates : texts;
+  if (!pool.length) return null;
+  const index = Math.floor(Math.random() * pool.length);
+  return quoteObject(pool[index]);
+}
+
+function rotatingMessage(m = metrics()) {
+  const state = capture(m);
+  let preferred = [];
+
+  if (state.overdue > 0) preferred = QUOTES.overdue;
+  else if (state.stale > 0) preferred = QUOTES.stale;
+  else if (state.won > 0) preferred = QUOTES.good;
+
+  const preferredPick = preferred.length && Math.random() < 0.62 ? pickFromTexts(preferred) : null;
+  if (preferredPick) return preferredPick;
+
+  const candidates = QUOTES.hype.filter((quote) => !recentQuotes.includes(quote.text));
+  const pool = candidates.length ? candidates : QUOTES.hype;
+  return pool[Math.floor(Math.random() * pool.length)] || QUOTES.hype[0];
+}
+
+function clearRotationTimer() {
+  clearTimeout(rotationTimer);
+  rotationTimer = null;
+}
+
+function scheduleBonvalletRotation({ sooner = false } = {}) {
+  clearRotationTimer();
+  if (!isBonvalletEnabled() || session.status !== 'signed-in') return;
+
+  const delay = sooner ? 42000 : 76000;
+  rotationTimer = window.setTimeout(() => {
+    if (document.visibilityState === 'visible' && session.status === 'signed-in' && isBonvalletEnabled()) {
+      showBonvalletMessage({ ...rotatingMessage(metrics()), duration: 6200 });
+    }
+    scheduleBonvalletRotation();
+  }, delay);
+}
+
 function startupMessage(m) {
-  const s = capture(m);
-  if (s.overdue >= 5) return { mood: 'serious', text: QUOTES.overdue };
-  if (s.stale >= 3) return { mood: 'ironic', text: QUOTES.stale };
-  if (s.won > 0 && s.overdue === 0 && s.stale === 0) {
-    return { mood: 'neutral', text: QUOTES.good };
-  }
-  return { mood: 'neutral', text: QUOTES.neutral };
+  const state = capture(m);
+  if (state.overdue > 0) return pickFromTexts(QUOTES.overdue) || QUOTES.hype[0];
+  if (state.stale > 0) return pickFromTexts(QUOTES.stale) || QUOTES.hype[0];
+  if (state.won > 0) return pickFromTexts(QUOTES.good) || QUOTES.hype[0];
+  return rotatingMessage(m);
 }
 
 export function showBonvalletMessage({ text, mood = 'neutral', duration = 7000, force = false }) {
@@ -143,6 +227,7 @@ export function showBonvalletMessage({ text, mood = 'neutral', duration = 7000, 
   });
 
   lastShownAt = now;
+  rememberQuote(text);
   hideTimer = setTimeout(() => {
     hideBonvallet();
   }, duration);
@@ -150,7 +235,8 @@ export function showBonvalletMessage({ text, mood = 'neutral', duration = 7000, 
 
 export function startBonvallet(m = metrics()) {
   snapshot = capture(m);
-  showBonvalletMessage({ ...startupMessage(m), duration: 7600, force: true });
+  showBonvalletMessage({ ...startupMessage(m), duration: 7000, force: true });
+  scheduleBonvalletRotation({ sooner: true });
 }
 
 export function syncBonvallet(m = metrics()) {
@@ -163,17 +249,20 @@ export function syncBonvallet(m = metrics()) {
 
   let message = null;
   if (next.won > snapshot.won) {
-    message = { mood: 'neutral', text: QUOTES.good };
+    message = pickFromTexts(QUOTES.good);
   } else if (next.lost > snapshot.lost) {
-    message = { mood: 'serious', text: QUOTES.lost };
-  } else if (next.overdue > snapshot.overdue && next.overdue >= 3) {
-    message = { mood: 'serious', text: QUOTES.overdue };
-  } else if (next.stale > snapshot.stale && next.stale >= 2) {
-    message = { mood: 'ironic', text: QUOTES.stale };
+    message = pickFromTexts(QUOTES.lost);
+  } else if (next.overdue > snapshot.overdue) {
+    message = pickFromTexts(QUOTES.overdue);
+  } else if (next.stale > snapshot.stale) {
+    message = pickFromTexts(QUOTES.stale);
   }
 
   snapshot = next;
-  if (message) showBonvalletMessage(message);
+  if (message) {
+    showBonvalletMessage(message);
+    scheduleBonvalletRotation();
+  }
 }
 
 export function resetBonvallet() {
@@ -181,6 +270,8 @@ export function resetBonvallet() {
   lastShownAt = 0;
   startupShownForUser = '';
   clearTimeout(hideTimer);
+  clearRotationTimer();
+  recentQuotes = [];
   hideBonvallet({ immediate: true });
 }
 
@@ -212,6 +303,14 @@ onAuthChange((auth) => {
   }
 });
 
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && session.status === 'signed-in' && isBonvalletEnabled()) {
+    scheduleBonvalletRotation({ sooner: true });
+  } else {
+    clearRotationTimer();
+  }
+});
 
 document.addEventListener('taskflow:mascot-preference', (event) => {
   setBonvalletEnabled(Boolean(event.detail?.enabled));
