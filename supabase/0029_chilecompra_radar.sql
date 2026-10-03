@@ -199,7 +199,7 @@ on conflict (organization_id, name) do nothing;
 create or replace function public.chilecompra_convert_opportunity(p_opportunity_id uuid)
 returns uuid
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 declare
