@@ -342,28 +342,28 @@ function renderDashboardSummary() {
         <span>Oportunidades</span>
         <strong>${m.open.length}</strong>
         <small>Activas en el pipeline</small>
-        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
+        
       </article>
       <article class="v2-summary-kpi v2-kpi-today ${counts.today ? 'attention' : ''}">
         <span class="v2-kpi-icon" aria-hidden="true">✓</span>
         <span>Pendientes hoy</span>
         <strong>${counts.today}</strong>
         <small>Seguimientos para hoy</small>
-        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
+        
       </article>
       <article class="v2-summary-kpi v2-kpi-overdue ${counts.overdue ? 'danger' : ''}">
         <span class="v2-kpi-icon" aria-hidden="true">!</span>
         <span>Tareas vencidas</span>
         <strong>${counts.overdue}</strong>
         <small>Requieren acción</small>
-        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
+        
       </article>
       <article class="v2-summary-kpi v2-kpi-close">
         <span class="v2-kpi-icon" aria-hidden="true">▥</span>
         <span>Tasa de cierre</span>
         <strong>${esc(closeRate.value)}</strong>
         <small>${esc(closeRate.hint)}</small>
-        <span class="v2-kpi-arrow" aria-hidden="true">›</span>
+        
       </article>`;
   }
 
