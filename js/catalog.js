@@ -61,6 +61,7 @@ export const SOURCES = [
   'Evento / Feria',
   'Base de datos',
   'Cliente existente',
+  'ChileCompra',
   'Otro'
 ];
 
