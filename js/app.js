@@ -180,7 +180,7 @@ function initPwa() {
   if (!('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker
-    .register('./service-worker.js', { scope: './' })
+    .register('./service-worker.js', { scope: './', updateViaCache: 'none' })
     .then((registration) => {
       registration.update().catch(() => {});
     })
