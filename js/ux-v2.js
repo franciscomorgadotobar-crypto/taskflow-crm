@@ -526,7 +526,7 @@ function injectMascotSettingsCard() {
     <div class="card-body">
       <label class="v2-setting-toggle" for="v2MascotToggle">
         <span class="v2-setting-toggle__copy">
-          <strong>Activar mascota</strong>
+          <strong>Activar o desactivar mascota</strong>
           <small>Muestra al personaje con mensajes contextuales. Aparece en la zona media-alta derecha y se retira automáticamente.</small>
         </span>
         <span class="v2-switch">
