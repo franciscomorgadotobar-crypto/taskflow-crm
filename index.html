@@ -251,28 +251,55 @@
     </form>
   </dialog>
 
-  <!-- Cerrar tarea -->
+  <!-- Cerrar gestión · flujo de dos pasos -->
   <dialog id="completeDialog" class="modal">
-    <form id="completeForm" class="modal-card" novalidate>
+    <form id="completeForm" class="modal-card task-flow-modal" novalidate>
       <div class="modal-head">
-        <div><h2>Cerrar tarea</h2><p id="completeSubtitle"></p></div>
+        <div><h2>Gestionar pendiente</h2><p id="completeSubtitle"></p></div>
         <button type="button" class="icon-btn" data-close-dialog="completeDialog" aria-label="Cerrar">×</button>
       </div>
       <input type="hidden" id="completeLeadId" />
-      <div class="form-grid">
-        <label class="span-2">¿Cómo resultó?<textarea id="completeResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <div class="span-2 task-type-row" data-task-type-group="complete">
-          <span class="task-type-label">¿Qué sigue?</span>
-          <input type="hidden" id="completeNextType" />
+
+      <div class="task-flow-progress task-flow-progress--modal" aria-label="Flujo de gestión">
+        <span class="is-active" data-complete-indicator="1"><b>1</b> Gestión</span>
+        <i></i>
+        <span data-complete-indicator="2"><b>2</b> Siguiente acción</span>
+      </div>
+
+      <section id="completeStep1" class="task-flow-panel is-active">
+        <div class="form-grid">
+          <label class="span-2">¿Cómo resultó?
+            <textarea id="completeResult" rows="4" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
+          </label>
+          <p class="span-2 muted form-note">Primero registra el resultado de esta gestión. La siguiente acción se define después.</p>
         </div>
-        <label class="span-2">Objetivo / nota<textarea id="completeNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
-        <label>Fecha de la siguiente<input id="completeNextDate" type="date" /></label>
-        <p class="span-2 muted form-note">La gestión se registrará con la fecha y hora actuales. Si no defines un próximo paso, el prospecto quedará pendiente de agendar.</p>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
-        <button type="submit" class="primary-btn">Guardar gestión</button>
-      </div>
+        <div class="modal-actions task-flow-modal-actions">
+          <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
+          <button type="button" class="primary-btn" id="completeContinueBtn">Continuar →</button>
+        </div>
+      </section>
+
+      <section id="completeStep2" class="task-flow-panel" hidden>
+        <div class="task-flow-completed-summary task-flow-completed-summary--modal">
+          <span class="task-flow-check">✓</span>
+          <div><strong>Resultado listo</strong><span>Ahora define qué debe ocurrir después.</span></div>
+        </div>
+        <div class="form-grid">
+          <div class="span-2 task-type-row" data-task-type-group="complete">
+            <span class="task-type-label">Siguiente acción</span>
+            <input type="hidden" id="completeNextType" />
+          </div>
+          <label class="span-2">Objetivo de la siguiente acción
+            <textarea id="completeNextAction" rows="3" placeholder="Ej. Confirmar reunión con jefe de operaciones"></textarea>
+          </label>
+          <label class="span-2">Fecha de la siguiente acción<input id="completeNextDate" type="date" /></label>
+        </div>
+        <div class="modal-actions task-flow-modal-actions task-flow-modal-actions--stack">
+          <button type="submit" class="primary-btn">Guardar y agendar</button>
+          <button type="button" class="ghost-btn" id="completeNoNextBtn">Cerrar sin próxima acción</button>
+          <button type="button" class="link-btn task-flow-back" id="completeBackBtn">← Volver al resultado</button>
+        </div>
+      </section>
     </form>
   </dialog>
 
@@ -384,9 +411,9 @@
     </div>
   </dialog>
 
-  <!-- Gestionar pendientes -->
+  <!-- Gestionar pendientes · una decisión por vez -->
   <dialog id="manageDialog" class="modal">
-    <form id="manageForm" class="modal-card wide" novalidate>
+    <form id="manageForm" class="modal-card wide task-flow-modal" novalidate>
       <div class="modal-head">
         <div>
           <h2>Gestionar pendientes</h2>
@@ -394,40 +421,67 @@
         </div>
         <button type="button" class="icon-btn" data-close-dialog="manageDialog" aria-label="Cerrar">×</button>
       </div>
-      <div class="detail-body manage-lead">
-        <h3 id="manageCompany"></h3>
-        <span class="badge" id="manageStage"></span>
-        <p class="muted" id="manageContact"></p>
-        <div class="manage-current">
-          <span class="muted">Tarea a gestionar:</span>
-          <strong id="manageCurrentAction"></strong>
-          <span class="badge" id="manageCurrentDate"></span>
-        </div>
-        <div class="button-row">
-          <button type="button" class="small-btn" id="manageCallBtn" data-action="call-contact">Llamar</button>
-          <button type="button" class="small-btn" id="manageWhatsappBtn" data-action="open-whatsapp">WhatsApp</button>
-          <button type="button" class="small-btn" id="manageEmailBtn" data-action="open-email">Correo</button>
-          <button type="button" class="small-btn" id="manageOpenFichaBtn" data-action="open-detail">Ver ficha completa</button>
-        </div>
+
+      <div class="task-flow-progress task-flow-progress--modal" aria-label="Flujo de gestión">
+        <span class="is-active" data-manage-indicator="1"><b>1</b> Gestión</span>
+        <i></i>
+        <span data-manage-indicator="2"><b>2</b> Siguiente acción</span>
       </div>
-      <div class="form-grid">
-        <label>¿Qué tipo de actividad fue?<select id="manageType"></select></label>
-        <label>Fecha en que ocurrió<input id="manageDate" type="datetime-local" /></label>
-        <label class="span-2">¿Cómo resultó?<textarea id="manageResult" rows="3" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea></label>
-        <div class="span-2 task-type-row" data-task-type-group="manage">
-          <span class="task-type-label">Siguiente tarea</span>
-          <input type="hidden" id="manageNextType" />
+
+      <section id="manageStep1" class="task-flow-panel is-active">
+        <div class="detail-body manage-lead">
+          <h3 id="manageCompany"></h3>
+          <span class="badge" id="manageStage"></span>
+          <p class="muted" id="manageContact"></p>
+          <div class="manage-current">
+            <span class="task-flow-eyebrow">Gestión pendiente</span>
+            <strong id="manageCurrentAction"></strong>
+            <span class="badge" id="manageCurrentDate"></span>
+          </div>
+          <div class="button-row">
+            <button type="button" class="small-btn" id="manageCallBtn" data-action="call-contact">Llamar</button>
+            <button type="button" class="small-btn" id="manageWhatsappBtn" data-action="open-whatsapp">WhatsApp</button>
+            <button type="button" class="small-btn" id="manageEmailBtn" data-action="open-email">Correo</button>
+            <button type="button" class="small-btn" id="manageOpenFichaBtn" data-action="open-detail">Ver ficha</button>
+          </div>
         </div>
-        <label class="span-2">Nota<textarea id="manageNextAction" rows="2" placeholder="Detalle de la siguiente tarea (opcional)"></textarea></label>
-        <label>Fecha de la siguiente<input id="manageNextDate" type="date" /></label>
-        <p class="span-2 muted form-note">¿No lograste hacerla? Usa <strong>Reagendar</strong> y queda pendiente con otra fecha, sin cerrarla.</p>
-      </div>
-      <div class="modal-actions manage-actions">
-        <button type="button" class="icon-btn" id="managePrevBtn" aria-label="Anterior">←</button>
-        <button type="button" class="ghost-btn" id="manageRescheduleBtn">Reagendar</button>
-        <button type="submit" class="primary-btn">Marcar realizada</button>
-        <button type="button" class="icon-btn" id="manageNextBtn" aria-label="Siguiente">→</button>
-      </div>
+        <div class="form-grid">
+          <label hidden>Tipo de actividad<select id="manageType"></select></label>
+          <label hidden>Fecha en que ocurrió<input id="manageDate" type="datetime-local" /></label>
+          <label class="span-2">¿Cómo resultó?
+            <textarea id="manageResult" rows="4" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
+          </label>
+          <p class="span-2 muted form-note">Si no pudiste realizarla, reagéndala sin cerrarla.</p>
+        </div>
+        <div class="modal-actions manage-actions task-flow-modal-actions">
+          <button type="button" class="icon-btn" id="managePrevBtn" aria-label="Pendiente anterior">←</button>
+          <button type="button" class="ghost-btn" id="manageRescheduleBtn">Reagendar</button>
+          <button type="button" class="primary-btn" id="manageContinueBtn">Continuar →</button>
+          <button type="button" class="icon-btn" id="manageNextBtn" aria-label="Pendiente siguiente">→</button>
+        </div>
+      </section>
+
+      <section id="manageStep2" class="task-flow-panel" hidden>
+        <div class="task-flow-completed-summary task-flow-completed-summary--modal">
+          <span class="task-flow-check">✓</span>
+          <div><strong>Resultado listo</strong><span>Ahora define la siguiente acción para <span id="manageNextCompany"></span>.</span></div>
+        </div>
+        <div class="form-grid">
+          <div class="span-2 task-type-row" data-task-type-group="manage">
+            <span class="task-type-label">Siguiente acción</span>
+            <input type="hidden" id="manageNextType" />
+          </div>
+          <label class="span-2">Objetivo de la siguiente acción
+            <textarea id="manageNextAction" rows="3" placeholder="Qué debe ocurrir después"></textarea>
+          </label>
+          <label class="span-2">Fecha de la siguiente acción<input id="manageNextDate" type="date" /></label>
+        </div>
+        <div class="modal-actions manage-actions task-flow-modal-actions task-flow-modal-actions--stack">
+          <button type="submit" class="primary-btn">Guardar y agendar</button>
+          <button type="button" class="ghost-btn" id="manageNoNextBtn">Cerrar sin próxima acción</button>
+          <button type="button" class="link-btn task-flow-back" id="manageBackBtn">← Volver al resultado</button>
+        </div>
+      </section>
     </form>
   </dialog>
 
