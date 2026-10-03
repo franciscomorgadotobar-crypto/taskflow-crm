@@ -737,7 +737,7 @@ function setManageTaskStep(step) {
   $('manageStep2').hidden = first;
   $('manageStep1').classList.toggle('is-active', first);
   $('manageStep2').classList.toggle('is-active', !first);
-  $('[data-manage-indicator]').forEach((node) => {
+  $$('[data-manage-indicator]').forEach((node) => {
     const n = Number(node.dataset.manageIndicator);
     node.classList.toggle('is-active', n === step);
     node.classList.toggle('is-done', n < step);
@@ -849,7 +849,7 @@ function setCompleteTaskStep(step) {
   $('completeStep2').hidden = first;
   $('completeStep1').classList.toggle('is-active', first);
   $('completeStep2').classList.toggle('is-active', !first);
-  $('[data-complete-indicator]').forEach((node) => {
+  $$('[data-complete-indicator]').forEach((node) => {
     const n = Number(node.dataset.completeIndicator);
     node.classList.toggle('is-active', n === step);
     node.classList.toggle('is-done', n < step);
