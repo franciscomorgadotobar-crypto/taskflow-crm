@@ -2345,9 +2345,32 @@ textarea:focus {
     place-items: center;
     width: 38px;
     height: 38px;
+    padding: 0;
+    border: 0;
     border-radius: 50%;
     background: #eaf4ff;
     color: #197bd4;
+  }
+
+  .commercial-task-icon--action {
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .commercial-task-icon--action:not(:disabled):active {
+    transform: scale(.94);
+  }
+
+  .commercial-task-icon--action:not(:disabled):focus-visible {
+    outline: 3px solid rgba(29,113,184,.18);
+    outline-offset: 2px;
+  }
+
+  .commercial-task-icon--action:disabled {
+    cursor: not-allowed;
+    opacity: .42;
+    filter: grayscale(.35);
   }
 
   .commercial-task-icon svg {
