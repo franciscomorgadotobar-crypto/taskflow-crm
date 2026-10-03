@@ -267,11 +267,20 @@
       </div>
 
       <section id="completeStep1" class="task-flow-panel is-active">
+        <div class="task-flow-execution">
+          <span class="task-flow-eyebrow">Realizar gestión</span>
+          <div class="button-row task-flow-channels">
+            <button type="button" class="small-btn task-flow-channel-btn" id="completeCallBtn" data-action="call-contact">Llamar</button>
+            <button type="button" class="small-btn task-flow-channel-btn task-flow-channel-btn--whatsapp" id="completeWhatsappBtn" data-action="open-whatsapp">WhatsApp</button>
+            <button type="button" class="small-btn task-flow-channel-btn" id="completeEmailBtn" data-action="open-email">Correo</button>
+            <button type="button" class="small-btn task-flow-channel-btn task-flow-channel-btn--secondary" id="completeOpenFichaBtn" data-action="open-detail">Ver ficha</button>
+          </div>
+        </div>
         <div class="form-grid">
           <label class="span-2">¿Cómo resultó?
             <textarea id="completeResult" rows="4" required placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
           </label>
-          <p class="span-2 muted form-note">Primero registra el resultado de esta gestión. La siguiente acción se define después.</p>
+          <p class="span-2 muted form-note">Primero realiza y registra esta gestión. La siguiente acción se define después.</p>
         </div>
         <div class="modal-actions task-flow-modal-actions">
           <button type="button" class="ghost-btn" data-close-dialog="completeDialog">Cancelar</button>
