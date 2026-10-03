@@ -1,0 +1,100 @@
+.bonvallet-message {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 1600;
+  width: min(390px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(27, 50, 87, .12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .97);
+  color: #172033;
+  box-shadow: 0 18px 48px rgba(16, 30, 54, .2), 0 3px 12px rgba(16, 30, 54, .09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, 18px, 0) scale(.98);
+  transition: opacity .22s ease, transform .26s cubic-bezier(.22,.8,.24,1);
+}
+
+.bonvallet-message[hidden] { display: none; }
+.bonvallet-message.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.bonvallet-message__avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 34%;
+  border: 2px solid rgba(255,255,255,.95);
+  box-shadow: 0 0 0 1px rgba(27, 50, 87, .14), 0 4px 12px rgba(27, 50, 87, .16);
+  background: #e9eef5;
+}
+
+.bonvallet-message[data-mood="serious"] .bonvallet-message__avatar { object-position: 50% 28%; }
+.bonvallet-message[data-mood="ironic"] .bonvallet-message__avatar { object-position: 50% 30%; }
+
+.bonvallet-message__content { min-width: 0; }
+.bonvallet-message__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.bonvallet-message__meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.bonvallet-message__meta span {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #7d8799;
+}
+.bonvallet-message__text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+
+html[data-theme="dark"] .bonvallet-message {
+  background: rgba(18, 28, 45, .97);
+  color: #f4f7fb;
+  border-color: rgba(255,255,255,.1);
+  box-shadow: 0 18px 48px rgba(0,0,0,.42), 0 3px 12px rgba(0,0,0,.28);
+}
+html[data-theme="dark"] .bonvallet-message__meta span { color: #aab4c5; }
+
+@media (max-width: 640px) {
+  .bonvallet-message {
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: calc(100vw - 24px);
+    grid-template-columns: 52px minmax(0, 1fr);
+    border-radius: 16px;
+    padding: 11px 12px;
+  }
+  .bonvallet-message__avatar {
+    width: 52px;
+    height: 52px;
+  }
+  .bonvallet-message__text { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bonvallet-message { transition: opacity .12s linear; transform: none; }
+  .bonvallet-message.is-visible { transform: none; }
+}
