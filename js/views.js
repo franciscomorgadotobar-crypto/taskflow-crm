@@ -257,7 +257,7 @@ function taskRow(t, isOverdue) {
       <button class="primary-btn commercial-manage-btn" data-action="complete-task" data-id="${t.lead.id}">
         <span aria-hidden="true">✓</span><span>Gestionar</span>
       </button>
-      ${contact?.phone ? `<button class="commercial-whatsapp-btn" data-action="open-whatsapp" data-id="${t.lead.id}" data-contact="${e(contact.key)}" aria-label="Abrir WhatsApp"><span aria-hidden="true">◉</span></button>` : ''}
+      ${contact?.phone && tone !== 'whatsapp' ? `<button class="commercial-whatsapp-btn" data-action="open-whatsapp" data-id="${t.lead.id}" data-contact="${e(contact.key)}" aria-label="Abrir WhatsApp" title="Abrir WhatsApp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8 8 0 0 0-6.9 12l-1.1 4 4.1-1.1A8 8 0 1 0 12 3.5z"/><path d="M9 8.5c.5 2.9 2 4.5 5 5.5"/></svg></button>` : ''}
     </div>
     <button class="commercial-task-chevron" data-action="open-detail" data-id="${t.lead.id}" aria-label="Ver ficha">›</button>
   </div>`;
