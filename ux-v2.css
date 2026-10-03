@@ -3202,6 +3202,48 @@ html[data-theme="dark"][data-crm-view="pipeline"] .kanban-col {
   margin-top:8px;
 }
 
+.task-flow-execution {
+  margin:14px 18px 0;
+  padding:12px 14px;
+  border:1px solid #e1e8f1;
+  border-radius:12px;
+  background:#f8fbff;
+}
+
+.task-flow-execution .task-flow-channels {
+  margin-top:7px;
+}
+
+.task-flow-channel-btn {
+  min-height:38px;
+  border-color:#d7e3ef !important;
+  background:#fff !important;
+  color:#173153 !important;
+}
+
+.task-flow-channel-btn--whatsapp:not(:disabled) {
+  border-color:#bfe8cf !important;
+  background:#f2fcf6 !important;
+  color:#0b8f49 !important;
+}
+
+.task-flow-channel-btn--secondary {
+  color:#607187 !important;
+}
+
+.task-flow-channel-btn:disabled {
+  display:inline-flex !important;
+  opacity:.46;
+  cursor:not-allowed;
+  filter:grayscale(.25);
+}
+
+.task-flow-channel-btn:not(:disabled):hover {
+  border-color:#8bbfe9 !important;
+  background:#eef6ff !important;
+  color:#126bb9 !important;
+}
+
 .task-flow-current-form {
   margin-top:13px;
   padding-top:13px;
@@ -3353,6 +3395,21 @@ html[data-theme="dark"][data-crm-view="pipeline"] .kanban-col {
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:7px;
+  }
+
+  .task-flow-execution {
+    margin:12px 16px 0;
+    padding:11px 12px;
+  }
+
+  .task-flow-execution .task-flow-channels {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+  }
+
+  .task-flow-execution .task-flow-channel-btn {
+    width:100%;
   }
 
   .task-flow--ficha .task-flow-channels .small-btn {
