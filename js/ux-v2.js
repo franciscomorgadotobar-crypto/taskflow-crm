@@ -1,6 +1,7 @@
 /* TaskFlow CRM · UX/UI V2
    Enhancement layer: mantiene intacta la lógica de app.js/store.js. */
 import { state, onChange, openTasks, metrics } from './store.js';
+import { OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
 
 const $ = (id) => document.getElementById(id);
@@ -280,6 +281,24 @@ function dashboardTaskCounts() {
   };
 }
 
+function pipelineStageSnapshot(openLeads = []) {
+  const counts = OPEN_STAGES.map((stage) => ({
+    stage,
+    value: openLeads.filter((lead) => lead.stage === stage).length
+  }));
+  const max = Math.max(1, ...counts.map((row) => row.value));
+  return {
+    counts,
+    activeStages: counts.filter((row) => row.value > 0).length,
+    bars: counts
+      .map((row) => {
+        const height = row.value ? Math.max(18, Math.round((row.value / max) * 92)) : 8;
+        return `<span style="--h:${height}%" title="${esc(row.stage)}: ${row.value}"></span>`;
+      })
+      .join('')
+  };
+}
+
 function readCloseRateFromOriginalDashboard(root) {
   const cards = qa('.kpi', root);
   const card = cards.find((item) => {
@@ -315,6 +334,7 @@ function renderDashboardSummary() {
   const m = metrics();
   const counts = dashboardTaskCounts();
   const closeRate = readCloseRateFromOriginalDashboard(root);
+  const pipelineSnapshot = pipelineStageSnapshot(m.open);
 
   let summary = q('.v2-dashboard-summary', root);
   if (!summary) {
@@ -323,7 +343,15 @@ function renderDashboardSummary() {
     originalKpis.insertAdjacentElement('beforebegin', summary);
   }
 
-  const signature = JSON.stringify([m.pipelineValue, m.open.length, counts.today, counts.overdue, closeRate.value, closeRate.hint]);
+  const signature = JSON.stringify([
+    m.pipelineValue,
+    m.open.length,
+    counts.today,
+    counts.overdue,
+    closeRate.value,
+    closeRate.hint,
+    pipelineSnapshot.counts.map((row) => row.value)
+  ]);
   if (summary.dataset.signature !== signature) {
     summary.dataset.signature = signature;
     summary.innerHTML = `
@@ -334,14 +362,12 @@ function renderDashboardSummary() {
         </div>
         <strong>${esc(money(m.pipelineValue))}</strong>
         <small><b>${m.open.length}</b> ${m.open.length === 1 ? 'oportunidad abierta' : 'oportunidades abiertas'}</small>
-        <div class="v2-pipeline-trend" aria-label="Comparación mensual">
-          <strong>—&nbsp; 0%</strong>
-          <span>vs. mes anterior</span>
+        <div class="v2-pipeline-trend" aria-label="Estado actual del pipeline">
+          <strong>${pipelineSnapshot.activeStages}</strong>
+          <span>${pipelineSnapshot.activeStages === 1 ? 'etapa activa' : 'etapas activas'}</span>
         </div>
-        <div class="v2-pipeline-chart" aria-hidden="true">
-          <span style="--h:18%"></span><span style="--h:25%"></span><span style="--h:34%"></span>
-          <span style="--h:47%"></span><span style="--h:62%"></span><span style="--h:74%"></span><span style="--h:92%"></span>
-          <i></i>
+        <div class="v2-pipeline-chart" aria-label="Distribución actual de oportunidades por etapa">
+          ${pipelineSnapshot.bars}
         </div>
       </article>
       <article class="v2-summary-kpi v2-kpi-opportunities">
@@ -490,7 +516,7 @@ function updateDiscoveryProgress() {
 
 /* ---------- Ficha por tabs ---------- */
 const DETAIL_TABS = [
-  { id: 'summary', label: 'Resumen', sections: ['Próxima tarea', 'Datos comerciales'] },
+  { id: 'summary', label: 'Resumen', sections: ['Gestión pendiente', 'Datos comerciales'] },
   { id: 'contacts', label: 'Contactos', sections: ['Contactos'] },
   { id: 'discovery', label: 'Levantamiento', sections: ['Levantamiento'] },
   { id: 'quotes', label: 'Cotizaciones', sections: ['Cotizaciones'] },
