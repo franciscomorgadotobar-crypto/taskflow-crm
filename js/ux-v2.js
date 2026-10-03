@@ -69,7 +69,10 @@ function setMascotPreference(enabled) {
   }));
 
   const status = $('v2MascotStatus');
-  if (status) status.textContent = next ? 'Activada' : 'Desactivada';
+  if (status) {
+    status.textContent = next ? 'Activada' : 'Desactivada';
+    status.classList.toggle('success', next);
+  }
 }
 
 /* ---------- Navegación ---------- */
@@ -127,6 +130,7 @@ function buildHeaderTools() {
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="implementation"><span>Implementación</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="templates"><span>Plantillas</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="quotes"><span>Cotizaciones</span><span>›</span></button>
+          <button id="v2AuditMenu" class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="audit" hidden><span>Auditoría</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="data"><span>Datos y respaldo</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="theme"><span>Cambiar apariencia</span><span>◐</span></button>
           <button class="v2-menu-item danger" type="button" data-v2-action="signout"><span>Cerrar sesión</span><span>↗</span></button>
@@ -162,6 +166,8 @@ function updateHeaderIdentity() {
   if ($('v2UserRole')) $('v2UserRole').textContent = role;
   if ($('v2MenuName')) $('v2MenuName').textContent = name;
   if ($('v2MenuEmail')) $('v2MenuEmail').textContent = currentEmail();
+  const auditMenu = $('v2AuditMenu');
+  if (auditMenu) auditMenu.hidden = Boolean($('auditNav')?.hidden ?? true);
   updateMobileHeader();
 }
 
@@ -674,7 +680,10 @@ function init() {
     const enabled = event.newValue !== '0';
     if (toggle) toggle.checked = enabled;
     const status = $('v2MascotStatus');
-    if (status) status.textContent = enabled ? 'Activada' : 'Desactivada';
+    if (status) {
+      status.textContent = enabled ? 'Activada' : 'Desactivada';
+      status.classList.toggle('success', enabled);
+    }
   });
 }
 
