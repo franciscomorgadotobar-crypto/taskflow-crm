@@ -731,6 +731,19 @@ function openManage() {
 
 const currentTask = () => openTasks().find((t) => t.key === manageQueue[manageIndex]) || null;
 
+function setManageTaskStep(step) {
+  const first = step === 1;
+  $('manageStep1').hidden = !first;
+  $('manageStep2').hidden = first;
+  $('manageStep1').classList.toggle('is-active', first);
+  $('manageStep2').classList.toggle('is-active', !first);
+  $('[data-manage-indicator]').forEach((node) => {
+    const n = Number(node.dataset.manageIndicator);
+    node.classList.toggle('is-active', n === step);
+    node.classList.toggle('is-done', n < step);
+  });
+}
+
 function renderManage() {
   const task = currentTask();
   if (!task) {
@@ -742,13 +755,13 @@ function renderManage() {
   const lead = task.lead;
   const contact = contactsOf(lead)[0] || null;
 
-  $('manageCounter').textContent = `${manageIndex + 1} / ${manageQueue.length} tareas`;
+  $('manageCounter').textContent = `${manageIndex + 1} / ${manageQueue.length} gestiones`;
   $('manageCompany').textContent = lead.company;
   $('manageStage').textContent = lead.stage;
   $('manageContact').textContent = contact
     ? [contact.name, contact.phone, contact.email].filter(Boolean).join(' · ')
     : 'Sin contacto registrado';
-  $('manageCurrentAction').textContent = task.title || 'Sin próxima acción';
+  $('manageCurrentAction').textContent = task.title || 'Sin detalle';
   $('manageCurrentDate').textContent = task.date ? fmtDate(task.date) : 'Sin fecha';
   $('manageCurrentDate').classList.toggle('danger', !task.date || task.date < todayISO());
   $('manageType').value = task.type || ACTIVITY_TYPES[0];
@@ -756,7 +769,9 @@ function renderManage() {
   $('manageResult').value = '';
   $('manageNextAction').value = '';
   $('manageNextDate').value = '';
+  $('manageNextCompany').textContent = lead.company;
   setTaskType('manage', '');
+  setManageTaskStep(1);
 
   $('managePrevBtn').disabled = manageIndex === 0;
   $('manageNextBtn').disabled = manageIndex === manageQueue.length - 1;
@@ -775,63 +790,102 @@ function manageStep(delta) {
   renderManage();
 }
 
-function submitManage(e) {
-  e.preventDefault();
+function continueManage() {
+  const result = $('manageResult').value.trim();
+  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+  setManageTaskStep(2);
+  setTimeout(() => $('manageNextAction')?.focus(), 60);
+}
+
+function finishManage({ withoutNext = false } = {}) {
   const task = currentTask();
   if (!task) return;
   const result = $('manageResult').value.trim();
-  if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
+  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+
+  const nextType = withoutNext ? '' : taskTypeValue('manage');
+  const nextAction = withoutNext ? '' : $('manageNextAction').value.trim();
+  const nextDate = withoutNext ? '' : $('manageNextDate').value;
+
+  if (!withoutNext && !nextType && !nextAction) return toast('Define la siguiente acción o usa “Cerrar sin próxima acción”.', 'error');
+  if (!withoutNext && !nextDate) return toast('Elige la fecha de la siguiente acción.', 'error');
 
   completeTask(task.lead.id, {
-    type: $('manageType').value,
+    type: $('manageType').value || task.type || 'Actividad',
     date: $('manageDate').value || localDateTimeInput(),
     result,
-    nextType: taskTypeValue('manage'),
-    nextAction: $('manageNextAction').value.trim(),
-    nextDate: $('manageNextDate').value
+    nextType,
+    nextAction,
+    nextDate
   });
 
   manageQueue.splice(manageIndex, 1);
   if (!manageQueue.length) {
     $('manageDialog').close();
-    return toast('Terminaste la lista de tareas.');
+    return toast(withoutNext ? 'Gestión cerrada. Terminaste la lista.' : 'Gestión cerrada y siguiente acción agendada. Terminaste la lista.');
   }
   manageIndex = Math.min(manageIndex, manageQueue.length - 1);
   renderManage();
-  toast('Tarea cerrada.');
+  toast(withoutNext ? 'Gestión cerrada sin próxima acción.' : 'Gestión cerrada y siguiente acción agendada.');
+}
+
+function submitManage(e) {
+  e.preventDefault();
+  finishManage();
 }
 
 /* ---------- Cerrar tarea: resultado + siguiente tarea ---------- */
 
+function setCompleteTaskStep(step) {
+  const first = step === 1;
+  $('completeStep1').hidden = !first;
+  $('completeStep2').hidden = first;
+  $('completeStep1').classList.toggle('is-active', first);
+  $('completeStep2').classList.toggle('is-active', !first);
+  $('[data-complete-indicator]').forEach((node) => {
+    const n = Number(node.dataset.completeIndicator);
+    node.classList.toggle('is-active', n === step);
+    node.classList.toggle('is-done', n < step);
+  });
+}
+
 function openComplete(leadId) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const lead = getLead(leadId);
-  if (lead && !canEditLeadLocally(lead)) return toast('Solo puedes cerrar tareas de oportunidades asignadas a ti.', 'error');
+  if (lead && !canEditLeadLocally(lead)) return toast('Solo puedes cerrar gestiones de oportunidades asignadas a ti.', 'error');
   const task = taskOf(lead);
-  if (!task) return toast('Este prospecto no tiene una tarea abierta.', 'error');
+  if (!task) return toast('Este prospecto no tiene una gestión pendiente.', 'error');
   $('completeLeadId').value = leadId;
   $('completeSubtitle').textContent = `${task.title} · ${lead.company}`;
   $('completeResult').value = '';
   $('completeNextAction').value = '';
   $('completeNextDate').value = '';
   setTaskType('complete', '');
+  setCompleteTaskStep(1);
   $('completeDialog').showModal();
   setTimeout(() => $('completeResult').focus(), 50);
 }
 
-async function submitComplete(e) {
-  e.preventDefault();
+function continueComplete() {
+  const result = $('completeResult').value.trim();
+  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+  setCompleteTaskStep(2);
+  setTimeout(() => $('completeNextAction')?.focus(), 60);
+}
+
+async function finishComplete({ withoutNext = false } = {}) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const leadId = $('completeLeadId').value;
-  if (!canEditLeadLocally(leadId)) return toast('Solo puedes cerrar tareas de oportunidades asignadas a ti.', 'error');
+  if (!canEditLeadLocally(leadId)) return toast('Solo puedes cerrar gestiones de oportunidades asignadas a ti.', 'error');
   const result = $('completeResult').value.trim();
-  if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
+  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
 
-  const nextType = taskTypeValue('complete');
-  const nextAction = $('completeNextAction').value.trim();
-  const nextDate = $('completeNextDate').value;
-  if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
-  if (nextDate && !nextType && !nextAction) return toast('Elige el tipo de la siguiente tarea o escribe una nota.', 'error');
+  const nextType = withoutNext ? '' : taskTypeValue('complete');
+  const nextAction = withoutNext ? '' : $('completeNextAction').value.trim();
+  const nextDate = withoutNext ? '' : $('completeNextDate').value;
+  if (!withoutNext && !nextType && !nextAction) return toast('Define la siguiente acción o usa “Cerrar sin próxima acción”.', 'error');
+  if (!withoutNext && !nextDate) return toast('Elige la fecha de la siguiente acción.', 'error');
+
   const task = taskOf(getLead(leadId));
   const closed = await completeTaskAtomic(leadId, {
     type: task?.type || 'Actividad',
@@ -844,7 +898,12 @@ async function submitComplete(e) {
   if (!closed) return;
 
   $('completeDialog').close();
-  toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
+  toast(withoutNext ? 'Gestión cerrada sin próxima acción.' : 'Gestión cerrada y siguiente acción agendada.');
+}
+
+async function submitComplete(e) {
+  e.preventDefault();
+  await finishComplete();
 }
 
 /* ---------- Agendar / reagendar la tarea ---------- */
@@ -1837,6 +1896,54 @@ async function forgotPassword() {
 
 /* ---------- Acciones delegadas ---------- */
 
+function setFichaTaskStep(step) {
+  const flow = document.querySelector('[data-task-flow="ficha"]');
+  if (!flow) return;
+  flow.querySelectorAll('[data-flow-step]').forEach((panel) => {
+    const active = Number(panel.dataset.flowStep) === step;
+    panel.hidden = !active;
+    panel.classList.toggle('is-active', active);
+  });
+  flow.querySelectorAll('[data-flow-indicator]').forEach((node) => {
+    const n = Number(node.dataset.flowIndicator);
+    node.classList.toggle('is-active', n === step);
+    node.classList.toggle('is-done', n < step);
+  });
+}
+
+function continueFichaTask() {
+  const result = $('fichaResult')?.value.trim() || '';
+  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+  setFichaTaskStep(2);
+  setTimeout(() => $('fichaNextAction')?.focus(), 60);
+}
+
+async function finishFichaTask(id, { withoutNext = false } = {}) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  if (!canEditLeadLocally(id)) return toast('Solo puedes cerrar gestiones de oportunidades asignadas a ti.', 'error');
+  const result = $('fichaResult')?.value.trim() || '';
+  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+
+  const nextType = withoutNext ? '' : taskTypeValue('ficha');
+  const nextAction = withoutNext ? '' : ($('fichaNextAction')?.value.trim() || '');
+  const nextDate = withoutNext ? '' : ($('fichaNextDate')?.value || '');
+
+  if (!withoutNext && !nextType && !nextAction) return toast('Define la siguiente acción o usa “Cerrar sin próxima acción”.', 'error');
+  if (!withoutNext && !nextDate) return toast('Elige la fecha de la siguiente acción.', 'error');
+
+  const task = taskOf(getLead(id));
+  const closed = await completeTaskAtomic(id, {
+    type: task?.type || 'Actividad',
+    date: localDateTimeInput(),
+    result,
+    nextType,
+    nextAction,
+    nextDate
+  });
+  if (!closed) return;
+  toast(withoutNext ? 'Gestión cerrada sin próxima acción.' : 'Gestión cerrada y siguiente acción agendada.');
+}
+
 const ACTIONS = {
   'new-lead': () => openLead(),
   'edit-lead': (id) => openLead(id),
@@ -1864,27 +1971,10 @@ const ACTIONS = {
     render();
   },
   'complete-task': (id) => openComplete(id),
-  'complete-task-inline': async (id) => {
-    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
-    if (!canEditLeadLocally(id)) return toast('Solo puedes cerrar tareas de oportunidades asignadas a ti.', 'error');
-    const result = $('fichaResult').value.trim();
-    if (!result) return toast('Cuenta cómo resultó la tarea.', 'error');
-    const nextType = taskTypeValue('ficha');
-    const nextAction = $('fichaNextAction').value.trim();
-    const nextDate = $('fichaNextDate').value;
-    if ((nextType || nextAction) && !nextDate) return toast('Elige la fecha de la siguiente tarea.', 'error');
-    const task = taskOf(getLead(id));
-    const closed = await completeTaskAtomic(id, {
-      type: task?.type || 'Actividad',
-      date: localDateTimeInput(),
-      result,
-      nextType,
-      nextAction,
-      nextDate
-    });
-    if (!closed) return;
-    toast(nextType || nextAction ? 'Tarea cerrada y siguiente agendada.' : 'Tarea cerrada. El prospecto quedó sin próximo paso.');
-  },
+  'ficha-task-continue': () => continueFichaTask(),
+  'ficha-task-back': () => setFichaTaskStep(1),
+  'ficha-task-close-no-next': (id) => finishFichaTask(id, { withoutNext: true }),
+  'complete-task-inline': (id) => finishFichaTask(id),
   'reschedule-task': (id) => openTask(id),
   'set-task-type': (id, btn) => {
     const prefix = btn.dataset.taskType;
@@ -2989,8 +3079,14 @@ function bindEvents() {
   $('commTemplate').addEventListener('change', fillCommFields);
   $('commCopyBtn').addEventListener('click', copyComm);
   bindSubmitOnce('completeForm', submitComplete);
+  $('completeContinueBtn').addEventListener('click', continueComplete);
+  $('completeBackBtn').addEventListener('click', () => setCompleteTaskStep(1));
+  $('completeNoNextBtn').addEventListener('click', () => finishComplete({ withoutNext: true }));
   bindSubmitOnce('taskForm', submitTask);
   $('manageForm').addEventListener('submit', submitManage);
+  $('manageContinueBtn').addEventListener('click', continueManage);
+  $('manageBackBtn').addEventListener('click', () => setManageTaskStep(1));
+  $('manageNoNextBtn').addEventListener('click', () => finishManage({ withoutNext: true }));
   $('managePrevBtn').addEventListener('click', () => manageStep(-1));
   $('manageNextBtn').addEventListener('click', () => manageStep(1));
   $('manageRescheduleBtn').addEventListener('click', () => {
