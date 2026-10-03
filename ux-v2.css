@@ -2961,7 +2961,7 @@ html[data-crm-view="pipeline"] .deal-card .money {
   html[data-crm-view="pipeline"] .data-table td:nth-child(2)::before { content:"Contacto"; }
   html[data-crm-view="pipeline"] .data-table td:nth-child(3)::before { content:"Etapa"; }
   html[data-crm-view="pipeline"] .data-table td:nth-child(4)::before { content:"Valor"; }
-  html[data-crm-view="pipeline"] .data-table td:nth-child(5)::before { content:"Próxima tarea"; }
+  html[data-crm-view="pipeline"] .data-table td:nth-child(5)::before { content:"Gestión pendiente"; }
   html[data-crm-view="pipeline"] .data-table td:nth-child(6)::before { content:"Responsable"; }
 
   html[data-crm-view="leads"] .data-table td:last-child,
@@ -4068,6 +4068,27 @@ html[data-crm-view="implementation"] #viewRoot > .card > .card-head .muted {
   html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(4)::before { content:"Entidad"; }
   html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(5)::before { content:"Registro"; }
   html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(6)::before { content:"Cambios"; }
+
+  html[data-crm-view="settings"] #viewRoot .data-table td:nth-child(1)::before { content:"Nombre"; }
+  html[data-crm-view="settings"] #viewRoot .data-table td:nth-child(2)::before { content:"Correo"; }
+  html[data-crm-view="settings"] #viewRoot .data-table td:nth-child(3)::before { content:"Teléfono"; }
+  html[data-crm-view="settings"] #viewRoot .data-table td:nth-child(4)::before { content:"Permiso"; }
+  html[data-crm-view="settings"] #viewRoot .data-table td:nth-child(5)::before { content:"Estado"; }
+
+  html[data-crm-view="quotes"] #viewRoot .data-table:not(.price-items-table) td:nth-child(1)::before { content:"Lista"; }
+  html[data-crm-view="quotes"] #viewRoot .data-table:not(.price-items-table) td:nth-child(2)::before { content:"Moneda"; }
+  html[data-crm-view="quotes"] #viewRoot .data-table:not(.price-items-table) td:nth-child(3)::before { content:"Servicios"; }
+  html[data-crm-view="quotes"] #viewRoot .data-table:not(.price-items-table) td:nth-child(4)::before { content:"Estado"; }
+  html[data-crm-view="quotes"] #viewRoot .data-table:not(.price-items-table) td:nth-child(5)::before { content:"Cargada"; }
+  html[data-crm-view="quotes"] #viewRoot .data-table:not(.price-items-table) td:nth-child(6)::before { content:"Acciones"; }
+
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(1)::before { content:"Código"; }
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(2)::before { content:"Servicio"; }
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(3)::before { content:"Precio"; }
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(4)::before { content:"Periodicidad"; }
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(5)::before { content:"Categoría"; }
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(6)::before { content:"Activo"; }
+  html[data-crm-view="quotes"] #viewRoot .price-items-table td:nth-child(7)::before { content:"Acciones"; }
 
   html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(5),
   html[data-crm-view="audit"] #viewRoot .data-table td:nth-child(6) {
