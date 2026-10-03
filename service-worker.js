@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'taskflow-crm-static-v1';
-const RUNTIME_CACHE = 'taskflow-crm-runtime-v1';
+const STATIC_CACHE = 'taskflow-crm-static-v2';
+const RUNTIME_CACHE = 'taskflow-crm-runtime-v2';
 const ALL_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
 
 const CORE = [
@@ -43,6 +43,19 @@ async function networkFirstNavigation(request) {
     return response;
   } catch {
     return (await caches.match('./index.html')) || (await caches.match('./'));
+  }
+}
+
+async function networkFirstAsset(request) {
+  const cache = await caches.open(RUNTIME_CACHE);
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response && (response.ok || response.type === 'opaque')) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return (await cache.match(request)) || Response.error();
   }
 }
 
@@ -95,7 +108,16 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin === self.location.origin) {
-    event.respondWith(cacheFirst(request));
+    const isAppCode =
+      url.pathname.endsWith('.js') ||
+      url.pathname.endsWith('.css') ||
+      url.pathname.endsWith('.html') ||
+      url.pathname.endsWith('.json') ||
+      url.pathname.endsWith('.webmanifest');
+
+    // Código y estilos siempre intentan red primero para no dejar una versión vieja
+    // de la PWA después de un despliegue. Imágenes y demás recursos sí usan cache-first.
+    event.respondWith(isAppCode ? networkFirstAsset(request) : cacheFirst(request));
     return;
   }
 
