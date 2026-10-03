@@ -341,3 +341,375 @@
   background:var(--v2-panel,var(--panel)); color:var(--v2-text,var(--text)); font:inherit; font-size:13px;
 }
 .hf-notes > button { margin:0 13px 13px; }
+
+/* ---------- Dashboard parity 2026-10-03 ---------- */
+/* Híper Foco adopta la misma superficie, densidad y jerarquía visual del Resumen. */
+.hf-view-head {
+  padding:16px 17px;
+  border:1px solid #e1e8f1;
+  border-radius:15px;
+  background:var(--v2-panel,var(--panel));
+  box-shadow:0 4px 18px rgba(27,50,87,.055);
+}
+
+.hf-view-head h2 {
+  color:var(--v2-text,var(--text));
+  font-size:18px;
+  line-height:1.15;
+  letter-spacing:-.025em;
+}
+
+.hf-view-head p {
+  max-width:680px;
+  color:var(--v2-muted,var(--muted));
+  font-size:11px;
+  line-height:1.45;
+}
+
+.hf-view-head .button-row {
+  gap:7px;
+}
+
+.hf-view-head .primary-btn,
+.hf-view-head .ghost-btn {
+  min-height:38px;
+  border-radius:10px;
+  box-shadow:none;
+}
+
+.hf-campaign-grid {
+  gap:12px;
+}
+
+.hf-campaign-card {
+  padding:16px;
+  border:1px solid #e1e8f1;
+  border-radius:15px;
+  background:var(--v2-panel,var(--panel));
+  box-shadow:0 4px 18px rgba(27,50,87,.055);
+}
+
+.hf-campaign-top .badge {
+  padding:4px 7px;
+  border:0;
+  border-radius:999px;
+  background:#eaf3ff;
+  color:#126bb9;
+  font-size:8px;
+  font-weight:700;
+}
+
+.hf-campaign-top h3 {
+  margin:8px 0 2px;
+  color:#132849;
+  font-size:16px;
+  line-height:1.2;
+  letter-spacing:-.02em;
+}
+
+.hf-campaign-top p {
+  color:#6b7a90;
+  font-size:9.5px;
+  line-height:1.35;
+}
+
+.hf-campaign-pct {
+  color:#0f2b52;
+  font-size:22px;
+}
+
+.hf-progress {
+  height:6px;
+  background:#e7edf4;
+}
+
+.hf-progress > span {
+  background:linear-gradient(90deg,#4ea4f6,#0879dc);
+}
+
+.hf-card-stats {
+  border-color:#e2e8f0;
+  border-radius:11px;
+  background:#f8fbff;
+}
+
+.hf-card-stats > div,
+.hf-card-stats > .hf-stat-link {
+  padding:10px 7px;
+  border-right-color:#e2e8f0;
+  background:#f8fbff;
+}
+
+.hf-card-stats strong {
+  color:#132849;
+  font-size:15px;
+}
+
+.hf-card-stats span {
+  color:#6b7a90;
+  font-size:8.5px;
+}
+
+.hf-stat-link:hover {
+  background:#eef6ff;
+}
+
+.hf-campaign-foot {
+  margin-top:13px;
+}
+
+.hf-campaign-foot > div:first-child strong {
+  color:#213653;
+  font-size:10.5px;
+}
+
+.hf-campaign-foot > div:first-child span {
+  color:#718096;
+  font-size:9px;
+}
+
+.hf-campaign-foot .primary-btn,
+.hf-campaign-foot .small-btn {
+  min-height:35px;
+  border-radius:9px;
+  box-shadow:none;
+  font-size:9px;
+}
+
+.hf-principle {
+  border:1px solid #e1e8f1;
+  border-radius:12px;
+  background:var(--v2-panel,var(--panel));
+  box-shadow:0 3px 12px rgba(27,50,87,.035);
+}
+
+/* La sesión mantiene foco, pero usa la misma estética de tarjetas. */
+.hf-session-head {
+  border-bottom:1px solid #e1e8f1;
+  background:var(--v2-panel,var(--panel));
+  box-shadow:0 4px 16px rgba(27,50,87,.04);
+}
+
+.hf-bolt {
+  border-radius:10px;
+  background:#fff7d9;
+  color:#d69b00;
+}
+
+.hf-company-panel,
+.hf-action-panel {
+  border:1px solid #e1e8f1;
+  border-radius:15px;
+  background:var(--v2-panel,var(--panel));
+  box-shadow:0 4px 18px rgba(27,50,87,.055);
+}
+
+.hf-company-meta span,
+.hf-attempts,
+.hf-context,
+.hf-suggestion,
+.hf-disposition-grid section,
+.hf-notes {
+  border-color:#e2e8f0;
+  border-radius:11px;
+  background:#f8fbff;
+}
+
+@media (max-width:900px) {
+  .hf-view-head {
+    align-items:flex-start;
+    margin-bottom:12px;
+    padding:14px;
+    border-radius:15px;
+  }
+
+  .hf-view-head h2 {
+    font-size:17px;
+  }
+
+  .hf-view-head p {
+    margin-top:4px;
+    font-size:10px;
+  }
+
+  .hf-view-head .button-row {
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+
+  .hf-view-head .button-row button {
+    width:100%;
+    min-height:38px;
+    padding:8px 9px;
+    font-size:9px;
+  }
+
+  .hf-campaign-grid {
+    grid-template-columns:1fr;
+    gap:9px;
+  }
+
+  .hf-campaign-card {
+    padding:13px;
+    border-radius:13px;
+  }
+
+  .hf-campaign-top {
+    gap:10px;
+  }
+
+  .hf-campaign-top h3 {
+    font-size:14px;
+  }
+
+  .hf-campaign-pct {
+    font-size:20px;
+  }
+
+  .hf-campaign-card > .hf-progress {
+    margin:12px 0;
+  }
+
+  .hf-card-stats {
+    grid-template-columns:repeat(5,minmax(0,1fr));
+  }
+
+  .hf-card-stats > div,
+  .hf-card-stats > .hf-stat-link {
+    min-width:0;
+    padding:9px 4px;
+  }
+
+  .hf-card-stats strong {
+    font-size:13px;
+  }
+
+  .hf-card-stats span {
+    overflow:hidden;
+    font-size:7.5px;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .hf-campaign-foot {
+    gap:9px;
+  }
+
+  .hf-campaign-foot .button-row {
+    width:auto;
+    flex:0 0 auto;
+  }
+
+  .hf-campaign-foot .button-row button {
+    flex:0 0 auto;
+  }
+
+  .hf-principle {
+    margin-top:10px;
+    padding:10px 11px;
+    font-size:9px;
+    line-height:1.35;
+  }
+
+  .hf-session-head {
+    padding:10px 12px;
+  }
+
+  .hf-session-body {
+    padding:12px;
+  }
+
+  .hf-focus-layout {
+    gap:10px;
+  }
+
+  .hf-company-panel,
+  .hf-action-panel {
+    padding:14px;
+    border-radius:15px;
+  }
+
+  .hf-company-head h2 {
+    font-size:20px;
+  }
+
+  .hf-company-meta span {
+    padding:4px 7px;
+    font-size:8.5px;
+  }
+
+  .hf-action-panel .primary-btn,
+  .hf-action-panel .ghost-btn,
+  .hf-action-panel .small-btn,
+  .hf-company-panel .primary-btn,
+  .hf-company-panel .ghost-btn,
+  .hf-company-panel .small-btn {
+    min-height:38px;
+    border-radius:9px;
+    box-shadow:none;
+  }
+
+  .hf-disposition-grid {
+    gap:8px;
+  }
+
+  .hf-disposition-grid section {
+    padding:10px;
+  }
+
+  .hf-session-loading,
+  .hf-session-done {
+    border-radius:15px;
+    box-shadow:0 4px 18px rgba(27,50,87,.055);
+  }
+}
+
+@media (max-width:430px) {
+  .hf-card-stats {
+    grid-template-columns:repeat(3,1fr);
+  }
+
+  .hf-card-stats > :nth-child(4),
+  .hf-card-stats > :nth-child(5) {
+    border-top:1px solid #e2e8f0;
+  }
+
+  .hf-campaign-foot {
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .hf-campaign-foot .button-row {
+    width:100%;
+  }
+
+  .hf-campaign-foot .button-row button {
+    flex:1 1 auto;
+  }
+}
+
+:root[data-theme="dark"] .hf-view-head,
+:root[data-theme="dark"] .hf-campaign-card,
+:root[data-theme="dark"] .hf-principle,
+:root[data-theme="dark"] .hf-company-panel,
+:root[data-theme="dark"] .hf-action-panel {
+  border-color:var(--v2-line,var(--border));
+  background:var(--v2-panel,var(--panel));
+}
+
+:root[data-theme="dark"] .hf-card-stats,
+:root[data-theme="dark"] .hf-card-stats > div,
+:root[data-theme="dark"] .hf-card-stats > .hf-stat-link,
+:root[data-theme="dark"] .hf-company-meta span,
+:root[data-theme="dark"] .hf-attempts,
+:root[data-theme="dark"] .hf-context,
+:root[data-theme="dark"] .hf-suggestion,
+:root[data-theme="dark"] .hf-disposition-grid section,
+:root[data-theme="dark"] .hf-notes {
+  border-color:var(--v2-line,var(--border));
+  background:var(--v2-panel-soft,var(--bg));
+}
+
+/* ---------- End dashboard parity 2026-10-03 ---------- */
+
