@@ -229,6 +229,108 @@ function parseTerms(value) {
   return [...new Set(String(value || '').split(/[\n,;]+/).map((x) => x.trim()).filter((x) => x.length >= 2))];
 }
 
+const CAMPAIGN_TERM_RECOMMENDATIONS = [
+  {
+    triggers: ['telemetria','monitoreo remoto','scada','sensor','iot','internet de las cosas'],
+    terms: ['telemetría','monitoreo remoto','SCADA','sensores','adquisición de datos','IoT','monitoreo en línea','gateway']
+  },
+  {
+    triggers: ['rfid','radiofrecuencia','trazabilidad','tag','etiqueta electronica'],
+    terms: ['RFID','radiofrecuencia','trazabilidad','tags RFID','etiquetas electrónicas','control de activos','inventario','lectores RFID']
+  },
+  {
+    triggers: ['software','saas','plataforma','sistema','digitalizacion','aplicacion'],
+    terms: ['software','plataforma','SaaS','licencias de software','sistema de gestión','digitalización','integración de sistemas','solución tecnológica']
+  },
+  {
+    triggers: ['telecom','telecomunicacion','fibra optica','conectividad','radioenlace','lte','5g'],
+    terms: ['telecomunicaciones','fibra óptica','conectividad','radioenlace','LTE','5G','redes de datos','enlaces de comunicación']
+  },
+  {
+    triggers: ['seguridad','control de acceso','cctv','videovigilancia','camara'],
+    terms: ['seguridad electrónica','control de acceso','CCTV','videovigilancia','cámaras de seguridad','monitoreo','alarma','credenciales']
+  },
+  {
+    triggers: ['mantenimiento','mantencion','servicio tecnico','preventivo','correctivo'],
+    terms: ['mantenimiento preventivo','mantenimiento correctivo','servicio técnico','gestión de mantenimiento','soporte técnico','reparación','inspección técnica']
+  },
+  {
+    triggers: ['ascensor','elevador','transporte vertical'],
+    terms: ['ascensores','elevadores','transporte vertical','modernización de ascensores','repuestos de ascensores','mantención de ascensores','monitoreo de ascensores']
+  },
+  {
+    triggers: ['hvac','climatizacion','aire acondicionado','ventilacion','calefaccion'],
+    terms: ['HVAC','climatización','aire acondicionado','ventilación','calefacción','chiller','equipos de climatización','control de temperatura']
+  },
+  {
+    triggers: ['energia','electrogeno','generador','ups','respaldo electrico'],
+    terms: ['grupos electrógenos','generadores','UPS','respaldo eléctrico','energía','tableros eléctricos','monitoreo energético','mantenimiento eléctrico']
+  },
+  {
+    triggers: ['salud','hospital','clinica','cesfam','medico'],
+    terms: ['hospital','servicio de salud','CESFAM','clínica','equipamiento médico','software de salud','gestión clínica','monitoreo de pacientes']
+  },
+  {
+    triggers: ['educacion','universidad','colegio','liceo','escuela'],
+    terms: ['educación','universidad','colegio','liceo','plataforma educativa','equipamiento tecnológico','software educativo','conectividad escolar']
+  },
+  {
+    triggers: ['mineria','faena','tunel','industrial','planta'],
+    terms: ['minería','faena minera','túneles','operación industrial','monitoreo industrial','sensores industriales','comunicaciones mineras','automatización industrial']
+  },
+  {
+    triggers: ['logistica','transporte','flota','bodega','almacen'],
+    terms: ['logística','gestión de flota','transporte','bodega','inventario','trazabilidad','seguimiento de activos','control de despacho']
+  },
+  {
+    triggers: ['construccion','obra','infraestructura','edificio'],
+    terms: ['construcción','obras civiles','infraestructura','edificación','inspección de obras','mantenimiento de infraestructura','equipamiento de edificios']
+  }
+];
+
+function campaignTermSuggestions(name = '', termsText = '') {
+  const typedTerms = parseTerms(termsText);
+  const existing = new Set(typedTerms.map((x) => normalized(x)));
+  const hay = normalized([name, termsText].filter(Boolean).join(' '));
+  if (hay.trim().length < 2) return [];
+
+  const scored = [];
+  CAMPAIGN_TERM_RECOMMENDATIONS.forEach((group) => {
+    const score = group.triggers.reduce((acc, trigger) => {
+      const t = normalized(trigger);
+      return acc + (hay.includes(t) ? Math.max(2, t.split(' ').length + 1) : 0);
+    }, 0);
+    if (!score) return;
+    group.terms.forEach((term, index) => {
+      if (!existing.has(normalized(term))) scored.push({ term, score: score * 100 - index });
+    });
+  });
+
+  return [...new Map(scored.sort((a,b) => b.score-a.score).map((x) => [normalized(x.term), x.term])).values()].slice(0, 10);
+}
+
+function renderCampaignTermSuggestions() {
+  const box = document.getElementById('ccCampaignSuggestions');
+  if (!box) return;
+  const name = document.getElementById('ccCampaignName')?.value || '';
+  const terms = document.getElementById('ccCampaignTerms')?.value || '';
+  const suggestions = campaignTermSuggestions(name, terms);
+
+  box.innerHTML = suggestions.length
+    ? `<div class="cc-suggestion-head"><strong>Recomendaciones</strong><span>Toca una para agregarla</span></div>
+       <div class="cc-suggestion-chips">${suggestions.map((term) => `<button type="button" data-cc-term-suggestion="${e(term)}">+${e(term)}</button>`).join('')}</div>`
+    : `<div class="cc-suggestion-hint">Escribe el nombre o una palabra clave y te sugeriremos búsquedas relacionadas.</div>`;
+}
+
+function addCampaignSuggestion(term) {
+  const input = document.getElementById('ccCampaignTerms');
+  if (!input) return;
+  const current = parseTerms(input.value);
+  if (!current.some((x) => normalized(x) === normalized(term))) current.push(term);
+  input.value = current.join(', ');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 async function createCampaign({ name, terms }) {
   if (isReadOnly()) throw new Error('Tu perfil es de solo lectura.');
   const organizationId = session.profile?.organization_id;
@@ -441,7 +543,7 @@ function dashboardNav(stats) {
 }
 
 function sharedDialogs() {
-  return `<dialog id="ccCampaignDialog" class="modal cc-campaign-dialog"><form id="ccCampaignForm" class="modal-card"><div class="modal-head"><div><h2>Crear seguimiento</h2><p>Define exactamente qué quieres que ChileCompra vigile.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccCampaignDialog">×</button></div><div class="form-grid"><label class="span-2">Nombre de la campaña<input id="ccCampaignName" required placeholder="Ej. Telemetría industrial"></label><label class="span-2">Palabras o frases a seguir<textarea id="ccCampaignTerms" rows="5" required placeholder="telemetría, monitoreo remoto, SCADA, sensores"></textarea></label></div><p class="muted">Sepáralas por coma o por línea. No existen campañas predefinidas.</p><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccCampaignDialog">Cancelar</button><button type="submit" class="primary-btn">Crear y buscar</button></div></form></dialog>
+  return `<dialog id="ccCampaignDialog" class="modal cc-campaign-dialog"><form id="ccCampaignForm" class="modal-card"><div class="modal-head"><div><h2>Crear seguimiento</h2><p>Define exactamente qué quieres que ChileCompra vigile.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccCampaignDialog">×</button></div><div class="form-grid"><label class="span-2">Nombre de la campaña<input id="ccCampaignName" required placeholder="Ej. Telemetría industrial"></label><label class="span-2">Palabras o frases a seguir<textarea id="ccCampaignTerms" rows="5" required placeholder="Escribe palabras o frases de búsqueda"></textarea></label></div><div id="ccCampaignSuggestions" class="cc-campaign-suggestions"><div class="cc-suggestion-hint">Escribe el nombre o una palabra clave y te sugeriremos búsquedas relacionadas.</div></div><p class="muted">Sepáralas por coma o por línea. Las recomendaciones son opcionales: tú decides qué términos sigue la campaña.</p><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccCampaignDialog">Cancelar</button><button type="submit" class="primary-btn">Crear y buscar</button></div></form></dialog>
   <dialog id="ccBusinessDialog" class="modal cc-campaign-dialog"><form id="ccBusinessForm" class="modal-card"><div class="modal-head"><div><h2>Mi negocio</h2><p>Define el universo estratégico que quieres estudiar, independiente de tus campañas.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccBusinessDialog">×</button></div><div class="form-grid"><label class="span-2">Palabras o frases de tu negocio<textarea id="ccBusinessTerms" rows="6" placeholder="software operacional, IoT, trazabilidad, telemetría...">${e((chilecompraState.marketProfile?.query_terms || []).join(', '))}</textarea></label></div><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccBusinessDialog">Cancelar</button><button type="submit" class="primary-btn">Guardar perfil</button></div></form></dialog>`;
 }
 
@@ -637,7 +739,16 @@ export function mountChileCompraView() {
   root.addEventListener('click', async (ev) => {
     const close = ev.target.closest('[data-cc-dialog-close]');
     if (close) { document.getElementById(close.dataset.ccDialogClose)?.close(); return; }
-    if (ev.target.closest('[data-cc-campaign-new]')) { document.getElementById('ccCampaignDialog')?.showModal(); return; }
+    if (ev.target.closest('[data-cc-campaign-new]')) {
+      document.getElementById('ccCampaignDialog')?.showModal();
+      requestAnimationFrame(renderCampaignTermSuggestions);
+      return;
+    }
+    const suggestion = ev.target.closest('[data-cc-term-suggestion]');
+    if (suggestion) {
+      addCampaignSuggestion(suggestion.dataset.ccTermSuggestion || '');
+      return;
+    }
     if (ev.target.closest('[data-cc-business-open]')) { document.getElementById('ccBusinessDialog')?.showModal(); return; }
     if (ev.target.closest('.cc-switch')) return;
 
@@ -698,6 +809,12 @@ export function mountChileCompraView() {
     const crm = ev.target.closest('[data-cc-crm]');
     if (crm) { await convertToCrm(crm.dataset.ccCrm); rerender(); return; }
     if (ev.target.closest('[data-cc-market]')) openExternal('https://www.mercadopublico.cl/BuscarLicitacion');
+  });
+
+  root.addEventListener('input', (ev) => {
+    if (ev.target?.id === 'ccCampaignName' || ev.target?.id === 'ccCampaignTerms') {
+      renderCampaignTermSuggestions();
+    }
   });
 
   root.addEventListener('change', async (ev) => {
