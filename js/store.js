@@ -182,7 +182,6 @@ const fromDbProfile = (r) => ({ id: r.id, name: r.name || '', email: r.email || 
 let channel = null;
 let realtimeHydrateTimer = null;
 let hydrateGeneration = 0;
-let seedTemplatesPromise = null;
 
 function scheduleHydrate() {
   clearTimeout(realtimeHydrateTimer);
@@ -206,12 +205,8 @@ export async function hydrate() {
   let nextTemplates = null;
   if (!tplR.error) {
     nextTemplates = (tplR.data || []).map(fromDbTemplate);
-    // Si dos hidrataciones detectan una organización vacía casi al mismo tiempo,
-    // ambas comparten la misma siembra para no duplicar las plantillas de fábrica.
-    if (!nextTemplates.length && ['super', 'admin'].includes(session.profile?.role)) {
-      nextTemplates = await seedDefaultTemplates();
-      if (generation !== hydrateGeneration) return;
-    }
+    // No sembramos plantillas automáticamente. La selección queda en manos del
+    // súper administrador para que cada organización parta con el paquete correcto.
   }
 
   // Publicamos el snapshot en un solo tramo, después de cualquier await adicional.
@@ -228,26 +223,6 @@ export async function hydrate() {
   const syncOk = [leadsR, discR, actR, tplR, teamR].every((r) => !r.error);
   if (syncOk) state.meta.lastSyncAt = nowISO();
   persist();
-}
-
-/** La primera vez que alguien entra no hay plantillas: se cargan las de fábrica una sola vez. */
-async function seedDefaultTemplates() {
-  if (!seedTemplatesPromise) {
-    seedTemplatesPromise = (async () => {
-      const rows = DEFAULT_TEMPLATES.map(({ id, ...t }) => toDbTemplate(t));
-      const { data, error } = await supabase.from('templates').insert(rows).select();
-      if (error) throw error;
-      if (data?.length !== rows.length) {
-        throw new Error(`El servidor confirmó ${data?.length || 0} de ${rows.length} plantillas iniciales.`);
-      }
-      return data.map(fromDbTemplate);
-    })();
-  }
-  try {
-    return await seedTemplatesPromise;
-  } finally {
-    seedTemplatesPromise = null;
-  }
 }
 
 export function startRealtime() {
@@ -957,8 +932,15 @@ export async function saveTemplate(id, patch) {
   return null;
 }
 
-export async function addTemplate(channel_ = 'both') {
-  const record = { id: uid(), name: 'Nueva plantilla', channel: channel_, subject: '', body: '' };
+export async function addTemplate(initial = 'both') {
+  const seed = typeof initial === 'string' ? { channel: initial } : (initial || {});
+  const record = {
+    id: uid(),
+    name: seed.name || 'Nueva plantilla',
+    channel: seed.channel || 'both',
+    subject: seed.subject || '',
+    body: seed.body || ''
+  };
   state.templates.push(record);
   persist();
   const { data, error: insertError } = await supabase.from('templates').insert({ id: record.id, ...toDbTemplate(record) }).select('id');
