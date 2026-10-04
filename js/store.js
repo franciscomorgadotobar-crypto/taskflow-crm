@@ -3,7 +3,7 @@ import { addDaysISO, daysBetween, nowISO, todayISO, uid, toast } from './utils.j
 import { supabase } from './supabase.js';
 import { session } from './auth.js';
 
-const CFG = window.TASKFLOW_CRM_CONFIG;
+const CFG = window.CRM_PERSONAL_CONFIG;
 const SCHEMA_VERSION = 3;
 
 const listeners = new Set();
