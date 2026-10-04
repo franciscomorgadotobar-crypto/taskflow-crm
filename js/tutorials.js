@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js';
 import { session } from './auth.js';
-import { escapeHtml as e } from './utils.js';
+import { escapeHtml as e, toast } from './utils.js';
 
 export const TUTORIALS = {
   primeros_pasos: {
@@ -728,6 +728,52 @@ export function initTutorialRuntime() {
     }
     if (ev.target.closest('[data-tutorial-prev]')) return previousStep();
     if (ev.target.closest('[data-tutorial-next]')) return nextStep();
+
+    const reset = ev.target.closest('[data-tutorial-reset-profile]');
+    if (reset) {
+      const profileId = reset.dataset.tutorialResetProfile;
+      const tutorialId = reset.dataset.tutorialId;
+      const version = Number(reset.dataset.tutorialVersion || 1);
+      if (!confirm('¿Reasignar este tutorial desde el primer paso?')) return;
+      reset.disabled = true;
+      resetTeamTutorial(profileId, tutorialId, version)
+        .then(() => toast('Capacitación reasignada.'))
+        .catch((err) => toast(err.message || 'No se pudo reasignar la capacitación.', 'error'))
+        .finally(() => { if (reset.isConnected) reset.disabled = false; });
+      return;
+    }
+  });
+
+  document.addEventListener('change', (ev) => {
+    const assign = ev.target.closest?.('[data-tutorial-assign-profile]');
+    if (assign) {
+      const profileId = assign.dataset.tutorialAssignProfile;
+      const tutorialId = assign.dataset.tutorialId;
+      const version = Number(assign.dataset.tutorialVersion || 1);
+      assign.disabled = true;
+      setTeamTutorialAssignment(profileId, tutorialId, version, assign.checked, { autoStart: true })
+        .then(() => toast(assign.checked ? 'Capacitación asignada.' : 'Capacitación retirada.'))
+        .catch((err) => {
+          assign.checked = !assign.checked;
+          toast(err.message || 'No se pudo cambiar la capacitación.', 'error');
+        })
+        .finally(() => { if (assign.isConnected) assign.disabled = false; });
+      return;
+    }
+
+    const auto = ev.target.closest?.('[data-tutorial-auto-profile]');
+    if (auto) {
+      const profileId = auto.dataset.tutorialAutoProfile;
+      const tutorialId = auto.dataset.tutorialId;
+      const version = Number(auto.dataset.tutorialVersion || 1);
+      auto.disabled = true;
+      setTeamTutorialAutoStart(profileId, tutorialId, version, auto.checked)
+        .catch((err) => {
+          auto.checked = !auto.checked;
+          toast(err.message || 'No se pudo cambiar el inicio automático.', 'error');
+        })
+        .finally(() => { if (auto.isConnected) auto.disabled = false; });
+    }
   });
 
   const reposition = () => tutorialState.active && tutorialState.target && renderOverlay();
