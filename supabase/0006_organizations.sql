@@ -30,7 +30,7 @@ create index templates_org_idx  on public.templates(organization_id);
 create index services_org_idx   on public.services(organization_id);
 create index quotes_org_idx     on public.quotes(organization_id);
 
-insert into public.organizations (name) values ('TaskFlow');
+insert into public.organizations (name) values ('CRM Personal');
 
 update public.profiles   set organization_id = (select id from public.organizations order by created_at limit 1);
 update public.leads      set organization_id = (select id from public.organizations order by created_at limit 1);
