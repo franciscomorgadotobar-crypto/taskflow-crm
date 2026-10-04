@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Paleta de marca — Manual de marca TaskFlow v1.2 */
+  /* Paleta visual de CRM Personal */
   --navy: #1B3257;
   --blue: #1D71B8;
   --navy-deep: #163362;
@@ -816,3 +816,23 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+
+/* Identidad neutral CRM Personal */
+.crm-brand-mark{
+  display:inline-grid;
+  place-items:center;
+  min-width:72px;
+  height:44px;
+  padding:0 14px;
+  border-radius:12px;
+  background:linear-gradient(135deg,#1b3257,#1d71b8);
+  color:#fff;
+  font-weight:900;
+  font-size:18px;
+  letter-spacing:.08em;
+  box-shadow:0 8px 22px rgba(27,50,87,.18);
+}
+.auth-brand-mark{margin:0 auto 8px;width:max-content;min-width:92px;height:52px;font-size:20px}
+.nav-brand-mark{min-width:82px;height:42px}
+.qd-brand-mark{min-width:68px;height:38px;font-size:14px;box-shadow:none}
