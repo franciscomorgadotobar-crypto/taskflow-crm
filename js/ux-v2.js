@@ -763,10 +763,29 @@ function observeApp() {
 /* ---------- Eventos globales ---------- */
 function bindGlobalEvents() {
   document.addEventListener('click', (ev) => {
+    const dashboardTarget = ev.target.closest?.('[data-v2-dashboard-action]');
+    if (dashboardTarget) {
+      handleDashboardAction(dashboardTarget.dataset.v2DashboardAction);
+      return;
+    }
     if (!ev.target.closest('.v2-user-wrap')) toggleUserMenu(false);
     if (!ev.target.closest('.v2-search-wrap')) {
       const results = $('v2SearchResults');
       if (results) results.hidden = true;
+    }
+  });
+
+  document.addEventListener('change', (ev) => {
+    if (ev.target.id === 'v2CcUniverse') {
+      ccHomeUniverse = ev.target.value;
+      ccHomeAnalytics = null;
+      refreshHomeChileCompraAnalytics();
+      return;
+    }
+    if (ev.target.id === 'v2CcMetric') {
+      ccHomeMetric = ev.target.value;
+      ccHomeAnalytics = null;
+      refreshHomeChileCompraAnalytics();
     }
   });
 
@@ -779,6 +798,10 @@ function bindGlobalEvents() {
         input.focus();
         input.select();
       }
+    }
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches?.('[data-v2-dashboard-action][role="button"]')) {
+      ev.preventDefault();
+      handleDashboardAction(ev.target.dataset.v2DashboardAction);
     }
     if (ev.key === 'Escape') {
       toggleUserMenu(false);
