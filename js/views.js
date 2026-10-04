@@ -410,14 +410,14 @@ export function renderLeads(ui) {
   const total = rows.reduce((s, l) => s + Number(l.value || 0), 0);
 
   return `
-    <div class="card">
-      <div class="card-head">
+    <div class="card lead-list-card">
+      <div class="card-head lead-list-head">
         <h3>Leads sin calificar</h3>
         <button class="primary-btn" data-action="new-lead">+ Nuevo lead</button>
       </div>
       <div class="card-body">
         <div class="notice">Al calificar un lead pasa a “Contactado” y se administra desde Pipeline.</div>
-        <div class="toolbar">
+        <div class="toolbar lead-toolbar">
           <input id="leadQuery" placeholder="Buscar empresa, contacto o email" value="${e(ui.leadFilters.query)}" />
           <select id="leadOwner">
             <option value="">Todos los responsables</option>
