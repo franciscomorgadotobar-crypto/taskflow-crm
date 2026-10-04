@@ -3375,7 +3375,7 @@ async function start() {
     if (ui.view === 'dashboard') render();
   });
   onTutorialChange(() => {
-    if (ui.view === 'help') render();
+    if (ui.view === 'help' || ui.view === 'settings') render();
   });
 
   onAuthChange(async (s) => {
