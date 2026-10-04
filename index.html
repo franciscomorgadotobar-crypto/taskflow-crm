@@ -650,6 +650,53 @@
     </form>
   </dialog>
 
+  <!-- Equipo -->
+  <dialog id="teamAddDialog" class="modal">
+    <form id="teamAddForm" class="modal-card team-add-card" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Agregar persona</h2>
+          <p>Crea el acceso y define qué puede hacer dentro del CRM.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="teamAddDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="form-grid">
+        <label>Nombre<input id="teamName" required autocomplete="name" /></label>
+        <label>Correo<input id="teamEmail" type="email" required autocomplete="email" /></label>
+        <label>Teléfono<input id="teamPhone" inputmode="tel" autocomplete="tel" placeholder="+56 9 ..." /></label>
+        <label>Permiso<select id="teamRole"></select></label>
+      </div>
+      <div id="teamRoleDetail" class="notice team-role-detail"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="teamAddDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="teamAddSubmit">Crear e invitar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="teamAccessDialog" class="modal">
+    <div class="modal-card team-access-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="teamAccessTitle">Acceso enviado</h2>
+          <p id="teamAccessSubtitle"></p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="teamAccessDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="teamAccessStatus" class="notice"></div>
+      <div id="teamAccessFallback" class="team-access-fallback" hidden>
+        <label>Enlace de acceso
+          <textarea id="teamAccessLink" rows="4" readonly></textarea>
+        </label>
+        <p class="muted">El correo no pudo enviarse. Comparte este enlace de un solo uso por un canal seguro.</p>
+        <button type="button" class="primary-btn" data-action="team-copy-link">Copiar enlace</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="primary-btn" data-close-dialog="teamAccessDialog">Cerrar</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Datos y respaldo -->
   <dialog id="dataDialog" class="modal">
     <div class="modal-card">
