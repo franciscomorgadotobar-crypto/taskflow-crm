@@ -3,7 +3,6 @@ import { isReadOnly, session } from './auth.js';
 import { hydrate as hydrateCrm } from './store.js';
 import { escapeHtml as e, fmtDate, openExternal, toast } from './utils.js';
 
-
 export const chilecompraState = {
   opportunities: [],
   campaigns: [],
@@ -34,47 +33,58 @@ export const onChileCompraChange = (fn) => (listeners.add(fn), () => listeners.d
 const notify = () => listeners.forEach((fn) => fn(chilecompraState));
 
 export function clearChileCompra() {
-  chilecompraState.opportunities = [];
-  chilecompraState.campaigns = [];
-  chilecompraState.matches = [];
-  chilecompraState.marketProfile = null;
-  chilecompraState.analytics = null;
-  chilecompraState.loading = false;
-  chilecompraState.syncing = false;
-  chilecompraState.searching = false;
-  chilecompraState.hydrated = false;
-  chilecompraState.tab = 'resumen';
-  chilecompraState.query = '';
-  chilecompraState.results = [];
-  chilecompraState.sourceCount = 0;
-  chilecompraState.selectedCampaignId = '';
-  chilecompraState.selectedId = '';
-  chilecompraState.lastSyncAt = '';
+  Object.assign(chilecompraState, {
+    opportunities: [], campaigns: [], matches: [], marketProfile: null, analytics: null,
+    analyticsLoading: false, loading: false, syncing: false, searching: false,
+    hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
+    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', sort: 'recent', lastSyncAt: ''
+  });
   notify();
 }
 
+function activeCampaigns() {
+  return chilecompraState.campaigns.filter((c) => c.active);
+}
+
+function opportunityMap() {
+  return new Map(chilecompraState.opportunities.map((o) => [o.id, o]));
+}
+
+function activeCampaignIds() {
+  return new Set(activeCampaigns().map((c) => c.id));
+}
+
+function campaignMatchesForOpportunity(opportunityId) {
+  const active = activeCampaignIds();
+  return chilecompraState.matches.filter((m) => m.opportunity_id === opportunityId && active.has(m.campaign_id));
+}
+
+function campaignsForOpportunity(opportunityId) {
+  const ids = new Set(campaignMatchesForOpportunity(opportunityId).map((m) => m.campaign_id));
+  return chilecompraState.campaigns.filter((c) => ids.has(c.id));
+}
+
 export function chilecompraDashboardStats() {
-  const activeCampaigns = chilecompraState.campaigns.filter((c) => c.active);
-  const activeIds = new Set(activeCampaigns.map((c) => c.id));
-  const opportunityById = new Map(chilecompraState.opportunities.map((o) => [o.id, o]));
-  const activeMatches = chilecompraState.matches.filter((m) => activeIds.has(m.campaign_id));
-  const newMatches = activeMatches.filter((m) => !m.reviewed_at && opportunityById.get(m.opportunity_id)?.radar_state === 'nuevo');
+  const campaigns = activeCampaigns();
+  const activeIds = new Set(campaigns.map((c) => c.id));
+  const byOpportunity = opportunityMap();
+  const matches = chilecompraState.matches.filter((m) => activeIds.has(m.campaign_id));
+  const newMatches = matches.filter((m) => !m.reviewed_at && byOpportunity.get(m.opportunity_id)?.radar_state === 'nuevo');
   const newOpportunityIds = new Set(newMatches.map((m) => m.opportunity_id));
-  const matchedOpportunityIds = new Set(activeMatches.map((m) => m.opportunity_id));
-  const matchedOpportunities = [...matchedOpportunityIds].map((id) => opportunityById.get(id)).filter(Boolean);
+  const matchedOpportunityIds = new Set(matches.map((m) => m.opportunity_id));
+  const matchedOpportunities = [...matchedOpportunityIds].map((id) => byOpportunity.get(id)).filter(Boolean);
   const buyers = new Set(matchedOpportunities.map((o) => o.buyer_name).filter(Boolean));
   const amount = matchedOpportunities.reduce((sum, o) => sum + Number(o.amount || 0), 0);
   const newByCampaign = Object.fromEntries(
-    activeCampaigns.map((c) => [
+    campaigns.map((c) => [
       c.id,
       new Set(newMatches.filter((m) => m.campaign_id === c.id).map((m) => m.opportunity_id)).size
     ])
   );
-
   return {
     total: newOpportunityIds.size,
-    activeCampaigns: activeCampaigns.length,
-    campaigns: activeCampaigns,
+    activeCampaigns: campaigns.length,
+    campaigns,
     newByCampaign,
     buyers: buyers.size,
     amount,
@@ -85,29 +95,19 @@ export function chilecompraDashboardStats() {
   };
 }
 
-function campaignMatchesForOpportunity(opportunityId) {
-  const active = new Set(chilecompraState.campaigns.filter((c) => c.active).map((c) => c.id));
-  return chilecompraState.matches.filter((m) => m.opportunity_id === opportunityId && active.has(m.campaign_id));
-}
-
-function campaignsForOpportunity(opportunityId) {
-  const ids = new Set(campaignMatchesForOpportunity(opportunityId).map((m) => m.campaign_id));
-  return chilecompraState.campaigns.filter((c) => ids.has(c.id));
-}
-
 const LOCAL_INDUSTRIES = [
-  ['Tecnología / Software', ['software','sistema','plataforma','saas','licencia','digital','tecnologia','informatico','informática','computacional']],
-  ['Salud', ['hospital','salud','clinica','clínica','cesfam','medico','médico','farmacia']],
+  ['Tecnología / Software', ['software','sistema','plataforma','saas','licencia','digital','tecnologia','informatico','computacional']],
+  ['Salud', ['hospital','salud','clinica','cesfam','medico','farmacia']],
   ['Telecomunicaciones', ['telecom','fibra','antena','radioenlace','lte','5g','conectividad','red de datos']],
-  ['Seguridad / Defensa', ['seguridad','ejercito','ejército','armada','carabineros','pdi','defensa','armamento','municion','munición']],
-  ['Educación', ['universidad','educacion','educación','colegio','liceo','escuela','junaeb']],
-  ['Construcción / Infraestructura', ['construccion','construcción','obra','infraestructura','edificio','reparacion','reparación']],
-  ['Energía / Utilities', ['energia','energía','electrico','eléctrico','agua potable','sanitaria','generador','electrogeno','electrógeno']],
-  ['Transporte / Logística', ['transporte','logistica','logística','vehiculo','vehículo','camion','camión','metro']],
-  ['Industria / Minería', ['mineria','minería','industrial','planta','faena','proceso productivo']]
+  ['Seguridad / Defensa', ['seguridad','ejercito','armada','carabineros','pdi','defensa','armamento','municion']],
+  ['Educación', ['universidad','educacion','colegio','liceo','escuela','junaeb']],
+  ['Construcción / Infraestructura', ['construccion','obra','infraestructura','edificio','reparacion']],
+  ['Energía / Utilities', ['energia','electrico','agua potable','sanitaria','generador','electrogeno']],
+  ['Transporte / Logística', ['transporte','logistica','vehiculo','camion','metro']],
+  ['Industria / Minería', ['mineria','industrial','planta','faena','proceso productivo']]
 ];
 
-function normalized(value='') {
+function normalized(value = '') {
   return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es');
 }
 
@@ -120,35 +120,31 @@ function localIndustry(o) {
 }
 
 export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
-  const activeCampaignIds = new Set(chilecompraState.campaigns.filter((c) => c.active).map((c) => c.id));
-  const ids = new Set(chilecompraState.matches.filter((m) => activeCampaignIds.has(m.campaign_id)).map((m) => m.opportunity_id));
+  const activeIds = activeCampaignIds();
+  const ids = new Set(chilecompraState.matches.filter((m) => activeIds.has(m.campaign_id)).map((m) => m.opportunity_id));
   const rows = chilecompraState.opportunities.filter((o) => ids.has(o.id));
   const groups = new Map();
-  const buyers = new Map();
-
+  const buyerGroups = new Map();
   rows.forEach((o) => {
     const key = localIndustry(o);
     if (metric === 'buyers') {
-      if (!buyers.has(key)) buyers.set(key, new Set());
-      if (o.buyer_name) buyers.get(key).add(o.buyer_name);
+      if (!buyerGroups.has(key)) buyerGroups.set(key, new Set());
+      if (o.buyer_name) buyerGroups.get(key).add(o.buyer_name);
     } else {
       groups.set(key, (groups.get(key) || 0) + (metric === 'amount' ? Number(o.amount || 0) : 1));
     }
   });
-  if (metric === 'buyers') buyers.forEach((set, key) => groups.set(key, set.size));
-
-  let categories = [...groups.entries()].map(([label, value]) => ({ label, value })).sort((a,b) => b.value-a.value);
+  if (metric === 'buyers') buyerGroups.forEach((set, key) => groups.set(key, set.size));
+  let categories = [...groups.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
   if (categories.length > 7) {
     const rest = categories.slice(6).reduce((sum, x) => sum + x.value, 0);
-    categories = [...categories.slice(0,6), { label:'Otros', value:rest }];
+    categories = [...categories.slice(0, 6), { label: 'Otros', value: rest }];
   }
   return {
-    universe: 'campaigns',
-    metric,
-    configured: chilecompraState.campaigns.some((c) => c.active),
+    universe: 'campaigns', metric, configured: activeCampaigns().length > 0,
     publications: rows.length,
     buyers: new Set(rows.map((o) => o.buyer_name).filter(Boolean)).size,
-    amount: rows.reduce((sum,o)=>sum+Number(o.amount||0),0),
+    amount: rows.reduce((sum, o) => sum + Number(o.amount || 0), 0),
     categories
   };
 }
@@ -174,65 +170,148 @@ export async function hydrateChileCompra() {
     if (opportunities.error) throw opportunities.error;
     if (matches.error) throw matches.error;
     if (profile.error && profile.error.code !== 'PGRST116') throw profile.error;
-
     chilecompraState.campaigns = campaigns.data || [];
     chilecompraState.opportunities = opportunities.data || [];
     chilecompraState.matches = matches.data || [];
     chilecompraState.marketProfile = profile.data || null;
     chilecompraState.hydrated = true;
-    chilecompraState.lastSyncAt = chilecompraState.matches
-      .map((m) => m.updated_at)
-      .filter(Boolean)
-      .sort()
-      .at(-1) || '';
+    chilecompraState.lastSyncAt = chilecompraState.matches.map((m) => m.updated_at).filter(Boolean).sort().at(-1) || '';
   } finally {
     chilecompraState.loading = false;
     notify();
   }
 }
 
+async function invokeRadar(body) {
+  const { data, error } = await supabase.functions.invoke('chilecompra-radar', { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.message || data.error);
+  return data || {};
+}
+
 export async function syncChileCompra() {
   if (chilecompraState.syncing) return;
+  if (!activeCampaigns().length) return toast('Crea una campaña activa antes de actualizar el radar.', 'error');
   chilecompraState.syncing = true;
   notify();
   try {
-    const { data, error } = await supabase.functions.invoke('chilecompra-radar', {
-      body: { action: 'sync' }
-    });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.message || data.error);
+    await invokeRadar({ action: 'sync' });
     await hydrateChileCompra();
-    toast('Base de oportunidades actualizada.');
+    toast('Radar ChileCompra actualizado.');
   } finally {
     chilecompraState.syncing = false;
     notify();
   }
 }
 
+export async function loadChileCompraAnalytics({ universe, metric, groupBy } = {}) {
+  chilecompraState.analyticsUniverse = universe || chilecompraState.analyticsUniverse;
+  chilecompraState.analyticsMetric = metric || chilecompraState.analyticsMetric;
+  chilecompraState.analyticsGroupBy = groupBy || chilecompraState.analyticsGroupBy;
+  chilecompraState.analyticsLoading = true;
+  notify();
+  try {
+    const data = await invokeRadar({
+      action: 'analytics',
+      universe: chilecompraState.analyticsUniverse,
+      metric: chilecompraState.analyticsMetric,
+      groupBy: chilecompraState.analyticsGroupBy
+    });
+    chilecompraState.analytics = data;
+    return data;
+  } finally {
+    chilecompraState.analyticsLoading = false;
+    notify();
+  }
+}
+
+function parseTerms(value) {
+  return [...new Set(String(value || '').split(/[\n,;]+/).map((x) => x.trim()).filter((x) => x.length >= 2))];
+}
+
+async function createCampaign({ name, terms }) {
+  if (isReadOnly()) throw new Error('Tu perfil es de solo lectura.');
+  const organizationId = session.profile?.organization_id;
+  if (!organizationId) throw new Error('No se pudo resolver tu organización.');
+  const queryTerms = parseTerms(terms);
+  if (!name.trim()) throw new Error('Escribe un nombre para la campaña.');
+  if (!queryTerms.length) throw new Error('Agrega al menos una palabra o frase de búsqueda.');
+  const { data, error } = await supabase.from('chilecompra_campaigns').insert({
+    organization_id: organizationId,
+    name: name.trim(),
+    product_scope: [],
+    query_terms: queryTerms,
+    priority: 'media',
+    active: true,
+    system_seed: false
+  }).select('*').single();
+  if (error) throw error;
+  chilecompraState.campaigns.push(data);
+  notify();
+  await runCampaign(data.id);
+  return data;
+}
+
+async function runCampaign(campaignId) {
+  const data = await invokeRadar({ action: 'campaign', campaignId });
+  mergeRows(data.results || []);
+  chilecompraState.sourceCount = Number(data.sourceCount || 0);
+  await hydrateChileCompra();
+  return data;
+}
+
+async function toggleCampaign(id, active) {
+  if (isReadOnly()) throw new Error('Tu perfil es de solo lectura.');
+  const { error } = await supabase.from('chilecompra_campaigns').update({ active, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
+  const campaign = chilecompraState.campaigns.find((c) => c.id === id);
+  if (campaign) campaign.active = active;
+  notify();
+  if (active) await runCampaign(id);
+}
+
+async function saveBusinessProfile(termsText) {
+  if (isReadOnly()) throw new Error('Tu perfil es de solo lectura.');
+  const organizationId = session.profile?.organization_id;
+  if (!organizationId) throw new Error('No se pudo resolver tu organización.');
+  const terms = parseTerms(termsText);
+  const { data, error } = await supabase.from('chilecompra_market_profiles').upsert({
+    organization_id: organizationId,
+    name: 'Mi negocio',
+    query_terms: terms,
+    updated_by: session.user?.id || null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'organization_id' }).select('*').single();
+  if (error) throw error;
+  chilecompraState.marketProfile = data;
+  chilecompraState.analytics = null;
+  notify();
+  return data;
+}
+
+function matchedOpportunityIds(campaignId = '') {
+  const activeIds = activeCampaignIds();
+  return new Set(chilecompraState.matches
+    .filter((m) => campaignId ? m.campaign_id === campaignId : activeIds.has(m.campaign_id))
+    .map((m) => m.opportunity_id));
+}
+
 function rowSource() {
-  if (chilecompraState.tab === 'guardadas') {
-    return chilecompraState.opportunities.filter((o) => o.radar_state === 'guardado');
+  if (chilecompraState.tab === 'coincidencias') {
+    const ids = matchedOpportunityIds(chilecompraState.selectedCampaignId);
+    return chilecompraState.opportunities.filter((o) => ids.has(o.id) && o.radar_state !== 'descartado');
   }
-  if (chilecompraState.tab === 'crm') {
-    return chilecompraState.opportunities.filter((o) => o.radar_state === 'crm');
-  }
-  if (chilecompraState.tab === 'descartadas') {
-    return chilecompraState.opportunities.filter((o) => o.radar_state === 'descartado');
-  }
+  if (chilecompraState.tab === 'guardadas') return chilecompraState.opportunities.filter((o) => o.radar_state === 'guardado');
+  if (chilecompraState.tab === 'crm') return chilecompraState.opportunities.filter((o) => o.radar_state === 'crm');
+  if (chilecompraState.tab === 'descartadas') return chilecompraState.opportunities.filter((o) => o.radar_state === 'descartado');
   return chilecompraState.results;
 }
 
 function filteredRows() {
-  const rows = rowSource().filter((o) => chilecompraState.fit.has(o.fit_level || 'bajo'));
-  rows.sort((a, b) => {
-    if (chilecompraState.sort === 'close') {
-      return String(a.close_at || '9999').localeCompare(String(b.close_at || '9999'));
-    }
-    if (chilecompraState.sort === 'recent') {
-      return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
-    }
-    return (b.fit_score || 0) - (a.fit_score || 0);
-  });
+  const rows = [...rowSource()];
+  rows.sort((a, b) => chilecompraState.sort === 'close'
+    ? String(a.close_at || '9999').localeCompare(String(b.close_at || '9999'))
+    : String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
   return rows;
 }
 
@@ -241,50 +320,42 @@ function selectedOpportunity() {
   return all.find((o) => o.id === chilecompraState.selectedId) || filteredRows()[0] || null;
 }
 
-function fitLabel(level) {
-  return level === 'alto' ? 'Encaje alto' : level === 'parcial' ? 'Encaje parcial' : 'Sin encaje';
-}
-
 function amountLabel(o) {
   if (o.amount == null) return 'No informado';
-  try {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
-      maximumFractionDigits: 0
-    }).format(Number(o.amount));
-  } catch {
-    return String(o.amount);
-  }
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Number(o.amount || 0));
+}
+
+function compactAmount(value) {
+  const n = Number(value || 0);
+  if (!n) return '$0';
+  if (n >= 1_000_000_000) return '$' + (n / 1_000_000_000).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' mil MM';
+  if (n >= 1_000_000) return '$' + (n / 1_000_000).toLocaleString('es-CL', { maximumFractionDigits: 0 }) + ' MM';
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n);
 }
 
 function tag(text) {
   return `<span class="cc-tag">${e(text)}</span>`;
 }
 
+function matchedTerms(o) {
+  return [...new Set(campaignMatchesForOpportunity(o.id).flatMap((m) => m.matched_terms || []))];
+}
+
+function campaignTags(o) {
+  return campaignsForOpportunity(o.id).map((c) => tag(c.name)).join('');
+}
+
 function opportunityCard(o) {
-  const selected = selectedOpportunity()?.id === o.id;
-  return `<article class="cc-opportunity ${selected ? 'is-selected' : ''}" data-cc-select="${o.id}">
-    <div class="cc-score cc-score--${o.fit_level || 'bajo'}">
-      <strong>${Number(o.fit_score || 0)}%</strong>
-      <small>${fitLabel(o.fit_level)}</small>
-    </div>
+  const campaigns = campaignsForOpportunity(o.id);
+  return `<article class="cc-opportunity ${selectedOpportunity()?.id === o.id ? 'is-selected' : ''}" data-cc-select="${o.id}">
+    <div class="cc-match-count"><strong>${campaigns.length || '•'}</strong><small>${campaigns.length === 1 ? 'campaña' : campaigns.length ? 'campañas' : 'búsqueda'}</small></div>
     <div class="cc-opportunity-main">
       <strong class="cc-opportunity-title">${e(o.name)}</strong>
       <span class="cc-buyer">⌂ ${e(o.buyer_name || 'Comprador disponible al abrir el detalle')}</span>
-      <div class="cc-meta-row">
-        <span>ID ${e(o.external_code)}</span>
-        <span>${e(o.procurement_type || 'Licitación pública')}</span>
-        <span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span>
-      </div>
-      <div class="cc-tags">${(o.matched_solutions || []).map(tag).join('')}${(o.matched_capabilities || []).slice(0, 4).map(tag).join('')}</div>
+      <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
+      <div class="cc-tags">${campaignTags(o)}${matchedTerms(o).slice(0, 3).map(tag).join('')}</div>
     </div>
-    <div class="cc-opportunity-side">
-      <small>Cierre</small>
-      <strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong>
-      <small>Monto estimado</small>
-      <strong>${e(amountLabel(o))}</strong>
-    </div>
+    <div class="cc-opportunity-side"><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div>
     <span class="cc-chevron">›</span>
   </article>`;
 }
@@ -301,158 +372,131 @@ function rawSection(o, keys) {
 }
 
 function detailBody(o) {
-  if (chilecompraState.detailTab === 'encaje') {
-    return `<section class="cc-detail-section">
-      <h4>Encaje comercial</h4>
-      <div class="cc-reasons">${(o.match_reasons || []).map((r) => `<div><span>✓</span><p>${e(r)}</p></div>`).join('') || '<p class="muted">Esta licitación apareció por búsqueda tradicional y no tiene encaje automático detectado.</p>'}</div>
-      <h4>Soluciones relacionadas</h4>
-      <div class="cc-tags">${(o.matched_solutions || []).map(tag).join('')}${(o.matched_capabilities || []).map(tag).join('')}</div>
-    </section>`;
+  if (chilecompraState.detailTab === 'coincidencias') {
+    const campaigns = campaignsForOpportunity(o.id);
+    const terms = matchedTerms(o);
+    return `<section class="cc-detail-section"><h4>Campañas que encontraron esta publicación</h4><div class="cc-tags">${campaigns.length ? campaigns.map((c) => tag(c.name)).join('') : '<span class="muted">Resultado de búsqueda manual.</span>'}</div><h4>Términos coincidentes</h4><div class="cc-tags">${terms.length ? terms.map(tag).join('') : '<span class="muted">Sin términos asociados.</span>'}</div></section>`;
   }
-  if (chilecompraState.detailTab === 'requisitos') {
-    return `<section class="cc-detail-section"><h4>Requisitos</h4>${rawSection(o, ['RequisitosGenerales','AntecedentesTecnicos','Requisitos','Antecedentes'])}</section>`;
-  }
-  if (chilecompraState.detailTab === 'documentos') {
-    return `<section class="cc-detail-section"><h4>Documentos</h4>${rawSection(o, ['Documentos','Adjuntos','Archivos','Items'])}</section>`;
-  }
-  return `<section class="cc-detail-section">
-    <div class="cc-detail-facts">
-      <div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div>
-      <div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div>
-      <div><small>Publicación</small><strong>${o.published_at ? fmtDate(o.published_at.slice(0, 10)) : 'No informada'}</strong></div>
-    </div>
-    <h4>Descripción</h4>
-    <p class="cc-description">${e(o.description || 'Abre el detalle para consultar la ficha completa de Mercado Público.')}</p>
-    <h4>Soluciones relacionadas</h4>
-    <div class="cc-tags">${(o.matched_solutions || []).map(tag).join('')}${(o.matched_capabilities || []).map(tag).join('')}</div>
-  </section>`;
+  if (chilecompraState.detailTab === 'requisitos') return `<section class="cc-detail-section"><h4>Requisitos</h4>${rawSection(o, ['RequisitosGenerales','AntecedentesTecnicos','Requisitos','Antecedentes'])}</section>`;
+  if (chilecompraState.detailTab === 'documentos') return `<section class="cc-detail-section"><h4>Documentos</h4>${rawSection(o, ['Documentos','Adjuntos','Archivos','Items'])}</section>`;
+  return `<section class="cc-detail-section"><div class="cc-detail-facts"><div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div><div><small>Publicación</small><strong>${o.published_at ? fmtDate(o.published_at.slice(0, 10)) : 'No informada'}</strong></div></div><h4>Descripción</h4><p class="cc-description">${e(o.description || 'Abre el detalle para consultar la ficha completa de Mercado Público.')}</p><h4>Campañas relacionadas</h4><div class="cc-tags">${campaignTags(o) || '<span class="muted">Búsqueda manual.</span>'}</div></section>`;
 }
 
 function detailPanel(o) {
   if (!o) return '<aside class="cc-detail"><div class="cc-empty">Selecciona una licitación para revisar su ficha.</div></aside>';
+  const campaigns = campaignsForOpportunity(o.id);
   return `<aside class="cc-detail">
-    <div class="cc-detail-head">
-      <div class="cc-fit-pill cc-fit-pill--${o.fit_level || 'bajo'}"><strong>${Number(o.fit_score || 0)}%</strong><span>${fitLabel(o.fit_level)}</span></div>
-      <button type="button" class="icon-btn" data-cc-save="${o.id}" aria-label="Guardar oportunidad">♡</button>
-    </div>
-    <h2>${e(o.name)}</h2>
-    <p class="cc-detail-buyer">⌂ ${e(o.buyer_name || 'Comprador disponible al cargar detalle')}</p>
+    <div class="cc-detail-head"><div class="cc-detail-campaign-summary"><strong>${campaigns.length}</strong><span>${campaigns.length === 1 ? 'campaña coincide' : 'campañas coinciden'}</span></div><button type="button" class="icon-btn" data-cc-save="${o.id}" aria-label="Guardar oportunidad">♡</button></div>
+    <h2>${e(o.name)}</h2><p class="cc-detail-buyer">⌂ ${e(o.buyer_name || 'Comprador disponible al cargar detalle')}</p>
     <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
-    <div class="cc-detail-tabs">
-      ${[
-        ['resumen','Resumen'],
-        ['requisitos','Requisitos'],
-        ['documentos','Documentos'],
-        ['encaje','Encaje comercial']
-      ].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}
-    </div>
+    <div class="cc-detail-tabs">${[['resumen','Resumen'],['requisitos','Requisitos'],['documentos','Documentos'],['coincidencias','Coincidencias']].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
     ${detailBody(o)}
-    <div class="cc-detail-actions">
-      ${o.radar_state === 'crm'
-        ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>'
-        : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}
-      <button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button>
-      <button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button>
-      <button type="button" class="link-btn cc-market-link" data-cc-market>Ver en ChileCompra ↗</button>
-    </div>
+    <div class="cc-detail-actions">${o.radar_state === 'crm' ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>' : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}<button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button><button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button><button type="button" class="link-btn cc-market-link" data-cc-market>Ver en ChileCompra ↗</button></div>
   </aside>`;
 }
 
 function resultHeading(rows) {
   if (chilecompraState.searching) return 'Buscando licitaciones activas…';
-  if (chilecompraState.tab === 'buscar') {
-    if (!chilecompraState.query && rows.length) return `${rows.length} oportunidades detectadas`;
-    if (!chilecompraState.query) return 'Escribe una búsqueda para comenzar';
-    return `${rows.length} resultados para “${e(chilecompraState.query)}”`;
+  if (chilecompraState.tab === 'buscar') return chilecompraState.query ? `${rows.length} resultados para “${e(chilecompraState.query)}”` : 'Escribe una búsqueda para comenzar';
+  if (chilecompraState.tab === 'coincidencias') {
+    const campaign = chilecompraState.campaigns.find((c) => c.id === chilecompraState.selectedCampaignId);
+    return campaign ? `${rows.length} coincidencias · ${e(campaign.name)}` : `${rows.length} coincidencias`;
   }
   return `${rows.length} oportunidades`;
 }
 
-function renderInner() {
-  const stats = chilecompraDashboardStats();
+const PIE_COLORS = ['#0b73df','#36a2f5','#31bd98','#ffad43','#ef6670','#8668e8','#97a7ba'];
+
+function marketPie(data) {
+  const categories = data?.categories || [];
+  const total = categories.reduce((sum, x) => sum + Number(x.value || 0), 0);
+  if (!categories.length || total <= 0) return `<div class="cc-market-empty"><strong>Sin datos para este universo</strong><span>${data?.configured === false ? 'Configura las palabras clave para comenzar el análisis.' : 'Todavía no hay información suficiente.'}</span></div>`;
+  let cursor = 0;
+  const gradient = categories.map((x, i) => {
+    const start = cursor;
+    cursor += (Number(x.value || 0) / total) * 100;
+    return `${PIE_COLORS[i % PIE_COLORS.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+  }).join(',');
+  const center = data.metric === 'amount' ? compactAmount(total) : total.toLocaleString('es-CL');
+  return `<div class="cc-market-viz"><div class="cc-donut" style="background:conic-gradient(${gradient})"><div><strong>${e(center)}</strong><span>${data.metric === 'amount' ? 'monto' : data.metric === 'buyers' ? 'compradores' : 'publicaciones'}</span></div></div><div class="cc-market-legend">${categories.map((x, i) => { const pct = total ? (Number(x.value || 0) / total) * 100 : 0; return `<div><i style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></i><span>${e(x.label)}</span><strong>${pct.toFixed(0)}%</strong></div>`; }).join('')}</div></div>`;
+}
+
+function analyticsControls() {
+  return `<div class="cc-analytics-controls">
+    <label>Universo<select id="ccAnalyticsUniverse"><option value="campaigns" ${chilecompraState.analyticsUniverse === 'campaigns' ? 'selected' : ''}>Mis campañas</option><option value="business" ${chilecompraState.analyticsUniverse === 'business' ? 'selected' : ''}>Mi negocio</option><option value="general" ${chilecompraState.analyticsUniverse === 'general' ? 'selected' : ''}>Mercado general Chile</option></select></label>
+    <label>Métrica<select id="ccAnalyticsMetric"><option value="publications" ${chilecompraState.analyticsMetric === 'publications' ? 'selected' : ''}>Publicaciones</option><option value="amount" ${chilecompraState.analyticsMetric === 'amount' ? 'selected' : ''}>Monto publicado</option><option value="buyers" ${chilecompraState.analyticsMetric === 'buyers' ? 'selected' : ''}>Compradores</option></select></label>
+    <label>Agrupar por<select id="ccAnalyticsGroupBy"><option value="industry" ${chilecompraState.analyticsGroupBy === 'industry' ? 'selected' : ''}>Rubro</option><option value="orgType" ${chilecompraState.analyticsGroupBy === 'orgType' ? 'selected' : ''}>Tipo de organización</option><option value="procurementType" ${chilecompraState.analyticsGroupBy === 'procurementType' ? 'selected' : ''}>Tipo de publicación</option></select></label>
+    ${chilecompraState.analyticsUniverse === 'business' ? '<button type="button" class="ghost-btn cc-config-business" data-cc-business-open>Configurar mi negocio</button>' : ''}
+  </div>`;
+}
+
+function campaignRow(c, stats, { controls = true } = {}) {
+  const count = stats.newByCampaign?.[c.id] || 0;
+  return `<article class="cc-user-campaign" data-cc-campaign-open="${c.id}"><div class="cc-user-campaign-icon">⌖</div><div class="cc-user-campaign-copy"><strong>${e(c.name)}</strong><span>${e((c.query_terms || []).slice(0, 4).join(', ') || 'Sin términos configurados')}</span></div><b>${count}</b>${controls ? `<label class="cc-switch" title="${c.active ? 'Desactivar' : 'Activar'} campaña"><input type="checkbox" data-cc-campaign-toggle="${c.id}" ${c.active ? 'checked' : ''}><span></span></label>` : ''}<span class="cc-chevron">›</span></article>`;
+}
+
+function dashboardNav(stats) {
+  const tabs = [['resumen','Resumen',''],['coincidencias','Coincidencias',stats.total],['campanas','Campañas',stats.activeCampaigns],['mercado','Mercado',''],['compradores','Compradores',''],['buscar','Búsqueda',''],['guardadas','Guardadas',stats.saved],['crm','En CRM',stats.crm]];
+  return `<nav class="cc-tabs cc-dashboard-tabs">${tabs.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? ` <span>(${count})</span>` : ''}</button>`).join('')}</nav>`;
+}
+
+function sharedDialogs() {
+  return `<dialog id="ccCampaignDialog" class="modal cc-campaign-dialog"><form id="ccCampaignForm" class="modal-card"><div class="modal-head"><div><h2>Crear seguimiento</h2><p>Define exactamente qué quieres que ChileCompra vigile.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccCampaignDialog">×</button></div><div class="form-grid"><label class="span-2">Nombre de la campaña<input id="ccCampaignName" required placeholder="Ej. Telemetría industrial"></label><label class="span-2">Palabras o frases a seguir<textarea id="ccCampaignTerms" rows="5" required placeholder="telemetría, monitoreo remoto, SCADA, sensores"></textarea></label></div><p class="muted">Sepáralas por coma o por línea. No existen campañas predefinidas.</p><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccCampaignDialog">Cancelar</button><button type="submit" class="primary-btn">Crear y buscar</button></div></form></dialog>
+  <dialog id="ccBusinessDialog" class="modal cc-campaign-dialog"><form id="ccBusinessForm" class="modal-card"><div class="modal-head"><div><h2>Mi negocio</h2><p>Define el universo estratégico que quieres estudiar, independiente de tus campañas.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccBusinessDialog">×</button></div><div class="form-grid"><label class="span-2">Palabras o frases de tu negocio<textarea id="ccBusinessTerms" rows="6" placeholder="software operacional, IoT, trazabilidad, telemetría...">${e((chilecompraState.marketProfile?.query_terms || []).join(', '))}</textarea></label></div><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccBusinessDialog">Cancelar</button><button type="submit" class="primary-btn">Guardar perfil</button></div></form></dialog>`;
+}
+
+function renderSummaryDashboard(stats) {
+  const local = chilecompraLocalBreakdown({ metric: 'publications' });
+  return `<section class="cc-dashboard"><div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Coincidencias nuevas</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Campañas activas</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>
+  <section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Campañas activas</h3><p>Todas tus búsquedas automáticas y sus coincidencias nuevas.</p></div><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear campaña</button></div><div class="cc-user-campaign-list">${stats.campaigns.length ? stats.campaigns.map((c) => campaignRow(c, stats, { controls: true })).join('') : '<div class="cc-empty"><strong>No tienes campañas activas</strong><span>Crea un seguimiento para que el radar empiece a buscar por ti.</span><button type="button" class="primary-btn" data-cc-campaign-new>Crear seguimiento</button></div>'}</div></section>
+  <section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Distribución por rubro</h3><p>Lectura del mercado observado por tus campañas activas.</p></div></div>${marketPie(local)}</section></section>`;
+}
+
+function renderCampaignsDashboard(stats) {
+  return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Campañas</h3><p>Tú defines qué sigue el CRM. No hay campañas predefinidas.</p></div><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear campaña</button></div><div class="cc-user-campaign-list">${chilecompraState.campaigns.length ? chilecompraState.campaigns.map((c) => campaignRow(c, stats, { controls: true })).join('') : '<div class="cc-empty"><strong>Sin campañas</strong><span>Crea la primera búsqueda automática.</span></div>'}</div></section></section>`;
+}
+
+function renderMarketDashboard() {
+  const data = chilecompraState.analyticsUniverse === 'campaigns' && !chilecompraState.analytics ? chilecompraLocalBreakdown({ metric: chilecompraState.analyticsMetric }) : chilecompraState.analytics;
+  return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Análisis de mercado</h3><p>Compara tus campañas, tu negocio o el mercado público general.</p></div></div>${analyticsControls()}${chilecompraState.analyticsLoading ? '<div class="cc-empty">Analizando licitaciones activas…</div>' : marketPie(data)}<div class="cc-market-kpis"><div><strong>${Number(data?.publications || 0).toLocaleString('es-CL')}</strong><span>Publicaciones</span></div><div><strong>${Number(data?.buyers || 0).toLocaleString('es-CL')}</strong><span>Compradores</span></div><div><strong>${compactAmount(data?.amount || 0)}</strong><span>Monto observado</span></div></div></section></section>`;
+}
+
+function buyerRows() {
+  const ids = matchedOpportunityIds();
+  const map = new Map();
+  chilecompraState.opportunities.filter((o) => ids.has(o.id) && o.buyer_name).forEach((o) => {
+    const row = map.get(o.buyer_name) || { name: o.buyer_name, publications: 0, amount: 0, industries: new Set(), last: '' };
+    row.publications += 1;
+    row.amount += Number(o.amount || 0);
+    row.industries.add(localIndustry(o));
+    row.last = [row.last, o.published_at || o.updated_at || ''].sort().at(-1) || '';
+    map.set(o.buyer_name, row);
+  });
+  return [...map.values()].sort((a, b) => b.publications - a.publications || b.amount - a.amount);
+}
+
+function renderBuyersDashboard() {
+  const rows = buyerRows();
+  return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Compradores detectados</h3><p>Organismos que aparecen dentro de tus campañas activas.</p></div></div><div class="cc-buyers-list">${rows.length ? rows.slice(0, 30).map((r) => `<article><div><strong>${e(r.name)}</strong><span>${e([...r.industries].slice(0, 3).join(' · '))}</span></div><b>${r.publications}</b><small>${compactAmount(r.amount)}</small></article>`).join('') : '<div class="cc-empty">Todavía no hay compradores detectados por tus campañas.</div>'}</div></section></section>`;
+}
+
+function renderOpportunityWorkspace(stats) {
   const rows = filteredRows();
   const selected = selectedOpportunity();
-  const tabCounts = {
-    guardadas: stats.saved,
-    crm: stats.crm,
-    descartadas: stats.discarded
-  };
+  const isSearch = chilecompraState.tab === 'buscar';
+  return `<section class="cc-workspace">
+    ${isSearch ? `<form id="ccTraditionalSearch" class="cc-traditional-search"><div class="cc-traditional-search-box"><span aria-hidden="true">⌕</span><input id="ccSearch" type="search" placeholder="Busca palabra, servicio o código de licitación…" value="${e(chilecompraState.query)}" autocomplete="off"><button type="submit" class="primary-btn" ${chilecompraState.searching ? 'disabled' : ''}>${chilecompraState.searching ? 'Buscando…' : 'Buscar'}</button></div><small>La búsqueda manual es puntual. Solo se convierte en seguimiento cuando tú creas una campaña.</small></form>` : ''}
+    ${chilecompraState.tab === 'coincidencias' && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} <b>${stats.newByCampaign[c.id] || 0}</b></button>`).join('')}</div>` : ''}
+    <div class="cc-results-toolbar"><strong class="cc-result-title">${resultHeading(rows)}</strong><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div>
+    ${chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}
+    <div class="cc-opportunity-list">${chilecompraState.searching ? '<div class="cc-empty">Consultando Mercado Público…</div>' : rows.length ? rows.map(opportunityCard).join('') : isSearch && !chilecompraState.query ? '<div class="cc-empty cc-empty--search"><strong>Busca directamente en ChileCompra</strong><span>Escribe una palabra, servicio o código de licitación.</span></div>' : '<div class="cc-empty">No hay resultados para esta vista.</div>'}</div>
+    <dialog id="ccOpportunityDialog" class="modal cc-opportunity-dialog"><div class="modal-card wide cc-opportunity-modal-card"><div class="modal-head cc-opportunity-modal-head"><div><h2>Detalle de licitación</h2><p>${selected ? `ID ${e(selected.external_code)}` : 'ChileCompra'}</p></div><button type="button" class="icon-btn" data-cc-detail-close aria-label="Cerrar">×</button></div><div class="cc-opportunity-modal-body">${detailPanel(selected)}</div></div></dialog>
+  </section>`;
+}
 
-  return `
-    <section class="cc-radar-head cc-radar-head--search">
-      <div>
-        <h2>Buscar en ChileCompra</h2>
-        <p>Busca directamente entre las licitaciones activas de Mercado Público.</p>
-      </div>
-      <div class="cc-radar-actions">
-        <span class="cc-updated"><i></i>${chilecompraState.lastSyncAt ? 'Base actualizada ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle:'short', timeStyle:'short' }) : 'Base sin actualizar'}</span>
-        <button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Actualizando…' : 'Actualizar base'}</button>
-      </div>
-    </section>
-
-    <form id="ccTraditionalSearch" class="cc-traditional-search">
-      <div class="cc-traditional-search-box">
-        <span aria-hidden="true">⌕</span>
-        <input id="ccSearch" type="search" placeholder="Ej. ascensores, telemetría, mantenimiento, 1234-56-LP26…" value="${e(chilecompraState.query)}" autocomplete="off">
-        <button type="submit" class="primary-btn" ${chilecompraState.searching ? 'disabled' : ''}>${chilecompraState.searching ? 'Buscando…' : 'Buscar'}</button>
-      </div>
-      <small>Busca directamente en Mercado Público. El encaje se calcula después sobre los resultados.</small>
-    </form>
-
-    <nav class="cc-tabs">
-      <button type="button" data-cc-tab="buscar" class="${chilecompraState.tab === 'buscar' ? 'active' : ''}">Búsqueda</button>
-      <button type="button" data-cc-tab="guardadas" class="${chilecompraState.tab === 'guardadas' ? 'active' : ''}">Guardadas <span>(${tabCounts.guardadas})</span></button>
-      <button type="button" data-cc-tab="crm" class="${chilecompraState.tab === 'crm' ? 'active' : ''}">En CRM <span>(${tabCounts.crm})</span></button>
-      <button type="button" data-cc-tab="descartadas" class="${chilecompraState.tab === 'descartadas' ? 'active' : ''}">Descartadas <span>(${tabCounts.descartadas})</span></button>
-    </nav>
-
-    <div class="cc-layout">
-      <aside class="cc-sidebar">
-        <div class="cc-filter-block">
-          <div class="cc-panel-title"><strong>Mostrar encaje</strong><button type="button" class="link-btn" data-cc-fit-all>Todos</button></div>
-          <label><input type="checkbox" data-cc-fit="alto" ${chilecompraState.fit.has('alto') ? 'checked' : ''}> Alto</label>
-          <label><input type="checkbox" data-cc-fit="parcial" ${chilecompraState.fit.has('parcial') ? 'checked' : ''}> Parcial</label>
-          <label><input type="checkbox" data-cc-fit="bajo" ${chilecompraState.fit.has('bajo') ? 'checked' : ''}> Sin encaje</label>
-        </div>
-      </aside>
-
-      <main class="cc-results">
-        <div class="cc-results-toolbar">
-          <strong class="cc-result-title">${resultHeading(rows)}</strong>
-          <select id="ccSort" aria-label="Ordenar oportunidades">
-            <option value="fit" ${chilecompraState.sort==='fit'?'selected':''}>Mayor encaje</option>
-            <option value="close" ${chilecompraState.sort==='close'?'selected':''}>Cierre más próximo</option>
-            <option value="recent" ${chilecompraState.sort==='recent'?'selected':''}>Más recientes</option>
-          </select>
-        </div>
-        ${chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta realizada sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}
-        <div class="cc-opportunity-list">
-          ${chilecompraState.searching
-            ? '<div class="cc-empty">Consultando Mercado Público…</div>'
-            : rows.length
-              ? rows.map(opportunityCard).join('')
-              : chilecompraState.tab === 'buscar' && !chilecompraState.query
-                ? '<div class="cc-empty cc-empty--search"><strong>Busca directamente en ChileCompra</strong><span>Escribe una palabra, servicio o código de licitación y presiona Buscar.</span></div>'
-                : '<div class="cc-empty">No se encontraron resultados.</div>'}
-        </div>
-      </main>
-
-    </div>
-
-    <dialog id="ccOpportunityDialog" class="modal cc-opportunity-dialog">
-      <div class="modal-card wide cc-opportunity-modal-card">
-        <div class="modal-head cc-opportunity-modal-head">
-          <div>
-            <h2>Detalle de licitación</h2>
-            <p>${selected ? `ID ${e(selected.external_code)}` : 'ChileCompra'}</p>
-          </div>
-          <button type="button" class="icon-btn" data-cc-detail-close aria-label="Cerrar">×</button>
-        </div>
-        <div class="cc-opportunity-modal-body">
-          ${detailPanel(selected)}
-        </div>
-      </div>
-    </dialog>`;
+function renderInner() {
+  const stats = chilecompraDashboardStats();
+  return `<section class="cc-radar-head"><div><h2>ChileCompra</h2><p>Inteligencia comercial en compras públicas.</p></div><div class="cc-radar-actions"><span class="cc-updated"><i></i>${chilecompraState.lastSyncAt ? 'Radar actualizado ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : stats.activeCampaigns ? 'Radar pendiente de primera actualización' : 'Sin campañas activas'}</span><button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing || !stats.activeCampaigns ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Actualizando…' : 'Actualizar radar'}</button><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear campaña</button></div></section>${dashboardNav(stats)}${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}${sharedDialogs()}`;
 }
 
 export function renderChileCompra() {
@@ -461,21 +505,12 @@ export function renderChileCompra() {
 
 function rerender() {
   const root = document.getElementById('chilecompraRoot');
-  if (!root) return;
-  root.innerHTML = renderInner();
+  if (root) root.innerHTML = renderInner();
 }
 
 function openDetailDialog() {
   const dialog = document.getElementById('ccOpportunityDialog');
-  if (!dialog) return;
-  if (!dialog.open) dialog.showModal();
-}
-
-async function invokeRadar(body) {
-  const { data, error } = await supabase.functions.invoke('chilecompra-radar', { body });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.message || data.error);
-  return data;
+  if (dialog && !dialog.open) dialog.showModal();
 }
 
 async function runTraditionalSearch(query) {
@@ -506,9 +541,18 @@ function replaceEverywhere(updated) {
   if (ri >= 0) chilecompraState.results[ri] = updated;
 }
 
+async function markReviewed(id) {
+  const now = new Date().toISOString();
+  campaignMatchesForOpportunity(id).forEach((m) => { m.reviewed_at = now; });
+  notify();
+  try { await invokeRadar({ action: 'review', opportunityId: id }); } catch (err) { console.error('No se pudo marcar coincidencia revisada', err); }
+}
+
 async function loadDetail(id, { reopen = false } = {}) {
   const current = [...chilecompraState.results, ...chilecompraState.opportunities].find((o) => o.id === id);
-  if (!current || current.detail_loaded) return;
+  if (!current) return;
+  await markReviewed(id);
+  if (current.detail_loaded) return;
   try {
     const data = await invokeRadar({ action: 'detail', code: current.external_code });
     if (data?.opportunity) {
@@ -539,10 +583,22 @@ async function convertToCrm(id) {
   const { data, error } = await supabase.rpc('chilecompra_convert_opportunity', { p_opportunity_id: id });
   if (error) throw error;
   await Promise.all([hydrateCrm(), hydrateChileCompra()]);
-  const updated = chilecompraState.opportunities.find((o) => o.id === id);
-  if (updated) replaceEverywhere(updated);
   toast('Oportunidad agregada al CRM.');
   return data;
+}
+
+async function refreshAnalyticsFromControls() {
+  rerender();
+  try {
+    await loadChileCompraAnalytics({
+      universe: chilecompraState.analyticsUniverse,
+      metric: chilecompraState.analyticsMetric,
+      groupBy: chilecompraState.analyticsGroupBy
+    });
+  } catch (err) {
+    toast(err.message || 'No se pudo analizar el mercado.', 'error');
+  }
+  rerender();
 }
 
 export function mountChileCompraView() {
@@ -551,19 +607,55 @@ export function mountChileCompraView() {
   rerender();
 
   root.addEventListener('submit', async (ev) => {
-    if (ev.target.id !== 'ccTraditionalSearch') return;
     ev.preventDefault();
-    const query = document.getElementById('ccSearch')?.value || '';
     try {
-      await runTraditionalSearch(query);
+      if (ev.target.id === 'ccTraditionalSearch') return await runTraditionalSearch(document.getElementById('ccSearch')?.value || '');
+      if (ev.target.id === 'ccCampaignForm') {
+        const name = document.getElementById('ccCampaignName')?.value || '';
+        const terms = document.getElementById('ccCampaignTerms')?.value || '';
+        const button = ev.target.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Creando…'; }
+        await createCampaign({ name, terms });
+        document.getElementById('ccCampaignDialog')?.close();
+        chilecompraState.tab = 'resumen';
+        toast('Campaña creada y radar actualizado.');
+        rerender();
+        return;
+      }
+      if (ev.target.id === 'ccBusinessForm') {
+        await saveBusinessProfile(document.getElementById('ccBusinessTerms')?.value || '');
+        document.getElementById('ccBusinessDialog')?.close();
+        toast('Perfil de negocio guardado.');
+        await refreshAnalyticsFromControls();
+      }
     } catch (err) {
-      chilecompraState.searching = false;
+      toast(err.message || 'No se pudo completar la operación.', 'error');
       rerender();
-      toast(err.message || 'No se pudo buscar en ChileCompra.', 'error');
     }
   });
 
   root.addEventListener('click', async (ev) => {
+    const close = ev.target.closest('[data-cc-dialog-close]');
+    if (close) { document.getElementById(close.dataset.ccDialogClose)?.close(); return; }
+    if (ev.target.closest('[data-cc-campaign-new]')) { document.getElementById('ccCampaignDialog')?.showModal(); return; }
+    if (ev.target.closest('[data-cc-business-open]')) { document.getElementById('ccBusinessDialog')?.showModal(); return; }
+    if (ev.target.closest('.cc-switch')) return;
+
+    const campaignOpen = ev.target.closest('[data-cc-campaign-open]');
+    if (campaignOpen) {
+      chilecompraState.selectedCampaignId = campaignOpen.dataset.ccCampaignOpen;
+      chilecompraState.tab = 'coincidencias';
+      chilecompraState.selectedId = '';
+      rerender();
+      return;
+    }
+    const campaignFilter = ev.target.closest('[data-cc-campaign-filter]');
+    if (campaignFilter) {
+      chilecompraState.selectedCampaignId = campaignFilter.dataset.ccCampaignFilter || '';
+      chilecompraState.selectedId = '';
+      rerender();
+      return;
+    }
     const select = ev.target.closest('[data-cc-select]');
     if (select) {
       chilecompraState.selectedId = select.dataset.ccSelect;
@@ -573,20 +665,16 @@ export function mountChileCompraView() {
       await loadDetail(chilecompraState.selectedId, { reopen: true });
       return;
     }
-
-    if (ev.target.closest('[data-cc-detail-close]')) {
-      document.getElementById('ccOpportunityDialog')?.close();
-      return;
-    }
-
+    if (ev.target.closest('[data-cc-detail-close]')) { document.getElementById('ccOpportunityDialog')?.close(); return; }
     const tab = ev.target.closest('[data-cc-tab]');
     if (tab) {
       chilecompraState.tab = tab.dataset.ccTab;
-      chilecompraState.selectedId = filteredRows()[0]?.id || '';
+      if (chilecompraState.tab !== 'coincidencias') chilecompraState.selectedCampaignId = '';
+      chilecompraState.selectedId = '';
       rerender();
+      if (chilecompraState.tab === 'mercado' && chilecompraState.analyticsUniverse !== 'campaigns' && !chilecompraState.analytics) await refreshAnalyticsFromControls();
       return;
     }
-
     const detailTab = ev.target.closest('[data-cc-detail-tab]');
     if (detailTab) {
       const reopen = Boolean(document.getElementById('ccOpportunityDialog')?.open);
@@ -595,68 +683,39 @@ export function mountChileCompraView() {
       if (reopen) openDetailDialog();
       return;
     }
-
     if (ev.target.closest('[data-cc-sync]')) {
-      try {
-        await syncChileCompra();
-        rerender();
-      } catch (err) {
-        toast(err.message || 'No se pudo actualizar la base.', 'error');
-      }
+      try { await syncChileCompra(); rerender(); } catch (err) { toast(err.message || 'No se pudo actualizar el radar.', 'error'); }
       return;
     }
-
-    if (ev.target.closest('[data-cc-fit-all]')) {
-      chilecompraState.fit = new Set(['alto','parcial','bajo']);
-      rerender();
-      return;
-    }
-
     const save = ev.target.closest('[data-cc-save]');
     if (save) {
       const o = [...chilecompraState.results, ...chilecompraState.opportunities].find((x) => x.id === save.dataset.ccSave);
       if (o) await patchOpportunity(o.id, { radar_state: o.radar_state === 'guardado' ? 'nuevo' : 'guardado', updated_at: new Date().toISOString() });
       return;
     }
-
     const discard = ev.target.closest('[data-cc-discard]');
-    if (discard) {
-      await patchOpportunity(discard.dataset.ccDiscard, { radar_state: 'descartado', updated_at: new Date().toISOString() });
-      return;
-    }
-
+    if (discard) { await patchOpportunity(discard.dataset.ccDiscard, { radar_state: 'descartado', updated_at: new Date().toISOString() }); return; }
     const crm = ev.target.closest('[data-cc-crm]');
-    if (crm) {
-      await convertToCrm(crm.dataset.ccCrm);
-      rerender();
-      return;
-    }
-
-    if (ev.target.closest('[data-cc-market]')) {
-      openExternal('https://www.mercadopublico.cl/BuscarLicitacion');
-    }
+    if (crm) { await convertToCrm(crm.dataset.ccCrm); rerender(); return; }
+    if (ev.target.closest('[data-cc-market]')) openExternal('https://www.mercadopublico.cl/BuscarLicitacion');
   });
 
-  root.addEventListener('change', (ev) => {
-    const fit = ev.target.closest('[data-cc-fit]');
-    if (fit) {
-      if (fit.checked) chilecompraState.fit.add(fit.dataset.ccFit);
-      else chilecompraState.fit.delete(fit.dataset.ccFit);
-      chilecompraState.selectedId = filteredRows()[0]?.id || '';
-      rerender();
-      return;
-    }
-    if (ev.target.id === 'ccSort') {
-      chilecompraState.sort = ev.target.value;
-      chilecompraState.selectedId = filteredRows()[0]?.id || '';
+  root.addEventListener('change', async (ev) => {
+    try {
+      const toggle = ev.target.closest('[data-cc-campaign-toggle]');
+      if (toggle) { await toggleCampaign(toggle.dataset.ccCampaignToggle, toggle.checked); rerender(); return; }
+      if (ev.target.id === 'ccSort') { chilecompraState.sort = ev.target.value; chilecompraState.selectedId = ''; rerender(); return; }
+      if (ev.target.id === 'ccAnalyticsUniverse') { chilecompraState.analyticsUniverse = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
+      if (ev.target.id === 'ccAnalyticsMetric') { chilecompraState.analyticsMetric = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
+      if (ev.target.id === 'ccAnalyticsGroupBy') { chilecompraState.analyticsGroupBy = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
+    } catch (err) {
+      toast(err.message || 'No se pudo actualizar ChileCompra.', 'error');
+      await hydrateChileCompra().catch(() => {});
       rerender();
     }
   });
 
   if (!chilecompraState.hydrated && !chilecompraState.loading) {
-    hydrateChileCompra().then(rerender).catch((err) => {
-      console.error(err);
-      toast('No se pudo cargar ChileCompra.', 'error');
-    });
+    hydrateChileCompra().then(rerender).catch((err) => { console.error(err); toast('No se pudo cargar ChileCompra.', 'error'); });
   }
 }
