@@ -99,6 +99,14 @@ import {
   renderChileCompra
 } from './chilecompra.js';
 import {
+  clearTutorials,
+  hydrateTutorials,
+  initTutorialRuntime,
+  maybeOfferAssignedTutorial,
+  onTutorialChange,
+  renderHelp
+} from './tutorials.js';
+import {
   fillTemplate,
   filterPipeline,
   quoteDiscountsHtml,
@@ -227,6 +235,7 @@ const VIEWS = {
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
   audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
+  help: ['Ayuda y tutoriales', 'Capacitaciones guiadas sobre la interfaz real del CRM.', renderHelp],
   settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
 };
 
@@ -3345,6 +3354,7 @@ async function start() {
   fillStaticSelects();
   buildTaskTypeGroups();
   initHyperFocusUI();
+  initTutorialRuntime();
   bindEvents();
   renderAuthMode();
 
@@ -3364,6 +3374,9 @@ async function start() {
   onChileCompraChange(() => {
     if (ui.view === 'dashboard') render();
   });
+  onTutorialChange(() => {
+    if (ui.view === 'help') render();
+  });
 
   onAuthChange(async (s) => {
     const generation = ++authSyncGeneration;
@@ -3373,7 +3386,7 @@ async function start() {
       if ($('auditNav')) $('auditNav').hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
-        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra()]);
+        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra(), hydrateTutorials()]);
         if (generation !== authSyncGeneration || session.status !== 'signed-in') {
           // Una hidratación iniciada por una sesión anterior no puede volver a
           // poblar el estado local ni reactivar Realtime después de cerrar sesión.
@@ -3384,6 +3397,7 @@ async function start() {
           quotesClearLocal();
           hyperFocusClearLocal();
           clearChileCompra();
+          clearTutorials();
           return;
         }
         startRealtime();
@@ -3399,6 +3413,8 @@ async function start() {
         render();
         if (s.recovery && !$('accessPasswordDialog').open) {
           $('accessPasswordDialog').showModal();
+        } else {
+          maybeOfferAssignedTutorial();
         }
       }
     } else if (s.status === 'profile-error') {
@@ -3409,6 +3425,7 @@ async function start() {
       quotesClearLocal();
       hyperFocusClearLocal();
       clearChileCompra();
+      clearTutorials();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';
@@ -3423,6 +3440,7 @@ async function start() {
       quotesClearLocal();
       hyperFocusClearLocal();
       clearChileCompra();
+      clearTutorials();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
       authMode = 'signin';
