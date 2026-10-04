@@ -815,7 +815,60 @@ export function renderTemplates(ui) {
 
 export function renderSettings() {
   const me = state.me;
-  const teamAdmin = isSuper();
+  const teamAdmin = isAdmin();
+  const teamSuper = isSuper();
+  const members = [...state.team].sort((a, b) => Number(b.active) - Number(a.active) || String(a.name || a.email).localeCompare(String(b.name || b.email), 'es'));
+  const activeMembers = members.filter((u) => u.active);
+  const inactiveMembers = members.filter((u) => !u.active);
+  const canManagePerson = (u) => teamSuper || ['comercial', 'visita'].includes(u.role);
+  const roleOptionsFor = (u) =>
+    USER_ROLES
+      .filter((r) => teamSuper || ['comercial', 'visita'].includes(r.id))
+      .map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`)
+      .join('');
+  const memberCard = (u) => {
+    const mine = u.id === me?.id;
+    const manageable = teamAdmin && canManagePerson(u);
+    const role = USER_ROLES.find((r) => r.id === u.role);
+    const initials = String(u.name || u.email || '?')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join('') || '?';
+    return `
+      <article class="team-member-card ${u.active ? '' : 'is-inactive'}">
+        <div class="team-member-main">
+          <span class="team-avatar" aria-hidden="true">${e(initials)}</span>
+          <div class="team-member-copy">
+            <div class="team-member-name">
+              <strong>${e(u.name || 'Sin nombre')}</strong>
+              ${mine ? '<span class="badge">Tú</span>' : ''}
+              <span class="badge ${u.active ? 'success' : 'warning'}">${u.active ? 'Activo' : 'Dado de baja'}</span>
+            </div>
+            <span>${e(u.email)}</span>
+            ${u.phone ? `<small>${e(u.phone)}</small>` : ''}
+          </div>
+        </div>
+        <div class="team-member-controls">
+          <label>
+            <span>Permiso</span>
+            <select data-team-role data-id="${u.id}" ${!manageable || mine ? 'disabled' : ''}>
+              ${roleOptionsFor(u)}
+            </select>
+          </label>
+          <p class="team-role-help">${e(role?.detail || '')}</p>
+          ${manageable
+            ? `<div class="team-member-actions">
+                <button type="button" class="ghost-btn" data-action="team-resend" data-id="${u.id}" ${u.active ? '' : 'disabled'}>Reenviar acceso</button>
+                <button type="button" class="ghost-btn ${u.active ? 'danger-text' : ''}" data-action="team-toggle-active" data-id="${u.id}" data-active="${u.active ? 'false' : 'true'}" ${mine ? 'disabled' : ''}>
+                  ${u.active ? 'Dar de baja' : 'Reactivar'}
+                </button>
+              </div>`
+            : '<p class="muted team-lock-note">No tienes permiso para modificar este perfil.</p>'}
+        </div>
+      </article>`;
+  };
 
   return `
     <div class="card">
@@ -857,33 +910,38 @@ export function renderSettings() {
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
-      <div class="card-head"><h3>Equipo</h3></div>
-      <div class="card-body">
-        <div class="notice">
-          Las cuentas nuevas se crean de forma administrada y nacen inactivas. Cuando aparezcan en esta organización,
-          un súper administrador debe asignarles permiso y activarlas. ${teamAdmin ? '' : 'Solo un súper administrador puede cambiar permisos y activar cuentas.'}
+    <div class="card team-settings-card" style="margin-top:16px">
+      <div class="card-head team-card-head">
+        <div>
+          <h3>Equipo</h3>
+          <span class="muted">Quién puede entrar al CRM y qué puede hacer.</span>
         </div>
-        ${
-          state.team.length
-            ? `<div class="table-wrap"><table class="data-table">
-                <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Permiso</th><th>Estado</th></tr></thead>
-                <tbody>${state.team
-                  .map(
-                    (u) => `<tr>
-                      <td><input class="cell-input" data-user-field="name" data-id="${u.id}" value="${e(u.name)}" placeholder="Nombre" ${teamAdmin ? '' : 'disabled'} /></td>
-                      <td>${e(u.email)}</td>
-                      <td><input class="cell-input" data-user-field="phone" data-id="${u.id}" value="${e(u.phone)}" placeholder="+56 9 ..." ${teamAdmin ? '' : 'disabled'} /></td>
-                      <td><select class="cell-input" data-user-field="role" data-id="${u.id}" ${teamAdmin ? '' : 'disabled'}>
-                        ${USER_ROLES.map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`).join('')}
-                      </select></td>
-                      <td><label class="inline-check"><input type="checkbox" data-user-field="active" data-id="${u.id}" ${u.active ? 'checked' : ''} ${teamAdmin ? '' : 'disabled'} /> Activo</label></td>
-                    </tr>`
-                  )
-                  .join('')}</tbody>
-              </table></div>`
-            : empty('Sin personas registradas', 'Nadie se ha registrado todavía.')
-        }
+        ${teamAdmin ? '<button type="button" class="primary-btn" data-action="team-add">+ Agregar persona</button>' : ''}
+      </div>
+      <div class="card-body">
+        <div class="team-summary">
+          <div><strong>${activeMembers.length}</strong><span>personas activas</span></div>
+          <div><strong>${inactiveMembers.length}</strong><span>dados de baja</span></div>
+          <div><strong>${activeMembers.filter((u) => u.role === 'comercial').length}</strong><span>comerciales</span></div>
+        </div>
+
+        ${teamAdmin
+          ? `<div class="notice team-notice">
+              <strong>Agregar a alguien ahora sí se hace desde aquí.</strong>
+              <span>La cuenta se crea, recibe un enlace para definir su contraseña y luego puedes reenviar acceso, cambiar su permiso o darla de baja sin borrar su historial.</span>
+            </div>`
+          : '<div class="notice">Puedes revisar el equipo. La administración de accesos está reservada a Administrador y Súper administrador.</div>'}
+
+        <div class="team-members">
+          ${activeMembers.length ? activeMembers.map(memberCard).join('') : empty('Sin personas activas', 'Agrega la primera persona al equipo.')}
+        </div>
+
+        ${inactiveMembers.length
+          ? `<details class="team-inactive">
+              <summary>Dados de baja (${inactiveMembers.length})</summary>
+              <div class="team-members">${inactiveMembers.map(memberCard).join('')}</div>
+            </details>`
+          : ''}
 
         <h4 class="settings-subtitle">Qué puede hacer cada permiso</h4>
         <div class="role-list">
