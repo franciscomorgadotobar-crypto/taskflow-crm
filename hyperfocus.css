@@ -1,4 +1,4 @@
-/* TaskFlow CRM · Híper Foco
+/* CRM Personal · Híper Foco
    Modo secuencial para procesar bases masivas sin contaminar el pipeline. */
 
 .nav-item[data-view="hyperfocus"]::before { content: "⚡"; }
