@@ -270,6 +270,69 @@ export const DEFAULT_TEMPLATES = [
   }
 ];
 
+export const TEMPLATE_PRESET_PACKS = {
+  taskflow: [
+    {
+      name: 'TaskFlow | Presentación',
+      channel: 'both',
+      subject: 'TaskFlow para {{empresa}}',
+      body:
+        'Hola {{nombre}},\n\nQuisiera mostrarte cómo TaskFlow puede apoyar a {{empresa}} en la gestión de órdenes de trabajo, inventario y trazabilidad de la operación. Podemos revisar el flujo actual y enfocar una demo en {{dolor}}.\n\n¿Te acomoda que coordinemos una breve reunión?'
+    },
+    {
+      name: 'TaskFlow | Coordinación de demo',
+      channel: 'both',
+      subject: 'Demo TaskFlow para {{empresa}}',
+      body:
+        'Hola {{nombre}},\n\nCoordinemos una demo de TaskFlow enfocada en el proceso real de {{empresa}}. Revisaremos únicamente los módulos relacionados con {{dolor}} y {{modulos}}, para que la sesión sea concreta y útil.\n\nQuedo atento a día y horario.'
+    },
+    {
+      name: 'TaskFlow | Seguimiento de demo',
+      channel: 'both',
+      subject: 'Seguimiento demo TaskFlow',
+      body:
+        'Hola {{nombre}},\n\nGracias por el tiempo en la demo. Quería saber si lo revisado en TaskFlow hace sentido para la operación de {{empresa}} y si quedó algún punto técnico o comercial pendiente.\n\nSi te parece, definimos el siguiente paso.'
+    },
+    {
+      name: 'TaskFlow | Reactivación',
+      channel: 'both',
+      subject: 'Retomemos TaskFlow en {{empresa}}',
+      body:
+        'Hola {{nombre}},\n\nHace un tiempo conversamos sobre TaskFlow y la necesidad de mejorar {{dolor}} en {{empresa}}. Quería saber si el proyecto sigue vigente.\n\nSi cambió el escenario, podemos revisar nuevamente el alcance y mostrar las mejoras más relevantes.'
+    }
+  ],
+  neoff: [
+    {
+      name: 'NEOFF | Presentación',
+      channel: 'both',
+      subject: 'Conectividad operacional para {{empresa}}',
+      body:
+        'Hola {{nombre}},\n\nQuisiera presentarte NEOFF, una propuesta orientada a conectar equipos, sensores y variables operacionales para obtener información útil en tiempo real. Podemos revisar el caso de {{empresa}} y aterrizarlo sobre {{dolor}}.\n\n¿Te acomoda una conversación breve?'
+    },
+    {
+      name: 'NEOFF | Coordinación de demo',
+      channel: 'both',
+      subject: 'Demo NEOFF para {{empresa}}',
+      body:
+        'Hola {{nombre}},\n\nPropongo coordinar una demo de NEOFF usando un caso cercano a la operación de {{empresa}}. La idea es mostrar cómo capturar señales de equipos, integrarlas y convertirlas en estados o alertas accionables.\n\nQuedo atento a día y horario.'
+    },
+    {
+      name: 'NEOFF | Seguimiento de demo',
+      channel: 'both',
+      subject: 'Seguimiento demo NEOFF',
+      body:
+        'Hola {{nombre}},\n\nQuería retomar lo revisado en la demo de NEOFF. ¿El caso de conectividad y monitoreo que vimos aplica a la necesidad de {{empresa}}?\n\nSi hay variables, protocolos o equipos que debamos validar, los revisamos en el siguiente paso.'
+    },
+    {
+      name: 'NEOFF | Reactivación',
+      channel: 'both',
+      subject: 'Retomemos NEOFF en {{empresa}}',
+      body:
+        'Hola {{nombre}},\n\nHace un tiempo conversamos sobre conectividad operacional para {{empresa}}. Quería saber si la necesidad asociada a {{dolor}} sigue vigente.\n\nSi te parece, retomamos con un alcance actualizado y revisamos los equipos o señales que hoy necesitan integrar.'
+    }
+  ]
+};
+
 export const TEMPLATE_VARIABLES = ['{{nombre}}', '{{nombreCompleto}}', '{{empresa}}', '{{cargo}}', '{{dolor}}', '{{modulos}}', '{{responsable}}'];
 
 /* ---------- Cotizador ---------- */
