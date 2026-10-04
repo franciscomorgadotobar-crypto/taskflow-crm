@@ -3,7 +3,7 @@
 import { state, onChange, openTasks, metrics } from './store.js';
 import { OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
-import { chilecompraDashboardStats, onChileCompraChange } from './chilecompra.js';
+import { chilecompraDashboardStats, chilecompraLocalBreakdown, loadChileCompraAnalytics, onChileCompraChange } from './chilecompra.js';
 
 const $ = (id) => document.getElementById(id);
 const q = (sel, root = document) => root.querySelector(sel);
@@ -284,20 +284,31 @@ function dashboardTaskCounts() {
 }
 
 function pipelineStageSnapshot(openLeads = []) {
+  const short = {
+    Lead: 'Lead',
+    Contactado: 'Contact.',
+    'Reunión / Demo': 'Reunión',
+    Propuesta: 'Propuesta',
+    Negociación: 'Negoc.'
+  };
   const counts = OPEN_STAGES.map((stage) => ({
     stage,
+    label: short[stage] || stage,
     value: openLeads.filter((lead) => lead.stage === stage).length
   }));
   const max = Math.max(1, ...counts.map((row) => row.value));
+  const top = [...counts].sort((a, b) => b.value - a.value)[0] || { stage: 'Sin actividad', value: 0 };
   return {
     counts,
-    activeStages: counts.filter((row) => row.value > 0).length,
-    bars: counts
-      .map((row) => {
-        const height = row.value ? Math.max(18, Math.round((row.value / max) * 92)) : 8;
-        return `<span style="--h:${height}%" title="${esc(row.stage)}: ${row.value}"></span>`;
-      })
-      .join('')
+    top,
+    bars: counts.map((row) => {
+      const height = row.value ? Math.max(20, Math.round((row.value / max) * 100)) : 8;
+      return `<button type="button" class="v2-pipeline-stage" data-v2-dashboard-action="pipeline" title="${esc(row.stage)}: ${row.value}">
+        <span class="v2-stage-count">${row.value}</span>
+        <i style="--h:${height}%"></i>
+        <small>${esc(row.label)}</small>
+      </button>`;
+    }).join('')
   };
 }
 
@@ -309,25 +320,96 @@ function readCloseRateFromOriginalDashboard(root) {
   });
 
   if (!card) return { value: '—', hint: 'Sin datos suficientes' };
-
   const rawValue = q('.value', card)?.textContent?.trim() || '—';
-  // El markup de views.js usa .sub para la línea de apoyo del KPI, no .hint:
-  // con el selector equivocado nunca se detectaba "0 ganadas · 0 perdidas".
   const rawHint = q('.sub', card)?.textContent?.trim() || '';
   const noClosures = /0\s*ganad/i.test(rawHint) && /0\s*perdid/i.test(rawHint);
-
   return noClosures
     ? { value: '—', hint: 'Sin cierres aún' }
     : { value: rawValue, hint: rawHint || 'Sobre oportunidades cerradas' };
+}
+
+let ccHomeUniverse = 'campaigns';
+let ccHomeMetric = 'publications';
+let ccHomeAnalytics = null;
+let ccHomeAnalyticsLoading = false;
+const CC_HOME_COLORS = ['#0b73df','#36a2f5','#31bd98','#ffad43','#ef6670','#8668e8','#97a7ba'];
+
+function compactNumber(value, metric) {
+  const n = Number(value || 0);
+  if (metric === 'amount') {
+    if (!n) return '$0';
+    if (n >= 1_000_000_000) return '$' + (n / 1_000_000_000).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' mil MM';
+    if (n >= 1_000_000) return '$' + (n / 1_000_000).toLocaleString('es-CL', { maximumFractionDigits: 0 }) + ' MM';
+    return money(n);
+  }
+  return n.toLocaleString('es-CL');
+}
+
+function homeChileCompraMarket() {
+  if (ccHomeUniverse === 'campaigns') return chilecompraLocalBreakdown({ metric: ccHomeMetric });
+  if (ccHomeAnalytics?.universe === ccHomeUniverse && ccHomeAnalytics?.metric === ccHomeMetric) return ccHomeAnalytics;
+  return null;
+}
+
+function homeChileCompraDonut(data) {
+  const categories = data?.categories || [];
+  const total = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  if (!categories.length || total <= 0) {
+    const text = data?.configured === false
+      ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea una campaña para comenzar a medir el mercado.')
+      : 'No hay datos suficientes para este filtro.';
+    return `<div class="v2-cc-market-empty">${esc(text)}</div>`;
+  }
+  let cursor = 0;
+  const gradient = categories.map((row, i) => {
+    const start = cursor;
+    cursor += (Number(row.value || 0) / total) * 100;
+    return `${CC_HOME_COLORS[i % CC_HOME_COLORS.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+  }).join(',');
+  return `<div class="v2-cc-market-viz">
+    <div class="v2-cc-donut" style="background:conic-gradient(${gradient})"><div><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${ccHomeMetric === 'amount' ? 'monto' : ccHomeMetric === 'buyers' ? 'compradores' : 'publicaciones'}</span></div></div>
+    <div class="v2-cc-market-legend">${categories.slice(0, 6).map((row, i) => {
+      const pct = total ? (Number(row.value || 0) / total) * 100 : 0;
+      return `<div><i style="background:${CC_HOME_COLORS[i % CC_HOME_COLORS.length]}"></i><span>${esc(row.label)}</span><strong>${pct.toFixed(0)}%</strong></div>`;
+    }).join('')}</div>
+  </div>`;
+}
+
+async function refreshHomeChileCompraAnalytics() {
+  if (ccHomeUniverse === 'campaigns') {
+    ccHomeAnalytics = null;
+    renderDashboardSummary();
+    return;
+  }
+  ccHomeAnalyticsLoading = true;
+  renderDashboardSummary();
+  try {
+    ccHomeAnalytics = await loadChileCompraAnalytics({ universe: ccHomeUniverse, metric: ccHomeMetric, groupBy: 'industry' });
+  } catch (err) {
+    console.error('No se pudo cargar analítica ChileCompra para el Home', err);
+    ccHomeAnalytics = null;
+  } finally {
+    ccHomeAnalyticsLoading = false;
+    renderDashboardSummary();
+  }
+}
+
+function handleDashboardAction(action) {
+  if (['pipeline','opportunities','close'].includes(action)) {
+    gotoView('pipeline');
+    return;
+  }
+  if (action === 'today' || action === 'overdue') {
+    const tab = q(`[data-action="tasks-tab"][data-tab="${action}"]`, $('viewRoot'));
+    tab?.click();
+    q('.commercial-center-card', $('viewRoot'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function renderDashboardSummary() {
   if ($('viewTitle')?.textContent.trim() !== 'Resumen') return;
   const root = $('viewRoot');
   if (!root) return;
-
-  // La V2 anterior agregaba una bienvenida y un panel de atención que repetían
-  // datos ya presentes en el dashboard. Si existe al actualizar, se retira.
   q('.v2-focus', root)?.remove();
 
   const originalKpis = q('.kpi-grid', root);
@@ -338,6 +420,7 @@ function renderDashboardSummary() {
   const closeRate = readCloseRateFromOriginalDashboard(root);
   const pipelineSnapshot = pipelineStageSnapshot(m.open);
   const chilecompra = chilecompraDashboardStats();
+  const market = homeChileCompraMarket();
 
   let summary = q('.v2-dashboard-summary', root);
   if (!summary) {
@@ -347,82 +430,66 @@ function renderDashboardSummary() {
   }
 
   const signature = JSON.stringify([
-    m.pipelineValue,
-    m.open.length,
-    counts.today,
-    counts.overdue,
-    closeRate.value,
-    closeRate.hint,
-    pipelineSnapshot.counts.map((row) => row.value),
-    chilecompra.total,
-    chilecompra.high,
-    chilecompra.partial
+    m.pipelineValue, m.open.length, counts.today, counts.overdue, closeRate.value, closeRate.hint,
+    pipelineSnapshot.counts.map((row) => row.value), pipelineSnapshot.top.stage, pipelineSnapshot.top.value,
+    chilecompra.total, chilecompra.activeCampaigns,
+    chilecompra.campaigns.map((c) => [c.id, c.name, chilecompra.newByCampaign?.[c.id] || 0]),
+    ccHomeUniverse, ccHomeMetric, ccHomeAnalyticsLoading,
+    market?.categories, market?.publications, market?.buyers, market?.amount
   ]);
+
   if (summary.dataset.signature !== signature) {
     summary.dataset.signature = signature;
+    const campaignButtons = chilecompra.campaigns.map((campaign) => `<button type="button" class="v2-cc-campaign-chip" data-action="open-chilecompra" data-campaign="${esc(campaign.id)}">
+      <span>${esc(campaign.name)}</span><strong>${chilecompra.newByCampaign?.[campaign.id] || 0}</strong>
+    </button>`).join('');
+
     summary.innerHTML = `
-      <article class="v2-summary-kpi v2-pipeline-hero">
-        <div class="v2-kpi-label-row">
-          <span>Pipeline activo</span>
-          <span class="v2-kpi-info" aria-label="Valor total de oportunidades abiertas">i</span>
-        </div>
+      <article class="v2-summary-kpi v2-pipeline-hero is-clickable" data-v2-dashboard-action="pipeline" role="button" tabindex="0">
+        <div class="v2-kpi-label-row"><span>Pipeline activo</span><span class="v2-kpi-info" aria-label="Valor total de oportunidades abiertas">i</span></div>
         <strong>${esc(money(m.pipelineValue))}</strong>
         <small><b>${m.open.length}</b> ${m.open.length === 1 ? 'oportunidad abierta' : 'oportunidades abiertas'}</small>
-        <div class="v2-pipeline-trend" aria-label="Estado actual del pipeline">
-          <strong>${pipelineSnapshot.activeStages}</strong>
-          <span>${pipelineSnapshot.activeStages === 1 ? 'etapa activa' : 'etapas activas'}</span>
-        </div>
-        <div class="v2-pipeline-chart" aria-label="Distribución actual de oportunidades por etapa">
-          ${pipelineSnapshot.bars}
-        </div>
+        <div class="v2-pipeline-insight"><span>Mayor carga</span><strong>${esc(pipelineSnapshot.top.stage)}</strong><small>${pipelineSnapshot.top.value} ${pipelineSnapshot.top.value === 1 ? 'oportunidad' : 'oportunidades'}</small></div>
+        <div class="v2-pipeline-chart" aria-label="Oportunidades por etapa">${pipelineSnapshot.bars}</div>
       </article>
-      <article class="v2-summary-kpi v2-kpi-opportunities">
-        <span class="v2-kpi-icon" aria-hidden="true">▦</span>
-        <span>Oportunidades</span>
-        <strong>${m.open.length}</strong>
-        <small>Activas en el pipeline</small>
-        
+      <article class="v2-summary-kpi v2-kpi-opportunities is-clickable" data-v2-dashboard-action="opportunities" role="button" tabindex="0">
+        <span class="v2-kpi-icon" aria-hidden="true">▦</span><span>Oportunidades</span><strong>${m.open.length}</strong><small>Activas en el pipeline</small><b class="v2-card-chevron">›</b>
       </article>
-      <article class="v2-summary-kpi v2-kpi-today ${counts.today ? 'attention' : ''}">
-        <span class="v2-kpi-icon" aria-hidden="true">✓</span>
-        <span>Pendientes hoy</span>
-        <strong>${counts.today}</strong>
-        <small>Seguimientos para hoy</small>
-        
+      <article class="v2-summary-kpi v2-kpi-today ${counts.today ? 'attention' : ''} is-clickable" data-v2-dashboard-action="today" role="button" tabindex="0">
+        <span class="v2-kpi-icon" aria-hidden="true">✓</span><span>Pendientes hoy</span><strong>${counts.today}</strong><small>Seguimientos para hoy</small><b class="v2-card-chevron">›</b>
       </article>
-      <article class="v2-summary-kpi v2-kpi-overdue ${counts.overdue ? 'danger' : ''}">
-        <span class="v2-kpi-icon" aria-hidden="true">!</span>
-        <span>Tareas vencidas</span>
-        <strong>${counts.overdue}</strong>
-        <small>Requieren acción</small>
-        
+      <article class="v2-summary-kpi v2-kpi-overdue ${counts.overdue ? 'danger' : ''} is-clickable" data-v2-dashboard-action="overdue" role="button" tabindex="0">
+        <span class="v2-kpi-icon" aria-hidden="true">!</span><span>Tareas vencidas</span><strong>${counts.overdue}</strong><small>Requieren acción</small><b class="v2-card-chevron">›</b>
       </article>
-      <article class="v2-summary-kpi v2-kpi-close">
-        <span class="v2-kpi-icon" aria-hidden="true">▥</span>
-        <span>Tasa de cierre</span>
-        <strong>${esc(closeRate.value)}</strong>
-        <small>${esc(closeRate.hint)}</small>
-        
+      <article class="v2-summary-kpi v2-kpi-close is-clickable" data-v2-dashboard-action="close" role="button" tabindex="0">
+        <span class="v2-kpi-icon" aria-hidden="true">▥</span><span>Tasa de cierre</span><strong>${esc(closeRate.value)}</strong><small>${esc(closeRate.hint)}</small><b class="v2-card-chevron">›</b>
       </article>
-      <article class="v2-summary-kpi v2-chilecompra-card" data-action="open-chilecompra" role="button" tabindex="0" aria-label="Abrir Radar ChileCompra">
+      <article class="v2-summary-kpi v2-chilecompra-card">
         <div class="v2-cc-brand">
           <span class="v2-cc-brand-icon" aria-hidden="true">⌖</span>
-          <div><strong>Oportunidades ChileCompra</strong><small><b>${chilecompra.total}</b> nuevas oportunidades detectadas</small></div>
+          <div><strong>ChileCompra</strong><small>${chilecompra.activeCampaigns ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'campaña activa' : 'campañas activas'} · <b>${chilecompra.total}</b> coincidencias nuevas` : 'Aún no tienes seguimientos activos'}</small></div>
+          <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra">›</button>
         </div>
-        <button type="button" class="v2-cc-number v2-cc-high" data-action="open-chilecompra" data-fit="alto" aria-label="Ver ${chilecompra.high} oportunidades de encaje alto">
-          <strong>${chilecompra.high}</strong><span>● Encaje alto</span>
-        </button>
-        <button type="button" class="v2-cc-number v2-cc-partial" data-action="open-chilecompra" data-fit="parcial" aria-label="Ver ${chilecompra.partial} oportunidades de encaje parcial">
-          <strong>${chilecompra.partial}</strong><span>● Encaje parcial</span>
-        </button>
-        <button type="button" class="primary-btn v2-cc-open" data-action="open-chilecompra">Ver radar →</button>
+        <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
+        <div class="v2-cc-market-head"><div><strong>Distribución por rubro</strong><small>Qué se está comprando según el universo seleccionado.</small></div></div>
+        <div class="v2-cc-market-controls">
+          <select id="v2CcUniverse" aria-label="Universo ChileCompra">
+            <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis campañas</option>
+            <option value="business" ${ccHomeUniverse === 'business' ? 'selected' : ''}>Mi negocio</option>
+            <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>General Chile</option>
+          </select>
+          <select id="v2CcMetric" aria-label="Métrica ChileCompra">
+            <option value="publications" ${ccHomeMetric === 'publications' ? 'selected' : ''}>Publicaciones</option>
+            <option value="amount" ${ccHomeMetric === 'amount' ? 'selected' : ''}>Monto</option>
+            <option value="buyers" ${ccHomeMetric === 'buyers' ? 'selected' : ''}>Compradores</option>
+          </select>
+        </div>
+        ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Analizando Mercado Público…</div>' : homeChileCompraDonut(market)}
+        <button type="button" class="primary-btn v2-cc-open" data-action="open-chilecompra">Ver ChileCompra →</button>
       </article>`;
   }
 
-  // Evita mostrar dos veces las mismas métricas. La grilla original permanece
-  // en el DOM para que app.js pueda seguir actualizándola sin alterar su lógica.
   originalKpis.classList.add('v2-original-kpis');
-
   refinePriorityBlock(root);
   if ($('viewSubtitle')) $('viewSubtitle').textContent = 'Seguimiento de tu gestión comercial.';
 }
