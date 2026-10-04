@@ -1,4 +1,4 @@
-/* TaskFlow CRM · UX/UI V2
+/* CRM Personal · UX/UI V2
    Enhancement layer: mantiene intacta la lógica de app.js/store.js. */
 import { state, onChange, openTasks, metrics } from './store.js';
 import { OPEN_STAGES } from './catalog.js';
@@ -44,7 +44,7 @@ function currentEmail() {
   return session.user?.email || state.me?.email || '';
 }
 
-const MASCOT_PREF_PREFIX = 'taskflow.crm.mascot.enabled';
+const MASCOT_PREF_PREFIX = 'crm.personal.mascot.enabled';
 
 function mascotPreferenceKey() {
   return `${MASCOT_PREF_PREFIX}:${session.user?.id || 'default'}`;
@@ -66,7 +66,7 @@ function setMascotPreference(enabled) {
     // La preferencia visual no debe bloquear Configuración.
   }
 
-  document.dispatchEvent(new CustomEvent('taskflow:mascot-preference', {
+  document.dispatchEvent(new CustomEvent('crm-personal:mascot-preference', {
     detail: { enabled: next }
   }));
 
@@ -675,7 +675,7 @@ function injectMascotSettingsCard() {
       </label>
     </div>`;
 
-  const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación TaskFlow');
+  const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación CRM');
   if (appCard) appCard.insertAdjacentElement('afterend', card);
   else cards[0].insertAdjacentElement('afterend', card);
 
