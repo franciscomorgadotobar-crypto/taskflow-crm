@@ -1,17 +1,23 @@
 {
   "id": "./",
-  "name": "TaskFlow CRM",
-  "short_name": "TaskFlow",
-  "description": "CRM comercial TaskFlow para gestionar oportunidades, tareas, cotizaciones e Híper Foco.",
+  "name": "CRM",
+  "short_name": "CRM",
+  "description": "CRM personal para gestión comercial, seguimiento, pipeline y análisis de oportunidades.",
   "lang": "es-CL",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#1b3257",
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "assets/pwa-icon.svg",
