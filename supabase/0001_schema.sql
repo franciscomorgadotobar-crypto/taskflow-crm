@@ -1,4 +1,4 @@
--- TaskFlow CRM — esquema base (equipo, leads, actividades, plantillas, cotizador)
+-- CRM Personal — esquema base (equipo, leads, actividades, plantillas, cotizador)
 
 create extension if not exists "pgcrypto";
 
