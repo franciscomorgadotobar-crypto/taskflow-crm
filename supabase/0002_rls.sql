@@ -1,4 +1,4 @@
--- TaskFlow CRM — permisos por rol (RLS)
+-- CRM Personal — permisos por rol (RLS)
 -- super/admin: acceso total. comercial: solo lo suyo. visita: solo lectura de todo.
 
 create function public.my_role()
