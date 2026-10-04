@@ -1,5 +1,5 @@
 -- 0033: campañas ChileCompra definidas por el usuario + perfil "Mi negocio".
--- No crea campañas predefinidas ni asume TaskFlow/NEOFF.
+-- No crea campañas predefinidas ni asume productos específicos.
 
 alter table public.chilecompra_campaign_matches
   add column if not exists reviewed_at timestamptz,
