@@ -650,6 +650,25 @@
     </form>
   </dialog>
 
+  <!-- Definir contraseña desde invitación / recuperación -->
+  <dialog id="accessPasswordDialog" class="modal" data-keep-open="true">
+    <form id="accessPasswordForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Define tu contraseña</h2>
+          <p>Tu acceso ya fue validado. Crea la contraseña que usarás desde ahora.</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <label class="span-2">Nueva contraseña<input id="accessPassword" type="password" minlength="6" autocomplete="new-password" required /></label>
+        <label class="span-2">Repetir contraseña<input id="accessPasswordConfirm" type="password" minlength="6" autocomplete="new-password" required /></label>
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="primary-btn" id="accessPasswordSubmit">Guardar contraseña</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Equipo -->
   <dialog id="teamAddDialog" class="modal">
     <form id="teamAddForm" class="modal-card team-add-card" novalidate>
