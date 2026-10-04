@@ -240,8 +240,7 @@ function tutorialMeta(id) {
   };
 }
 
-export function availableTutorials() {
-  const role = profileRole();
+export function availableTutorialsForRole(role = profileRole()) {
   return Object.keys(TUTORIALS)
     .map(tutorialMeta)
     .filter((t) => t && t.active !== false && t.roles.includes(role))
@@ -250,6 +249,21 @@ export function availableTutorials() {
       const br = tutorialState.catalog.find((x) => x.id === b.id)?.sort_order ?? 999;
       return ar - br || a.name.localeCompare(b.name, 'es');
     });
+}
+
+export function availableTutorials() {
+  return availableTutorialsForRole(profileRole());
+}
+
+const teamKeyFor = (profileId, id, version) => `${profileId}:${id}:${version}`;
+
+export function teamTutorialStatus(profileId, tutorial) {
+  const k = teamKeyFor(profileId, tutorial.id, tutorial.version);
+  return {
+    assigned: Boolean(tutorialState.teamAssignments[k]),
+    assignment: tutorialState.teamAssignments[k] || null,
+    progress: tutorialState.teamProgress[k] || null
+  };
 }
 
 export function tutorialStatus(tutorial) {
@@ -262,18 +276,28 @@ export function tutorialStatus(tutorial) {
 
 export async function hydrateTutorials() {
   if (!session.user?.id) return;
-  const [catalog, assignments, progress] = await Promise.all([
+  const superUser = profileRole() === 'super';
+  const ownAssignments = supabase.from('tutorial_assignments').select('*').eq('profile_id', session.user.id);
+  const ownProgress = supabase.from('tutorial_progress').select('*').eq('profile_id', session.user.id);
+  const teamAssignments = superUser ? supabase.from('tutorial_assignments').select('*') : Promise.resolve({ data: [], error: null });
+  const teamProgress = superUser ? supabase.from('tutorial_progress').select('*') : Promise.resolve({ data: [], error: null });
+
+  const [catalog, assignments, progress, allAssignments, allProgress] = await Promise.all([
     supabase.from('tutorials').select('*').order('sort_order', { ascending: true }),
-    supabase.from('tutorial_assignments').select('*').eq('profile_id', session.user.id),
-    supabase.from('tutorial_progress').select('*').eq('profile_id', session.user.id)
+    ownAssignments,
+    ownProgress,
+    teamAssignments,
+    teamProgress
   ]);
-  if (catalog.error) throw catalog.error;
-  if (assignments.error) throw assignments.error;
-  if (progress.error) throw progress.error;
+  for (const result of [catalog, assignments, progress, allAssignments, allProgress]) {
+    if (result.error) throw result.error;
+  }
 
   tutorialState.catalog = catalog.data || [];
   tutorialState.assignments = Object.fromEntries((assignments.data || []).map((x) => [keyFor(x.tutorial_id, x.version), x]));
   tutorialState.progress = Object.fromEntries((progress.data || []).map((x) => [keyFor(x.tutorial_id, x.version), x]));
+  tutorialState.teamAssignments = Object.fromEntries((allAssignments.data || []).map((x) => [teamKeyFor(x.profile_id, x.tutorial_id, x.version), x]));
+  tutorialState.teamProgress = Object.fromEntries((allProgress.data || []).map((x) => [teamKeyFor(x.profile_id, x.tutorial_id, x.version), x]));
   tutorialState.loaded = true;
   emit();
 }
@@ -282,6 +306,8 @@ export function clearTutorials() {
   tutorialState.catalog = [];
   tutorialState.assignments = {};
   tutorialState.progress = {};
+  tutorialState.teamAssignments = {};
+  tutorialState.teamProgress = {};
   tutorialState.loaded = false;
   tutorialState.active = null;
   tutorialState.offer = null;
