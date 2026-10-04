@@ -3,6 +3,7 @@ import {
   BUY_TRIGGERS,
   CURRENT_MANAGEMENT,
   DEFAULT_PROBABILITY,
+  DEFAULT_TEMPLATES,
   INDUSTRIES,
   LOSS_REASONS,
   MODULES,
@@ -14,6 +15,8 @@ import {
   STAGE_TEMPLATE,
   STAGES,
   TASK_TYPES,
+  TEMPLATE_CHANNELS,
+  TEMPLATE_PRESET_PACKS,
   USER_ROLES
 } from './catalog.js';
 import {
@@ -1147,6 +1150,125 @@ function insertVariable(id, variable) {
   onTemplateEdit(id, field);
 }
 
+const normalizeTemplateName = (value) =>
+  String(value || '').trim().toLocaleLowerCase('es');
+
+function templateSeedsForPackages(packageIds = []) {
+  const seeds = [];
+  const unique = [...new Set(packageIds)];
+  unique.forEach((id) => {
+    if (id === 'general') {
+      seeds.push(...DEFAULT_TEMPLATES.map(({ id: _id, ...template }) => ({ ...template })));
+      return;
+    }
+    const pack = TEMPLATE_PRESET_PACKS[id];
+    if (pack) seeds.push(...pack.map((template) => ({ ...template })));
+  });
+  return seeds;
+}
+
+async function installTemplatePackages(packageIds = []) {
+  if (!isSuper()) throw new Error('Solo el Súper administrador puede cargar paquetes de plantillas.');
+  const seeds = templateSeedsForPackages(packageIds);
+  const existing = new Set(state.templates.map((template) => normalizeTemplateName(template.name)));
+  let created = 0;
+  let skipped = 0;
+
+  for (const seed of seeds) {
+    const key = normalizeTemplateName(seed.name);
+    if (!key || existing.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    const record = await addTemplate(seed);
+    if (!record) throw new Error(`No se pudo crear la plantilla "${seed.name}".`);
+    existing.add(key);
+    created += 1;
+  }
+
+  return { created, skipped };
+}
+
+function openTemplateCreate() {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const form = $('templateCreateForm');
+  form.reset();
+  $('templateCreateChannel').innerHTML = TEMPLATE_CHANNELS
+    .map((channel) => `<option value="${channel.id}">${escapeHtml(channel.label)}</option>`)
+    .join('');
+  $('templateCreateChannel').value = ui.templateChannel || 'both';
+  $('templateCreateStarter').innerHTML = [
+    '<option value="">En blanco</option>',
+    ...DEFAULT_TEMPLATES.map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`)
+  ].join('');
+  $('templateCreateDialog').showModal();
+  queueMicrotask(() => $('templateCreateName')?.focus());
+}
+
+async function submitTemplateCreate(ev) {
+  ev.preventDefault();
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+
+  const name = $('templateCreateName').value.trim();
+  if (!name) return toast('Escribe un nombre para la plantilla.', 'error');
+
+  const starter = DEFAULT_TEMPLATES.find((template) => template.id === $('templateCreateStarter').value);
+  const submit = $('templateCreateSubmit');
+  submit.disabled = true;
+  submit.textContent = 'Creando…';
+
+  try {
+    const record = await addTemplate({
+      name,
+      channel: $('templateCreateChannel').value || starter?.channel || 'both',
+      subject: starter?.subject || '',
+      body: starter?.body || ''
+    });
+    if (!record) return;
+    $('templateCreateDialog').close();
+    ui.templateOpen = record.id;
+    render();
+    toast('Plantilla creada. Ya puedes editarla y guardarla.');
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Crear plantilla';
+  }
+}
+
+function openTemplatePackDialog() {
+  if (!isSuper()) return toast('Solo el Súper administrador puede cargar paquetes.', 'error');
+  $('templatePackForm').reset();
+  $('templatePackDialog').showModal();
+}
+
+async function submitTemplatePack(ev) {
+  ev.preventDefault();
+  if (!isSuper()) return toast('Solo el Súper administrador puede cargar paquetes.', 'error');
+  const packages = [
+    $('templatePackGeneral').checked ? 'general' : '',
+    $('templatePackTaskflow').checked ? 'taskflow' : '',
+    $('templatePackNeoff').checked ? 'neoff' : ''
+  ].filter(Boolean);
+  if (!packages.length) return toast('Selecciona al menos un paquete.', 'error');
+
+  const submit = $('templatePackSubmit');
+  submit.disabled = true;
+  submit.textContent = 'Cargando…';
+  try {
+    const result = await installTemplatePackages(packages);
+    $('templatePackDialog').close();
+    await hydrate();
+    if (ui.view === 'templates') render();
+    const detail = result.skipped ? ` ${result.skipped} ya existían.` : '';
+    toast(`Se agregaron ${result.created} plantilla(s).${detail}`);
+  } catch (err) {
+    toast(err.message || 'No se pudieron cargar las plantillas.', 'error');
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Cargar seleccionadas';
+  }
+}
+
 /* ---------- Cotizador ---------- */
 
 // El borrador vive en ui.quoteBuilder. Los montos nunca se calculan aquí: cada
@@ -2042,6 +2164,14 @@ function refreshTeamRoleDetail() {
   detail.innerHTML = `<strong>${escapeHtml(USER_ROLES.find((r) => r.id === role)?.label || role)}</strong><span>${escapeHtml(teamRoleDescription(role))}</span>`;
 }
 
+function refreshTeamTemplateSetup() {
+  const setup = $('teamTemplateSetup');
+  if (!setup) return;
+  setup.hidden = !isSuper();
+  const brands = $('teamTemplateBrands');
+  if (brands) brands.hidden = $('teamTemplateMode')?.value !== 'specific';
+}
+
 function openTeamAdd() {
   if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
   $('teamAddForm').reset();
@@ -2049,11 +2179,15 @@ function openTeamAdd() {
   $('teamRole').innerHTML = allowed
     .map((r) => `<option value="${r.id}" ${r.id === 'comercial' ? 'selected' : ''}>${escapeHtml(r.label)}</option>`)
     .join('');
+  if ($('teamTemplateMode')) $('teamTemplateMode').value = 'none';
+  if ($('teamTemplateTaskflow')) $('teamTemplateTaskflow').checked = false;
+  if ($('teamTemplateNeoff')) $('teamTemplateNeoff').checked = false;
   refreshTeamRoleDetail();
+  refreshTeamTemplateSetup();
   $('teamAddDialog').showModal();
 }
 
-function showTeamAccessResult(data, { name = '', email = '', resend = false } = {}) {
+function showTeamAccessResult(data, { name = '', email = '', resend = false, templateSummary = null } = {}) {
   $('teamAccessTitle').textContent = resend ? 'Acceso reenviado' : 'Persona agregada';
   $('teamAccessSubtitle').textContent = [name, email].filter(Boolean).join(' · ');
   const fallback = $('teamAccessFallback');
@@ -2076,6 +2210,17 @@ function showTeamAccessResult(data, { name = '', email = '', resend = false } = 
     fallback.hidden = true;
   }
 
+  const templateStatus = $('teamAccessTemplateStatus');
+  if (templateStatus) {
+    if (templateSummary) {
+      templateStatus.hidden = false;
+      templateStatus.innerHTML = `<strong>Plantillas del CRM actualizadas.</strong><span>Se agregaron ${templateSummary.created} y ${templateSummary.skipped} ya existían.</span>`;
+    } else {
+      templateStatus.hidden = true;
+      templateStatus.innerHTML = '';
+    }
+  }
+
   if ($('teamAccessDialog').open) $('teamAccessDialog').close();
   $('teamAccessDialog').showModal();
 }
@@ -2091,15 +2236,33 @@ async function submitTeamAdd(ev) {
   if (!name) return toast('Escribe el nombre.', 'error');
   if (!email.includes('@')) return toast('Escribe un correo válido.', 'error');
 
+  let templatePackages = [];
+  if (isSuper()) {
+    const mode = $('teamTemplateMode')?.value || 'none';
+    if (mode === 'general') templatePackages = ['general'];
+    if (mode === 'specific') {
+      templatePackages = [
+        $('teamTemplateTaskflow')?.checked ? 'taskflow' : '',
+        $('teamTemplateNeoff')?.checked ? 'neoff' : ''
+      ].filter(Boolean);
+      if (!templatePackages.length) return toast('Selecciona TaskFlow, NEOFF o ambas.', 'error');
+    }
+  }
+
   const submit = $('teamAddSubmit');
   submit.disabled = true;
   submit.textContent = 'Creando…';
   try {
     const data = await teamRequest({ action: 'create', name, email, phone, role });
+    let templateSummary = null;
+    if (templatePackages.length) {
+      submit.textContent = 'Cargando plantillas…';
+      templateSummary = await installTemplatePackages(templatePackages);
+    }
     $('teamAddDialog').close();
     await hydrate();
     if (ui.view === 'settings') render();
-    showTeamAccessResult(data, { name, email });
+    showTeamAccessResult(data, { name, email, templateSummary });
   } catch (err) {
     toast(err.message || 'No se pudo crear la persona.', 'error');
   } finally {
@@ -2204,14 +2367,8 @@ const ACTIONS = {
       toast('Oportunidad eliminada.');
     }
   },
-  'new-template': async () => {
-    if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
-    const record = await addTemplate(ui.templateChannel || 'both');
-    if (!record) return;
-    ui.templateOpen = record.id;
-    render();
-    toast('Plantilla creada. Complétala y guárdala.');
-  },
+  'new-template': () => openTemplateCreate(),
+  'template-packages': () => openTemplatePackDialog(),
   'save-template': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const draft = templateDraft(id);
@@ -2430,6 +2587,13 @@ function handleKeydown(ev) {
 
 async function handleViewInput(ev) {
   const el = ev.target;
+  if (el.matches?.('[data-template-preview-lead]')) {
+    if (ev.type !== 'change') return;
+    ui.templateLead = el.value;
+    render();
+    return;
+  }
+
   const tplId = el.dataset.templateName || el.dataset.templateChannel || el.dataset.templateSubject || el.dataset.templateBody;
   if (tplId) return onTemplateEdit(tplId, el);
 
@@ -3326,8 +3490,17 @@ function bindEvents() {
   $('quoteForm').addEventListener('input', handleQuoteFormChange);
   $('quoteForm').addEventListener('change', handleQuoteFormChange);
   bindSubmitOnce('quoteSendForm', submitQuoteSend);
+  bindSubmitOnce('templateCreateForm', submitTemplateCreate);
+  bindSubmitOnce('templatePackForm', submitTemplatePack);
   bindSubmitOnce('teamAddForm', submitTeamAdd);
   $('teamRole').addEventListener('change', refreshTeamRoleDetail);
+  $('teamTemplateMode')?.addEventListener('change', refreshTeamTemplateSetup);
+  $('templateCreateStarter')?.addEventListener('change', () => {
+    const starter = DEFAULT_TEMPLATES.find((template) => template.id === $('templateCreateStarter').value);
+    if (!starter) return;
+    const name = $('templateCreateName');
+    if (!name.value.trim()) name.value = starter.name;
+  });
 
   $('authForm').addEventListener('submit', submitAuth);
   $('authToggleMode').addEventListener('click', () => {
