@@ -87,7 +87,7 @@ function decorateNavigation() {
     ['dashboard', 'General'],
     ['leads', 'Comercial'],
     ['implementation', 'Operación'],
-    ['settings', 'Sistema']
+    ['help', 'Sistema']
   ];
   labels.forEach(([view, text]) => {
     const item = q(`.nav-item[data-view="${view}"]`, nav);
@@ -134,6 +134,7 @@ function buildHeaderTools() {
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="quotes"><span>Cotizaciones</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="chilecompra"><span>ChileCompra</span><span>›</span></button>
           <button id="v2AuditMenu" class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="audit" hidden><span>Auditoría</span><span>›</span></button>
+          <button class="v2-menu-item" type="button" data-v2-view="help"><span>Ayuda y tutoriales</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="data"><span>Datos y respaldo</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="theme"><span>Cambiar apariencia</span><span>◐</span></button>
           <button class="v2-menu-item danger" type="button" data-v2-action="signout"><span>Cerrar sesión</span><span>↗</span></button>
@@ -351,8 +352,8 @@ function homeChileCompraMarket() {
   return null;
 }
 
-function homeChileCompraDonut(data) {
-  const categories = data?.categories || [];
+function homeChileCompraBars(data) {
+  const categories = (data?.categories || []).filter((row) => Number(row.value || 0) > 0);
   const total = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
   if (!categories.length || total <= 0) {
     const text = data?.configured === false
@@ -360,18 +361,21 @@ function homeChileCompraDonut(data) {
       : 'No hay datos suficientes para este filtro.';
     return `<div class="v2-cc-market-empty">${esc(text)}</div>`;
   }
-  let cursor = 0;
-  const gradient = categories.map((row, i) => {
-    const start = cursor;
-    cursor += (Number(row.value || 0) / total) * 100;
-    return `${CC_HOME_COLORS[i % CC_HOME_COLORS.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
-  }).join(',');
-  return `<div class="v2-cc-market-viz">
-    <div class="v2-cc-donut" style="background:conic-gradient(${gradient})"><div><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${ccHomeMetric === 'amount' ? 'monto' : ccHomeMetric === 'buyers' ? 'compradores' : 'publicaciones'}</span></div></div>
-    <div class="v2-cc-market-legend">${categories.slice(0, 6).map((row, i) => {
-      const pct = total ? (Number(row.value || 0) / total) * 100 : 0;
-      return `<div><i style="background:${CC_HOME_COLORS[i % CC_HOME_COLORS.length]}"></i><span>${esc(row.label)}</span><strong>${pct.toFixed(0)}%</strong></div>`;
-    }).join('')}</div>
+  const top = categories.slice(0, 6);
+  const unit = ccHomeMetric === 'amount' ? 'monto observado' : ccHomeMetric === 'buyers' ? 'compradores' : 'publicaciones';
+  return `<div class="v2-cc-bars">
+    <div class="v2-cc-bars-total"><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${unit}</span></div>
+    <div class="v2-cc-bars-list">
+      ${top.map((row) => {
+        const value = Number(row.value || 0);
+        const pct = total ? (value / total) * 100 : 0;
+        const shown = ccHomeMetric === 'amount' ? compactNumber(value, ccHomeMetric) : value.toLocaleString('es-CL');
+        return `<div class="v2-cc-bar-row">
+          <div class="v2-cc-bar-label"><span>${esc(row.label)}</span><strong>${esc(shown)} · ${pct.toFixed(0)}%</strong></div>
+          <div class="v2-cc-bar-track"><i style="width:${Math.max(2,pct).toFixed(1)}%"></i></div>
+        </div>`;
+      }).join('')}
+    </div>
   </div>`;
 }
 
@@ -471,20 +475,20 @@ function renderDashboardSummary() {
           <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra">›</button>
         </div>
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
-        <div class="v2-cc-market-head"><div><strong>Distribución por rubro</strong><small>Qué se está comprando según el universo seleccionado.</small></div></div>
+        <div class="v2-cc-market-head"><div><strong>Qué se está comprando</strong><small>Top de rubros según el universo y la métrica seleccionados.</small></div></div>
         <div class="v2-cc-market-controls">
-          <select id="v2CcUniverse" aria-label="Universo ChileCompra">
+          <label><span>Universo</span><select id="v2CcUniverse" aria-label="Universo ChileCompra">
             <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis campañas</option>
             <option value="business" ${ccHomeUniverse === 'business' ? 'selected' : ''}>Mi negocio</option>
-            <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>General Chile</option>
-          </select>
-          <select id="v2CcMetric" aria-label="Métrica ChileCompra">
+            <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>Mercado general Chile</option>
+          </select></label>
+          <label><span>Métrica</span><select id="v2CcMetric" aria-label="Métrica ChileCompra">
             <option value="publications" ${ccHomeMetric === 'publications' ? 'selected' : ''}>Publicaciones</option>
-            <option value="amount" ${ccHomeMetric === 'amount' ? 'selected' : ''}>Monto</option>
+            <option value="amount" ${ccHomeMetric === 'amount' ? 'selected' : ''}>Monto publicado</option>
             <option value="buyers" ${ccHomeMetric === 'buyers' ? 'selected' : ''}>Compradores</option>
-          </select>
+          </select></label>
         </div>
-        ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Analizando Mercado Público…</div>' : homeChileCompraDonut(market)}
+        ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Analizando Mercado Público…</div>' : homeChileCompraBars(market)}
         <button type="button" class="primary-btn v2-cc-open" data-action="open-chilecompra">Ver ChileCompra →</button>
       </article>`;
   }
