@@ -34,6 +34,68 @@ export const TUTORIALS = {
       }
     ]
   },
+  gestionar_leads: {
+    id: 'gestionar_leads',
+    name: 'Gestionar leads',
+    description: 'Crea, filtra y califica empresas antes de llevarlas al pipeline.',
+    version: 1,
+    duration: 4,
+    roles: ['super','admin','comercial','visita'],
+    view: 'leads',
+    steps: [
+      {
+        selector: '.lead-list-card',
+        title: 'Aquí viven los leads por calificar',
+        text: 'Esta vista reúne empresas que todavía no entran al pipeline. Primero se revisan y califican.'
+      },
+      {
+        selector: '.lead-list-card [data-action="new-lead"]',
+        title: 'Agrega una empresa',
+        text: 'Nuevo lead abre el formulario para registrar empresa, contacto, origen, responsable y próximos pasos.'
+      },
+      {
+        selector: '.lead-toolbar',
+        title: 'Filtra antes de gestionar',
+        text: 'Busca por empresa o contacto, filtra por responsable y ordena según valor, próxima acción o actualización.'
+      },
+      {
+        selector: '.lead-list-card .data-table, .lead-list-card',
+        title: 'Califica o registra actividad',
+        text: 'Al calificar, el lead pasa a Contactado y entra al Pipeline. También puedes levantar información o registrar actividad antes de moverlo.'
+      }
+    ]
+  },
+  hiper_foco: {
+    id: 'hiper_foco',
+    name: 'Híper Foco',
+    description: 'Aprende a trabajar una base grande sin llenar el CRM de registros fríos.',
+    version: 1,
+    duration: 5,
+    roles: ['super','admin','comercial'],
+    view: 'hyperfocus',
+    steps: [
+      {
+        selector: '.hf-view-head',
+        title: 'Campañas de prospección',
+        text: 'Híper Foco trabaja campañas separadas del CRM. Puedes importar una base o crear una campaña desde oportunidades existentes.'
+      },
+      {
+        selector: '.hf-campaign-grid, .hf-principle',
+        title: 'Cada campaña tiene su avance',
+        text: 'Ves cuántos registros quedan por gestionar, cuántos pasaron a prospectos, remarketing o fueron descartados.'
+      },
+      {
+        selector: '.hf-campaign-card, .hf-principle',
+        title: 'Gestiona una empresa a la vez',
+        text: 'Al iniciar Híper Foco, el CRM reserva un registro y te guía por contacto, resultado comercial y próximo paso.'
+      },
+      {
+        selector: '.hf-principle',
+        title: 'Solo lo útil pasa al CRM',
+        text: 'Una base importada no llena Leads automáticamente. Solo lo calificado entra a Leads, Pipeline o Remarketing.'
+      }
+    ]
+  },
   gestionar_pipeline: {
     id: 'gestionar_pipeline',
     name: 'Gestionar el pipeline',
@@ -135,6 +197,8 @@ const tutorialState = {
   catalog: [],
   assignments: {},
   progress: {},
+  teamAssignments: {},
+  teamProgress: {},
   loaded: false,
   active: null,
   offer: null,
