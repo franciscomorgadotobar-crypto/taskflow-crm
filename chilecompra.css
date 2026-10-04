@@ -620,3 +620,79 @@
 :root[data-theme="dark"] .cc-market-legend strong,
 :root[data-theme="dark"] .cc-buyers-list strong { color:#e9f1fb; }
 /* ---------- End ChileCompra dashboard configurable ---------- */
+/* ---------- Recomendaciones de campaña ChileCompra ---------- */
+.cc-campaign-suggestions{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid #dce7f3;
+  border-radius:12px;
+  background:#f8fbff;
+}
+.cc-suggestion-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:9px;
+}
+.cc-suggestion-head strong{
+  color:#193553;
+  font-size:12px;
+}
+.cc-suggestion-head span,
+.cc-suggestion-hint{
+  color:#748398;
+  font-size:10px;
+  line-height:1.4;
+}
+.cc-suggestion-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.cc-suggestion-chips button{
+  border:1px solid #bcd9f5;
+  border-radius:999px;
+  background:#fff;
+  color:#176db8;
+  padding:7px 10px;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.cc-suggestion-chips button:hover,
+.cc-suggestion-chips button:active{
+  background:#eaf5ff;
+  border-color:#7fbae9;
+}
+:root[data-theme="dark"] .cc-campaign-suggestions{
+  background:var(--v2-panel,#17243a);
+  border-color:var(--v2-line,#2d3b52);
+}
+:root[data-theme="dark"] .cc-suggestion-head strong{
+  color:#e8f1fb;
+}
+:root[data-theme="dark"] .cc-suggestion-chips button{
+  background:#1d2d45;
+  color:#91c9ff;
+  border-color:#365679;
+}
+@media (max-width:680px){
+  .cc-campaign-suggestions{
+    margin-top:10px;
+    padding:10px;
+  }
+  .cc-suggestion-head{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:2px;
+  }
+  .cc-suggestion-chips{
+    gap:6px;
+  }
+  .cc-suggestion-chips button{
+    padding:7px 9px;
+    font-size:9px;
+  }
+}
+/* ---------- End recomendaciones de campaña ---------- */
