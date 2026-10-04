@@ -1,6 +1,6 @@
-# TaskFlow CRM
+# CRM Personal
 
-CRM comercial B2B para TaskFlow / Cuatro Rlabs. Frontend en JavaScript puro (sin build ni framework), backend en Supabase (Postgres + Auth + Row Level Security + Realtime).
+CRM comercial B2B de uso personal. Frontend en JavaScript puro (sin build ni framework), backend en Supabase (Postgres + Auth + Row Level Security + Realtime).
 
 ## Cómo ejecutarlo
 
@@ -51,7 +51,7 @@ El registro público está desactivado en la configuración actual (`allowSignup
 **Primer arranque:** si todavía no existe un usuario con permisos de administración, promueve una cuenta existente una vez desde el SQL Editor de Supabase:
 
 ```sql
-update public.profiles set role = 'super', active = true where email = 'tu-correo@taskflow.cl';
+update public.profiles set role = 'super', active = true where email = 'admin@ejemplo.cl';
 ```
 
 Desde ahí, esa persona ya puede asignar roles al resto del equipo desde Configuración → Equipo.
@@ -127,7 +127,7 @@ Para instalaciones existentes, aplica también `supabase/0011_activities_lead_ca
 
 ## Marca
 
-Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible: TaskFlow CRM · By 4R Labs.
+Paleta: `#1b3257`, `#1d71b8`, `#6caaf4`, `#9cbdf4`. Nombre visible de la PWA: `CRM`. Nombre interno del proyecto: `CRM Personal`.
 
 
 ### Migración 0017 — actividad manual + tarea
