@@ -4997,3 +4997,213 @@ html[data-theme="dark"][data-crm-view="audit"] #viewRoot .data-table tr {
   }
 }
 /* End ayuda contextual */
+
+
+/* Plantillas: creación guiada, vista previa clara y carga de paquetes */
+html[data-crm-view="templates"] .template-card-head{
+  align-items:flex-start;
+  gap:16px;
+}
+html[data-crm-view="templates"] .template-card-head > div:first-child{
+  display:grid;
+  gap:4px;
+}
+html[data-crm-view="templates"] .template-head-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-left:auto;
+}
+html[data-crm-view="templates"] .template-toolbar{
+  display:flex;
+  align-items:end;
+  gap:12px;
+  margin:14px 0;
+}
+html[data-crm-view="templates"] .template-filter{
+  display:grid;
+  gap:6px;
+  min-width:220px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+}
+html[data-crm-view="templates"] .template-filter select{
+  min-height:42px;
+}
+html[data-crm-view="templates"] .template-preview{
+  display:grid;
+  gap:12px;
+}
+html[data-crm-view="templates"] .template-preview-head{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:14px;
+}
+html[data-crm-view="templates"] .template-preview-head > div:first-child{
+  min-width:0;
+}
+html[data-crm-view="templates"] .template-preview-head h5{
+  margin:0 0 4px;
+}
+html[data-crm-view="templates"] .template-preview-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.45;
+}
+html[data-crm-view="templates"] .template-preview-head label{
+  display:grid;
+  gap:5px;
+  min-width:210px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+}
+html[data-crm-view="templates"] .template-preview-head select{
+  min-height:40px;
+}
+html[data-crm-view="templates"] .template-preview-result{
+  display:grid;
+  gap:8px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+}
+html[data-crm-view="templates"] .template-preview-result > strong{
+  font-size:11px;
+  color:var(--text);
+}
+
+.template-create-card,
+.template-pack-card{
+  width:min(680px, calc(100vw - 28px));
+}
+.template-pack-grid{
+  display:grid;
+  gap:10px;
+  padding:18px 22px 4px;
+}
+.template-pack-option{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:start;
+  gap:10px;
+  padding:13px;
+  border:1px solid var(--border);
+  border-radius:13px;
+  background:var(--panel);
+  cursor:pointer;
+}
+.template-pack-option input{
+  margin-top:3px;
+}
+.template-pack-option span{
+  display:grid;
+  gap:3px;
+}
+.template-pack-option strong{
+  color:var(--text);
+  font-size:13px;
+}
+.template-pack-option small{
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.4;
+}
+
+.team-template-setup{
+  display:grid;
+  gap:12px;
+  margin:0 22px 18px;
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--panel);
+}
+.team-template-setup[hidden],
+.team-template-brands[hidden],
+.team-access-template-status[hidden]{
+  display:none!important;
+}
+.team-template-setup-head{
+  display:grid;
+  gap:3px;
+}
+.team-template-setup-head strong{
+  color:var(--text);
+  font-size:13px;
+}
+.team-template-setup-head span{
+  color:var(--muted);
+  font-size:11px;
+}
+.team-template-setup > label{
+  display:grid;
+  gap:6px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+}
+.team-template-brands{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:10px 0 2px;
+}
+.team-template-brands > span{
+  width:100%;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+}
+.team-template-brands label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--text);
+  font-size:12px;
+  font-weight:700;
+}
+.team-template-setup .muted{
+  margin:0;
+  font-size:10px;
+  line-height:1.45;
+}
+
+@media (max-width: 720px){
+  html[data-crm-view="templates"] .template-card-head{
+    display:grid;
+  }
+  html[data-crm-view="templates"] .template-head-actions{
+    width:100%;
+    margin-left:0;
+  }
+  html[data-crm-view="templates"] .template-head-actions > *{
+    flex:1 1 auto;
+  }
+  html[data-crm-view="templates"] .template-toolbar{
+    align-items:stretch;
+  }
+  html[data-crm-view="templates"] .template-filter{
+    min-width:0;
+    flex:1 1 auto;
+  }
+  html[data-crm-view="templates"] .template-preview-head{
+    display:grid;
+    align-items:stretch;
+  }
+  html[data-crm-view="templates"] .template-preview-head label{
+    min-width:0;
+  }
+  .template-pack-grid{
+    padding:14px 16px 4px;
+  }
+  .team-template-setup{
+    margin:0 16px 14px;
+  }
+}
