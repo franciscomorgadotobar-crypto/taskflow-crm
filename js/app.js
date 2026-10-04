@@ -13,7 +13,8 @@ import {
   SOURCES,
   STAGE_TEMPLATE,
   STAGES,
-  TASK_TYPES
+  TASK_TYPES,
+  USER_ROLES
 } from './catalog.js';
 import {
   addActivityConfirmed,
@@ -1976,6 +1977,103 @@ async function finishFichaTask(id, { withoutNext = false } = {}) {
   toast(withoutNext ? 'Gestión cerrada sin próxima acción.' : 'Gestión cerrada y siguiente acción agendada.');
 }
 
+function teamRedirectTo() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+async function teamRequest(body) {
+  const { data, error } = await supabase.functions.invoke('team', {
+    body: { ...body, redirectTo: body.redirectTo || teamRedirectTo() }
+  });
+  if (error) {
+    let message = error.message || 'No se pudo completar la operación.';
+    try {
+      const payload = await error.context?.json?.();
+      message = payload?.message || payload?.error || message;
+    } catch {}
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.message || data.error);
+  return data || {};
+}
+
+function teamRoleDescription(role) {
+  return USER_ROLES.find((r) => r.id === role)?.detail || '';
+}
+
+function refreshTeamRoleDetail() {
+  const role = $('teamRole')?.value || 'comercial';
+  const detail = $('teamRoleDetail');
+  if (!detail) return;
+  detail.innerHTML = `<strong>${escapeHtml(USER_ROLES.find((r) => r.id === role)?.label || role)}</strong><span>${escapeHtml(teamRoleDescription(role))}</span>`;
+}
+
+function openTeamAdd() {
+  if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
+  $('teamAddForm').reset();
+  const allowed = USER_ROLES.filter((r) => isSuper() || ['comercial', 'visita'].includes(r.id));
+  $('teamRole').innerHTML = allowed
+    .map((r) => `<option value="${r.id}" ${r.id === 'comercial' ? 'selected' : ''}>${escapeHtml(r.label)}</option>`)
+    .join('');
+  refreshTeamRoleDetail();
+  $('teamAddDialog').showModal();
+}
+
+function showTeamAccessResult(data, { name = '', email = '', resend = false } = {}) {
+  $('teamAccessTitle').textContent = resend ? 'Acceso reenviado' : 'Persona agregada';
+  $('teamAccessSubtitle').textContent = [name, email].filter(Boolean).join(' · ');
+  const fallback = $('teamAccessFallback');
+  const status = $('teamAccessStatus');
+  const link = String(data?.access_link || '');
+
+  if (data?.email_sent) {
+    status.className = 'notice success-notice';
+    status.innerHTML = '<strong>Correo enviado.</strong><span>La persona recibirá un enlace para definir una contraseña nueva.</span>';
+    fallback.hidden = true;
+    $('teamAccessLink').value = '';
+  } else if (link) {
+    status.className = 'notice warning-notice';
+    status.innerHTML = `<strong>La cuenta quedó lista, pero el correo no salió.</strong><span>${escapeHtml(data?.email_error || 'Comparte el enlace manualmente.')}</span>`;
+    $('teamAccessLink').value = link;
+    fallback.hidden = false;
+  } else {
+    status.className = 'notice warning-notice';
+    status.innerHTML = `<strong>La cuenta quedó creada, pero no se pudo entregar el acceso.</strong><span>${escapeHtml(data?.email_error || data?.link_error || 'Reintenta desde Equipo.')}</span>`;
+    fallback.hidden = true;
+  }
+
+  if ($('teamAccessDialog').open) $('teamAccessDialog').close();
+  $('teamAccessDialog').showModal();
+}
+
+async function submitTeamAdd(ev) {
+  ev.preventDefault();
+  if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
+  const name = $('teamName').value.trim();
+  const email = $('teamEmail').value.trim();
+  const phone = $('teamPhone').value.trim();
+  const role = $('teamRole').value;
+
+  if (!name) return toast('Escribe el nombre.', 'error');
+  if (!email.includes('@')) return toast('Escribe un correo válido.', 'error');
+
+  const submit = $('teamAddSubmit');
+  submit.disabled = true;
+  submit.textContent = 'Creando…';
+  try {
+    const data = await teamRequest({ action: 'create', name, email, phone, role });
+    $('teamAddDialog').close();
+    await hydrate();
+    if (ui.view === 'settings') render();
+    showTeamAccessResult(data, { name, email });
+  } catch (err) {
+    toast(err.message || 'No se pudo crear la persona.', 'error');
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Crear e invitar';
+  }
+}
+
 const ACTIONS = {
   'new-lead': () => openLead(),
   'edit-lead': (id) => openLead(id),
@@ -2118,6 +2216,30 @@ const ACTIONS = {
   },
   'save-profile': async () => {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
+  },
+  'team-add': () => openTeamAdd(),
+  'team-resend': async (id) => {
+    if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
+    const person = state.team.find((u) => u.id === id);
+    if (!person) return;
+    const data = await teamRequest({ action: 'resend', id });
+    showTeamAccessResult(data, { name: person.name, email: person.email, resend: true });
+  },
+  'team-toggle-active': async (id, btn) => {
+    if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
+    const person = state.team.find((u) => u.id === id);
+    if (!person) return;
+    const active = btn.dataset.active === 'true';
+    if (!active && !confirm(`¿Dar de baja a ${person.name || person.email}? Conservará todo su historial, pero dejará de tener acceso al CRM.`)) return;
+    await teamRequest({ action: 'set_active', id, active });
+    await hydrate();
+    if (ui.view === 'settings') render();
+    toast(active ? `${person.name} puede volver a entrar.` : `${person.name} quedó dado de baja.`);
+  },
+  'team-copy-link': async () => {
+    const link = $('teamAccessLink')?.value || '';
+    if (!link) return;
+    if (await copyText(link)) toast('Enlace copiado.');
   },
   'install-pwa': () => installPwa(),
   'refresh-audit': () => hydrateAudit(),
@@ -2285,6 +2407,22 @@ async function handleViewInput(ev) {
   const el = ev.target;
   const tplId = el.dataset.templateName || el.dataset.templateChannel || el.dataset.templateSubject || el.dataset.templateBody;
   if (tplId) return onTemplateEdit(tplId, el);
+
+  if (el.matches?.('[data-team-role]')) {
+    if (ev.type !== 'change') return;
+    if (!isAdmin()) return render();
+    const id = el.dataset.id;
+    try {
+      await teamRequest({ action: 'set_role', id, role: el.value });
+      await hydrate();
+      if (ui.view === 'settings') render();
+      toast('Permiso actualizado.');
+    } catch (err) {
+      toast(err.message || 'No se pudo cambiar el permiso.', 'error');
+      render();
+    }
+    return;
+  }
 
   if (el.dataset.userField) {
     if (ev.type !== 'change') return;
@@ -3163,6 +3301,8 @@ function bindEvents() {
   $('quoteForm').addEventListener('input', handleQuoteFormChange);
   $('quoteForm').addEventListener('change', handleQuoteFormChange);
   bindSubmitOnce('quoteSendForm', submitQuoteSend);
+  bindSubmitOnce('teamAddForm', submitTeamAdd);
+  $('teamRole').addEventListener('change', refreshTeamRoleDetail);
 
   $('authForm').addEventListener('submit', submitAuth);
   $('authToggleMode').addEventListener('click', () => {
