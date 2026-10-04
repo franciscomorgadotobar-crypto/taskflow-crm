@@ -1,0 +1,92 @@
+/* CRM Personal · Ayuda y tutoriales guiados */
+
+.help-page{display:grid;gap:16px}
+.help-intro{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:20px;border:1px solid #dce6f1;border-radius:18px;
+  background:linear-gradient(135deg,#fafdff 0%,#eef6ff 100%);
+}
+.help-intro h2{margin:0;color:#173052;font-size:24px}
+.help-intro p{margin:5px 0 0;color:#6d7d92;font-size:13px;line-height:1.45}
+.help-intro-icon{
+  flex:0 0 54px;width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
+  background:#e4f2ff;color:#1376cf;font-weight:900;font-size:26px;
+}
+.help-notice{margin:0}
+.help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.help-tutorial-card{
+  display:grid;gap:12px;padding:16px;border:1px solid #e0e7ef;border-radius:16px;background:#fff;
+  box-shadow:0 6px 18px rgba(24,52,88,.05);
+}
+.help-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.help-card-head small{display:block;margin-bottom:4px;color:#7a889b;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.help-card-head h3{margin:0;color:#193150;font-size:16px}
+.help-tutorial-card>p{margin:0;color:#6f7e91;font-size:12px;line-height:1.5}
+.help-chip{
+  flex:0 0 auto;padding:5px 8px;border-radius:999px;background:#edf3f8;color:#54677e;
+  font-size:9px;font-weight:800;
+}
+.help-chip.success{background:#e9f8ef;color:#248251}
+.help-chip.warning{background:#fff5dc;color:#9b6a00}
+.help-progress{display:grid;gap:6px}
+.help-progress>div:first-child{display:flex;align-items:center;justify-content:space-between;color:#718096;font-size:10px}
+.help-progress-track{height:7px;border-radius:999px;background:#edf1f6;overflow:hidden}
+.help-progress-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1d71b8,#6caaf4)}
+.help-tutorial-card .primary-btn{width:100%;margin-top:auto}
+
+#crmTutorialOverlay{position:relative;z-index:10000}
+.tutorial-offer-backdrop,.tutorial-wait-backdrop{
+  position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:18px;background:rgba(11,24,43,.58);
+  backdrop-filter:blur(3px);
+}
+.tutorial-layer{position:fixed;inset:0;z-index:10000;pointer-events:none}
+.tutorial-shade{position:fixed;background:rgba(10,22,40,.68);pointer-events:auto}
+.tutorial-focus{
+  position:fixed;border:3px solid #62b8ff;border-radius:14px;
+  box-shadow:0 0 0 4px rgba(98,184,255,.18),0 0 28px rgba(29,113,184,.28);
+  pointer-events:none;
+}
+.tutorial-card{
+  width:min(440px,calc(100vw - 28px));padding:18px;border-radius:18px;background:#fff;
+  box-shadow:0 22px 70px rgba(4,18,39,.26);color:#1b2e4b;
+}
+.tutorial-offer-card h2,.tutorial-step-card h2,.tutorial-wait-backdrop h2{margin:7px 0 6px;font-size:21px}
+.tutorial-card p{margin:0;color:#67788d;font-size:12px;line-height:1.5}
+.tutorial-card>small{display:block;margin-top:9px;color:#7d8a9a;font-size:10px}
+.tutorial-kicker{font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:#1974c7}
+.tutorial-actions{display:flex;align-items:center;gap:8px;margin-top:16px}
+.tutorial-spacer{flex:1}
+.tutorial-step-card{
+  position:fixed;z-index:10002;left:50%;bottom:18px;transform:translateX(-50%);
+  pointer-events:auto;
+}
+.tutorial-step-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tutorial-step-head>span:last-child{color:#8090a5;font-size:10px;font-weight:800}
+.tutorial-instruction{color:#1572c6!important;font-weight:800}
+.tutorial-offer-card{pointer-events:auto}
+.tutorial-wait-backdrop .tutorial-card{pointer-events:auto}
+
+:root[data-theme="dark"] .help-intro,
+:root[data-theme="dark"] .help-tutorial-card,
+:root[data-theme="dark"] .tutorial-card{
+  background:var(--v2-panel,#17243a);border-color:var(--v2-line,#2d3b52);color:#edf4fb;
+}
+:root[data-theme="dark"] .help-intro h2,
+:root[data-theme="dark"] .help-card-head h3,
+:root[data-theme="dark"] .tutorial-card h2{color:#edf4fb}
+:root[data-theme="dark"] .help-intro p,
+:root[data-theme="dark"] .help-tutorial-card>p,
+:root[data-theme="dark"] .tutorial-card p{color:#a8b5c7}
+
+@media (max-width:760px){
+  .help-grid{grid-template-columns:1fr}
+  .help-intro{padding:16px;border-radius:16px}
+  .help-intro h2{font-size:20px}
+  .help-intro-icon{width:46px;height:46px;flex-basis:46px}
+  .help-tutorial-card{padding:14px}
+  .tutorial-card{padding:16px;border-radius:16px}
+  .tutorial-step-card{bottom:12px;width:calc(100vw - 20px)}
+  .tutorial-actions{flex-wrap:wrap}
+  .tutorial-actions .tutorial-spacer{display:none}
+  .tutorial-actions .primary-btn,.tutorial-actions .ghost-btn{flex:1 1 auto}
+}
