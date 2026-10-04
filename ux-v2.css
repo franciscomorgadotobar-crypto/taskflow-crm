@@ -4576,3 +4576,73 @@ html[data-theme="dark"][data-crm-view="audit"] #viewRoot .data-table tr {
   }
 }
 /* ---------- End gestión de equipo ---------- */
+
+/* ---------- Centro de gestión: chips mobile ordenados 2026-10-04 ---------- */
+@media (max-width: 900px) {
+  .commercial-center-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 0 12px !important;
+    width: 100% !important;
+  }
+
+  .commercial-center-tabs .small-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 38px !important;
+    justify-content: center !important;
+    padding: 7px 8px !important;
+    border-radius: 11px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  .commercial-center-tabs .small-btn[data-tab="overdue"],
+  .commercial-center-tabs .small-btn[data-tab="today"],
+  .commercial-center-tabs .small-btn[data-tab="upcoming"] {
+    grid-column: span 2;
+  }
+
+  .commercial-center-tabs .small-btn[data-tab="no-next"],
+  .commercial-center-tabs .small-btn[data-tab="stale"] {
+    grid-column: span 3;
+  }
+
+  .commercial-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .commercial-tab-count {
+    flex: 0 0 20px !important;
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    border-radius: 999px !important;
+    font-size: 9px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .commercial-center-tabs {
+    gap: 6px !important;
+  }
+
+  .commercial-center-tabs .small-btn {
+    min-height: 36px !important;
+    padding: 6px 6px !important;
+    font-size: 9px !important;
+  }
+
+  .commercial-tab-count {
+    flex-basis: 18px !important;
+    width: 18px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    font-size: 8px !important;
+  }
+}
+/* ---------- End Centro de gestión chips ---------- */
