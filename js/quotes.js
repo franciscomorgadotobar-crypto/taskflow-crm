@@ -435,5 +435,5 @@ export function buildQuoteEmail(quote, lead) {
   ]
     .filter((l, i, arr) => !(l === '' && arr[i - 1] === ''))
     .join('\n');
-  return { subject: `Cotización ${quote.number || 'TaskFlow'} — ${lead?.company || quote.client?.company || ''}`, body };
+  return { subject: `Cotización ${quote.number || 'Cotización'} — ${lead?.company || quote.client?.company || ''}`, body };
 }
