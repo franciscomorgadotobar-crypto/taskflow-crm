@@ -1,23 +1,31 @@
 import { supabase } from './supabase.js';
-import { isReadOnly } from './auth.js';
+import { isReadOnly, session } from './auth.js';
 import { hydrate as hydrateCrm } from './store.js';
 import { escapeHtml as e, fmtDate, openExternal, toast } from './utils.js';
 
 
 export const chilecompraState = {
   opportunities: [],
+  campaigns: [],
+  matches: [],
+  marketProfile: null,
+  analytics: null,
+  analyticsLoading: false,
+  analyticsUniverse: 'campaigns',
+  analyticsMetric: 'publications',
+  analyticsGroupBy: 'industry',
   loading: false,
   syncing: false,
   searching: false,
   hydrated: false,
-  tab: 'buscar',
+  tab: 'resumen',
   query: '',
   results: [],
   sourceCount: 0,
-  fit: new Set(['alto', 'parcial', 'bajo']),
+  selectedCampaignId: '',
   selectedId: '',
   detailTab: 'resumen',
-  sort: 'fit',
+  sort: 'recent',
   lastSyncAt: ''
 };
 
@@ -27,28 +35,121 @@ const notify = () => listeners.forEach((fn) => fn(chilecompraState));
 
 export function clearChileCompra() {
   chilecompraState.opportunities = [];
+  chilecompraState.campaigns = [];
+  chilecompraState.matches = [];
+  chilecompraState.marketProfile = null;
+  chilecompraState.analytics = null;
   chilecompraState.loading = false;
   chilecompraState.syncing = false;
   chilecompraState.searching = false;
   chilecompraState.hydrated = false;
+  chilecompraState.tab = 'resumen';
   chilecompraState.query = '';
   chilecompraState.results = [];
   chilecompraState.sourceCount = 0;
+  chilecompraState.selectedCampaignId = '';
   chilecompraState.selectedId = '';
   chilecompraState.lastSyncAt = '';
   notify();
 }
 
 export function chilecompraDashboardStats() {
-  const active = chilecompraState.opportunities.filter((o) => o.radar_state === 'nuevo');
+  const activeCampaigns = chilecompraState.campaigns.filter((c) => c.active);
+  const activeIds = new Set(activeCampaigns.map((c) => c.id));
+  const opportunityById = new Map(chilecompraState.opportunities.map((o) => [o.id, o]));
+  const activeMatches = chilecompraState.matches.filter((m) => activeIds.has(m.campaign_id));
+  const newMatches = activeMatches.filter((m) => !m.reviewed_at && opportunityById.get(m.opportunity_id)?.radar_state === 'nuevo');
+  const newOpportunityIds = new Set(newMatches.map((m) => m.opportunity_id));
+  const matchedOpportunityIds = new Set(activeMatches.map((m) => m.opportunity_id));
+  const matchedOpportunities = [...matchedOpportunityIds].map((id) => opportunityById.get(id)).filter(Boolean);
+  const buyers = new Set(matchedOpportunities.map((o) => o.buyer_name).filter(Boolean));
+  const amount = matchedOpportunities.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+  const newByCampaign = Object.fromEntries(
+    activeCampaigns.map((c) => [
+      c.id,
+      new Set(newMatches.filter((m) => m.campaign_id === c.id).map((m) => m.opportunity_id)).size
+    ])
+  );
+
   return {
-    total: active.filter((o) => o.fit_level === 'alto' || o.fit_level === 'parcial').length,
-    high: active.filter((o) => o.fit_level === 'alto').length,
-    partial: active.filter((o) => o.fit_level === 'parcial').length,
+    total: newOpportunityIds.size,
+    activeCampaigns: activeCampaigns.length,
+    campaigns: activeCampaigns,
+    newByCampaign,
+    buyers: buyers.size,
+    amount,
     saved: chilecompraState.opportunities.filter((o) => o.radar_state === 'guardado').length,
     crm: chilecompraState.opportunities.filter((o) => o.radar_state === 'crm').length,
     discarded: chilecompraState.opportunities.filter((o) => o.radar_state === 'descartado').length,
     lastSyncAt: chilecompraState.lastSyncAt
+  };
+}
+
+function campaignMatchesForOpportunity(opportunityId) {
+  const active = new Set(chilecompraState.campaigns.filter((c) => c.active).map((c) => c.id));
+  return chilecompraState.matches.filter((m) => m.opportunity_id === opportunityId && active.has(m.campaign_id));
+}
+
+function campaignsForOpportunity(opportunityId) {
+  const ids = new Set(campaignMatchesForOpportunity(opportunityId).map((m) => m.campaign_id));
+  return chilecompraState.campaigns.filter((c) => ids.has(c.id));
+}
+
+const LOCAL_INDUSTRIES = [
+  ['Tecnología / Software', ['software','sistema','plataforma','saas','licencia','digital','tecnologia','informatico','informática','computacional']],
+  ['Salud', ['hospital','salud','clinica','clínica','cesfam','medico','médico','farmacia']],
+  ['Telecomunicaciones', ['telecom','fibra','antena','radioenlace','lte','5g','conectividad','red de datos']],
+  ['Seguridad / Defensa', ['seguridad','ejercito','ejército','armada','carabineros','pdi','defensa','armamento','municion','munición']],
+  ['Educación', ['universidad','educacion','educación','colegio','liceo','escuela','junaeb']],
+  ['Construcción / Infraestructura', ['construccion','construcción','obra','infraestructura','edificio','reparacion','reparación']],
+  ['Energía / Utilities', ['energia','energía','electrico','eléctrico','agua potable','sanitaria','generador','electrogeno','electrógeno']],
+  ['Transporte / Logística', ['transporte','logistica','logística','vehiculo','vehículo','camion','camión','metro']],
+  ['Industria / Minería', ['mineria','minería','industrial','planta','faena','proceso productivo']]
+];
+
+function normalized(value='') {
+  return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es');
+}
+
+function localIndustry(o) {
+  const text = normalized([o.name, o.description, o.buyer_name].filter(Boolean).join(' '));
+  for (const [label, terms] of LOCAL_INDUSTRIES) {
+    if (terms.some((term) => text.includes(normalized(term)))) return label;
+  }
+  return 'Otros';
+}
+
+export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
+  const activeCampaignIds = new Set(chilecompraState.campaigns.filter((c) => c.active).map((c) => c.id));
+  const ids = new Set(chilecompraState.matches.filter((m) => activeCampaignIds.has(m.campaign_id)).map((m) => m.opportunity_id));
+  const rows = chilecompraState.opportunities.filter((o) => ids.has(o.id));
+  const groups = new Map();
+  const buyers = new Map();
+
+  rows.forEach((o) => {
+    const key = localIndustry(o);
+    if (metric === 'buyers') {
+      if (!buyers.has(key)) buyers.set(key, new Set());
+      if (o.buyer_name) buyers.get(key).add(o.buyer_name);
+    } else {
+      groups.set(key, (groups.get(key) || 0) + (metric === 'amount' ? Number(o.amount || 0) : 1));
+    }
+  });
+  if (metric === 'buyers') buyers.forEach((set, key) => groups.set(key, set.size));
+
+  let categories = [...groups.entries()].map(([label, value]) => ({ label, value })).sort((a,b) => b.value-a.value);
+  if (categories.length > 7) {
+    const rest = categories.slice(6).reduce((sum, x) => sum + x.value, 0);
+    categories = [...categories.slice(0,6), { label:'Otros', value:rest }];
+  }
+  return {
+    universe: 'campaigns',
+    metric,
+    configured: chilecompraState.campaigns.some((c) => c.active),
+    publications: rows.length,
+    buyers: new Set(rows.map((o) => o.buyer_name).filter(Boolean)).size,
+    amount: rows.reduce((sum,o)=>sum+Number(o.amount||0),0),
+    categories
   };
 }
 
@@ -63,17 +164,24 @@ export async function hydrateChileCompra() {
   chilecompraState.loading = true;
   notify();
   try {
-    const opportunities = await supabase
-      .from('chilecompra_opportunities')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(800);
+    const [campaigns, opportunities, matches, profile] = await Promise.all([
+      supabase.from('chilecompra_campaigns').select('*').order('created_at', { ascending: true }),
+      supabase.from('chilecompra_opportunities').select('*').order('updated_at', { ascending: false }).limit(1200),
+      supabase.from('chilecompra_campaign_matches').select('*').order('updated_at', { ascending: false }).limit(5000),
+      supabase.from('chilecompra_market_profiles').select('*').maybeSingle()
+    ]);
+    if (campaigns.error) throw campaigns.error;
     if (opportunities.error) throw opportunities.error;
+    if (matches.error) throw matches.error;
+    if (profile.error && profile.error.code !== 'PGRST116') throw profile.error;
 
+    chilecompraState.campaigns = campaigns.data || [];
     chilecompraState.opportunities = opportunities.data || [];
+    chilecompraState.matches = matches.data || [];
+    chilecompraState.marketProfile = profile.data || null;
     chilecompraState.hydrated = true;
-    chilecompraState.lastSyncAt = chilecompraState.opportunities
-      .map((o) => o.updated_at)
+    chilecompraState.lastSyncAt = chilecompraState.matches
+      .map((m) => m.updated_at)
       .filter(Boolean)
       .sort()
       .at(-1) || '';
