@@ -330,7 +330,7 @@ function renderCommercialCenter(ui, allTasks = openTasks(), openLeads = metrics(
 
   return `<div class="card commercial-center-card ${overdue.length ? 'card-alert' : ''}" style="margin-bottom:16px">
     <div class="card-head">
-      <div><h3>Centro de gestión comercial</h3><div class="muted">Qué requiere atención ahora y qué oportunidades están perdiendo seguimiento.</div></div>
+      <div><h3>Centro de gestión</h3><div class="muted">Qué requiere atención ahora y qué oportunidades están perdiendo seguimiento.</div></div>
       ${canBatchManage ? '<button class="small-btn commercial-see-all" data-action="open-manage">Ver todo <span aria-hidden="true">→</span></button>' : ''}
     </div>
     <div class="card-body">
