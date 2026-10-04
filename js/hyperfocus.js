@@ -489,7 +489,7 @@ function crmLeadToHyperFocusRecord(lead, rowNumber) {
     id: uid(), row_number: rowNumber, company: lead.company, rut: lead.rut || '', industry: lead.industry || '',
     region: '', comuna: '', city: '', address: '', website: '', contacts,
     raw_data: {
-      'Origen CRM': lead.source || 'CRM TaskFlow',
+      'Origen CRM': lead.source || 'CRM Personal',
       'Etapa CRM': lead.stage || '',
       'Responsable CRM': lead.owner || '',
       'Próxima gestión': [lead.nextType, lead.nextAction].filter(Boolean).join(' · '),
@@ -533,7 +533,7 @@ async function createCampaignFromCrm(event) {
     campaign = {
       id: uid(), created_by: session.user?.id || null, name,
       campaign_type: byId('hfCrmCampaignType')?.value || 'reactivation',
-      source_filename: 'CRM TaskFlow', source_sheet: filters.stage || 'Segmento CRM',
+      source_filename: 'CRM Personal', source_sheet: filters.stage || 'Segmento CRM',
       default_industry: filters.industry || '', mapping: {}, options: { source: 'crm', ...filters },
       source_meta: { source: 'crm', selected_records: selected.length, imported_records: leads.length, excluded_active_hyperfocus: activeIds.size, filters }
     };
@@ -1967,7 +1967,7 @@ function renderConvert(record, contact) {
 function defaultInfoMessage(record, contact) {
   const name = firstName(contact?.name || '');
   const sender = clean(session.profile?.name || crmState.me?.name || '');
-  return `Hola ${name}, soy ${sender || 'del equipo TaskFlow'}. Tal como conversamos, te comparto información de TaskFlow para que puedan revisar cómo centralizar la operación técnica, órdenes de trabajo y trazabilidad de ${record.company}. Quedo atento a cualquier duda.`;
+  return `Hola ${name}, soy ${sender || 'del equipo comercial'}. Tal como conversamos, te comparto la información que conversamos para que puedan revisar cómo centralizar la operación técnica, órdenes de trabajo y trazabilidad de ${record.company}. Quedo atento a cualquier duda.`;
 }
 
 function renderSendInfo(record, contact) {
@@ -2089,7 +2089,7 @@ function openChannel(channel, { message = '' } = {}) {
   } else if (channel === 'email') {
     if (!contact.email) { toast('Este contacto no tiene correo.', 'error'); return false; }
     focus.attemptStarted = true;
-    const subject = `TaskFlow — ${focus.record?.company || ''}`;
+    const subject = `Información — ${focus.record?.company || ''}`;
     openExternal(`mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent(subject)}${message ? `&body=${encodeURIComponent(message)}` : ''}`);
   } else {
     return false;
@@ -2676,7 +2676,7 @@ async function handleHyperFocusClick(ev) {
       focus.contactResult = 'message_sent';
       focus.commercialResult = '';
       focus.attemptStarted = false;
-      const message = `Hola ${firstName(selectedContact()?.name || '')}, intenté comunicarme contigo. Soy ${clean(session.profile?.name || crmState.me?.name || '') || 'del equipo TaskFlow'} y quería conversar brevemente sobre la operación de ${focus.record?.company || 'su empresa'}. Cuando puedas, quedo atento.`;
+      const message = `Hola ${firstName(selectedContact()?.name || '')}, intenté comunicarme contigo. Soy ${clean(session.profile?.name || crmState.me?.name || '') || 'del equipo comercial'} y quería conversar brevemente sobre la operación de ${focus.record?.company || 'su empresa'}. Cuando puedas, quedo atento.`;
       openChannel('whatsapp', { message });
       focus.phase = 'retry';
       return renderSession();
