@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1b3257" />
-  <meta name="description" content="CRM comercial TaskFlow — pipeline, levantamiento e implementación." />
-  <meta name="application-name" content="TaskFlow CRM" />
+  <meta name="description" content="CRM personal para gestión comercial, pipeline y seguimiento de oportunidades." />
+  <meta name="application-name" content="CRM" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="TaskFlow CRM" />
-  <title>TaskFlow CRM</title>
+  <meta name="apple-mobile-web-app-title" content="CRM" />
+  <title>CRM</title>
   <link rel="manifest" href="manifest.webmanifest?v=2026-10-04m23" />
-  <link rel="icon" type="image/png" href="assets/isotipo-taskflow-trim.png" />
-  <link rel="apple-touch-icon" href="assets/isotipo-taskflow.png" />
+  <link rel="icon" type="image/png" href="assets/pwa-icon.svg" />
+  <link rel="apple-touch-icon" href="assets/pwa-icon.svg" />
   <link rel="stylesheet" href="styles.css?v=2026-10-04m23" />
   <link rel="stylesheet" href="ux-v2.css?v=2026-10-04m23" />
   <link rel="stylesheet" href="hyperfocus.css?v=2026-10-04m23" />
@@ -24,7 +24,7 @@
   <!-- Acceso -->
   <div id="authScreen" class="auth-screen" hidden>
     <form id="authForm" class="auth-card" novalidate>
-      <img class="auth-logo" src="assets/logo-taskflow-trim.png" alt="TaskFlow · By 4R Labs" />
+      <div class="crm-brand-mark auth-brand-mark" aria-label="CRM">CRM</div>
       <h1 id="authTitle">Iniciar sesión</h1>
       <p id="authSubtitle" class="muted">Entra con tu correo y contraseña.</p>
       <label id="authNameField" hidden>Nombre<input id="authName" autocomplete="name" /></label>
@@ -42,7 +42,7 @@
   <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar">
       <div class="brand">
-        <img class="brand-logo on-dark" src="assets/logo-taskflow-trim.png" alt="TaskFlow · By 4R Labs" />
+        <div class="crm-brand-mark nav-brand-mark" aria-label="CRM">CRM</div>
         <span class="brand-sub">CRM comercial</span>
       </div>
 
@@ -75,10 +75,10 @@
       <header class="topbar">
         <div>
           <h1 id="viewTitle">Resumen</h1>
-          <p id="viewSubtitle">Gestión comercial y seguimiento de oportunidades TaskFlow.</p>
+          <p id="viewSubtitle">Gestión comercial y seguimiento de oportunidades.</p>
         </div>
         <div class="top-actions">
-          <button id="globalSearchBtn" type="button" class="top-action-btn" title="Buscar en TaskFlow">
+          <button id="globalSearchBtn" type="button" class="top-action-btn" title="Buscar en el CRM">
             <span aria-hidden="true">⌕</span><span class="top-action-label">Buscar</span>
           </button>
           <button id="notificationBtn" type="button" class="top-action-btn notification-btn" title="Notificaciones">
@@ -99,7 +99,7 @@
     <div class="modal-card global-search-card">
       <div class="modal-head">
         <div>
-          <h2>Buscar en TaskFlow</h2>
+          <h2>Buscar en el CRM</h2>
           <p>Empresas, RUT, contactos, actividades, cotizaciones e Híper Foco.</p>
         </div>
         <button type="button" class="icon-btn" data-close-dialog="globalSearchDialog" aria-label="Cerrar">×</button>
@@ -109,7 +109,7 @@
         <span class="muted">Ctrl/⌘ + K</span>
       </div>
       <div id="globalSearchResults" class="global-search-results">
-        <div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>
+        <div class="empty"><strong>Busca en todo el CRM</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>
       </div>
     </div>
   </dialog>
