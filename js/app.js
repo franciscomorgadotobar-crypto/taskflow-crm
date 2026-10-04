@@ -2022,7 +2022,6 @@ const ACTIONS = {
     ui.view = 'chilecompra';
     const { chilecompraState } = await import('./chilecompra.js');
     chilecompraState.tab = 'buscar';
-    chilecompraState.activeCampaign = '';
     chilecompraState.query = '';
     if (btn?.dataset.fit) {
       const level = btn.dataset.fit;
