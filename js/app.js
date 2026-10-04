@@ -1927,6 +1927,31 @@ async function forgotPassword() {
   }
 }
 
+async function submitAccessPassword(ev) {
+  ev.preventDefault();
+  const pass = $('accessPassword').value;
+  const confirmPass = $('accessPasswordConfirm').value;
+  if (pass.length < 6) return toast('La contraseña debe tener al menos 6 caracteres.', 'error');
+  if (pass !== confirmPass) return toast('Las contraseñas no coinciden.', 'error');
+
+  const btn = $('accessPasswordSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    const { error } = await supabase.auth.updateUser({ password: pass });
+    if (error) throw error;
+    session.recovery = false;
+    $('accessPasswordDialog').close();
+    $('accessPasswordForm').reset();
+    toast('Contraseña definida. Tu acceso está listo.');
+  } catch (err) {
+    toast(err.message || 'No se pudo guardar la contraseña.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar contraseña';
+  }
+}
+
 /* ---------- Acciones delegadas ---------- */
 
 function setFichaTaskStep(step) {
@@ -3310,6 +3335,7 @@ function bindEvents() {
     renderAuthMode();
   });
   $('authForgot').addEventListener('click', forgotPassword);
+  bindSubmitOnce('accessPasswordForm', submitAccessPassword);
 
   document.addEventListener('click', handleClick);
   document.addEventListener('keydown', handleKeydown);
@@ -3378,7 +3404,12 @@ async function start() {
         if (generation !== authSyncGeneration) return;
         paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
       }
-      if (generation === authSyncGeneration) render();
+      if (generation === authSyncGeneration) {
+        render();
+        if (s.recovery && !$('accessPasswordDialog').open) {
+          $('accessPasswordDialog').showModal();
+        }
+      }
     } else if (s.status === 'profile-error') {
       stopRealtime();
       quotesStopRealtime();
