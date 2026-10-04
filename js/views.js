@@ -895,14 +895,14 @@ export function renderSettings() {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-head"><h3>Aplicación TaskFlow</h3></div>
+      <div class="card-head"><h3>Aplicación CRM</h3></div>
       <div class="card-body">
         <p class="muted settings-hint">
-          Instala TaskFlow CRM como aplicación para abrirlo desde tu escritorio o pantalla de inicio,
+          Instala CRM como aplicación para abrirlo desde tu escritorio o pantalla de inicio,
           sin depender de una pestaña del navegador.
         </p>
         <div class="button-row">
-          <button class="primary-btn" data-action="install-pwa">Instalar TaskFlow CRM</button>
+          <button class="primary-btn" data-action="install-pwa">Instalar CRM</button>
         </div>
         <p class="muted settings-hint" style="margin-top:10px">
           En iPhone o iPad, usa Compartir → Añadir a pantalla de inicio.
@@ -1241,9 +1241,9 @@ export function quoteDocHtml(doc) {
     <div class="quote-doc">
       <div class="qd-head">
         <div class="qd-issuer">
-          <img src="assets/logo-taskflow-trim.png" alt="TaskFlow" />
-          <strong>${e(QUOTE_ISSUER.name)}</strong>
-          <span>RUT ${e(QUOTE_ISSUER.rut)}</span>
+          <div class="crm-brand-mark qd-brand-mark" aria-label="CRM">CRM</div>
+          ${QUOTE_ISSUER.name ? `<strong>${e(QUOTE_ISSUER.name)}</strong>` : ``}
+          ${QUOTE_ISSUER.rut ? `<span>RUT ${e(QUOTE_ISSUER.rut)}</span>` : ``}
         </div>
         <div class="qd-client">
           <div>Cliente: <strong>${e(client.company || '—')}</strong></div>
