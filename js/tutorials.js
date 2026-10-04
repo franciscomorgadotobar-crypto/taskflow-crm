@@ -397,7 +397,8 @@ function watchCurrentTarget() {
     cancelAnimationFrame(overlayFrame);
     overlayFrame = requestAnimationFrame(locateTarget);
   });
-  mutationObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+  const observedRoot = document.getElementById('appShell') || document.body;
+  mutationObserver.observe(observedRoot, { childList: true, subtree: true, attributes: true });
 }
 
 function ensureOverlay() {
