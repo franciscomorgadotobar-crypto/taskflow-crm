@@ -3,29 +3,8 @@ import { isReadOnly } from './auth.js';
 import { hydrate as hydrateCrm } from './store.js';
 import { escapeHtml as e, fmtDate, openExternal, toast } from './utils.js';
 
-const CAMPAIGNS = [
-  {
-    id: 'NEOFF',
-    name: 'NEOFF',
-    subtitle: 'Software · conectividad · telemetría · IoT · RFID',
-    scope: 'NEOFF'
-  },
-  {
-    id: 'TaskFlow',
-    name: 'TaskFlow',
-    subtitle: 'Software · OT · mantenimiento · terreno · inventario',
-    scope: 'TaskFlow'
-  },
-  {
-    id: 'BOTH',
-    name: 'TaskFlow + NEOFF',
-    subtitle: 'Conectividad de equipos + gestión operacional',
-    scope: 'BOTH'
-  }
-];
 
 export const chilecompraState = {
-  campaigns: [],
   opportunities: [],
   loading: false,
   syncing: false,
@@ -35,7 +14,6 @@ export const chilecompraState = {
   query: '',
   results: [],
   sourceCount: 0,
-  activeCampaign: '',
   fit: new Set(['alto', 'parcial', 'bajo']),
   selectedId: '',
   detailTab: 'resumen',
@@ -48,7 +26,6 @@ export const onChileCompraChange = (fn) => (listeners.add(fn), () => listeners.d
 const notify = () => listeners.forEach((fn) => fn(chilecompraState));
 
 export function clearChileCompra() {
-  chilecompraState.campaigns = [];
   chilecompraState.opportunities = [];
   chilecompraState.loading = false;
   chilecompraState.syncing = false;
@@ -57,7 +34,6 @@ export function clearChileCompra() {
   chilecompraState.query = '';
   chilecompraState.results = [];
   chilecompraState.sourceCount = 0;
-  chilecompraState.activeCampaign = '';
   chilecompraState.selectedId = '';
   chilecompraState.lastSyncAt = '';
   notify();
@@ -87,14 +63,13 @@ export async function hydrateChileCompra() {
   chilecompraState.loading = true;
   notify();
   try {
-    const [campaigns, opportunities] = await Promise.all([
-      supabase.from('chilecompra_campaigns').select('*').order('created_at', { ascending: true }),
-      supabase.from('chilecompra_opportunities').select('*').order('updated_at', { ascending: false }).limit(800)
-    ]);
-    if (campaigns.error) throw campaigns.error;
+    const opportunities = await supabase
+      .from('chilecompra_opportunities')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(800);
     if (opportunities.error) throw opportunities.error;
 
-    chilecompraState.campaigns = campaigns.data || [];
     chilecompraState.opportunities = opportunities.data || [];
     chilecompraState.hydrated = true;
     chilecompraState.lastSyncAt = chilecompraState.opportunities
@@ -177,28 +152,6 @@ function amountLabel(o) {
 
 function tag(text) {
   return `<span class="cc-tag">${e(text)}</span>`;
-}
-
-function knownCampaignCount(scope) {
-  return chilecompraState.opportunities.filter((o) => {
-    const solutions = new Set(o.matched_solutions || []);
-    if (scope === 'NEOFF') return solutions.has('NEOFF');
-    if (scope === 'TaskFlow') return solutions.has('TaskFlow');
-    return solutions.has('NEOFF') && solutions.has('TaskFlow');
-  }).length;
-}
-
-function campaignCard(c) {
-  const active = chilecompraState.activeCampaign === c.scope && chilecompraState.tab === 'campanas';
-  return `<button type="button" class="cc-fixed-campaign ${active ? 'active' : ''}" data-cc-campaign="${c.scope}">
-    <span class="cc-fixed-campaign-icon">${c.scope === 'NEOFF' ? 'N' : c.scope === 'TaskFlow' ? 'T' : 'N+T'}</span>
-    <span class="cc-fixed-campaign-copy">
-      <strong>${e(c.name)}</strong>
-      <small>${e(c.subtitle)}</small>
-      <em>${knownCampaignCount(c.scope)} detectadas en la base</em>
-    </span>
-    <span class="cc-fixed-campaign-arrow">›</span>
-  </button>`;
 }
 
 function opportunityCard(o) {
@@ -299,10 +252,6 @@ function detailPanel(o) {
 
 function resultHeading(rows) {
   if (chilecompraState.searching) return 'Buscando licitaciones activas…';
-  if (chilecompraState.tab === 'campanas') {
-    const c = CAMPAIGNS.find((x) => x.scope === chilecompraState.activeCampaign);
-    return `${rows.length} resultados para ${c?.name || 'campaña'}`;
-  }
   if (chilecompraState.tab === 'buscar') {
     if (!chilecompraState.query && rows.length) return `${rows.length} oportunidades detectadas`;
     if (!chilecompraState.query) return 'Escribe una búsqueda para comenzar';
@@ -339,12 +288,11 @@ function renderInner() {
         <input id="ccSearch" type="search" placeholder="Ej. ascensores, telemetría, mantenimiento, 1234-56-LP26…" value="${e(chilecompraState.query)}" autocomplete="off">
         <button type="submit" class="primary-btn" ${chilecompraState.searching ? 'disabled' : ''}>${chilecompraState.searching ? 'Buscando…' : 'Buscar'}</button>
       </div>
-      <small>La búsqueda manual no depende del nivel de encaje ni de las campañas.</small>
+      <small>Busca directamente en Mercado Público. El encaje se calcula después sobre los resultados.</small>
     </form>
 
     <nav class="cc-tabs">
       <button type="button" data-cc-tab="buscar" class="${chilecompraState.tab === 'buscar' ? 'active' : ''}">Búsqueda</button>
-      <button type="button" data-cc-tab="campanas" class="${chilecompraState.tab === 'campanas' ? 'active' : ''}">Campañas</button>
       <button type="button" data-cc-tab="guardadas" class="${chilecompraState.tab === 'guardadas' ? 'active' : ''}">Guardadas <span>(${tabCounts.guardadas})</span></button>
       <button type="button" data-cc-tab="crm" class="${chilecompraState.tab === 'crm' ? 'active' : ''}">En CRM <span>(${tabCounts.crm})</span></button>
       <button type="button" data-cc-tab="descartadas" class="${chilecompraState.tab === 'descartadas' ? 'active' : ''}">Descartadas <span>(${tabCounts.descartadas})</span></button>
@@ -352,10 +300,6 @@ function renderInner() {
 
     <div class="cc-layout">
       <aside class="cc-sidebar">
-        <div class="cc-panel-title"><strong>Campañas predefinidas</strong></div>
-        <p class="cc-sidebar-help">Son solo tres y siempre consultan Mercado Público al abrirlas.</p>
-        <div class="cc-fixed-campaigns">${CAMPAIGNS.map(campaignCard).join('')}</div>
-
         <div class="cc-filter-block">
           <div class="cc-panel-title"><strong>Mostrar encaje</strong><button type="button" class="link-btn" data-cc-fit-all>Todos</button></div>
           <label><input type="checkbox" data-cc-fit="alto" ${chilecompraState.fit.has('alto') ? 'checked' : ''}> Alto</label>
@@ -381,9 +325,7 @@ function renderInner() {
               ? rows.map(opportunityCard).join('')
               : chilecompraState.tab === 'buscar' && !chilecompraState.query
                 ? '<div class="cc-empty cc-empty--search"><strong>Busca directamente en ChileCompra</strong><span>Escribe una palabra, servicio o código de licitación y presiona Buscar.</span></div>'
-                : chilecompraState.tab === 'campanas' && !chilecompraState.activeCampaign
-                  ? '<div class="cc-empty cc-empty--search"><strong>Elige una campaña</strong><span>NEOFF, TaskFlow o TaskFlow + NEOFF.</span></div>'
-                  : '<div class="cc-empty">No se encontraron resultados.</div>'}
+                : '<div class="cc-empty">No se encontraron resultados.</div>'}
         </div>
       </main>
 
@@ -433,33 +375,11 @@ async function runTraditionalSearch(query) {
   if (clean.length < 2) return toast('Escribe al menos 2 caracteres para buscar.', 'error');
   chilecompraState.query = clean;
   chilecompraState.tab = 'buscar';
-  chilecompraState.activeCampaign = '';
   chilecompraState.searching = true;
   chilecompraState.selectedId = '';
   rerender();
   try {
     const data = await invokeRadar({ action: 'search', query: clean });
-    chilecompraState.results = data.results || [];
-    chilecompraState.sourceCount = Number(data.sourceCount || 0);
-    mergeRows(chilecompraState.results);
-    chilecompraState.selectedId = chilecompraState.results[0]?.id || '';
-  } finally {
-    chilecompraState.searching = false;
-    notify();
-    rerender();
-  }
-}
-
-async function runCampaign(scope) {
-  const campaign = CAMPAIGNS.find((c) => c.scope === scope);
-  if (!campaign) return;
-  chilecompraState.tab = 'campanas';
-  chilecompraState.activeCampaign = scope;
-  chilecompraState.searching = true;
-  chilecompraState.selectedId = '';
-  rerender();
-  try {
-    const data = await invokeRadar({ action: 'campaign', scope });
     chilecompraState.results = data.results || [];
     chilecompraState.sourceCount = Number(data.sourceCount || 0);
     mergeRows(chilecompraState.results);
@@ -551,22 +471,9 @@ export function mountChileCompraView() {
       return;
     }
 
-    const campaign = ev.target.closest('[data-cc-campaign]');
-    if (campaign) {
-      try {
-        await runCampaign(campaign.dataset.ccCampaign);
-      } catch (err) {
-        chilecompraState.searching = false;
-        rerender();
-        toast(err.message || 'No se pudo cargar la campaña.', 'error');
-      }
-      return;
-    }
-
     const tab = ev.target.closest('[data-cc-tab]');
     if (tab) {
       chilecompraState.tab = tab.dataset.ccTab;
-      if (chilecompraState.tab === 'buscar') chilecompraState.activeCampaign = '';
       chilecompraState.selectedId = filteredRows()[0]?.id || '';
       rerender();
       return;
