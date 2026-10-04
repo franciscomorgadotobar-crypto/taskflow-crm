@@ -1,8 +1,9 @@
-window.TASKFLOW_CRM_CONFIG = {
-  appName: 'TaskFlow CRM',
-  companyName: 'Cuatro Rlabs',
-  productName: 'TaskFlow',
-  website: 'https://taskflow.cl',
+window.CRM_PERSONAL_CONFIG = {
+  appName: 'CRM',
+  internalName: 'CRM Personal',
+  companyName: '',
+  productName: 'CRM',
+  website: '',
   // Proyecto Supabase (URL y llave publicable — ambas son públicas por diseño, la
   // seguridad real la da Row Level Security, no mantener esto en secreto).
   supabaseUrl: 'https://egglrpexexcodsreumnz.supabase.co',
@@ -12,5 +13,5 @@ window.TASKFLOW_CRM_CONFIG = {
   // con "Allow new users to sign up" en Supabase; si acá dice true pero allá está
   // cerrado, el registro falla con un error poco claro.
   allowSignup: false,
-  storageKey: 'taskflow-crm-cache-v3'
+  storageKey: 'crm-personal-cache-v4'
 };
