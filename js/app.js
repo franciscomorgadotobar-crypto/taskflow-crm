@@ -135,7 +135,7 @@ import {
   uid
 } from './utils.js';
 
-const CFG = window.TASKFLOW_CRM_CONFIG;
+const CFG = window.CRM_PERSONAL_CONFIG;
 
 let deferredPwaInstallPrompt = null;
 let pwaInstalled =
@@ -148,7 +148,7 @@ function isAppleMobile() {
 
 async function installPwa() {
   if (pwaInstalled) {
-    toast('TaskFlow CRM ya está abierto como aplicación.');
+    toast('CRM ya está abierto como aplicación.');
     return;
   }
 
@@ -167,7 +167,7 @@ async function installPwa() {
   const choice = await promptEvent.userChoice;
 
   if (choice?.outcome === 'accepted') {
-    toast('Instalando TaskFlow CRM…');
+    toast('Instalando CRM…');
   }
 }
 
@@ -182,7 +182,7 @@ function initPwa() {
     pwaInstalled = true;
     deferredPwaInstallPrompt = null;
     if (ui?.view === 'settings') render();
-    toast('TaskFlow CRM quedó instalado.');
+    toast('CRM quedó instalado.');
   });
 
   if (!('serviceWorker' in navigator)) return;
@@ -217,12 +217,12 @@ const ui = {
 };
 
 const VIEWS = {
-  dashboard: ['Resumen', 'Gestión comercial y seguimiento de oportunidades TaskFlow.', renderDashboard],
+  dashboard: ['Resumen', 'Gestión comercial y seguimiento de oportunidades.', renderDashboard],
   leads: ['Leads', 'Empresas por calificar antes de sumarse al pipeline.', renderLeads],
   hyperfocus: ['Híper Foco', 'Gestiona bases grandes una empresa a la vez, sin llenar el CRM de registros fríos.', renderHyperFocus],
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
-  chilecompra: ['ChileCompra', 'Radar comercial de oportunidades públicas por encaje con TaskFlow y NEOFF.', renderChileCompra],
+  chilecompra: ['ChileCompra', 'Radar de compras públicas según tus campañas y análisis de mercado.', renderChileCompra],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
@@ -1888,7 +1888,7 @@ function renderAuthMode() {
   const signup = CFG.allowSignup !== false && authMode === 'signup';
   $('authToggleMode').hidden = CFG.allowSignup === false;
   $('authTitle').textContent = signup ? 'Crear cuenta' : 'Iniciar sesión';
-  $('authSubtitle').textContent = signup ? 'Regístrate con tu correo de TaskFlow.' : 'Entra con tu correo y contraseña.';
+  $('authSubtitle').textContent = signup ? 'Regístrate con tu correo.' : 'Entra con tu correo y contraseña.';
   $('authNameField').hidden = !signup;
   $('authSubmitBtn').textContent = signup ? 'Crear cuenta' : 'Entrar';
   $('authToggleMode').textContent = signup ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Crear una';
@@ -2840,7 +2840,7 @@ async function runGlobalSearch() {
 
   if (!term) {
     $('globalSearchResults').innerHTML =
-      '<div class="empty"><strong>Busca en todo TaskFlow</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>';
+      '<div class="empty"><strong>Busca en todo el CRM</strong><p>Empresa, RUT, contacto, teléfono, correo, actividad o cotización.</p></div>';
     return;
   }
 
@@ -3050,7 +3050,7 @@ function exportJson() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `taskflow-crm-${todayISO()}.json`;
+  a.download = `crm-personal-${todayISO()}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -3068,14 +3068,14 @@ function downloadCsv(filename, cols, rows) {
 
 function exportCsv() {
   const cols = ['company', 'rut', 'industry', 'source', 'contact', 'role', 'email', 'phone', 'stage', 'lossReason', 'value', 'probability', 'expectedCloseDate', 'nextAction', 'nextDate', 'owner'];
-  downloadCsv(`taskflow-leads-${todayISO()}.csv`, cols, state.leads);
+  downloadCsv(`crm-personal-leads-${todayISO()}.csv`, cols, state.leads);
 }
 
 function exportPipelineCsv() {
   const cols = ['company', 'contact', 'email', 'phone', 'stage', 'value', 'probability', 'owner', 'nextAction', 'nextDate'];
   const rows = filterPipeline(ui.pipelineFilters);
   if (!rows.length) return toast('No hay filas para exportar con estos filtros.', 'error');
-  downloadCsv(`taskflow-embudo-${todayISO()}.csv`, cols, rows);
+  downloadCsv(`crm-personal-embudo-${todayISO()}.csv`, cols, rows);
 }
 
 function importJson(ev) {
@@ -3257,9 +3257,9 @@ function bindEvents() {
   $('themeToggle').addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme === 'dark';
     document.documentElement.dataset.theme = dark ? '' : 'dark';
-    localStorage.setItem('taskflow-crm-theme', dark ? 'light' : 'dark');
+    localStorage.setItem('crm-personal-theme', dark ? 'light' : 'dark');
   });
-  if (localStorage.getItem('taskflow-crm-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
+  if (localStorage.getItem('crm-personal-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
 
   $$('[data-close-dialog]').forEach((b) => b.addEventListener('click', () => $(b.dataset.closeDialog).close()));
   // Cerrar al pinchar fuera, salvo en los diálogos que marcan lo contrario: ahí un
