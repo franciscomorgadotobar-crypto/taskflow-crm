@@ -118,6 +118,7 @@ body {
 .nav-item[data-view="implementation"]::before { content: "✓"; }
 .nav-item[data-view="templates"]::before { content: "✎"; }
 .nav-item[data-view="quotes"]::before { content: "$"; }
+.nav-item[data-view="help"]::before { content: "?"; }
 .nav-item[data-view="settings"]::before { content: "⚙"; }
 
 .nav-item:hover {
@@ -4831,3 +4832,125 @@ html[data-theme="dark"][data-crm-view="audit"] #viewRoot .data-table tr {
 :root[data-theme="dark"] .v2-cc-market-head strong,
 :root[data-theme="dark"] .v2-cc-donut strong { color:#e8f1fb; }
 /* ---------- End Home comercial + ChileCompra ---------- */
+/* ---------- ChileCompra Home: barras legibles ---------- */
+@media (max-width:760px){
+  .v2-cc-market-controls{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+  .v2-cc-market-controls label{
+    display:grid;
+    gap:4px;
+    min-width:0;
+    color:#6f8095;
+    font-size:8px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .v2-cc-market-controls select{
+    height:38px !important;
+    padding:6px 28px 6px 9px !important;
+    font-size:10px !important;
+  }
+  .v2-cc-bars{
+    display:grid;
+    gap:10px;
+    margin-top:12px;
+  }
+  .v2-cc-bars-total{
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+  }
+  .v2-cc-bars-total strong{
+    color:#173150;
+    font-size:18px;
+    line-height:1;
+  }
+  .v2-cc-bars-total span{
+    color:#7a899c;
+    font-size:8px;
+  }
+  .v2-cc-bars-list{
+    display:grid;
+    gap:9px;
+  }
+  .v2-cc-bar-row{
+    display:grid;
+    gap:4px;
+  }
+  .v2-cc-bar-label{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    gap:8px;
+  }
+  .v2-cc-bar-label span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:#435b78;
+    font-size:9px;
+    font-weight:700;
+  }
+  .v2-cc-bar-label strong{
+    color:#173150;
+    font-size:8px;
+    font-weight:800;
+  }
+  .v2-cc-bar-track{
+    height:8px;
+    overflow:hidden;
+    border-radius:999px;
+    background:#edf2f7;
+  }
+  .v2-cc-bar-track i{
+    display:block;
+    height:100%;
+    border-radius:inherit;
+    background:linear-gradient(90deg,#1d71b8,#6caaf4);
+  }
+}
+@media (min-width:761px){
+  .v2-cc-market-controls label{
+    display:grid;
+    gap:4px;
+    color:#6f8095;
+    font-size:9px;
+    font-weight:800;
+  }
+  .v2-cc-bars{
+    display:grid;
+    grid-template-columns:120px minmax(0,1fr);
+    gap:18px;
+    align-items:start;
+    margin-top:14px;
+  }
+  .v2-cc-bars-total{
+    display:grid;
+    gap:4px;
+    padding:12px;
+    border:1px solid #e2eaf2;
+    border-radius:12px;
+    background:#f8fbfe;
+  }
+  .v2-cc-bars-total strong{color:#173150;font-size:20px}
+  .v2-cc-bars-total span{color:#7a899c;font-size:9px}
+  .v2-cc-bars-list{display:grid;gap:8px}
+  .v2-cc-bar-row{display:grid;gap:4px}
+  .v2-cc-bar-label{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
+  .v2-cc-bar-label span{color:#435b78;font-size:10px;font-weight:700}
+  .v2-cc-bar-label strong{color:#173150;font-size:9px}
+  .v2-cc-bar-track{height:8px;border-radius:999px;background:#edf2f7;overflow:hidden}
+  .v2-cc-bar-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#1d71b8,#6caaf4)}
+}
+:root[data-theme="dark"] .v2-cc-bars-total{
+  background:var(--v2-panel);
+  border-color:var(--v2-line);
+}
+:root[data-theme="dark"] .v2-cc-bars-total strong,
+:root[data-theme="dark"] .v2-cc-bar-label strong{color:#e8f1fb}
+:root[data-theme="dark"] .v2-cc-bar-label span{color:#b9c6d7}
+:root[data-theme="dark"] .v2-cc-bar-track{background:#26364d}
+/* ---------- End ChileCompra Home barras ---------- */
