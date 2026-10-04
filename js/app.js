@@ -2144,20 +2144,11 @@ const ACTIONS = {
   'open-chilecompra': async (id, btn) => {
     ui.view = 'chilecompra';
     const { chilecompraState } = await import('./chilecompra.js');
-    chilecompraState.tab = 'buscar';
     chilecompraState.query = '';
-    if (btn?.dataset.fit) {
-      const level = btn.dataset.fit;
-      chilecompraState.fit = new Set([level]);
-      chilecompraState.results = chilecompraState.opportunities.filter(
-        (o) => o.radar_state === 'nuevo' && o.fit_level === level
-      );
-      chilecompraState.selectedId = chilecompraState.results[0]?.id || '';
-    } else {
-      chilecompraState.fit = new Set(['alto','parcial','bajo']);
-      chilecompraState.results = [];
-      chilecompraState.selectedId = '';
-    }
+    chilecompraState.results = [];
+    chilecompraState.selectedId = '';
+    chilecompraState.selectedCampaignId = btn?.dataset.campaign || '';
+    chilecompraState.tab = btn?.dataset.campaign ? 'coincidencias' : (btn?.dataset.ccTab || 'resumen');
     render();
     document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
   },
