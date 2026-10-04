@@ -295,8 +295,8 @@ const CAMPAIGN_TERM_RECOMMENDATIONS = [
     terms: ['instalación de luminarias','montaje de luminarias','recambio de luminarias','instalación eléctrica','alumbrado público','mantención de luminarias','reposición de luminarias','proyecto de iluminación','normalización eléctrica','luminarias LED']
   },
   {
-    triggers: ['ds1','subsidio ds1','subsidio habitacional','vivienda ds1','minvu ds1'],
-    terms: ['DS1','subsidio habitacional DS1','vivienda','proyectos habitacionales','MINVU','SERVIU','construcción de viviendas','urbanización','mejoramiento habitacional','soluciones habitacionales']
+    triggers: ['ds1','ds 1','decreto supremo 1','ds1 luminarias','ds 1 luminarias','decreto supremo 1 luminarias','contaminacion luminica','contaminación lumínica','luminosidad artificial'],
+    terms: ['DS1 luminarias','Decreto Supremo N°1/2022 MMA','cumplimiento DS1','contaminación lumínica','alumbrado exterior','luminarias para alumbrado exterior','luminarias LED DS1','proyectores de alumbrado exterior','certificación de luminarias','ensayo de luminarias','control de luminosidad artificial','alumbrado público']
   }
 ];
 
