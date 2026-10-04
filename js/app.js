@@ -2214,7 +2214,13 @@ function showTeamAccessResult(data, { name = '', email = '', resend = false, tem
   if (templateStatus) {
     if (templateSummary) {
       templateStatus.hidden = false;
-      templateStatus.innerHTML = `<strong>Plantillas del CRM actualizadas.</strong><span>Se agregaron ${templateSummary.created} y ${templateSummary.skipped} ya existían.</span>`;
+      if (templateSummary.error) {
+        templateStatus.className = 'notice warning-notice team-access-template-status';
+        templateStatus.innerHTML = `<strong>La persona fue creada, pero la carga de plantillas no terminó.</strong><span>${escapeHtml(templateSummary.error)}</span>`;
+      } else {
+        templateStatus.className = 'notice team-access-template-status';
+        templateStatus.innerHTML = `<strong>Plantillas del CRM actualizadas.</strong><span>Se agregaron ${templateSummary.created} y ${templateSummary.skipped} ya existían.</span>`;
+      }
     } else {
       templateStatus.hidden = true;
       templateStatus.innerHTML = '';
@@ -2257,7 +2263,15 @@ async function submitTeamAdd(ev) {
     let templateSummary = null;
     if (templatePackages.length) {
       submit.textContent = 'Cargando plantillas…';
-      templateSummary = await installTemplatePackages(templatePackages);
+      try {
+        templateSummary = await installTemplatePackages(templatePackages);
+      } catch (templateError) {
+        templateSummary = {
+          created: 0,
+          skipped: 0,
+          error: templateError?.message || 'No se pudieron cargar las plantillas.'
+        };
+      }
     }
     $('teamAddDialog').close();
     await hydrate();
