@@ -4646,3 +4646,188 @@ html[data-theme="dark"][data-crm-view="audit"] #viewRoot .data-table tr {
   }
 }
 /* ---------- End Centro de gestión chips ---------- */
+
+
+/* ---------- Home comercial + ChileCompra 2026-10-04 ---------- */
+.v2-summary-kpi.is-clickable { cursor:pointer; }
+.v2-summary-kpi.is-clickable:active { transform:translateY(1px); }
+.v2-card-chevron {
+  position:absolute; right:10px; bottom:9px; color:#6e7d92; font-size:20px;
+  line-height:1; font-weight:400;
+}
+
+@media (max-width:900px) {
+  .v2-pipeline-hero {
+    min-height:148px !important;
+    padding:14px !important;
+  }
+  .v2-pipeline-hero > strong {
+    max-width:46% !important;
+    font-size:36px !important;
+  }
+  .v2-pipeline-hero > small { max-width:46% !important; }
+
+  .v2-pipeline-insight {
+    position:absolute; top:11px; right:11px; z-index:4;
+    width:49%; max-width:165px; padding:7px 9px;
+    border:1px solid #dbe7f5; border-radius:10px;
+    background:rgba(255,255,255,.82); text-align:left;
+  }
+  .v2-pipeline-insight > span,
+  .v2-pipeline-insight > strong,
+  .v2-pipeline-insight > small { display:block; }
+  .v2-pipeline-insight > span {
+    color:#738197; font-size:7px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
+  }
+  .v2-pipeline-insight > strong {
+    margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:#152b4d; font-size:10px; line-height:1.15;
+  }
+  .v2-pipeline-insight > small { margin-top:2px; color:#61728b; font-size:7.5px; }
+
+  .v2-pipeline-chart {
+    position:absolute !important; right:7px !important; bottom:8px !important;
+    width:51% !important; height:72px !important; display:grid !important;
+    grid-template-columns:repeat(5,minmax(0,1fr)) !important; align-items:end !important;
+    gap:3px !important; padding:0 !important; opacity:1 !important;
+  }
+  .v2-pipeline-chart::before,
+  .v2-pipeline-chart::after { display:none !important; }
+  .v2-pipeline-stage {
+    position:relative; height:72px; min-width:0; padding:0; border:0; background:transparent;
+    display:grid; grid-template-rows:12px 44px 12px; align-items:end; justify-items:center;
+    color:#61738d; cursor:pointer;
+  }
+  .v2-pipeline-stage .v2-stage-count {
+    width:auto !important; height:auto !important; background:none !important; border-radius:0 !important;
+    color:#183153; font-size:8px; font-weight:800; line-height:1;
+  }
+  .v2-pipeline-stage i {
+    position:static !important; left:auto !important; right:auto !important; top:auto !important;
+    display:block !important; align-self:end; width:72% !important; height:var(--h) !important;
+    min-height:4px; max-height:44px; border-radius:4px 4px 2px 2px !important;
+    background:linear-gradient(180deg,#76b8ff,#d7eaff) !important;
+    transform:none !important;
+  }
+  .v2-pipeline-stage i::after { display:none !important; }
+  .v2-pipeline-stage small {
+    width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:#66778f; font-size:6.5px; line-height:1; text-align:center;
+  }
+
+  .v2-chilecompra-card {
+    grid-column:1 / -1 !important;
+    min-height:0 !important; padding:13px !important;
+    border-color:#b8d9f7 !important; background:#fff !important;
+    text-align:left !important; overflow:visible !important;
+  }
+  .v2-cc-brand {
+    display:grid; grid-template-columns:44px minmax(0,1fr) 28px; align-items:center; gap:10px;
+  }
+  .v2-cc-brand-icon {
+    display:grid; place-items:center; width:42px; height:42px; border-radius:12px;
+    background:#eaf5ff; color:#0d7bd8; font-size:20px; font-weight:800;
+  }
+  .v2-cc-brand > div { min-width:0; }
+  .v2-cc-brand > div > strong {
+    display:block; color:#14294a; font-size:15px; line-height:1.1;
+  }
+  .v2-cc-brand > div > small {
+    display:block; margin-top:4px; color:#6d7b90; font-size:9px; line-height:1.25;
+  }
+  .v2-cc-brand > div > small b { color:#173557; }
+  .v2-cc-arrow {
+    width:28px; height:32px; padding:0; border:0; background:transparent;
+    color:#55708f; font-size:24px; cursor:pointer;
+  }
+
+  .v2-cc-campaigns {
+    display:flex; flex-wrap:wrap; gap:7px; margin-top:12px;
+  }
+  .v2-cc-campaign-chip,
+  .v2-cc-empty-campaigns {
+    min-height:38px; padding:7px 9px; border:1px solid #d8e6f5; border-radius:10px;
+    background:#f7fbff; color:#173251; cursor:pointer;
+  }
+  .v2-cc-campaign-chip {
+    flex:1 1 calc(33.333% - 7px); min-width:92px; max-width:180px;
+    display:flex; align-items:center; justify-content:space-between; gap:7px;
+    text-align:left;
+  }
+  .v2-cc-campaign-chip span {
+    min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:#28517d; font-size:8.5px; font-weight:700;
+  }
+  .v2-cc-campaign-chip strong {
+    flex:0 0 auto; min-width:22px; height:22px; display:grid; place-items:center;
+    border-radius:999px; background:#e4f1ff; color:#0a73d1; font-size:10px;
+  }
+  .v2-cc-empty-campaigns {
+    width:100%; color:#116fc5; font-size:10px; font-weight:700;
+  }
+
+  .v2-cc-market-head {
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    margin-top:14px; padding-top:12px; border-top:1px solid #edf1f6;
+  }
+  .v2-cc-market-head strong { display:block; color:#162c4d; font-size:12px; }
+  .v2-cc-market-head small { display:block; margin-top:2px; color:#77859a; font-size:8px; }
+  .v2-cc-market-controls {
+    display:grid; grid-template-columns:1.25fr 1fr; gap:7px; margin-top:9px;
+  }
+  .v2-cc-market-controls select {
+    width:100%; min-width:0; height:34px; padding:5px 26px 5px 8px;
+    border:1px solid #dde6f0; border-radius:9px; background:#fff;
+    color:#243a59; font-size:9px;
+  }
+  .v2-cc-market-viz {
+    display:grid; grid-template-columns:118px minmax(0,1fr); gap:12px;
+    align-items:center; margin-top:12px;
+  }
+  .v2-cc-donut {
+    width:112px; height:112px; padding:18px; border-radius:50%;
+  }
+  .v2-cc-donut > div {
+    width:100%; height:100%; display:grid; place-items:center; align-content:center;
+    border-radius:50%; background:#fff; box-shadow:inset 0 0 0 1px #e4eaf2; text-align:center;
+  }
+  .v2-cc-donut strong { color:#16304f; font-size:11px; line-height:1; }
+  .v2-cc-donut span { margin-top:3px; color:#78869a; font-size:6.5px; }
+  .v2-cc-market-legend { display:grid; gap:5px; min-width:0; }
+  .v2-cc-market-legend > div {
+    display:grid; grid-template-columns:8px minmax(0,1fr) auto; align-items:center; gap:5px;
+  }
+  .v2-cc-market-legend i { width:7px; height:7px; border-radius:50%; }
+  .v2-cc-market-legend span {
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#586b83; font-size:7.5px;
+  }
+  .v2-cc-market-legend strong { color:#1b3352; font-size:7.5px; }
+  .v2-cc-market-empty {
+    margin-top:10px; min-height:72px; display:grid; place-items:center; padding:12px;
+    border:1px dashed #d9e4ef; border-radius:10px; color:#718197; font-size:9px; text-align:center;
+  }
+  .v2-cc-open {
+    width:100%; min-height:38px; margin-top:12px; border-radius:10px !important;
+    font-size:10px !important;
+  }
+}
+
+@media (max-width:420px) {
+  .v2-pipeline-hero { min-height:142px !important; }
+  .v2-pipeline-hero > strong { font-size:33px !important; }
+  .v2-pipeline-insight { max-width:150px; }
+  .v2-cc-campaign-chip { flex-basis:calc(50% - 7px); max-width:none; }
+  .v2-cc-market-viz { grid-template-columns:104px minmax(0,1fr); gap:9px; }
+  .v2-cc-donut { width:100px; height:100px; padding:16px; }
+}
+
+:root[data-theme="dark"] .v2-chilecompra-card,
+:root[data-theme="dark"] .v2-cc-market-controls select,
+:root[data-theme="dark"] .v2-cc-campaign-chip,
+:root[data-theme="dark"] .v2-cc-donut > div {
+  background:var(--v2-panel) !important; border-color:var(--v2-line) !important;
+}
+:root[data-theme="dark"] .v2-cc-brand > div > strong,
+:root[data-theme="dark"] .v2-cc-market-head strong,
+:root[data-theme="dark"] .v2-cc-donut strong { color:#e8f1fb; }
+/* ---------- End Home comercial + ChileCompra ---------- */
