@@ -90,3 +90,119 @@
   .tutorial-actions .tutorial-spacer{display:none}
   .tutorial-actions .primary-btn,.tutorial-actions .ghost-btn{flex:1 1 auto}
 }
+
+
+/* Gestión de capacitación desde Equipo */
+.team-training-panel{
+  grid-column:1/-1;
+  margin-top:4px;
+  padding-top:12px;
+  border-top:1px solid #e7edf4;
+}
+.team-training-panel>summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  list-style:none;
+  color:#1a3555;
+  font-size:11px;
+  font-weight:800;
+}
+.team-training-panel>summary::-webkit-details-marker{display:none}
+.team-training-panel>summary small{
+  color:#7b899b;
+  font-size:9px;
+  font-weight:500;
+}
+.team-training-list{
+  display:grid;
+  gap:8px;
+  margin-top:10px;
+}
+.team-training-row{
+  display:grid;
+  gap:7px;
+  padding:10px;
+  border:1px solid #e2e8f0;
+  border-radius:11px;
+  background:#f9fbfd;
+}
+.team-training-main{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  cursor:pointer;
+}
+.team-training-main input{
+  margin-top:2px;
+}
+.team-training-main span{
+  display:grid;
+  gap:2px;
+}
+.team-training-main strong{
+  color:#193250;
+  font-size:11px;
+}
+.team-training-main small{
+  color:#7a889a;
+  font-size:9px;
+}
+.team-training-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-left:24px;
+}
+.team-training-actions label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:#68798e;
+  font-size:9px;
+}
+.team-training-actions .link-btn{
+  margin-left:auto;
+  font-size:9px;
+}
+.team-training-progress{
+  height:5px;
+  margin-left:24px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e8eef5;
+}
+.team-training-progress i{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#1d71b8,#6caaf4);
+}
+:root[data-theme="dark"] .team-training-panel{
+  border-color:var(--v2-line,#2d3b52);
+}
+:root[data-theme="dark"] .team-training-panel>summary,
+:root[data-theme="dark"] .team-training-main strong{
+  color:#e9f1fb;
+}
+:root[data-theme="dark"] .team-training-row{
+  background:var(--v2-panel,#17243a);
+  border-color:var(--v2-line,#2d3b52);
+}
+@media(max-width:680px){
+  .team-training-panel>summary{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:2px;
+  }
+  .team-training-actions{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .team-training-actions .link-btn{
+    margin-left:0;
+    padding-left:0;
+  }
+}
