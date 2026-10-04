@@ -58,7 +58,7 @@ let lastShownAt = 0;
 let startupShownForUser = '';
 let recentQuotes = [];
 
-const MASCOT_PREF_PREFIX = 'taskflow.crm.mascot.enabled';
+const MASCOT_PREF_PREFIX = 'crm.personal.mascot.enabled';
 
 function mascotPreferenceKey() {
   return `${MASCOT_PREF_PREFIX}:${session.user?.id || 'default'}`;
@@ -320,7 +320,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-document.addEventListener('taskflow:mascot-preference', (event) => {
+document.addEventListener('crm-personal:mascot-preference', (event) => {
   setBonvalletEnabled(Boolean(event.detail?.enabled));
 });
 
