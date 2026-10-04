@@ -216,25 +216,25 @@ export const DEFAULT_TEMPLATES = [
     id: 'general',
     name: 'Presentación general',
     channel: 'both',
-    subject: 'TaskFlow — gestión de OTs, inventario y operación técnica',
+    subject: 'Presentación comercial — {{empresa}}',
     body:
-      'Hola {{nombre}},\n\nQuisiera presentarte TaskFlow, una plataforma modular para centralizar órdenes de trabajo, técnicos en terreno, equipos, inventario, checklists, evidencias y trazabilidad operativa.\n\nPodemos revisar la operación de {{empresa}} en una demo breve y enfocada en sus procesos.\n\nSaludos,'
+      'Hola {{nombre}},\n\nQuisiera compartirte información sobre nuestra propuesta para {{empresa}}. Podemos revisar su operación, necesidades y los puntos asociados a {{dolor}} en una conversación breve y enfocada en sus procesos.\n\nSaludos,'
   },
   {
     id: 'demo',
     name: 'Coordinación de demo',
     channel: 'both',
-    subject: 'Coordinemos una demo de TaskFlow',
+    subject: 'Coordinemos una demo',
     body:
-      'Hola {{nombre}},\n\nComo conversamos, propongo coordinar una demo de TaskFlow enfocada en {{dolor}}. La idea es revisar el flujo real de su operación y mostrar solo los módulos que les aportan valor: {{modulos}}.\n\nQuedo atento a día y horario.'
+      'Hola {{nombre}},\n\nComo conversamos, propongo coordinar una demo enfocada en {{dolor}}. La idea es revisar el flujo real de su operación y mostrar únicamente lo que pueda aportar valor a {{empresa}}.\n\nQuedo atento a día y horario.'
   },
   {
     id: 'followup',
     name: 'Seguimiento de propuesta',
     channel: 'both',
-    subject: 'Seguimiento propuesta TaskFlow — {{empresa}}',
+    subject: 'Seguimiento de propuesta — {{empresa}}',
     body:
-      'Hola {{nombre}},\n\nQuería hacer seguimiento a la propuesta de TaskFlow enviada para {{empresa}}. ¿Pudieron revisarla?\n\nSi hay observaciones técnicas, comerciales o de alcance, las revisamos juntos.'
+      'Hola {{nombre}},\n\nQuería hacer seguimiento a la propuesta enviada para {{empresa}}. ¿Pudieron revisarla?\n\nSi hay observaciones técnicas, comerciales o de alcance, las revisamos juntos.'
   },
   {
     id: 'reactivation',
@@ -250,13 +250,13 @@ export const DEFAULT_TEMPLATES = [
     channel: 'both',
     subject: '¿Seguimos en contacto, {{nombre}}?',
     body:
-      'Hola {{nombre}},\n\nSé que por ahora no era el momento para avanzar con TaskFlow en {{empresa}}. Quería dejar la puerta abierta: si la situación cambia o surge una nueva necesidad, quedo disponible para retomar la conversación cuando les acomode.\n\nUn saludo,'
+      'Hola {{nombre}},\n\nSé que por ahora no era el momento para avanzar con la propuesta en {{empresa}}. Quería dejar la puerta abierta: si la situación cambia o surge una nueva necesidad, quedo disponible para retomar la conversación cuando les acomode.\n\nUn saludo,'
   },
   {
     id: 'remarketing2',
     name: 'Remarketing — Seguimiento 2',
     channel: 'both',
-    subject: 'Novedades de TaskFlow para {{empresa}}',
+    subject: 'Novedades para {{empresa}}',
     body:
       'Hola {{nombre}},\n\nTe escribo para contarte que seguimos sumando mejoras en {{modulos}}. Si el contexto en {{empresa}} cambió, me encantaría mostrarte qué hay de nuevo.\n\n¿Tenés unos minutos esta semana?'
   },
@@ -275,7 +275,7 @@ export const TEMPLATE_VARIABLES = ['{{nombre}}', '{{nombreCompleto}}', '{{empres
 /* ---------- Cotizador ---------- */
 
 // Emisor que aparece en el encabezado de la cotización y del PDF.
-export const QUOTE_ISSUER = { name: 'Cuatro Rlabs SpA', rut: '77.972.828-5' };
+export const QUOTE_ISSUER = { name: '', rut: '' };
 
 export const CURRENCIES = ['UF', 'CLP'];
 
