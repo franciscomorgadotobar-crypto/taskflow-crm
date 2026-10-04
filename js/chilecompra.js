@@ -285,6 +285,18 @@ const CAMPAIGN_TERM_RECOMMENDATIONS = [
   {
     triggers: ['construccion','obra','infraestructura','edificio'],
     terms: ['construcción','obras civiles','infraestructura','edificación','inspección de obras','mantenimiento de infraestructura','equipamiento de edificios']
+  },
+  {
+    triggers: ['luminaria','luminarias','iluminacion','iluminación','alumbrado','venta de luminarias','suministro de luminarias'],
+    terms: ['luminarias LED','venta de luminarias','suministro de luminarias','iluminación LED','alumbrado público','equipos de iluminación','lámparas LED','proyectores LED','luminarias viales','luminarias exteriores']
+  },
+  {
+    triggers: ['instalacion de luminarias','instalación de luminarias','montaje de luminarias','instalacion electrica luminarias','instalación eléctrica luminarias','recambio de luminarias'],
+    terms: ['instalación de luminarias','montaje de luminarias','recambio de luminarias','instalación eléctrica','alumbrado público','mantención de luminarias','reposición de luminarias','proyecto de iluminación','normalización eléctrica','luminarias LED']
+  },
+  {
+    triggers: ['ds1','subsidio ds1','subsidio habitacional','vivienda ds1','minvu ds1'],
+    terms: ['DS1','subsidio habitacional DS1','vivienda','proyectos habitacionales','MINVU','SERVIU','construcción de viviendas','urbanización','mejoramiento habitacional','soluciones habitacionales']
   }
 ];
 
