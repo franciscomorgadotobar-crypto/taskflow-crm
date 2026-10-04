@@ -2037,7 +2037,7 @@ const ACTIONS = {
       chilecompraState.selectedId = '';
     }
     render();
-    $('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
+    document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
   },
   'qualify-lead': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
