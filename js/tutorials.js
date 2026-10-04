@@ -165,6 +165,42 @@ export const TUTORIALS = {
       }
     ]
   },
+  gestionar_plantillas: {
+    id: 'gestionar_plantillas',
+    name: 'Gestionar plantillas',
+    description: 'Crea mensajes reutilizables, inserta variables y comprueba el resultado con datos reales.',
+    version: 1,
+    duration: 4,
+    roles: ['super','admin'],
+    view: 'templates',
+    steps: [
+      {
+        selector: '.template-card-head',
+        title: 'Tu biblioteca de mensajes',
+        text: 'Aquí administras los mensajes que el equipo puede usar desde la ficha de cada empresa.'
+      },
+      {
+        selector: '[data-action="new-template"]',
+        title: 'Crea una plantilla con intención',
+        text: 'El formulario te permite poner nombre, canal y una base antes de crearla. Si cancelas, no queda un registro vacío.'
+      },
+      {
+        selector: '.template-toolbar',
+        title: 'Filtra por canal',
+        text: 'Usa el filtro para revisar mensajes de WhatsApp, correo o ambos canales.'
+      },
+      {
+        selector: '.template-item, .template-list',
+        title: 'Edita el contenido',
+        text: 'Abre una plantilla para cambiar nombre, canal, asunto y mensaje. También puedes insertar variables sin escribirlas a mano.'
+      },
+      {
+        selector: '.template-preview',
+        title: 'Comprueba el mensaje',
+        text: 'Elige una empresa dentro de la plantilla para reemplazar las variables y ver cómo quedaría el texto antes de usarlo.'
+      }
+    ]
+  },
   gestionar_equipo: {
     id: 'gestionar_equipo',
     name: 'Gestionar equipo',
