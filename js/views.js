@@ -728,28 +728,32 @@ export function renderTemplates(ui) {
 
   return `
     <div class="card">
-      <div class="card-head">
-        <h3>Plantillas de mensajes</h3>
-        <button class="primary-btn" data-action="new-template">+ Nueva plantilla</button>
+      <div class="card-head template-card-head">
+        <div>
+          <h3>Plantillas de mensajes</h3>
+          <span class="muted">Crea, ordena y prueba mensajes antes de usarlos con un prospecto.</span>
+        </div>
+        <div class="template-head-actions">
+          ${isSuper() ? '<button class="ghost-btn" data-action="template-packages">Cargar paquete</button>' : ''}
+          <button class="primary-btn" data-action="new-template">+ Nueva plantilla</button>
+        </div>
       </div>
       <div class="card-body">
         <div class="notice">
-          <strong>Cómo funciona:</strong> una plantilla es un mensaje base con <em>variables</em> (por ejemplo <code>{{empresa}}</code>)
-          que se completan solas con los datos de cada prospecto. Esta pantalla es solo de configuración: acá se escriben y se guardan,
-          <strong>desde acá no se envía nada</strong>. El envío se hace en la ficha de cada empresa → <strong>Comunicación</strong>.
+          <strong>Cómo funciona:</strong> aquí preparas mensajes reutilizables con variables como <code>{{empresa}}</code> o <code>{{nombre}}</code>.
+          Las variables se completan al usar la plantilla desde la ficha de una empresa. <strong>Esta pantalla no envía mensajes.</strong>
         </div>
 
-        <div class="toolbar">
-          <select id="templateChannel">
-            <option value="">Todos los canales</option>
-            ${TEMPLATE_CHANNELS.filter((c) => c.id !== 'both')
-              .map((c) => `<option value="${c.id}" ${channelFilter === c.id ? 'selected' : ''}>${e(c.label)}</option>`)
-              .join('')}
-          </select>
-          <select id="templateLead" aria-label="Empresa para la vista previa">
-            <option value="">Vista previa: ejemplo genérico</option>
-            ${state.leads.map((l) => `<option value="${l.id}" ${leadId === l.id ? 'selected' : ''}>Vista previa: ${e(l.company)}</option>`).join('')}
-          </select>
+        <div class="toolbar template-toolbar">
+          <label class="template-filter">
+            <span>Filtrar por canal</span>
+            <select id="templateChannel">
+              <option value="">Todos los canales</option>
+              ${TEMPLATE_CHANNELS.filter((c) => c.id !== 'both')
+                .map((c) => `<option value="${c.id}" ${channelFilter === c.id ? 'selected' : ''}>${e(c.label)}</option>`)
+                .join('')}
+            </select>
+          </label>
           <span class="toolbar-summary">${rows.length} plantilla(s)</span>
         </div>
 
@@ -792,8 +796,23 @@ export function renderTemplates(ui) {
                         </div>
 
                         <div class="template-preview">
-                          <h5>Así se envía · ${e(previewName || 'ejemplo genérico')}</h5>
-                          <div data-template-preview="${t.id}">${templatePreviewHtml(t, leadId)}</div>
+                          <div class="template-preview-head">
+                            <div>
+                              <h5>Comprobar mensaje</h5>
+                              <p>Elige una empresa para reemplazar las variables y ver cómo quedaría el texto.</p>
+                            </div>
+                            <label>
+                              <span>Usar datos de</span>
+                              <select data-template-preview-lead>
+                                <option value="">Ejemplo genérico</option>
+                                ${state.leads.map((l) => `<option value="${l.id}" ${leadId === l.id ? 'selected' : ''}>${e(l.company)}</option>`).join('')}
+                              </select>
+                            </label>
+                          </div>
+                          <div class="template-preview-result">
+                            <strong>${e(previewName || 'Ejemplo genérico')}</strong>
+                            <div data-template-preview="${t.id}">${templatePreviewHtml(t, leadId)}</div>
+                          </div>
                         </div>
 
                         <div class="template-actions">
