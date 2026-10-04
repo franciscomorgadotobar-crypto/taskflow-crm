@@ -1,14 +1,11 @@
-const STATIC_CACHE = 'taskflow-crm-static-v2';
-const RUNTIME_CACHE = 'taskflow-crm-runtime-v2';
+const STATIC_CACHE = 'crm-personal-static-v3';
+const RUNTIME_CACHE = 'crm-personal-runtime-v3';
 const ALL_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
 
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './assets/isotipo-taskflow.png',
-  './assets/isotipo-taskflow-trim.png',
-  './assets/logo-taskflow-trim.png',
   './assets/pwa-icon.svg',
   './assets/pwa-icon-maskable.svg'
 ];
@@ -26,7 +23,7 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       .then((keys) => Promise.all(
         keys
-          .filter((key) => key.startsWith('taskflow-crm-') && !ALL_CACHES.includes(key))
+          .filter((key) => key.includes('crm') && !ALL_CACHES.includes(key))
           .map((key) => caches.delete(key))
       ))
       .then(() => self.clients.claim())
