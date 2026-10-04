@@ -274,6 +274,98 @@ export function tutorialStatus(tutorial) {
   };
 }
 
+async function refreshTeamTutorialState() {
+  if (profileRole() !== 'super') return;
+  const [assignments, progress] = await Promise.all([
+    supabase.from('tutorial_assignments').select('*'),
+    supabase.from('tutorial_progress').select('*')
+  ]);
+  if (assignments.error) throw assignments.error;
+  if (progress.error) throw progress.error;
+  tutorialState.teamAssignments = Object.fromEntries((assignments.data || []).map((x) => [teamKeyFor(x.profile_id, x.tutorial_id, x.version), x]));
+  tutorialState.teamProgress = Object.fromEntries((progress.data || []).map((x) => [teamKeyFor(x.profile_id, x.tutorial_id, x.version), x]));
+  emit();
+}
+
+export async function setTeamTutorialAssignment(profileId, tutorialId, version, assigned, { autoStart = true } = {}) {
+  if (profileRole() !== 'super') throw new Error('Solo el súper administrador puede asignar capacitaciones.');
+  const k = teamKeyFor(profileId, tutorialId, version);
+  if (assigned) {
+    const row = {
+      profile_id: profileId,
+      tutorial_id: tutorialId,
+      version,
+      auto_start: Boolean(autoStart),
+      assigned_by: session.user?.id || null,
+      assigned_at: new Date().toISOString()
+    };
+    const { data, error } = await supabase.from('tutorial_assignments').upsert(row, {
+      onConflict: 'profile_id,tutorial_id,version'
+    }).select('*').single();
+    if (error) throw error;
+    tutorialState.teamAssignments[k] = data;
+  } else {
+    const { error } = await supabase.from('tutorial_assignments')
+      .delete()
+      .eq('profile_id', profileId)
+      .eq('tutorial_id', tutorialId)
+      .eq('version', version);
+    if (error) throw error;
+    delete tutorialState.teamAssignments[k];
+  }
+  emit();
+}
+
+export async function setTeamTutorialAutoStart(profileId, tutorialId, version, autoStart) {
+  if (profileRole() !== 'super') throw new Error('Solo el súper administrador puede cambiar esta capacitación.');
+  const { error } = await supabase.from('tutorial_assignments')
+    .update({ auto_start: Boolean(autoStart) })
+    .eq('profile_id', profileId)
+    .eq('tutorial_id', tutorialId)
+    .eq('version', version);
+  if (error) throw error;
+  await refreshTeamTutorialState();
+}
+
+export async function resetTeamTutorial(profileId, tutorialId, version) {
+  if (profileRole() !== 'super') throw new Error('Solo el súper administrador puede reasignar capacitaciones.');
+  const now = new Date().toISOString();
+  const [assignment, progress] = await Promise.all([
+    supabase.from('tutorial_assignments').upsert({
+      profile_id: profileId,
+      tutorial_id: tutorialId,
+      version,
+      auto_start: true,
+      assigned_by: session.user?.id || null,
+      assigned_at: now
+    }, { onConflict: 'profile_id,tutorial_id,version' }),
+    supabase.from('tutorial_progress').upsert({
+      profile_id: profileId,
+      tutorial_id: tutorialId,
+      version,
+      status: 'pending',
+      current_step: 0,
+      started_at: null,
+      completed_at: null,
+      updated_at: now
+    }, { onConflict: 'profile_id,tutorial_id,version' })
+  ]);
+  if (assignment.error) throw assignment.error;
+  if (progress.error) throw progress.error;
+  await refreshTeamTutorialState();
+}
+
+export function contextualTutorialForView(view) {
+  return availableTutorials().find((tutorial) => tutorial.view === view) || null;
+}
+
+export async function startContextTutorial(view) {
+  const tutorial = contextualTutorialForView(view);
+  if (!tutorial) return false;
+  await startTutorial(tutorial.id, { continueProgress: true });
+  return true;
+}
+
 export async function hydrateTutorials() {
   if (!session.user?.id) return;
   const superUser = profileRole() === 'super';
