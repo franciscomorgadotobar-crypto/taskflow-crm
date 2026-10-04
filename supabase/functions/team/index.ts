@@ -33,7 +33,8 @@ function safeRedirect(value: unknown) {
 }
 
 function randomPassword() {
-  return crypto.randomUUID() + "-" + crypto.randomUUID() + "-A9!";
+  // Supabase Auth limita contraseñas a 72 caracteres.
+  return crypto.randomUUID() + "-A9!" + crypto.randomUUID().slice(0, 12);
 }
 
 Deno.serve(async req => {
