@@ -9,7 +9,8 @@ export const session = {
   user: null,
   profile: null,
   status: 'loading', // 'loading' | 'signed-out' | 'signed-in' | 'profile-error'
-  error: null
+  error: null,
+  recovery: false
 };
 
 const listeners = new Set();
@@ -24,12 +25,13 @@ export async function fetchProfile() {
   return data;
 }
 
-async function refresh(user) {
+async function refresh(user, { recovery = false } = {}) {
   const generation = ++refreshGeneration;
   session.user = user || null;
   session.error = null;
   if (!user) {
     session.profile = null;
+    session.recovery = false;
     session.status = 'signed-out';
     return notify();
   }
@@ -66,6 +68,7 @@ async function refresh(user) {
   }
   session.profile = profile;
   session.error = null;
+  session.recovery = Boolean(recovery || session.recovery);
   session.status = 'signed-in';
   notify();
 }
@@ -73,8 +76,8 @@ async function refresh(user) {
 // El callback de Auth termina inmediatamente. La lectura de profiles se difiere a
 // una microtarea para no encadenar consultas Supabase dentro del procesamiento del
 // propio evento de autenticación.
-supabase.auth.onAuthStateChange((_event, sess) => {
-  queueMicrotask(() => refresh(sess?.user || null));
+supabase.auth.onAuthStateChange((event, sess) => {
+  queueMicrotask(() => refresh(sess?.user || null, { recovery: event === 'PASSWORD_RECOVERY' }));
 });
 
 export async function initAuth() {
