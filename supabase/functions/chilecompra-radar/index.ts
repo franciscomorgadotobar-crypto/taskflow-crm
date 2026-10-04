@@ -9,35 +9,9 @@ const CORS = {
 const API_BASE = "https://api.mercadopublico.cl/servicios/v1/publico";
 const MP_SEARCH_URL = "https://www.mercadopublico.cl/BuscarLicitacion";
 
-const CAPABILITIES = [
-  // NEOFF = software de conectividad operacional. No presta mantenimiento.
-  { solution:"NEOFF", capability:"Telemetría y monitoreo remoto", weight:38, terms:["telemetria","monitoreo remoto","supervision remota","monitoreo en tiempo real","adquisicion de datos","variables operacionales","m2m"] },
-  { solution:"NEOFF", capability:"IoT y equipos conectados", weight:34, terms:["iot","internet de las cosas","gateway","dispositivo conectado","equipos conectados","sensores conectados"] },
-  { solution:"NEOFF", capability:"Integración de protocolos", weight:36, terms:["scada","modbus","bacnet","mqtt","opc","protocolo industrial","integracion de protocolos","integracion de equipos"] },
-  { solution:"NEOFF", capability:"RFID y trazabilidad", weight:38, terms:["rfid","radiofrecuencia","tag rfid","tags rfid","lector rfid","lectores rfid","identificacion por radiofrecuencia","trazabilidad rfid"] },
-  { solution:"NEOFF", capability:"Control balístico digital", weight:42, terms:["control balistico","trazabilidad de armamento","control de armamento","control de municion","arsenal digital"] },
-  { solution:"NEOFF", capability:"Software de monitoreo e integración", weight:34, terms:["plataforma de monitoreo","software de monitoreo","plataforma de telemetria","software de telemetria","integracion de sensores","integracion iot"] },
-
-  // TaskFlow = software para gestionar la operación, el trabajo y la mantención.
-  { solution:"TaskFlow", capability:"Órdenes de trabajo", weight:36, terms:["orden de trabajo","ordenes de trabajo","ot digital","ordenes digitales","gestion de mantenimiento"] },
-  { solution:"TaskFlow", capability:"Gestión de mantenimiento", weight:32, terms:["software de mantenimiento","sistema de mantenimiento","gestion de mantenimiento","mantenimiento preventivo","mantenimiento correctivo"] },
-  { solution:"TaskFlow", capability:"Técnicos en terreno", weight:30, terms:["tecnicos en terreno","tecnico en terreno","personal en terreno","cuadrillas","visitas tecnicas"] },
-  { solution:"TaskFlow", capability:"Checklists y evidencias", weight:28, terms:["checklist","lista de chequeo","inspeccion","evidencia fotografica","firma digital"] },
-  { solution:"TaskFlow", capability:"Inventario y repuestos", weight:28, terms:["inventario de repuestos","control de repuestos","bodega tecnica","stock de repuestos","inventario tecnico"] },
-  { solution:"TaskFlow", capability:"Laboratorio técnico", weight:32, terms:["laboratorio tecnico","diagnostico de equipos","reparacion de equipos","servicio tecnico con trazabilidad"] },
-  { solution:"TaskFlow", capability:"Gestión de activos", weight:30, terms:["gestion de activos","trazabilidad de activos","activos fisicos","historial de activos"] },
-
-  // Contextos donde pueden aplicar uno u otro producto, pero el rubro por sí solo
-  // NO debe clasificar una compra como NEOFF, TaskFlow ni ambos.
-  { solution:null, capability:"HVAC", weight:5, terms:["hvac","climatizacion","aire acondicionado","chiller","ventilacion"] },
-  { solution:null, capability:"Facility", weight:5, terms:["facility","infraestructura critica","operacion de edificios"] },
-  { solution:null, capability:"Grupos electrógenos", weight:5, terms:["grupo electrogeno","grupos electrogenos","generador electrico","generadores"] },
-  { solution:null, capability:"Telecomunicaciones", weight:5, terms:["telecomunicaciones","fibra optica","torres","nodos","lte","5g","radioenlace","antenas"] },
-  { solution:null, capability:"Transporte vertical", weight:5, terms:["ascensor","ascensores","elevador","elevadores","transporte vertical"] },
-  { solution:null, capability:"Industria", weight:5, terms:["planta industrial","linea de produccion","proceso industrial"] },
-  { solution:null, capability:"Utilities", weight:5, terms:["agua potable","tratamiento de agua","utilities","distribucion electrica"] },
-  { solution:null, capability:"Minería y túneles", weight:5, terms:["mineria","tunel","tuneles","faena minera"] },
-];
+// El radar no presupone productos. Las coincidencias se definen exclusivamente
+// por campañas y por el perfil de mercado configurados por cada organización.
+const CAPABILITIES = [];
 
 function json(body, status=200) {
   return new Response(JSON.stringify(body), { status, headers:{...CORS,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"} });
@@ -172,12 +146,11 @@ function traditionalMatches(listings,query) {
   }
   return [...exact,...partial].slice(0,120);
 }
-function matchesScope(row,scope) {
-  const s=new Set(row.matched_solutions||[]);
-  if(scope==="NEOFF") return s.has("NEOFF");
-  if(scope==="TaskFlow") return s.has("TaskFlow");
-  if(scope==="BOTH") return s.has("NEOFF")&&s.has("TaskFlow");
-  return false;
+function campaignMatch(item, terms=[]) {
+  const f=listingFields(item);
+  const hay=normalize([f.code,f.name,f.description,f.buyerName,f.procurementType].filter(Boolean).join(" "));
+  const matched=[...new Set((terms||[]).filter(term=>termMatches(hay,term)).map(term=>String(term).trim()).filter(Boolean))];
+  return { matched, score: matched.length ? Math.min(100, 45 + (matched.length-1)*12) : 0 };
 }
 async function enrichRows(rows,ticket,limit=8) {
   const out=[...rows];
@@ -209,36 +182,216 @@ async function searchTraditional(admin,ticket,org,query) {
   saved.sort((a,b)=>(order.get(a.external_code)??999)-(order.get(b.external_code)??999));
   return {sourceCount:listings.length,results:saved.slice(0,120)};
 }
-async function searchCampaign(admin,ticket,org,scope) {
+async function upsertCampaignMatches(admin,campaignId,items,opportunityByCode) {
+  const now=new Date().toISOString();
+  const rows=[];
+  for(const item of items) {
+    const f=listingFields(item);
+    const opp=opportunityByCode.get(f.code);
+    if(!opp) continue;
+    const campaign=items._campaign;
+    const match=campaignMatch(item,campaign?.query_terms||[]);
+    if(!match.matched.length) continue;
+    rows.push({
+      campaign_id:campaignId,
+      opportunity_id:opp.id,
+      score:match.score,
+      matched_terms:match.matched,
+      updated_at:now,
+      last_seen_at:now
+    });
+  }
+  if(!rows.length) return [];
+  const {data,error}=await admin.from("chilecompra_campaign_matches")
+    .upsert(rows,{onConflict:"campaign_id,opportunity_id"}).select("*");
+  if(error) throw error;
+  return data||[];
+}
+async function searchCampaign(admin,ticket,org,campaignId) {
+  const {data:campaign,error:campaignError}=await admin.from("chilecompra_campaigns")
+    .select("*").eq("id",campaignId).eq("organization_id",org).maybeSingle();
+  if(campaignError) throw campaignError;
+  if(!campaign) throw new Error("Campaña no encontrada");
   const listings=await activeListings(ticket);
-  let rows=listings.map(item=>rowFromItem(item,org))
-    .filter(row=>row.external_code&&row.name&&matchesScope(row,scope))
-    .sort((a,b)=>b.fit_score-a.fit_score||String(a.close_at||"9999").localeCompare(String(b.close_at||"9999")))
-    .slice(0,160);
+  const matchedItems=listings
+    .map(item=>({item,match:campaignMatch(item,campaign.query_terms||[])}))
+    .filter(x=>x.match.matched.length)
+    .sort((a,b)=>b.match.score-a.match.score)
+    .slice(0,250);
+  let rows=matchedItems.map(x=>rowFromItem(x.item,org));
   rows=await enrichRows(rows,ticket,10);
   const saved=await upsertRows(admin,rows);
+  const byCode=new Map(saved.map(x=>[x.external_code,x]));
+  const now=new Date().toISOString();
+  const matches=matchedItems.map(x=>{
+    const code=listingFields(x.item).code;
+    const opp=byCode.get(code);
+    return opp ? {
+      campaign_id:campaign.id, opportunity_id:opp.id, score:x.match.score,
+      matched_terms:x.match.matched, updated_at:now, last_seen_at:now
+    } : null;
+  }).filter(Boolean);
+  if(matches.length) {
+    const {error}=await admin.from("chilecompra_campaign_matches")
+      .upsert(matches,{onConflict:"campaign_id,opportunity_id"});
+    if(error) throw error;
+  }
   const order=new Map(rows.map((r,i)=>[r.external_code,i]));
   saved.sort((a,b)=>(order.get(a.external_code)??999)-(order.get(b.external_code)??999));
-  return {sourceCount:listings.length,results:saved.slice(0,160)};
+  return {sourceCount:listings.length,results:saved.slice(0,250),campaign};
 }
 async function syncOrganization(admin,ticket,org) {
+  const {data:campaigns,error:campaignError}=await admin.from("chilecompra_campaigns")
+    .select("*").eq("organization_id",org).eq("active",true).order("created_at");
+  if(campaignError) throw campaignError;
+  if(!(campaigns||[]).length) {
+    return {organizationId:org,sourceCount:0,campaigns:0,matched:0,newMatches:0};
+  }
+
   const listings=await activeListings(ticket);
-  let rows=listings.map(item=>rowFromItem(item,org))
-    .filter(row=>row.external_code&&row.name&&(row.matched_solutions||[]).length)
-    .sort((a,b)=>b.fit_score-a.fit_score).slice(0,600);
+  const byCode=new Map();
+  const pendingMatches=[];
+  for(const item of listings) {
+    const f=listingFields(item);
+    if(!f.code||!f.name) continue;
+    for(const campaign of campaigns) {
+      const match=campaignMatch(item,campaign.query_terms||[]);
+      if(!match.matched.length) continue;
+      if(!byCode.has(f.code)) byCode.set(f.code,rowFromItem(item,org));
+      pendingMatches.push({campaign,item,code:f.code,match});
+    }
+  }
+
+  const rows=[...byCode.values()];
   const {data:existing}=await admin.from("chilecompra_opportunities")
     .select("external_code,detail_loaded").eq("organization_id",org);
   const detail=new Map((existing||[]).map(x=>[x.external_code,Boolean(x.detail_loaded)]));
-  rows=rows.map(r=>({...r,detail_loaded:detail.get(r.external_code)||false}));
-  const high=rows.filter(r=>r.fit_level==="alto"&&!r.detail_loaded);
-  const enriched=await enrichRows(high,ticket,8);
-  const byCode=new Map(enriched.map(r=>[r.external_code,r]));
-  rows=rows.map(r=>byCode.get(r.external_code)||r);
-  const saved=await upsertRows(admin,rows);
+  const prepared=rows.map(r=>({...r,detail_loaded:detail.get(r.external_code)||false}));
+  const saved=await upsertRows(admin,prepared);
+  const opportunityByCode=new Map(saved.map(x=>[x.external_code,x]));
+  const now=new Date().toISOString();
+  const matchRows=pendingMatches.map(x=>{
+    const opp=opportunityByCode.get(x.code);
+    return opp ? {
+      campaign_id:x.campaign.id,
+      opportunity_id:opp.id,
+      score:x.match.score,
+      matched_terms:x.match.matched,
+      updated_at:now,
+      last_seen_at:now
+    } : null;
+  }).filter(Boolean);
+
+  if(matchRows.length) {
+    const {error}=await admin.from("chilecompra_campaign_matches")
+      .upsert(matchRows,{onConflict:"campaign_id,opportunity_id"});
+    if(error) throw error;
+  }
+
   return {
-    organizationId:org, sourceCount:listings.length, matched:saved.length,
-    high:saved.filter(x=>x.fit_level==="alto").length,
-    partial:saved.filter(x=>x.fit_level==="parcial").length
+    organizationId:org,
+    sourceCount:listings.length,
+    campaigns:campaigns.length,
+    matched:saved.length,
+    matches:matchRows.length
+  };
+}
+
+const INDUSTRIES=[
+  ["Tecnología / Software",["software","sistema","plataforma","saas","licencia","digital","tecnologia","informatico","informática","computacional"]],
+  ["Salud",["hospital","salud","clinica","clínica","cesfam","medico","médico","farmacia"]],
+  ["Telecomunicaciones",["telecom","fibra","antena","radioenlace","lte","5g","conectividad","red de datos"]],
+  ["Seguridad / Defensa",["seguridad","ejercito","ejército","armada","carabineros","pdi","defensa","armamento","municion","munición"]],
+  ["Educación",["universidad","educacion","educación","colegio","liceo","escuela","junaeb"]],
+  ["Construcción / Infraestructura",["construccion","construcción","obra","infraestructura","edificio","reparacion","reparación"]],
+  ["Energía / Utilities",["energia","energía","electrico","eléctrico","agua potable","sanitaria","generador","electrogeno","electrógeno"]],
+  ["Transporte / Logística",["transporte","logistica","logística","vehiculo","vehículo","camion","camión","metro"]],
+  ["Industria / Minería",["mineria","minería","industrial","planta","faena","proceso productivo"]]
+];
+function industryOf(item) {
+  const f=listingFields(item), text=normalize([f.name,f.description,f.buyerName].join(" "));
+  for(const [label,terms] of INDUSTRIES) if(terms.some(t=>termMatches(text,t))) return label;
+  return "Otros";
+}
+function orgTypeOf(item) {
+  const name=normalize(listingFields(item).buyerName);
+  if(/municipal|alcaldia|alcaldía/.test(name)) return "Municipalidades";
+  if(/hospital|servicio de salud|salud|fonasa|cenabast/.test(name)) return "Salud";
+  if(/universidad|colegio|liceo|escuela|educacion|educación/.test(name)) return "Educación";
+  if(/ejercito|ejército|armada|carabineros|pdi|gendarmeria|gendarmería|defensa/.test(name)) return "FF.AA. / Seguridad";
+  if(/empresa|metro|enap|efe|correos/.test(name)) return "Empresas públicas";
+  if(name) return "Gobierno / servicios públicos";
+  return "Otros";
+}
+function analyticsValue(item,metric) {
+  if(metric==="amount") return Number(listingFields(item).amount||0);
+  return 1;
+}
+function filterByTerms(listings,terms) {
+  if(!(terms||[]).length) return [];
+  return listings.filter(item=>campaignMatch(item,terms).matched.length);
+}
+function aggregateAnalytics(listings,{metric="publications",groupBy="industry"}={}) {
+  const groups=new Map();
+  const buyerGroups=new Map();
+  for(const item of listings) {
+    const f=listingFields(item);
+    const key=groupBy==="orgType" ? orgTypeOf(item)
+      : groupBy==="procurementType" ? (f.procurementType||"Otros")
+      : industryOf(item);
+    if(metric==="buyers") {
+      if(!buyerGroups.has(key)) buyerGroups.set(key,new Set());
+      if(f.buyerName) buyerGroups.get(key).add(f.buyerName);
+    } else {
+      groups.set(key,(groups.get(key)||0)+analyticsValue(item,metric));
+    }
+  }
+  if(metric==="buyers") {
+    for(const [key,set] of buyerGroups) groups.set(key,set.size);
+  }
+  const categories=[...groups.entries()]
+    .map(([label,value])=>({label,value:Number(value||0)}))
+    .sort((a,b)=>b.value-a.value);
+  if(categories.length>7) {
+    const keep=categories.slice(0,6);
+    keep.push({label:"Otros",value:categories.slice(6).reduce((s,x)=>s+x.value,0)});
+    return keep;
+  }
+  return categories;
+}
+async function marketAnalytics(admin,ticket,org,body) {
+  const universe=String(body?.universe||"campaigns");
+  const metric=String(body?.metric||"publications");
+  const groupBy=String(body?.groupBy||"industry");
+  const listings=await activeListings(ticket);
+  let selected=listings, configured=true;
+
+  if(universe==="campaigns") {
+    const {data:campaigns,error}=await admin.from("chilecompra_campaigns")
+      .select("query_terms").eq("organization_id",org).eq("active",true);
+    if(error) throw error;
+    const terms=[...new Set((campaigns||[]).flatMap(c=>c.query_terms||[]))];
+    configured=terms.length>0;
+    selected=filterByTerms(listings,terms);
+  } else if(universe==="business") {
+    const {data:profile,error}=await admin.from("chilecompra_market_profiles")
+      .select("query_terms").eq("organization_id",org).maybeSingle();
+    if(error) throw error;
+    const terms=profile?.query_terms||[];
+    configured=terms.length>0;
+    selected=filterByTerms(listings,terms);
+  } else if(universe!=="general") {
+    throw new Error("Universo inválido");
+  }
+
+  const buyerSet=new Set(selected.map(x=>listingFields(x).buyerName).filter(Boolean));
+  return {
+    universe,metric,groupBy,configured,
+    sourceCount:listings.length,
+    publications:selected.length,
+    buyers:buyerSet.size,
+    amount:selected.reduce((sum,x)=>sum+Number(listingFields(x).amount||0),0),
+    categories:aggregateAnalytics(selected,{metric,groupBy})
   };
 }
 
@@ -279,9 +432,30 @@ Deno.serve(async req=>{
 
     if(action==="campaign") {
       if(cron) return json({error:"campaign_requires_user"},403);
-      const scope=String(body?.scope||"");
-      if(!["NEOFF","TaskFlow","BOTH"].includes(scope)) return json({error:"invalid_scope"},400);
-      return json({ok:true,scope,...await searchCampaign(admin,ticket,org,scope)});
+      const campaignId=String(body?.campaignId||"").trim();
+      if(!campaignId) return json({error:"campaign_required"},400);
+      return json({ok:true,...await searchCampaign(admin,ticket,org,campaignId)});
+    }
+
+    if(action==="analytics") {
+      if(cron) return json({error:"analytics_requires_user"},403);
+      return json({ok:true,...await marketAnalytics(admin,ticket,org,body)});
+    }
+
+    if(action==="review") {
+      if(cron) return json({error:"review_requires_user"},403);
+      const opportunityId=String(body?.opportunityId||"").trim();
+      if(!opportunityId) return json({error:"opportunity_required"},400);
+      const {data:campaigns}=await admin.from("chilecompra_campaigns")
+        .select("id").eq("organization_id",org);
+      const ids=(campaigns||[]).map(x=>x.id);
+      if(ids.length) {
+        const {error}=await admin.from("chilecompra_campaign_matches")
+          .update({reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+          .eq("opportunity_id",opportunityId).in("campaign_id",ids);
+        if(error) throw error;
+      }
+      return json({ok:true});
     }
 
     if(action==="detail") {
