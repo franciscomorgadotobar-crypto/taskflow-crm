@@ -167,34 +167,7 @@ for select using (
   )
 );
 
-insert into public.chilecompra_campaigns
-  (organization_id, name, product_scope, query_terms, priority, active, system_seed, created_by)
-select o.id, seed.name, seed.product_scope, seed.query_terms, seed.priority, true, true, null
-from public.organizations o
-cross join (
-  values
-    ('Telemetría e IoT',
-      array['NEOFF']::text[],
-      array['telemetria','telemetría','monitoreo remoto','supervisión remota','sensor','sensores','iot','internet de las cosas','m2m','scada','adquisición de datos','adquisicion de datos','variables operacionales','gateway']::text[],
-      'alta'),
-    ('RFID y control balístico',
-      array['NEOFF']::text[],
-      array['rfid','radiofrecuencia','identificación por radiofrecuencia','identificacion por radiofrecuencia','control balístico','control balistico','armamento','munición','municion','arsenal','trazabilidad de armamento','tag rfid','lector rfid','control de acceso']::text[],
-      'alta'),
-    ('Mantenimiento y OT',
-      array['TaskFlow']::text[],
-      array['orden de trabajo','órdenes de trabajo','ordenes de trabajo','mantenimiento preventivo','mantenimiento correctivo','mantenimiento','técnicos en terreno','tecnicos en terreno','checklist','inspección','inspeccion','evidencia fotográfica','evidencia fotografica','gestión de activos','gestion de activos','inventario','repuestos']::text[],
-      'media'),
-    ('HVAC y Facility',
-      array['TaskFlow','NEOFF']::text[],
-      array['hvac','climatización','climatizacion','aire acondicionado','facility','mantenimiento de infraestructura','instalaciones','equipos críticos','equipos criticos','temperatura','presión','presion']::text[],
-      'media'),
-    ('Telecomunicaciones',
-      array['TaskFlow','NEOFF']::text[],
-      array['telecomunicaciones','fibra óptica','fibra optica','torres','nodos','lte','5g','conectividad','radioenlace','redes','túneles','tuneles','antenas']::text[],
-      'alta')
-) as seed(name, product_scope, query_terms, priority)
-on conflict (organization_id, name) do nothing;
+-- Las campañas no se precargan. Cada organización define sus propios seguimientos.
 
 create or replace function public.chilecompra_convert_opportunity(p_opportunity_id uuid)
 returns uuid
