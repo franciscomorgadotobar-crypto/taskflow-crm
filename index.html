@@ -11,15 +11,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="CRM" />
   <title>CRM</title>
-  <link rel="manifest" href="manifest.webmanifest?v=2026-10-04m29" />
+  <link rel="manifest" href="manifest.webmanifest?v=2026-10-04m30" />
   <link rel="icon" type="image/png" href="assets/pwa-icon.svg" />
   <link rel="apple-touch-icon" href="assets/pwa-icon.svg" />
-  <link rel="stylesheet" href="styles.css?v=2026-10-04m29" />
-  <link rel="stylesheet" href="ux-v2.css?v=2026-10-04m29" />
-  <link rel="stylesheet" href="hyperfocus.css?v=2026-10-04m29" />
-  <link rel="stylesheet" href="bonvallet.css?v=2026-10-04m29" />
-  <link rel="stylesheet" href="chilecompra.css?v=2026-10-04m29" />
-  <link rel="stylesheet" href="tutorials.css?v=2026-10-04m29" />
+  <link rel="stylesheet" href="styles.css?v=2026-10-04m30" />
+  <link rel="stylesheet" href="ux-v2.css?v=2026-10-04m30" />
+  <link rel="stylesheet" href="hyperfocus.css?v=2026-10-04m30" />
+  <link rel="stylesheet" href="bonvallet.css?v=2026-10-04m30" />
+  <link rel="stylesheet" href="chilecompra.css?v=2026-10-04m30" />
+  <link rel="stylesheet" href="tutorials.css?v=2026-10-04m30" />
 </head>
 <body>
   <!-- Acceso -->
@@ -671,6 +671,62 @@
     </form>
   </dialog>
 
+  <!-- Plantillas -->
+  <dialog id="templateCreateDialog" class="modal">
+    <form id="templateCreateForm" class="modal-card template-create-card" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Nueva plantilla</h2>
+          <p>Define el mensaje antes de crearlo. Puedes partir en blanco o usar una base general.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="templateCreateDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="form-grid">
+        <label class="span-2">Nombre<input id="templateCreateName" required placeholder="Ej. Seguimiento después de demo" /></label>
+        <label>Canal<select id="templateCreateChannel"></select></label>
+        <label>Empezar desde<select id="templateCreateStarter"></select></label>
+      </div>
+      <div class="notice">
+        La plantilla se crea al presionar <strong>Crear plantilla</strong>. Cerrar este formulario no deja registros vacíos.
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="templateCreateDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="templateCreateSubmit">Crear plantilla</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="templatePackDialog" class="modal">
+    <form id="templatePackForm" class="modal-card template-pack-card" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Cargar paquete de plantillas</h2>
+          <p>Agrega mensajes preparados al CRM. Puedes combinar los paquetes.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="templatePackDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="template-pack-grid">
+        <label class="template-pack-option">
+          <input id="templatePackGeneral" type="checkbox" value="general" />
+          <span><strong>Generales</strong><small>Presentación, demo, seguimiento, reactivación y remarketing.</small></span>
+        </label>
+        <label class="template-pack-option">
+          <input id="templatePackTaskflow" type="checkbox" value="taskflow" />
+          <span><strong>TaskFlow</strong><small>Mensajes específicos para presentación, demo, seguimiento y reactivación.</small></span>
+        </label>
+        <label class="template-pack-option">
+          <input id="templatePackNeoff" type="checkbox" value="neoff" />
+          <span><strong>NEOFF</strong><small>Mensajes específicos para conectividad operacional.</small></span>
+        </label>
+      </div>
+      <div class="notice">Se agregan solo las plantillas que faltan. Las existentes se conservan y no se duplican por nombre.</div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="templatePackDialog">Cancelar</button>
+        <button type="submit" class="primary-btn" id="templatePackSubmit">Cargar seleccionadas</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Equipo -->
   <dialog id="teamAddDialog" class="modal">
     <form id="teamAddForm" class="modal-card team-add-card" novalidate>
@@ -688,6 +744,27 @@
         <label>Permiso<select id="teamRole"></select></label>
       </div>
       <div id="teamRoleDetail" class="notice team-role-detail"></div>
+
+      <section id="teamTemplateSetup" class="team-template-setup" hidden>
+        <div class="team-template-setup-head">
+          <strong>Plantillas iniciales</strong>
+          <span>Opcional. Solo el Súper administrador define esta carga.</span>
+        </div>
+        <label>Qué cargar
+          <select id="teamTemplateMode">
+            <option value="none">No cargar plantillas</option>
+            <option value="general">Plantillas generales del CRM</option>
+            <option value="specific">Plantillas específicas</option>
+          </select>
+        </label>
+        <div id="teamTemplateBrands" class="team-template-brands" hidden>
+          <span>Selecciona una o ambas soluciones</span>
+          <label><input id="teamTemplateTaskflow" type="checkbox" value="taskflow" /> TaskFlow</label>
+          <label><input id="teamTemplateNeoff" type="checkbox" value="neoff" /> NEOFF</label>
+        </div>
+        <p class="muted">Las plantillas quedan disponibles para todo el equipo de esta organización. Si una plantilla ya existe, no se vuelve a crear.</p>
+      </section>
+
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="teamAddDialog">Cancelar</button>
         <button type="submit" class="primary-btn" id="teamAddSubmit">Crear e invitar</button>
@@ -705,6 +782,7 @@
         <button type="button" class="icon-btn" data-close-dialog="teamAccessDialog" aria-label="Cerrar">×</button>
       </div>
       <div id="teamAccessStatus" class="notice"></div>
+      <div id="teamAccessTemplateStatus" class="notice team-access-template-status" hidden></div>
       <div id="teamAccessFallback" class="team-access-fallback" hidden>
         <label>Enlace de acceso
           <textarea id="teamAccessLink" rows="4" readonly></textarea>
@@ -750,30 +828,30 @@
     Versión de publicación. GitHub Pages manda "guardar por 10 minutos", así que sin
     esto un arreglo recién publicado no se ve hasta que pase ese rato o el usuario
     recargue a la fuerza. Al subir cambios hay que cambiar este número en TODAS las
-    líneas de abajo (buscar y reemplazar v=2026-10-04m29), incluidas las hojas de estilo
+    líneas de abajo (buscar y reemplazar v=2026-10-04m30), incluidas las hojas de estilo
     de arriba: si un módulo quedara sin versión, el navegador cargaría dos copias del
     mismo archivo y el CRM tendría dos estados en paralelo.
   -->
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=2026-10-04m29",
-      "./js/auth.js": "./js/auth.js?v=2026-10-04m29",
-      "./js/catalog.js": "./js/catalog.js?v=2026-10-04m29",
-      "./js/chilecompra.js": "./js/chilecompra.js?v=2026-10-04m29",
-      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-10-04m29",
-      "./js/quotes.js": "./js/quotes.js?v=2026-10-04m29",
-      "./js/store.js": "./js/store.js?v=2026-10-04m29",
-      "./js/supabase.js": "./js/supabase.js?v=2026-10-04m29",
-      "./js/utils.js": "./js/utils.js?v=2026-10-04m29",
-      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-10-04m29",
-      "./js/views.js": "./js/views.js?v=2026-10-04m29"
+      "./js/app.js": "./js/app.js?v=2026-10-04m30",
+      "./js/auth.js": "./js/auth.js?v=2026-10-04m30",
+      "./js/catalog.js": "./js/catalog.js?v=2026-10-04m30",
+      "./js/chilecompra.js": "./js/chilecompra.js?v=2026-10-04m30",
+      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-10-04m30",
+      "./js/quotes.js": "./js/quotes.js?v=2026-10-04m30",
+      "./js/store.js": "./js/store.js?v=2026-10-04m30",
+      "./js/supabase.js": "./js/supabase.js?v=2026-10-04m30",
+      "./js/utils.js": "./js/utils.js?v=2026-10-04m30",
+      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-10-04m30",
+      "./js/views.js": "./js/views.js?v=2026-10-04m30"
     }
   }
   </script>
-  <script src="config.js?v=2026-10-04m29"></script>
-  <script type="module" src="js/app.js?v=2026-10-04m29"></script>
-  <script type="module" src="js/ux-v2.js?v=2026-10-04m29"></script>
-  <script type="module" src="js/bonvallet.js?v=2026-10-04m29"></script>
+  <script src="config.js?v=2026-10-04m30"></script>
+  <script type="module" src="js/app.js?v=2026-10-04m30"></script>
+  <script type="module" src="js/ux-v2.js?v=2026-10-04m30"></script>
+  <script type="module" src="js/bonvallet.js?v=2026-10-04m30"></script>
 </body>
 </html>
