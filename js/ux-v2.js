@@ -4,6 +4,7 @@ import { state, onChange, openTasks, metrics } from './store.js';
 import { OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
 import { chilecompraDashboardStats, chilecompraLocalBreakdown, loadChileCompraAnalytics, onChileCompraChange } from './chilecompra.js';
+import { startContextTutorial } from './tutorials.js';
 
 const $ = (id) => document.getElementById(id);
 const q = (sel, root = document) => root.querySelector(sel);
@@ -30,7 +31,7 @@ const money = (n) => new Intl.NumberFormat('es-CL', {
 
 const initials = (name = '') => {
   const clean = name.trim();
-  if (!clean) return 'TF';
+  if (!clean) return 'CR';
   return clean.split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() || '').join('');
 };
 
@@ -119,10 +120,11 @@ function buildHeaderTools() {
         <span class="v2-search-shortcut">⌘K</span>
         <div id="v2SearchResults" class="v2-search-results" hidden></div>
       </div>
+      <button id="v2ContextHelp" class="v2-context-help" type="button" title="Ayuda de esta pantalla" aria-label="Ayuda de esta pantalla">?</button>
       <button class="primary-btn v2-new-lead" type="button" data-action="new-lead">+ Nuevo lead</button>
       <div class="v2-user-wrap">
         <button id="v2UserBtn" class="v2-user-btn" type="button" aria-haspopup="menu" aria-expanded="false">
-          <span id="v2Avatar" class="v2-avatar">TF</span>
+          <span id="v2Avatar" class="v2-avatar">CR</span>
           <span class="v2-user-copy"><strong id="v2UserName">Usuario</strong><span id="v2UserRole">CRM</span></span>
           <span aria-hidden="true">⌄</span>
         </button>
@@ -153,6 +155,11 @@ function buildHeaderTools() {
 
     $('v2GlobalSearch')?.addEventListener('input', renderSearchResults);
   $('v2GlobalSearch')?.addEventListener('focus', renderSearchResults);
+  $('v2ContextHelp')?.addEventListener('click', async () => {
+    const activeView = q('.nav-item.active')?.dataset.view || 'dashboard';
+    const started = await startContextTutorial(activeView);
+    if (!started) gotoView('help');
+  });
   $('v2UserBtn')?.addEventListener('click', (ev) => {
     ev.stopPropagation();
     toggleUserMenu();
