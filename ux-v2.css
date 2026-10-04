@@ -4323,3 +4323,256 @@ html[data-theme="dark"][data-crm-view="audit"] #viewRoot .data-table tr {
 
 /* ---------- End final remaining-view parity 2026-10-03 ---------- */
 
+
+/* ---------- Gestión de equipo 2026-10-04 ---------- */
+.team-settings-card .team-card-head{
+  align-items:center;
+  gap:16px;
+}
+.team-card-head>div:first-child{
+  min-width:0;
+}
+.team-card-head .muted{
+  display:block;
+  margin-top:4px;
+}
+.team-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+.team-summary>div{
+  display:grid;
+  gap:3px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--panel-soft,#f7f9fc);
+}
+.team-summary strong{
+  color:#10264a;
+  font-size:22px;
+  line-height:1;
+}
+.team-summary span{
+  color:var(--muted);
+  font-size:11px;
+}
+.team-notice{
+  display:grid;
+  gap:4px;
+  margin-bottom:14px;
+}
+.team-notice strong{
+  color:#16345e;
+}
+.team-notice span{
+  color:var(--muted);
+  line-height:1.4;
+}
+.team-members{
+  display:grid;
+  gap:10px;
+}
+.team-member-card{
+  display:grid;
+  grid-template-columns:minmax(240px,1fr) minmax(280px,.9fr);
+  gap:18px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface,#fff);
+}
+.team-member-card.is-inactive{
+  opacity:.72;
+  background:var(--panel-soft,#f7f9fc);
+}
+.team-member-main{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  min-width:0;
+}
+.team-avatar{
+  flex:0 0 42px;
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#eaf4ff;
+  color:#0b73df;
+  font-size:13px;
+  font-weight:800;
+}
+.team-member-copy{
+  min-width:0;
+  display:grid;
+  gap:3px;
+}
+.team-member-name{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.team-member-name strong{
+  color:#132a4d;
+  font-size:14px;
+}
+.team-member-copy>span,
+.team-member-copy>small{
+  color:var(--muted);
+  overflow-wrap:anywhere;
+}
+.team-member-copy>span{font-size:11px}
+.team-member-copy>small{font-size:10px}
+.team-member-controls{
+  min-width:0;
+}
+.team-member-controls label{
+  display:grid;
+  gap:5px;
+}
+.team-member-controls label>span{
+  color:#53657b;
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+}
+.team-member-controls select{
+  width:100%;
+}
+.team-role-help,
+.team-lock-note{
+  margin:7px 0 0;
+  font-size:10px;
+  line-height:1.35;
+}
+.team-role-help{color:var(--muted)}
+.team-member-actions{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
+.team-member-actions button{
+  flex:1 1 0;
+}
+.danger-text{
+  color:#bd2d2d!important;
+  border-color:#edcccc!important;
+}
+.team-inactive{
+  margin-top:14px;
+  border-top:1px solid var(--line);
+  padding-top:12px;
+}
+.team-inactive>summary{
+  cursor:pointer;
+  color:#52657b;
+  font-weight:700;
+  font-size:12px;
+  margin-bottom:10px;
+}
+.team-role-detail{
+  display:grid;
+  gap:4px;
+  margin-top:12px;
+}
+.team-role-detail strong{
+  color:#17345f;
+}
+.team-role-detail span{
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.4;
+}
+.team-access-fallback{
+  margin-top:14px;
+}
+.team-access-fallback label{
+  display:grid;
+  gap:6px;
+  font-weight:700;
+}
+.team-access-fallback textarea{
+  width:100%;
+  resize:none;
+  overflow-wrap:anywhere;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11px;
+}
+.success-notice{
+  border-color:#bfe7d1!important;
+  background:#f2fbf6!important;
+}
+.warning-notice{
+  border-color:#efdcae!important;
+  background:#fff9ec!important;
+}
+.success-notice,
+.warning-notice{
+  display:grid;
+  gap:4px;
+}
+.success-notice span,
+.warning-notice span{
+  color:var(--muted);
+  font-size:11px;
+}
+
+:root[data-theme="dark"] .team-summary>div,
+:root[data-theme="dark"] .team-member-card,
+:root[data-theme="dark"] .team-member-card.is-inactive{
+  background:var(--v2-panel);
+  border-color:var(--v2-line);
+}
+:root[data-theme="dark"] .team-summary strong,
+:root[data-theme="dark"] .team-member-name strong,
+:root[data-theme="dark"] .team-notice strong,
+:root[data-theme="dark"] .team-role-detail strong{
+  color:#e7eef8;
+}
+:root[data-theme="dark"] .success-notice,
+:root[data-theme="dark"] .warning-notice{
+  background:var(--v2-panel)!important;
+}
+
+@media (max-width:900px){
+  .team-card-head{
+    align-items:flex-start!important;
+    flex-direction:column;
+  }
+  .team-card-head .primary-btn{
+    width:100%;
+  }
+  .team-summary{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:7px;
+  }
+  .team-summary>div{
+    padding:10px 8px;
+  }
+  .team-summary strong{
+    font-size:20px;
+  }
+  .team-summary span{
+    font-size:9px;
+  }
+  .team-member-card{
+    grid-template-columns:1fr;
+    gap:12px;
+    padding:12px;
+  }
+  .team-member-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .team-add-card,
+  .team-access-card{
+    width:min(100%,560px);
+  }
+}
+/* ---------- End gestión de equipo ---------- */
