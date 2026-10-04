@@ -1,4 +1,4 @@
-import { CLOSED_STAGES, DEFAULT_PROBABILITY, DEFAULT_TEMPLATES, STAGES } from './catalog.js';
+import { CLOSED_STAGES, DEFAULT_PROBABILITY, STAGES } from './catalog.js';
 import { addDaysISO, daysBetween, nowISO, todayISO, uid, toast } from './utils.js';
 import { supabase } from './supabase.js';
 import { session } from './auth.js';
@@ -25,7 +25,7 @@ export function emptyData() {
     leads: [],
     discoveries: {},
     activities: [],
-    templates: structuredClone(DEFAULT_TEMPLATES),
+    templates: [],
     team: [],
     me: null,
     meta: { version: SCHEMA_VERSION, updatedAt: nowISO(), lastSyncAt: '' }
