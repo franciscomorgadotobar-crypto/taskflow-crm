@@ -130,32 +130,32 @@ export const TUTORIALS = {
   chilecompra: {
     id: 'chilecompra',
     name: 'Primeros pasos en ChileCompra',
-    description: 'Crea un seguimiento, busca novedades y revisa las licitaciones que coinciden con lo que vendes.',
-    version: 2,
+    description: 'Busca una licitación, crea seguimientos y convierte oportunidades al CRM.',
+    version: 3,
     duration: 4,
     roles: ['super','admin','comercial','visita'],
     view: 'chilecompra',
     steps: [
       {
-        selector: '.cc-radar-head',
-        title: 'Qué hace ChileCompra',
-        text: 'Esta sección busca licitaciones que coinciden con los productos o servicios que te interesa vender.'
+        selector: '.cc-dashboard-nav',
+        title: 'Cuatro acciones principales',
+        text: 'Resumen muestra el estado del radar, Coincidencias reúne lo encontrado, Seguimientos controla búsquedas automáticas y Buscar sirve para consultas puntuales.'
       },
       {
-        selector: '[data-cc-campaign-new]',
-        title: 'Primero crea un seguimiento',
-        text: 'Un seguimiento es una búsqueda automática. Ponle un nombre y define las palabras o frases que quieres detectar.',
+        selector: '[data-cc-tab="buscar"]',
+        title: 'Busca sin configurar nada',
+        text: 'Puedes consultar directamente Mercado Público por producto, servicio, necesidad o código.',
         action: 'click'
       },
       {
-        selector: '#ccCampaignName, #ccCampaignTerms',
-        title: 'Dile al CRM qué buscar',
-        text: 'Escribe un nombre fácil de reconocer y agrega los términos del producto, servicio o necesidad. Puedes usar las sugerencias como apoyo.'
+        selector: '.cc-search-hero',
+        title: 'Prueba una búsqueda',
+        text: 'Escribe lo que vendes o usa una sugerencia. Si la búsqueda te interesa para el futuro, conviértela en seguimiento.'
       },
       {
-        selector: '.cc-dashboard-nav, .cc-dashboard-tabs',
-        title: 'Después revisa los resultados',
-        text: 'Coincidencias muestra las oportunidades encontradas. Seguimientos permite ajustar tus búsquedas. Buscar sirve para una consulta puntual y Más reúne las herramientas avanzadas.'
+        selector: '.cc-more-menu',
+        title: 'Herramientas avanzadas',
+        text: 'Mercado, Compradores, Guardadas y En CRM quedan agrupados en Más para no sobrecargar la navegación principal.'
       }
     ]
   },
