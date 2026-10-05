@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { unzipSync } from "npm:fflate@0.8.2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -998,6 +999,39 @@ async function cmCatalogFiles() {
     };
   }).filter(row=>row.code && row.url);
 }
+
+async function cmCatalogPreview(code) {
+  const target=String(code||"").trim().toUpperCase();
+  if(!target) throw new Error("Código de convenio requerido");
+  const files=await cmCatalogFiles();
+  const file=files.find(row=>row.code===target);
+  if(!file) throw new Error("Maestra oficial no encontrada para "+target);
+
+  const head=await fetch(file.url,{method:"HEAD"});
+  const size=Number(head.headers.get("content-length")||0);
+
+  const response=await fetch(file.url);
+  if(!response.ok) throw new Error("Maestra oficial respondió "+response.status);
+  const bytes=new Uint8Array(await response.arrayBuffer());
+  const unzipped=unzipSync(bytes);
+  const names=Object.keys(unzipped);
+  const csvName=names.find(name=>/\.csv$/i.test(name))||names[0]||"";
+  if(!csvName) throw new Error("El ZIP oficial no contiene archivos legibles");
+  const raw=unzipped[csvName];
+  let text="";
+  try { text=new TextDecoder("utf-8",{fatal:true}).decode(raw); }
+  catch { text=new TextDecoder("windows-1252").decode(raw); }
+  const lines=text.replace(/^\uFEFF/,"").split(/\r?\n/).filter(Boolean);
+  return {
+    file,
+    size,
+    zipEntries:names,
+    csvName,
+    lineCount:lines.length,
+    header:lines[0]||"",
+    samples:lines.slice(1,6)
+  };
+}
 async function backfillCmOrders(admin,ticket,{days=7,startOffset=0}={}) {
   const safeDays=Math.max(1,Math.min(10,Number(days)||7));
   const safeStart=Math.max(0,Math.min(365,Number(startOffset)||0));
@@ -1196,6 +1230,12 @@ Deno.serve(async req=>{
       const days=Math.max(1,Math.min(10,Number(body?.days)||7));
       const startOffset=Math.max(0,Math.min(365,Number(body?.startOffset)||0));
       return json({ok:true,...await backfillCmOrders(admin,ticket,{days,startOffset})});
+    }
+
+    if(action==="cm-catalog-preview") {
+      if(!cron) return json({error:"cm_catalog_preview_requires_cron"},403);
+      const code=String(body?.code||"").trim();
+      return json({ok:true,...await cmCatalogPreview(code)});
     }
 
     if(action==="cm-enrich") {
