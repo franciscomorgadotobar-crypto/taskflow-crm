@@ -127,7 +127,9 @@ function applyMobileBottomNav() {
     item.style.removeProperty('--mobile-order');
   });
 
-  effectiveBottomNav().forEach((view, index) => {
+  const views = effectiveBottomNav();
+  nav.style.setProperty('--mobile-nav-count', String(Math.max(1, views.length)));
+  views.forEach((view, index) => {
     const item = q(`.nav-item[data-view="${view}"]`, nav);
     if (!item) return;
     item.dataset.mobileNavSlot = String(index + 1);
