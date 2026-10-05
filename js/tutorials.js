@@ -130,32 +130,37 @@ export const TUTORIALS = {
   chilecompra: {
     id: 'chilecompra',
     name: 'Primeros pasos en ChileCompra',
-    description: 'Busca una licitación, crea seguimientos y convierte oportunidades al CRM.',
-    version: 3,
-    duration: 4,
+    description: 'Busca licitaciones, sigue oportunidades y entiende cómo se mueve Mercado Público.',
+    version: 4,
+    duration: 5,
     roles: ['super','admin','comercial','visita'],
     view: 'chilecompra',
     steps: [
       {
         selector: '.cc-dashboard-nav',
-        title: 'Cuatro acciones principales',
-        text: 'Resumen muestra el estado del radar, Coincidencias reúne lo encontrado, Seguimientos controla búsquedas automáticas y Buscar sirve para consultas puntuales.'
+        title: 'Dos niveles, sin menús ocultos',
+        text: 'Arriba están las acciones de trabajo: Resumen, Coincidencias, Seguimientos y Buscar. Debajo están Mercado Chile, Compradores, Guardadas y En CRM.'
+      },
+      {
+        selector: '[data-cc-tab="resumen"]',
+        title: 'Resumen y pulso nacional',
+        text: 'Además de tus seguimientos, Resumen muestra qué rubros concentran publicaciones activas en Chile. Puedes abrir cada rubro para ver ejemplos reales.'
       },
       {
         selector: '[data-cc-tab="buscar"]',
         title: 'Busca sin configurar nada',
-        text: 'Puedes consultar directamente Mercado Público por producto, servicio, necesidad o código.',
+        text: 'Consulta directamente Mercado Público por producto, servicio, necesidad o código.',
         action: 'click'
       },
       {
         selector: '.cc-search-hero',
         title: 'Prueba una búsqueda',
-        text: 'Escribe lo que vendes o usa una sugerencia. Si la búsqueda te interesa para el futuro, conviértela en seguimiento.'
+        text: 'Escribe lo que vendes o usa una sugerencia. Al abrir una licitación entras a una ficha completa dentro del módulo, no a una ventana flotante.'
       },
       {
-        selector: '.cc-more-menu',
-        title: 'Herramientas avanzadas',
-        text: 'Mercado, Compradores, Guardadas y En CRM quedan agrupados en Más para no sobrecargar la navegación principal.'
+        selector: '.cc-secondary-nav',
+        title: 'Análisis y seguimiento',
+        text: 'Mercado Chile sirve para entender demanda, compradores y monto; Guardadas reúne lo que quieres revisar y En CRM muestra lo que ya convertiste.'
       }
     ]
   },
