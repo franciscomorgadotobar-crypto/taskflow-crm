@@ -183,7 +183,8 @@ const fromDbProfile = (r) => ({
   role: r.role,
   active: r.active,
   moduleAccess: Array.isArray(r.module_access) ? r.module_access : [],
-  bottomNav: Array.isArray(r.bottom_nav) && r.bottom_nav.length ? r.bottom_nav : [...DEFAULT_BOTTOM_NAV]
+  bottomNav: Array.isArray(r.bottom_nav) && r.bottom_nav.length ? r.bottom_nav : [...DEFAULT_BOTTOM_NAV],
+  mascotEnabled: typeof r.mascot_enabled === 'boolean' ? r.mascot_enabled : null
 });
 
 /* ---------- Hidratación + Realtime ---------- */
@@ -1002,6 +1003,7 @@ export async function saveProfile(patch) {
     phone: patch.phone ?? state.me.phone
   };
   if (Array.isArray(patch.bottomNav)) payload.bottom_nav = patch.bottomNav;
+  if (typeof patch.mascotEnabled === 'boolean') payload.mascot_enabled = patch.mascotEnabled;
   const { data, error: updateError } = await supabase
     .from('profiles')
     .update(payload)
