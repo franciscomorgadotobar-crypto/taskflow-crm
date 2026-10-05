@@ -31,7 +31,7 @@ export const chilecompraState = {
   cmData: null,
   cmLoading: false,
   cmError: '',
-  cmDays: 30,
+  cmDays: 3,
   cmQuery: '',
   cmView: 'pulso',
   cmSelectedCode: '',
@@ -51,7 +51,7 @@ export function clearChileCompra() {
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
     selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '',
-    cmData: null, cmLoading: false, cmError: '', cmDays: 30, cmQuery: '', cmView: 'pulso',
+    cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmView: 'pulso',
     cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
     sort: 'recent', lastSyncAt: ''
   });
@@ -1154,11 +1154,11 @@ function renderConvenioMarcoDashboard() {
     <section class="cc-dashboard-card cc-cm-hero">
       <div class="cc-section-head"><div><span class="cc-eyebrow">Inteligencia comercial</span><h3>Convenio Marco</h3><p>Ve qué está comprando el Estado por catálogo, a quién le compra, cuánto paga y qué proveedores están capturando la demanda.</p></div><button type="button" class="primary-btn" data-cm-sync>${chilecompraState.cmLoading ? 'Actualizando…' : 'Actualizar datos'}</button></div>
       <form id="ccCmSearch" class="cc-cm-controls">
-        <label><span>Período</span><select id="ccCmDays"><option value="7" ${chilecompraState.cmDays===7?'selected':''}>Últimos 7 días</option><option value="30" ${chilecompraState.cmDays===30?'selected':''}>Últimos 30 días</option><option value="90" ${chilecompraState.cmDays===90?'selected':''}>Últimos 90 días</option><option value="180" ${chilecompraState.cmDays===180?'selected':''}>Últimos 180 días</option></select></label>
+        <label><span>Período</span><select id="ccCmDays"><option value="1" ${chilecompraState.cmDays===1?'selected':''}>Último día</option><option value="3" ${chilecompraState.cmDays===3?'selected':''}>Últimos 3 días</option><option value="7" ${chilecompraState.cmDays===7?'selected':''}>Últimos 7 días</option><option value="30" ${chilecompraState.cmDays===30?'selected':''}>Últimos 30 días</option></select></label>
         <label class="cc-cm-search"><span>Buscar</span><input id="ccCmQuery" type="search" value="${e(chilecompraState.cmQuery)}" placeholder="Producto, organismo, proveedor, código OC o convenio"></label>
         <button type="submit" class="ghost-btn">Aplicar</button>
       </form>
-      ${data?.coverage ? `<div class="cc-cm-coverage"><span>Período analizado: <strong>${data.days} días</strong></span><span>Detalle de ítems disponible en <strong>${data.coverage.percent}%</strong> de las órdenes cargadas</span></div>` : ''}
+      ${data?.coverage ? `<div class="cc-cm-coverage"><span>Período analizado: <strong>${data.days} día${data.days===1?'':'s'}</strong></span><span>Órdenes cargadas: <strong>${Number(data.coverage.orders||0).toLocaleString('es-CL')}</strong></span><span>Detalle de ítems: <strong>${data.coverage.percent}%</strong></span>${data.coverage.truncated ? `<span class="cc-cm-coverage-warning">Hay ${Number(data.coverage.detected||0).toLocaleString('es-CL')} órdenes en caché para el período; el análisis usa las ${Number(data.coverage.loaded||0).toLocaleString('es-CL')} más recientes.</span>` : ''}</div>` : ''}
       ${chilecompraState.cmError ? `<div class="cc-detail-warning"><strong>No se pudo completar la consulta</strong><span>${e(chilecompraState.cmError)}</span></div>` : ''}
     </section>
 
