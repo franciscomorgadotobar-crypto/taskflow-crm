@@ -682,14 +682,13 @@ async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
     for(const key of preserveText) if(!row[key] && existing[key]) row[key]=existing[key];
     const preserveNumber=["net_total","total","discounts","charges","taxes"];
     for(const key of preserveNumber) if(row[key]==null && existing[key]!=null) row[key]=existing[key];
-    const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp","observed_date"];
+    const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
     for(const key of preserveDate) if(!row[key] && existing[key]) row[key]=existing[key];
     row.raw=existing.raw||row.raw;
     row.detail_loaded=true;
-    row.first_seen_at=existing.first_seen_at;
-  } else if(existing?.first_seen_at) {
-    row.first_seen_at=existing.first_seen_at;
   }
+  if(existing?.first_seen_at) row.first_seen_at=existing.first_seen_at;
+  if(existing?.observed_date) row.observed_date=existing.observed_date;
 
   const {data,error}=await admin.from("chilecompra_cm_orders")
     .upsert(row,{onConflict:"code"}).select("*").single();
@@ -724,7 +723,13 @@ async function upsertCmBasicOrders(admin,items,observedDate=null) {
   const merged=rows.map(row=>{
     const old=existing.get(row.code);
     if(!old) return row;
-    const next={...row,first_seen_at:old.first_seen_at||row.first_seen_at};
+    const next={
+      ...row,
+      first_seen_at:old.first_seen_at||row.first_seen_at,
+      observed_date:old.observed_date && row.observed_date
+        ? (old.observed_date < row.observed_date ? old.observed_date : row.observed_date)
+        : (old.observed_date || row.observed_date)
+    };
     if(old.detail_loaded) {
       const preserveText=[
         "description","buyer_code","buyer_name","buyer_unit","buyer_rut","buyer_region","buyer_commune",
@@ -735,7 +740,7 @@ async function upsertCmBasicOrders(admin,items,observedDate=null) {
       for(const key of preserveText) if(!next[key] && old[key]) next[key]=old[key];
       const preserveNumber=["net_total","total","discounts","charges","taxes"];
       for(const key of preserveNumber) if(next[key]==null && old[key]!=null) next[key]=old[key];
-      const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp","observed_date"];
+      const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
       for(const key of preserveDate) if(!next[key] && old[key]) next[key]=old[key];
       next.raw=old.raw||next.raw;
       next.detail_loaded=true;
@@ -983,16 +988,19 @@ async function cmCatalogFiles() {
     };
   }).filter(row=>row.code && row.url);
 }
-async function backfillCmOrders(admin,ticket,{days=30}={}) {
-  const safeDays=Math.max(1,Math.min(45,Number(days)||30));
+async function backfillCmOrders(admin,ticket,{days=7,startOffset=0}={}) {
+  const safeDays=Math.max(1,Math.min(10,Number(days)||7));
+  const safeStart=Math.max(0,Math.min(365,Number(startOffset)||0));
   const results=[];
-  for(let offset=0;offset<safeDays;offset++) {
+  for(let step=0;step<safeDays;step++) {
+    const offset=safeStart+step;
     const result=await syncCmOrders(admin,ticket,{days:1,offsetDays:offset,detailLimit:0});
     results.push({offsetDays:offset,found:result.found,errors:result.errors});
     await sleep(220);
   }
   return {
     days:safeDays,
+    startOffset:safeStart,
     found:results.reduce((sum,row)=>sum+Number(row.found||0),0),
     errorDays:results.filter(row=>(row.errors||[]).length).length,
     results
@@ -1175,8 +1183,9 @@ Deno.serve(async req=>{
 
     if(action==="cm-backfill") {
       if(!cron) return json({error:"cm_backfill_requires_cron"},403);
-      const days=Math.max(1,Math.min(45,Number(body?.days)||30));
-      return json({ok:true,...await backfillCmOrders(admin,ticket,{days})});
+      const days=Math.max(1,Math.min(10,Number(body?.days)||7));
+      const startOffset=Math.max(0,Math.min(365,Number(body?.startOffset)||0));
+      return json({ok:true,...await backfillCmOrders(admin,ticket,{days,startOffset})});
     }
 
     if(action==="cm-enrich") {
