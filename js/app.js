@@ -236,7 +236,7 @@ const VIEWS = {
   hyperfocus: ['Híper Foco', 'Gestiona bases grandes una empresa a la vez, sin llenar el CRM de registros fríos.', renderHyperFocus],
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
-  chilecompra: ['ChileCompra', 'Radar de compras públicas según tus campañas y análisis de mercado.', renderChileCompra],
+  chilecompra: ['ChileCompra', 'Busca y monitorea oportunidades de Mercado Público.', renderChileCompra],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
