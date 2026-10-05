@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master, feature/chilecompra-detail-autoload-20261005]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
