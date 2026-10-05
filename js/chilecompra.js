@@ -1095,7 +1095,7 @@ function renderCmOrders(data) {
 function renderCmProducts(data) {
   const rows = data?.products || [];
   return `<section class="cc-cm-panel">
-    <div class="cc-section-head"><div><h4>Productos y precios observados</h4><p>Se calculan desde órdenes de compra CM reales; no corresponden al precio vigente completo del catálogo.</p></div></div>
+    <div class="cc-section-head"><div><h4>Productos y precios observados</h4><p>Se calculan desde órdenes de compra CM reales. Para revisar la maestra oficial vigente usa Catálogo oficial.</p></div><button type="button" class="ghost-btn" data-cm-view="convenios">Catálogo oficial</button></div>
     <div class="cc-cm-product-list">${rows.length ? rows.map((row) => `<article>
       <div class="cc-cm-product-title"><strong>${e(row.label || row.productCode || 'Producto')}</strong><span>${e(row.productCode || row.category || '')}</span></div>
       <div class="cc-cm-product-metrics">
@@ -1121,17 +1121,19 @@ function renderCmEntities(data, kind) {
 
 function renderCmAgreements(data) {
   const observed = new Map((data?.agreements || []).map((row) => [row.code,row]));
+  const catalog = new Map((data?.catalogFiles || []).map((row) => [String(row.code || '').toUpperCase(), row]));
   return `<section class="cc-cm-panel">
     <div class="cc-section-head"><div><h4>Convenios Marco vigentes</h4><p>Directorio oficial revisado al ${e(fmtDate(CM_DIRECTORY_REVIEWED_AT))}, cruzado con las órdenes observadas por el CRM.</p></div><div class="cc-cm-source-actions"><button type="button" class="ghost-btn" data-cm-external="https://www.mercadopublico.cl/TiendaHome/">Abrir Tienda oficial ↗</button><button type="button" class="ghost-btn" data-cm-external="https://datos-abiertos.chilecompra.cl/descargas/convenio-marco">Datos Abiertos ↗</button></div></div>
     <div class="cc-cm-agreement-list">${CM_CURRENT_AGREEMENTS.map((agreement) => {
       const status=agreementStatus(agreement);
       const row=observed.get(agreement.code);
+      const file=catalog.get(agreement.code);
       return `<article>
-        <div><span class="cc-cm-agreement-code">${e(agreement.code)}</span><strong>${e(agreement.name)}</strong><small>Vigencia hasta ${e(fmtDate(agreement.expires))}</small></div>
-        <div class="cc-cm-agreement-observed"><span class="cc-cm-validity cc-cm-validity--${status.tone}">${e(status.label)}</span><strong>${row ? e(cmMoney(row.total || 0)) : 'Sin compras en el período'}</strong><small>${row ? `${row.orders} órdenes · ${row.buyers} compradores · ${row.suppliers} proveedores` : 'Amplía el período para buscar transacciones.'}</small></div>
+        <div><span class="cc-cm-agreement-code">${e(agreement.code)}</span><strong>${e(agreement.name)}</strong><small>Vigencia hasta ${e(fmtDate(agreement.expires))}${file?.updatedAt ? ` · maestra actualizada ${e(file.updatedAt)}` : ''}</small></div>
+        <div class="cc-cm-agreement-observed"><span class="cc-cm-validity cc-cm-validity--${status.tone}">${e(status.label)}</span><strong>${row ? e(cmMoney(row.total || 0)) : 'Sin compras en el período'}</strong><small>${row ? `${row.orders} órdenes · ${row.buyers} compradores · ${row.suppliers} proveedores` : 'Amplía el período para buscar transacciones.'}</small>${file?.url ? `<button type="button" class="cc-cm-catalog-link" data-cm-external="${e(file.url)}">Abrir maestra oficial ↗</button>` : ''}</div>
       </article>`;
     }).join('')}</div>
-    <div class="cc-api-note cc-cm-catalog-note"><strong>Catálogo y precios oficiales</strong><span>ChileCompra publica la maestra de productos de Convenio Marco en Datos Abiertos. Este módulo muestra además los precios efectivamente observados en órdenes CM para entender qué está pagando el Estado.</span></div>
+    <div class="cc-api-note cc-cm-catalog-note"><strong>Catálogo oficial integrado</strong><span>El módulo consulta el índice oficial de maestras de Convenio Marco publicado por ChileCompra en Datos Abiertos. Cada convenio muestra la fecha de actualización de su maestra y permite abrir el archivo oficial. Los precios del panel Productos y precios son valores realmente observados en órdenes de compra.</span></div>
   </section>
   <section class="cc-cm-panel cc-cm-gran-compra">
     <div class="cc-section-head"><div><span class="cc-eyebrow">También dentro de Convenio Marco</span><h4>Gran Compra</h4><p>Los procesos de Gran Compra se publican como un conjunto separado en Datos Abiertos. Desde aquí puedes acceder a la fuente oficial para analizar procesos de alto monto.</p></div><button type="button" class="primary-btn" data-cm-external="https://datos-abiertos.chilecompra.cl/descargas">Ver procesos de Gran Compra ↗</button></div>
@@ -1147,7 +1149,7 @@ function renderConvenioMarcoDashboard() {
     ['productos','Productos y precios'],
     ['compradores','Compradores'],
     ['proveedores','Proveedores'],
-    ['convenios','Convenios vigentes']
+    ['convenios','Catálogo oficial']
   ];
 
   return `<section class="cc-dashboard cc-cm-dashboard">
@@ -1214,7 +1216,8 @@ function renderCmOrderPage() {
           </div></section>
         </div>
         <section class="cc-detail-block"><h4>Productos / servicios comprados</h4>
-          <div class="cc-detail-items">${items.length ? items.map((item,index)=>`<article><div><span>Ítem ${index+1}</span><strong>${e(item.supplier_spec || item.buyer_spec || item.category || item.product_code || 'Producto')}</strong></div><dl>
+          <div class="cc-detail-items">${items.length ? items.map((item,index)=>`<article><div><span>Ítem ${index+1}</span><strong>${e(item.raw?.Producto || item.supplier_spec || item.buyer_spec || item.category || item.product_code || 'Producto')}</strong></div><dl>
+            <div><dt>Producto</dt><dd>${e(item.raw?.Producto || item.supplier_spec || item.buyer_spec || 'No informado')}</dd></div>
             <div><dt>Código ONU / producto</dt><dd>${e(item.product_code || item.category_code || 'No informado')}</dd></div>
             <div><dt>Categoría</dt><dd>${e(item.category || 'No informada')}</dd></div>
             <div><dt>Cantidad</dt><dd>${item.quantity ?? '—'} ${e(item.unit || '')}</dd></div>
