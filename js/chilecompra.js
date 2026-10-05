@@ -614,7 +614,13 @@ function marketBars(data, { limit = 18 } = {}) {
 
   const unit = metric === 'amount' ? 'monto observado' : metric === 'buyers' ? 'compradores' : 'publicaciones';
   const totalLabel = metric === 'amount' ? compactAmount(total) : total.toLocaleString('es-CL');
-  const rows = categories.slice(0, limit);
+  const unclassified = categories.find((row) => row.label === 'Sin clasificar');
+  const rows = categories.length <= limit
+    ? categories
+    : [
+        ...categories.filter((row) => row.label !== 'Sin clasificar').slice(0, Math.max(1, limit - (unclassified ? 1 : 0))),
+        ...(unclassified ? [unclassified] : [])
+      ];
 
   const renderExamples = (label) => {
     const examples = data?.categoryExamples?.[label] || [];
