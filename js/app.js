@@ -2358,14 +2358,17 @@ const ACTIONS = {
   'open-manage': () => openManage(),
   'open-chilecompra': async (id, btn) => {
     ui.view = 'chilecompra';
-    const { chilecompraState } = await import('./chilecompra.js');
-    chilecompraState.query = '';
+    const mod = await import('./chilecompra.js');
+    const { chilecompraState } = mod;
+    const query = String(btn?.dataset.query || '').trim();
+    chilecompraState.query = query;
     chilecompraState.results = [];
     chilecompraState.selectedId = '';
     chilecompraState.selectedCampaignId = btn?.dataset.campaign || '';
-    chilecompraState.tab = btn?.dataset.campaign ? 'coincidencias' : (btn?.dataset.ccTab || 'resumen');
+    chilecompraState.tab = btn?.dataset.campaign ? 'coincidencias' : (query ? 'buscar' : (btn?.dataset.ccTab || 'resumen'));
     render();
     document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
+    if (query) await mod.runTraditionalSearch(query);
   },
   'qualify-lead': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
