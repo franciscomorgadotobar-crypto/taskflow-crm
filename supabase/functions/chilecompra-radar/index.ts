@@ -1053,9 +1053,19 @@ async function enrichCmCache(admin,ticket,{limit=8}={}) {
   };
 }
 
+function cmCampaignMatches(order,items,campaigns=[]) {
+  const hay=cmText(order,items);
+  return campaigns.map(campaign=>{
+    const terms=(campaign.query_terms||[]).map(term=>String(term).trim()).filter(Boolean);
+    const matched=[...new Set(terms.filter(term=>termMatches(hay,term)))];
+    return matched.length ? {id:campaign.id,name:campaign.name,matched_terms:matched} : null;
+  }).filter(Boolean);
+}
+
 async function cmDashboard(admin,ticket,org,body) {
   const days=Math.max(1,Math.min(180,Number(body?.days)||30));
   const query=String(body?.query||"").trim();
+  const campaignId=String(body?.campaignId||"").trim();
   const forceSync=Boolean(body?.forceSync);
   const cutoff=new Date(Date.now()-days*86400000).toISOString();
 
@@ -1067,14 +1077,24 @@ async function cmDashboard(admin,ticket,org,body) {
     await syncCmOrders(admin,ticket,{days:1,offsetDays:0,detailLimit:forceSync?24:12});
   }
 
-  const {data:ordersData,error:ordersError,count:orderCount}=await admin.from("chilecompra_cm_orders")
-    .select("code,name,description,status_code,status,type_code,type,currency,net_total,total,discounts,charges,taxes,created_at_mp,sent_at,accepted_at,cancelled_at,modified_at_mp,observed_date,buyer_code,buyer_name,buyer_unit,buyer_rut,buyer_region,buyer_commune,buyer_address,buyer_contact,buyer_email,supplier_code,supplier_name,supplier_rut,supplier_region,supplier_commune,supplier_address,supplier_contact,supplier_email,agreement_code,source_url,detail_loaded,last_seen_at,updated_at",{count:"exact"})
-    .gte("observed_date",cutoff.slice(0,10))
-    .order("observed_date",{ascending:false})
-    .order("created_at_mp",{ascending:false})
-    .limit(5000);
+  const [{data:ordersData,error:ordersError,count:orderCount},{data:campaignData,error:campaignError}] = await Promise.all([
+    admin.from("chilecompra_cm_orders")
+      .select("code,name,description,status_code,status,type_code,type,currency,net_total,total,discounts,charges,taxes,created_at_mp,sent_at,accepted_at,cancelled_at,modified_at_mp,observed_date,buyer_code,buyer_name,buyer_unit,buyer_rut,buyer_region,buyer_commune,buyer_address,buyer_contact,buyer_email,supplier_code,supplier_name,supplier_rut,supplier_region,supplier_commune,supplier_address,supplier_contact,supplier_email,agreement_code,source_url,detail_loaded,last_seen_at,updated_at",{count:"exact"})
+      .gte("observed_date",cutoff.slice(0,10))
+      .order("observed_date",{ascending:false})
+      .order("created_at_mp",{ascending:false})
+      .limit(5000),
+    admin.from("chilecompra_campaigns")
+      .select("id,name,query_terms,active")
+      .eq("organization_id",org)
+      .eq("active",true)
+      .order("created_at",{ascending:true})
+  ]);
   if(ordersError) throw ordersError;
+  if(campaignError) throw campaignError;
+
   const allOrders=ordersData||[];
+  const campaigns=campaignData||[];
   const allItems=await loadCmItems(admin,allOrders.filter(x=>x.detail_loaded).map(x=>x.code));
   const itemsByOrder=new Map();
   for(const item of allItems) {
@@ -1082,9 +1102,25 @@ async function cmDashboard(admin,ticket,org,body) {
     itemsByOrder.get(item.order_code).push(item);
   }
 
-  const selected=query.length>=2
-    ? allOrders.filter(order=>cmText(order,itemsByOrder.get(order.code)||[]).includes(normalize(query)))
-    : allOrders;
+  const matchesByOrder=new Map();
+  const campaignBuckets=new Map(campaigns.map(c=>[c.id,{id:c.id,name:c.name,query_terms:c.query_terms||[],orders:0,total:0,buyers:new Set()}]));
+  for(const order of allOrders) {
+    const matches=cmCampaignMatches(order,itemsByOrder.get(order.code)||[],campaigns);
+    matchesByOrder.set(order.code,matches);
+    for(const match of matches) {
+      const bucket=campaignBuckets.get(match.id);
+      if(!bucket) continue;
+      bucket.orders+=1;
+      bucket.total+=Number(order.total||0);
+      if(order.buyer_name) bucket.buyers.add(order.buyer_name);
+    }
+  }
+
+  const selected=allOrders.filter(order=>{
+    const textOk=query.length>=2 ? cmText(order,itemsByOrder.get(order.code)||[]).includes(normalize(query)) : true;
+    const campaignOk=campaignId ? (matchesByOrder.get(order.code)||[]).some(match=>match.id===campaignId) : true;
+    return textOk && campaignOk;
+  });
   const selectedCodes=new Set(selected.map(x=>x.code));
   const items=allItems.filter(x=>selectedCodes.has(x.order_code));
   const byCode=new Map(selected.map(x=>[x.code,x]));
@@ -1098,12 +1134,21 @@ async function cmDashboard(admin,ticket,org,body) {
     states=data||[];
   }
   const stateByCode=new Map(states.map(x=>[x.order_code,x]));
-  const orders=selected.map(order=>({...order,commercial_state:stateByCode.get(order.code)||null}));
+  const orders=selected.map(order=>({
+    ...order,
+    commercial_state:stateByCode.get(order.code)||null,
+    matched_campaigns:matchesByOrder.get(order.code)||[]
+  }));
 
   const total=orders.reduce((sum,x)=>sum+Number(x.total||0),0);
   const detailed=orders.filter(x=>x.detail_loaded).length;
+  const campaignSummaries=[...campaignBuckets.values()].map(row=>({
+    id:row.id,name:row.name,query_terms:row.query_terms,
+    orders:row.orders,total:row.total,buyers:row.buyers.size
+  })).sort((a,b)=>b.orders-a.orders || b.total-a.total);
+
   return {
-    days,query,
+    days,query,campaignId,campaigns:campaignSummaries,
     coverage:{
       orders:orders.length,
       detected:Number(orderCount||allOrders.length),
@@ -1117,7 +1162,8 @@ async function cmDashboard(admin,ticket,org,body) {
       total,
       buyers:new Set(orders.map(x=>x.buyer_name).filter(Boolean)).size,
       suppliers:new Set(orders.map(x=>x.supplier_name).filter(Boolean)).size,
-      products:new Set(items.map(x=>x.product_code).filter(Boolean)).size
+      products:new Set(items.map(x=>x.product_code).filter(Boolean)).size,
+      matchedOrders:orders.filter(x=>(x.matched_campaigns||[]).length).length
     },
     orders:orders.slice(0,700),
     items:items.slice(0,8000),
