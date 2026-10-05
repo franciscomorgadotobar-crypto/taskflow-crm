@@ -5,6 +5,7 @@ import { OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
 import { chilecompraDashboardStats, chilecompraLocalBreakdown, loadChileCompraAnalytics, onChileCompraChange } from './chilecompra.js';
 import { startContextTutorial } from './tutorials.js';
+import { canAccessView } from './access.js';
 
 const $ = (id) => document.getElementById(id);
 const q = (sel, root = document) => root.querySelector(sel);
@@ -104,6 +105,7 @@ function decorateNavigation() {
 }
 
 function gotoView(view) {
+  if (!canAccessView(view)) return;
   q(`.nav-item[data-view="${view}"]`)?.click();
 }
 
@@ -179,12 +181,14 @@ function updateHeaderIdentity() {
   if ($('v2MenuName')) $('v2MenuName').textContent = name;
   if ($('v2MenuEmail')) $('v2MenuEmail').textContent = currentEmail();
   const auditMenu = $('v2AuditMenu');
-  if (auditMenu) auditMenu.hidden = Boolean($('auditNav')?.hidden ?? true);
+  if (auditMenu) auditMenu.hidden = !canAccessView('audit');
   const settingsMenu = $('v2SettingsMenu');
-  if (settingsMenu) {
-    const currentRole = session.profile?.role || state.me?.role || '';
-    settingsMenu.hidden = !['super', 'admin'].includes(currentRole);
-  }
+  if (settingsMenu) settingsMenu.hidden = !canAccessView('settings');
+  qa('#v2UserMenu [data-v2-view]').forEach((button) => {
+    const view = button.dataset.v2View;
+    if (view === 'settings' || view === 'audit') return;
+    button.hidden = !canAccessView(view);
+  });
   updateMobileHeader();
 }
 
