@@ -17,6 +17,7 @@ import {
   TASK_TYPES,
   TEMPLATE_CHANNELS,
   TEMPLATE_PRESET_PACKS,
+  USER_MODULES,
   USER_ROLES
 } from './catalog.js';
 import {
@@ -83,6 +84,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
+import { canAccessView, firstAccessibleView } from './access.js';
 import { supabase } from './supabase.js';
 import {
   clearLocal as hyperFocusClearLocal,
@@ -247,6 +249,7 @@ const VIEWS = {
 /* ---------- Render ---------- */
 
 function render() {
+  ensureAccessibleView();
   const [title, subtitle, view] = VIEWS[ui.view];
   $('viewTitle').textContent = title;
   $('viewSubtitle').textContent = subtitle;
@@ -2163,7 +2166,28 @@ function refreshTeamRoleDetail() {
   const role = $('teamRole')?.value || 'comercial';
   const detail = $('teamRoleDetail');
   if (!detail) return;
-  detail.innerHTML = `<strong>${escapeHtml(USER_ROLES.find((r) => r.id === role)?.label || role)}</strong><span>${escapeHtml(teamRoleDescription(role))}</span>`;
+  const system = ['super', 'admin'].includes(role)
+    ? ' Configuración y Auditoría se habilitan automáticamente por este perfil.'
+    : '';
+  detail.innerHTML = `<strong>${escapeHtml(USER_ROLES.find((r) => r.id === role)?.label || role)}</strong><span>${escapeHtml(teamRoleDescription(role) + system)}</span>`;
+}
+
+function renderTeamModuleChecks(selected = USER_MODULES.map((module) => module.id)) {
+  const host = $('teamModuleChecks');
+  if (!host) return;
+  const active = new Set(selected);
+  host.innerHTML = USER_MODULES.map((module) => `
+    <label class="team-module-option">
+      <input type="checkbox" value="${module.id}" ${active.has(module.id) ? 'checked' : ''}>
+      <span>
+        <strong>${escapeHtml(module.label)}</strong>
+        <small>${escapeHtml(module.detail)}</small>
+      </span>
+    </label>`).join('');
+}
+
+function selectedTeamModules() {
+  return [...document.querySelectorAll('#teamModuleChecks input:checked')].map((input) => input.value);
 }
 
 function refreshTeamTemplateSetup() {
@@ -2184,6 +2208,7 @@ function openTeamAdd() {
   if ($('teamTemplateMode')) $('teamTemplateMode').value = 'none';
   if ($('teamTemplateTaskflow')) $('teamTemplateTaskflow').checked = false;
   if ($('teamTemplateNeoff')) $('teamTemplateNeoff').checked = false;
+  renderTeamModuleChecks();
   refreshTeamRoleDetail();
   refreshTeamTemplateSetup();
   $('teamAddDialog').showModal();
@@ -2240,6 +2265,7 @@ async function submitTeamAdd(ev) {
   const email = $('teamEmail').value.trim();
   const phone = $('teamPhone').value.trim();
   const role = $('teamRole').value;
+  const modules = selectedTeamModules();
 
   if (!name) return toast('Escribe el nombre.', 'error');
   if (!email.includes('@')) return toast('Escribe un correo válido.', 'error');
@@ -2261,7 +2287,7 @@ async function submitTeamAdd(ev) {
   submit.disabled = true;
   submit.textContent = 'Creando…';
   try {
-    const data = await teamRequest({ action: 'create', name, email, phone, role });
+    const data = await teamRequest({ action: 'create', name, email, phone, role, modules });
     let templateSummary = null;
     if (templatePackages.length) {
       submit.textContent = 'Cargando plantillas…';
@@ -2417,6 +2443,29 @@ const ACTIONS = {
   },
   'open-help': () => document.querySelector('.nav-item[data-view="help"]')?.click(),
   'team-add': () => openTeamAdd(),
+  'team-save-modules': async (id, btn) => {
+    if (!isAdmin()) return toast('No tienes permiso para administrar accesos.', 'error');
+    const card = btn.closest('.team-member-card');
+    const modules = [...card.querySelectorAll('[data-team-module-profile]:checked')].map((input) => input.value);
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+      await teamRequest({ action: 'set_modules', id, modules });
+      await hydrate();
+      applyNavigationAccess();
+      ensureAccessibleView();
+      if (ui.view === 'settings') render();
+      toast('Módulos actualizados.');
+    } catch (err) {
+      toast(err.message || 'No se pudieron guardar los módulos.', 'error');
+    } finally {
+      if (btn.isConnected) {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+  },
   'team-resend': async (id) => {
     if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
     const person = state.team.find((u) => u.id === id);
@@ -2598,6 +2647,24 @@ function handleKeydown(ev) {
   if (!el) return;
   ev.preventDefault();
   dispatchAction(el);
+}
+
+function applyNavigationAccess() {
+  document.querySelectorAll('.nav-item').forEach((btn) => {
+    const view = btn.dataset.view;
+    if (!view) return;
+    if (view === 'profile') {
+      btn.hidden = true;
+      return;
+    }
+    btn.hidden = !canAccessView(view);
+  });
+}
+
+function ensureAccessibleView() {
+  if (canAccessView(ui.view)) return;
+  ui.view = firstAccessibleView();
+  document.querySelectorAll('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === ui.view));
 }
 
 /* ---------- Controles de vista ---------- */
@@ -3432,8 +3499,10 @@ function bindSubmitOnce(formId, handler) {
 function bindEvents() {
   $$('.nav-item').forEach((btn) =>
     btn.addEventListener('click', () => {
-      ui.view = btn.dataset.view;
-      $$('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
+      const nextView = btn.dataset.view;
+      if (!canAccessView(nextView)) return toast('Este módulo no está habilitado para tu perfil.', 'error');
+      ui.view = nextView;
+      document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
       render();
       if (ui.view === 'audit' && isAdmin()) hydrateAudit();
     })
@@ -3511,6 +3580,8 @@ function bindEvents() {
   bindSubmitOnce('templatePackForm', submitTemplatePack);
   bindSubmitOnce('teamAddForm', submitTeamAdd);
   $('teamRole').addEventListener('change', refreshTeamRoleDetail);
+  $('teamModulesAll')?.addEventListener('click', () => renderTeamModuleChecks());
+  $('teamModulesNone')?.addEventListener('click', () => renderTeamModuleChecks([]));
   $('teamTemplateMode')?.addEventListener('change', refreshTeamTemplateSetup);
   $('templateCreateStarter')?.addEventListener('change', () => {
     const starter = DEFAULT_TEMPLATES.find((template) => template.id === $('templateCreateStarter').value);
@@ -3573,8 +3644,6 @@ async function start() {
     if (s.status === 'signed-in') {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
-      if ($('auditNav')) $('auditNav').hidden = !isAdmin();
-      if ($('settingsNav')) $('settingsNav').hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra(), hydrateTutorials()]);
@@ -3594,6 +3663,8 @@ async function start() {
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
+        applyNavigationAccess();
+        ensureAccessibleView();
         refreshNotificationBadge();
         paintSync({ state: 'ok', message: 'Conectado' });
       } catch (err) {

@@ -10,6 +10,7 @@ import {
   QUOTE_STATUS_LABEL,
   TEMPLATE_CHANNELS,
   TEMPLATE_VARIABLES,
+  USER_MODULES,
   USER_ROLES
 } from './catalog.js';
 import {
@@ -914,6 +915,34 @@ export function renderSettings() {
       .map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`)
       .join('');
 
+  const moduleAccessHtml = (u, manageable) => {
+    const selected = new Set(Array.isArray(u.moduleAccess) ? u.moduleAccess : USER_MODULES.map((module) => module.id));
+    const rows = USER_MODULES.map((module) => `
+      <label class="team-module-option">
+        <input type="checkbox"
+          data-team-module-profile="${u.id}"
+          value="${module.id}"
+          ${selected.has(module.id) ? 'checked' : ''}
+          ${manageable ? '' : 'disabled'}>
+        <span>
+          <strong>${e(module.label)}</strong>
+          <small>${e(module.detail)}</small>
+        </span>
+      </label>`).join('');
+    const count = USER_MODULES.filter((module) => selected.has(module.id)).length;
+    return `
+      <details class="team-module-panel">
+        <summary>
+          <span>Módulos habilitados</span>
+          <small>${count} de ${USER_MODULES.length}</small>
+        </summary>
+        <div class="team-module-panel-body">
+          <div class="team-module-grid">${rows}</div>
+          ${manageable ? `<button type="button" class="ghost-btn team-save-modules" data-action="team-save-modules" data-id="${u.id}">Guardar módulos</button>` : ''}
+        </div>
+      </details>`;
+  };
+
   const trainingHtml = (u) => {
     if (!teamSuper) return '';
     const tutorials = availableTutorialsForRole(u.role);
@@ -993,12 +1022,18 @@ export function renderSettings() {
         </div>
         <div class="team-member-controls">
           <label>
-            <span>Permiso</span>
+            <span>Perfil base</span>
             <select data-team-role data-id="${u.id}" ${!manageable || mine ? 'disabled' : ''}>
               ${roleOptionsFor(u)}
             </select>
           </label>
           <p class="team-role-help">${e(role?.detail || '')}</p>
+          ${mine
+            ? manageable
+              ? '<p class="muted team-lock-note">Tu perfil base está protegido aquí. Como Súper administrador sí puedes ajustar tus módulos.</p>'
+              : '<p class="muted team-lock-note">Tu perfil base y módulos los gestiona un Súper administrador.</p>'
+            : ''}
+          ${moduleAccessHtml(u, manageable)}
           ${manageable
             ? `<div class="team-member-actions">
                 <button type="button" class="ghost-btn" data-action="team-resend" data-id="${u.id}" ${u.active ? '' : 'disabled'}>Reenviar acceso</button>
@@ -1043,11 +1078,6 @@ export function renderSettings() {
           <div><strong>${activeMembers.filter((u) => u.role === 'comercial').length}</strong><span>comerciales</span></div>
         </div>
 
-        <div class="notice team-notice">
-          <strong>Los usuarios nuevos se crean desde Configuración.</strong>
-          <span>Define permiso, acceso y, si eres Súper administrador, las plantillas iniciales. Después puedes asignar tutoriales y revisar su progreso.</span>
-        </div>
-
         <div class="team-members">
           ${activeMembers.length ? activeMembers.map(memberCard).join('') : empty('Sin personas activas', 'Agrega la primera persona al equipo.')}
         </div>
@@ -1059,7 +1089,7 @@ export function renderSettings() {
             </details>`
           : ''}
 
-        <h4 class="settings-subtitle">Qué puede hacer cada permiso</h4>
+        <h4 class="settings-subtitle">Perfiles base</h4>
         <div class="role-list">
           ${USER_ROLES.map((r) => `<div class="role-row"><strong>${e(r.label)}</strong><span class="muted">${e(r.detail)}</span></div>`).join('')}
         </div>

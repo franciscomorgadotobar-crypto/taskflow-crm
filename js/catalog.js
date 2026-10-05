@@ -127,11 +127,25 @@ export const CHART_DIMENSIONS = [
 
 /** Perfiles de acceso. El detalle describe qué puede hacer cada uno dentro del CRM. */
 export const USER_ROLES = [
-  { id: 'super', label: 'Súper administrador', detail: 'Control total: configuración, usuarios, datos y borrado.' },
-  { id: 'admin', label: 'Administrador', detail: 'Gestiona el CRM y puede crear o administrar perfiles Comercial y Visita.' },
-  { id: 'comercial', label: 'Comercial', detail: 'Trabaja sus leads, actividades y comunicación. Sin acceso a configuración.' },
-  { id: 'visita', label: 'Visita', detail: 'Solo lectura: puede mirar el embudo y los reportes, sin editar.' }
+  { id: 'super', label: 'Súper administrador', detail: 'Control total del CRM. Configuración y auditoría quedan habilitadas por el perfil.' },
+  { id: 'admin', label: 'Administrador', detail: 'Administra usuarios Comercial y Visita. Configuración y auditoría quedan habilitadas por el perfil.' },
+  { id: 'comercial', label: 'Comercial', detail: 'Puede trabajar y editar dentro de los módulos que le habilites.' },
+  { id: 'visita', label: 'Visita', detail: 'Solo lectura dentro de los módulos que le habilites.' }
 ];
+
+export const USER_MODULES = [
+  { id: 'dashboard', label: 'Resumen', group: 'General', detail: 'Panel general y métricas de gestión.' },
+  { id: 'leads', label: 'Leads', group: 'Comercial', detail: 'Empresas nuevas antes de entrar al pipeline.' },
+  { id: 'hyperfocus', label: 'Híper Foco', group: 'Comercial', detail: 'Prospección masiva y tratamiento de bases.' },
+  { id: 'pipeline', label: 'Pipeline', group: 'Comercial', detail: 'Oportunidades comerciales activas.' },
+  { id: 'remarketing', label: 'Remarketing', group: 'Comercial', detail: 'Prospectos para retomar más adelante.' },
+  { id: 'implementation', label: 'Implementación', group: 'Operación', detail: 'Clientes ganados y puesta en marcha.' },
+  { id: 'templates', label: 'Plantillas', group: 'Herramientas', detail: 'Mensajes reutilizables para comunicación.' },
+  { id: 'chilecompra', label: 'ChileCompra', group: 'Herramientas', detail: 'Seguimientos y oportunidades de compras públicas.' },
+  { id: 'quotes', label: 'Cotizaciones', group: 'Herramientas', detail: 'Listas de precios y cotizaciones.' }
+];
+
+export const DEFAULT_USER_MODULE_IDS = USER_MODULES.map((module) => module.id);
 
 /**
  * Mapa del flujo comercial: cada nodo es una parada del proceso, con lo que se
