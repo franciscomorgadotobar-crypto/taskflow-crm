@@ -5559,6 +5559,14 @@ html[data-crm-view="settings"] .settings-demo-card .button-row{
 }
 
 
+.v2-cc-brand-icon img{
+  display:block;
+  width:38px;
+  max-width:100%;
+  height:auto;
+  object-fit:contain;
+}
+
 /* ---------- Homologación desktop 2026-10-04 ---------- */
 @media (min-width: 901px) {
   /* El resumen desktop usa una grilla propia. Antes heredaba HTML enriquecido
@@ -6144,12 +6152,12 @@ html[data-crm-view="settings"] .settings-demo-card .button-row{
   }
 }
 
-:root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-pipeline-insight,
-:root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-brand-icon,
-:root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-arrow,
-:root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-campaign-chip,
-:root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-empty-campaigns,
-:root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-market-controls select{
+html[data-theme="dark"][data-crm-view="dashboard"] .v2-pipeline-insight,
+html[data-theme="dark"][data-crm-view="dashboard"] .v2-cc-brand-icon,
+html[data-theme="dark"][data-crm-view="dashboard"] .v2-cc-arrow,
+html[data-theme="dark"][data-crm-view="dashboard"] .v2-cc-campaign-chip,
+html[data-theme="dark"][data-crm-view="dashboard"] .v2-cc-empty-campaigns,
+html[data-theme="dark"][data-crm-view="dashboard"] .v2-cc-market-controls select{
   background:var(--v2-panel);
   border-color:var(--v2-line);
 }
