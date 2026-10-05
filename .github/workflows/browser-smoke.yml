@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master, feature/mobile-bottom-nav-preferences-20261004]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
