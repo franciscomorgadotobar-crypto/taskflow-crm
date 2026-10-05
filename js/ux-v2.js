@@ -1,7 +1,7 @@
 /* CRM Personal · UX/UI V2
    Enhancement layer: mantiene intacta la lógica de app.js/store.js. */
 import { state, onChange, openTasks, metrics } from './store.js';
-import { OPEN_STAGES } from './catalog.js';
+import { DEFAULT_BOTTOM_NAV, OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
 import { chilecompraDashboardStats, chilecompraLocalBreakdown, loadChileCompraAnalytics, onChileCompraChange } from './chilecompra.js';
 import { startContextTutorial } from './tutorials.js';
@@ -102,6 +102,37 @@ function decorateNavigation() {
 
   const pipeline = q('.nav-item[data-view="pipeline"]', nav);
   if (pipeline) pipeline.textContent = 'Pipeline';
+}
+
+function effectiveBottomNav() {
+  const preferred = Array.isArray(state.me?.bottomNav) && state.me.bottomNav.length
+    ? state.me.bottomNav
+    : DEFAULT_BOTTOM_NAV;
+  const fallback = ['dashboard', 'chilecompra', 'hyperfocus', 'pipeline', 'remarketing', 'leads', 'implementation', 'templates', 'quotes'];
+  const result = [];
+
+  [...preferred, ...fallback].forEach((view) => {
+    if (result.length >= 5 || result.includes(view) || !canAccessView(view)) return;
+    if (!q(`.nav-item[data-view="${view}"]`)) return;
+    result.push(view);
+  });
+  return result;
+}
+
+function applyMobileBottomNav() {
+  const nav = $('nav');
+  if (!nav) return;
+  qa('.nav-item', nav).forEach((item) => {
+    delete item.dataset.mobileNavSlot;
+    item.style.removeProperty('--mobile-order');
+  });
+
+  effectiveBottomNav().forEach((view, index) => {
+    const item = q(`.nav-item[data-view="${view}"]`, nav);
+    if (!item) return;
+    item.dataset.mobileNavSlot = String(index + 1);
+    item.style.setProperty('--mobile-order', String(index + 1));
+  });
 }
 
 function gotoView(view) {
@@ -834,6 +865,7 @@ function bindGlobalEvents() {
 
 function init() {
   decorateNavigation();
+  applyMobileBottomNav();
   buildHeaderTools();
   setupLeadForm();
   setupDiscoveryProgress();
@@ -846,6 +878,7 @@ function init() {
   onChange(() => {
     queueMicrotask(() => {
       updateHeaderIdentity();
+      applyMobileBottomNav();
       enhanceCurrentView();
       enhanceDetail();
     });
@@ -853,6 +886,7 @@ function init() {
 
   onAuthChange(() => queueMicrotask(() => {
     updateHeaderIdentity();
+    applyMobileBottomNav();
     updateSystemStatus();
     enhanceCurrentView();
   }));
