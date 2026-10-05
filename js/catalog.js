@@ -147,6 +147,8 @@ export const USER_MODULES = [
 
 export const DEFAULT_USER_MODULE_IDS = USER_MODULES.map((module) => module.id);
 
+export const DEFAULT_BOTTOM_NAV = ['dashboard', 'chilecompra', 'hyperfocus', 'pipeline', 'remarketing'];
+
 /**
  * Mapa del flujo comercial: cada nodo es una parada del proceso, con lo que se
  * hace ahí y hacia dónde puede seguir. Alimenta el diagrama de Configuración.
