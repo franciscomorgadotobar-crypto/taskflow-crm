@@ -408,7 +408,7 @@ function homeChileCompraBars(data) {
   const total = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
   if (!categories.length || total <= 0) {
     const text = data?.configured === false
-      ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea una campaña para comenzar a medir el mercado.')
+      ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea un seguimiento para comenzar a medir el mercado.')
       : 'No hay datos suficientes para este filtro.';
     return `<div class="v2-cc-market-empty">${esc(text)}</div>`;
   }
