@@ -131,6 +131,7 @@ function buildHeaderTools() {
         <div id="v2UserMenu" class="v2-user-menu" role="menu" hidden>
           <div class="v2-menu-profile"><strong id="v2MenuName">Usuario</strong><span id="v2MenuEmail"></span></div>
           <button class="v2-menu-item" type="button" data-v2-action="profile"><span>Mi cuenta</span><span>›</span></button>
+          <button id="v2SettingsMenu" class="v2-menu-item" type="button" data-v2-view="settings" hidden><span>Configuración</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="implementation"><span>Implementación</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="templates"><span>Plantillas</span><span>›</span></button>
           <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="quotes"><span>Cotizaciones</span><span>›</span></button>
@@ -179,6 +180,11 @@ function updateHeaderIdentity() {
   if ($('v2MenuEmail')) $('v2MenuEmail').textContent = currentEmail();
   const auditMenu = $('v2AuditMenu');
   if (auditMenu) auditMenu.hidden = Boolean($('auditNav')?.hidden ?? true);
+  const settingsMenu = $('v2SettingsMenu');
+  if (settingsMenu) {
+    const currentRole = session.profile?.role || state.me?.role || '';
+    settingsMenu.hidden = !['super', 'admin'].includes(currentRole);
+  }
   updateMobileHeader();
 }
 
@@ -215,7 +221,7 @@ async function handleMenuAction(ev) {
   const view = btn.dataset.v2View;
   toggleUserMenu(false);
   if (view) gotoView(view);
-  if (action === 'profile') gotoView('settings');
+  if (action === 'profile') gotoView('profile');
   if (action === 'data') $('dataBtn')?.click();
   if (action === 'theme') $('themeToggle')?.click();
   if (action === 'signout') await signOut();
@@ -655,7 +661,7 @@ function setDetailTab(id) {
 
 /* ---------- Settings ---------- */
 function injectMascotSettingsCard() {
-  if ($('viewTitle')?.textContent.trim() !== 'Configuración') return;
+  if ($('viewTitle')?.textContent.trim() !== 'Mi cuenta') return;
   const root = $('viewRoot');
   if (!root || q('.v2-mascot-settings-card', root)) return;
 
