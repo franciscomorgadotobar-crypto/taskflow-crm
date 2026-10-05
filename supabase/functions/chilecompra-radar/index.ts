@@ -1385,7 +1385,6 @@ Deno.serve(async req=>{
     }
 
     if(action==="cm-catalog-search") {
-      if(cron) return json({error:"cm_catalog_search_requires_user"},403);
       const code=String(body?.code||"").trim();
       const query=String(body?.query||"").trim();
       const limit=Math.max(1,Math.min(120,Number(body?.limit)||80));
