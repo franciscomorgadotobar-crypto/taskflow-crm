@@ -89,6 +89,7 @@ function decorateNavigation() {
     ['dashboard', 'General'],
     ['leads', 'Comercial'],
     ['implementation', 'Operación'],
+    ['templates', 'Herramientas'],
     ['help', 'Sistema']
   ];
   labels.forEach(([view, text]) => {
