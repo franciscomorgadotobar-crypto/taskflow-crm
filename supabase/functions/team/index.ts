@@ -12,6 +12,23 @@ const CORS = {
 };
 
 const VALID_ROLES = new Set(["super", "admin", "comercial", "visita"]);
+const VALID_MODULES = new Set([
+  "dashboard",
+  "leads",
+  "hyperfocus",
+  "pipeline",
+  "remarketing",
+  "implementation",
+  "templates",
+  "chilecompra",
+  "quotes",
+]);
+const DEFAULT_MODULES = [...VALID_MODULES];
+
+function cleanModules(value: unknown) {
+  if (!Array.isArray(value)) return [...DEFAULT_MODULES];
+  return [...new Set(value.map((item) => String(item || "").trim()).filter((item) => VALID_MODULES.has(item)))];
+}
 
 function reply(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -55,7 +72,7 @@ Deno.serve(async req => {
 
   const { data: actorProfile, error: actorProfileError } = await asUser
     .from("profiles")
-    .select("id,organization_id,role,active,name,email")
+    .select("id,organization_id,role,active,name,email,module_access")
     .eq("id", actor.id)
     .maybeSingle();
 
@@ -82,7 +99,7 @@ Deno.serve(async req => {
   async function targetProfile(id: string) {
     const { data, error } = await admin
       .from("profiles")
-      .select("id,name,email,phone,role,active,organization_id")
+      .select("id,name,email,phone,role,active,organization_id,module_access")
       .eq("id", id)
       .eq("organization_id", actorProfile.organization_id)
       .maybeSingle();
@@ -140,6 +157,7 @@ Deno.serve(async req => {
       const email = String(body?.email || "").trim().toLowerCase();
       const phone = String(body?.phone || "").trim();
       const role = String(body?.role || "comercial");
+      const moduleAccess = cleanModules(body?.modules);
       const redirectTo = safeRedirect(body?.redirectTo);
 
       if (!name) return reply({ error: "validation", message: "Falta el nombre." }, 400);
@@ -168,6 +186,7 @@ Deno.serve(async req => {
           email,
           phone,
           role,
+          module_access: moduleAccess,
           active: true,
           organization_id: actorProfile.organization_id,
           updated_at: new Date().toISOString(),
@@ -183,7 +202,7 @@ Deno.serve(async req => {
       const access = await recovery(email, redirectTo);
       return reply({
         ok: true,
-        user: { id: userId, name, email, phone, role, active: true },
+        user: { id: userId, name, email, phone, role, module_access: moduleAccess, active: true },
         ...access,
       });
     }
@@ -228,6 +247,20 @@ Deno.serve(async req => {
       const { error } = await admin.from("profiles").update({ role, updated_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
       return reply({ ok: true });
+    }
+
+    if (action === "set_modules") {
+      const id = String(body?.id || "");
+      const modules = cleanModules(body?.modules);
+      const target = await targetProfile(id);
+      await guardTarget(target);
+
+      const { error } = await admin
+        .from("profiles")
+        .update({ module_access: modules, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      return reply({ ok: true, modules });
     }
 
     if (action === "set_active") {
