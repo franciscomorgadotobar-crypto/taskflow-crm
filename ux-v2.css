@@ -5257,3 +5257,145 @@ html[data-crm-view="settings"] .settings-demo-card .button-row{
     min-height:38px;
   }
 }
+
+
+/* ---------- Acceso detallado por módulos ---------- */
+.team-access-setup{
+  display:grid;
+  gap:14px;
+  margin:0 22px 18px;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--panel);
+}
+.team-access-setup-head,
+.team-module-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.team-access-setup-head > div,
+.team-module-head > div:first-child{
+  display:grid;
+  gap:3px;
+}
+.team-access-setup-head strong,
+.team-module-head strong{
+  color:var(--text);
+  font-size:13px;
+}
+.team-access-setup-head span,
+.team-module-head span{
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.4;
+}
+.team-role-select{
+  display:grid;
+  gap:6px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+}
+.team-role-select select{
+  width:100%;
+  min-height:44px;
+}
+.team-role-detail{
+  margin:0;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--panel-soft,#f8fafc);
+}
+.team-module-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.team-module-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.team-module-option{
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:start;
+  gap:9px!important;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--panel);
+  cursor:pointer;
+}
+.team-module-option input{
+  margin-top:3px;
+}
+.team-module-option > span{
+  display:grid;
+  gap:2px;
+}
+.team-module-option strong{
+  color:var(--text);
+  font-size:11px;
+}
+.team-module-option small{
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.35;
+}
+.team-module-panel{
+  margin-top:12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+}
+.team-module-panel > summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  cursor:pointer;
+  color:var(--text);
+  font-size:11px;
+  font-weight:700;
+  background:var(--panel-soft,#f8fafc);
+}
+.team-module-panel > summary small{
+  color:var(--muted);
+  font-size:9px;
+  font-weight:700;
+}
+.team-module-panel-body{
+  display:grid;
+  gap:10px;
+  padding:10px;
+}
+.team-save-modules{
+  width:100%;
+}
+:root[data-theme="dark"] .team-role-detail,
+:root[data-theme="dark"] .team-module-panel > summary{
+  background:var(--v2-panel,#17243a);
+}
+
+@media (max-width:720px){
+  .team-access-setup{
+    margin:0 16px 14px;
+    padding:13px;
+  }
+  .team-access-setup-head,
+  .team-module-head{
+    display:grid;
+  }
+  .team-module-actions{
+    justify-content:flex-start;
+  }
+  .team-module-grid{
+    grid-template-columns:1fr;
+  }
+}
