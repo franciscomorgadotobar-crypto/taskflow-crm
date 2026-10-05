@@ -836,7 +836,7 @@ export function renderTemplates(ui) {
 export function renderProfile() {
   const me = state.me;
   const role = USER_ROLES.find((r) => r.id === me?.role);
-  const enabledModuleIds = new Set(Array.isArray(me?.moduleAccess) && me.moduleAccess.length
+  const enabledModuleIds = new Set(Array.isArray(me?.moduleAccess)
     ? me.moduleAccess
     : USER_MODULES.map((module) => module.id));
   const navChoices = USER_MODULES.filter((module) => enabledModuleIds.has(module.id));
@@ -846,9 +846,10 @@ export function renderProfile() {
     if (currentBottomNav.length < 5 && !currentBottomNav.includes(module.id)) currentBottomNav.push(module.id);
   });
   const bottomNav = currentBottomNav.slice(0, 5);
-  const navOption = (selected = '') => navChoices
-    .map((module) => `<option value="${module.id}" ${module.id === selected ? 'selected' : ''}>${e(module.label)}</option>`)
-    .join('');
+  const navOption = (selected = '') => [
+    `<option value="" ${!selected ? 'selected' : ''}>No mostrar</option>`,
+    ...navChoices.map((module) => `<option value="${module.id}" ${module.id === selected ? 'selected' : ''}>${e(module.label)}</option>`)
+  ].join('');
   const navPreviewIcon = (id) => id === 'chilecompra'
     ? '<span class="profile-bottom-nav-logo profile-bottom-nav-logo--chilecompra" aria-label="ChileCompra"></span>'
     : `<span class="profile-bottom-nav-symbol profile-bottom-nav-symbol--${e(id)}" aria-hidden="true"></span>`;
@@ -889,7 +890,7 @@ export function renderProfile() {
       <div class="card-head">
         <div>
           <h3>Barra inferior</h3>
-          <span class="muted">Elige los cinco accesos rápidos que quieres ver en el teléfono.</span>
+          <span class="muted">Elige hasta cinco accesos rápidos y ordénalos como quieras verlos en el teléfono.</span>
         </div>
       </div>
       <div class="card-body">
