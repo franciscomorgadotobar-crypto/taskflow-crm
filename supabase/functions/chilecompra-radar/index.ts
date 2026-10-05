@@ -8,6 +8,7 @@ const CORS = {
 };
 const API_BASE = "https://api.mercadopublico.cl/servicios/v1/publico";
 const MP_SEARCH_URL = "https://www.mercadopublico.cl/BuscarLicitacion";
+const CM_MASTER_INDEX_URL = "https://transparenciachc.blob.core.windows.net/maestrascm/CM_publicados.csv";
 
 // El radar no presupone productos. Las coincidencias se definen exclusivamente
 // por campañas y por el perfil de mercado configurados por cada organización.
@@ -746,7 +747,27 @@ async function upsertCmBasicOrders(admin,items,observedDate=null) {
     const {error}=await admin.from("chilecompra_cm_orders").upsert(chunk,{onConflict:"code"});
     if(error) throw error;
   }
-  return {rows:merged.length,existing};
+
+  const itemRows=items.flatMap(item=>{
+    const orderCode=cmOrderFields(item).code;
+    return orderCode ? cmOrderItems(item).map(row=>({...row,order_code:orderCode})) : [];
+  });
+  if(itemRows.length) {
+    const itemCodes=[...new Set(itemRows.map(row=>row.order_code))];
+    for(let i=0;i<itemCodes.length;i+=180) {
+      const chunk=itemCodes.slice(i,i+180);
+      const {error}=await admin.from("chilecompra_cm_order_items").delete().in("order_code",chunk);
+      if(error) throw error;
+    }
+    for(let i=0;i<itemRows.length;i+=450) {
+      const chunk=itemRows.slice(i,i+450);
+      const {error}=await admin.from("chilecompra_cm_order_items")
+        .upsert(chunk,{onConflict:"order_code,line_no"});
+      if(error) throw error;
+    }
+  }
+
+  return {rows:merged.length,items:itemRows.length,existing};
 }
 
 async function fetchCmDetail(admin,ticket,code) {
@@ -845,7 +866,7 @@ function cmText(order,items=[]) {
   return normalize([
     order.code,order.name,order.description,order.buyer_name,order.buyer_unit,
     order.supplier_name,order.supplier_rut,order.agreement_code,
-    ...items.flatMap(item=>[item.category,item.product_code,item.buyer_spec,item.supplier_spec,item.agreement_code])
+    ...items.flatMap(item=>[item.raw?.Producto,item.category,item.product_code,item.buyer_spec,item.supplier_spec,item.agreement_code])
   ].join(" "));
 }
 function aggregateCmProducts(items,ordersByCode) {
@@ -853,7 +874,7 @@ function aggregateCmProducts(items,ordersByCode) {
   for(const item of items) {
     const order=ordersByCode.get(item.order_code);
     if(!order) continue;
-    const label=String(item.supplier_spec||item.buyer_spec||item.category||item.product_code||"Producto sin nombre").trim();
+    const label=String(item.raw?.Producto||item.supplier_spec||item.buyer_spec||item.category||item.product_code||"Producto sin nombre").trim();
     const key=String(item.product_code||"")+"|"+normalize(label);
     const row=map.get(key)||{
       key,label,productCode:item.product_code||"",category:item.category||"",
@@ -924,6 +945,59 @@ function aggregateCmAgreements(orders,items) {
     buyers:row.buyers.size,suppliers:row.suppliers.size,products:row.products.size
   })).sort((a,b)=>b.total-a.total || b.orders-a.orders);
 }
+function parseSemicolonCsv(text) {
+  const lines=String(text||"").replace(/^\uFEFF/,"").split(/\r?\n/).filter(Boolean);
+  if(lines.length<2) return [];
+  const parseLine=line=>{
+    const out=[]; let cur="",quoted=false;
+    for(let i=0;i<line.length;i++) {
+      const ch=line[i];
+      if(ch==='"') {
+        if(quoted && line[i+1]==='"') { cur+='"'; i+=1; }
+        else quoted=!quoted;
+      } else if(ch===';' && !quoted) { out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+    out.push(cur);
+    return out;
+  };
+  const headers=parseLine(lines[0]).map(x=>normalize(x).replace(/\s+/g,"_"));
+  return lines.slice(1).map(line=>{
+    const values=parseLine(line);
+    return Object.fromEntries(headers.map((key,index)=>[key,String(values[index]||"").trim()]));
+  });
+}
+async function cmCatalogFiles() {
+  const response=await fetch(CM_MASTER_INDEX_URL,{headers:{Accept:"text/csv,*/*"}});
+  if(!response.ok) throw new Error("Datos Abiertos respondió "+response.status);
+  const rows=parseSemicolonCsv(await response.text());
+  return rows.map(row=>{
+    const filename=row.nombre_archivo||"";
+    const match=filename.match(/cm_(\d+-\d+-lr\d+)\.zip/i);
+    return {
+      code:match?match[1].toUpperCase():"",
+      filename,
+      url:row.link_archivo||"",
+      updatedAt:row.fecha_actualizacion||""
+    };
+  }).filter(row=>row.code && row.url);
+}
+async function backfillCmOrders(admin,ticket,{days=30}={}) {
+  const safeDays=Math.max(1,Math.min(45,Number(days)||30));
+  const results=[];
+  for(let offset=0;offset<safeDays;offset++) {
+    const result=await syncCmOrders(admin,ticket,{days:1,offsetDays:offset,detailLimit:0});
+    results.push({offsetDays:offset,found:result.found,errors:result.errors});
+    await sleep(220);
+  }
+  return {
+    days:safeDays,
+    found:results.reduce((sum,row)=>sum+Number(row.found||0),0),
+    errorDays:results.filter(row=>(row.errors||[]).length).length,
+    results
+  };
+}
+
 async function cmDashboard(admin,ticket,org,body) {
   const days=Math.max(1,Math.min(180,Number(body?.days)||30));
   const query=String(body?.query||"").trim();
@@ -995,7 +1069,11 @@ async function cmDashboard(admin,ticket,org,body) {
     products:aggregateCmProducts(items,byCode).slice(0,250),
     buyers:aggregateCmEntities(orders,"buyer_name").slice(0,120),
     suppliers:aggregateCmEntities(orders,"supplier_name").slice(0,120),
-    agreements:aggregateCmAgreements(orders,items).slice(0,80)
+    agreements:aggregateCmAgreements(orders,items).slice(0,80),
+    catalogFiles:await cmCatalogFiles().catch(error=>{
+      console.error("No se pudo cargar índice oficial de maestras CM",error);
+      return [];
+    })
   };
 }
 
@@ -1056,6 +1134,12 @@ Deno.serve(async req=>{
     if(action==="cm-dashboard") {
       if(cron) return json({error:"cm_dashboard_requires_user"},403);
       return json({ok:true,...await cmDashboard(admin,ticket,org,body)});
+    }
+
+    if(action==="cm-backfill") {
+      if(!cron) return json({error:"cm_backfill_requires_cron"},403);
+      const days=Math.max(1,Math.min(45,Number(body?.days)||30));
+      return json({ok:true,...await backfillCmOrders(admin,ticket,{days})});
     }
 
     if(action==="cm-detail") {
