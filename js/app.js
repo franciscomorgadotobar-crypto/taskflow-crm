@@ -121,6 +121,7 @@ import {
   renderLeadDetail,
   renderLeads,
   renderPipeline,
+  renderProfile,
   renderQuotes,
   renderRemarketing,
   renderSettings,
@@ -186,13 +187,13 @@ function initPwa() {
   window.addEventListener('beforeinstallprompt', (ev) => {
     ev.preventDefault();
     deferredPwaInstallPrompt = ev;
-    if (ui?.view === 'settings') render();
+    if (ui?.view === 'profile') render();
   });
 
   window.addEventListener('appinstalled', () => {
     pwaInstalled = true;
     deferredPwaInstallPrompt = null;
-    if (ui?.view === 'settings') render();
+    if (ui?.view === 'profile') render();
     toast('CRM quedó instalado.');
   });
 
@@ -239,7 +240,8 @@ const VIEWS = {
   quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
   audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   help: ['Ayuda y tutoriales', 'Capacitaciones guiadas sobre la interfaz real del CRM.', renderHelp],
-  settings: ['Configuración', 'Tu usuario, los accesos del equipo y los datos de demostración.', renderSettings]
+  profile: ['Mi cuenta', 'Tus datos personales, contraseña y preferencias.', renderProfile],
+  settings: ['Configuración', 'Usuarios, permisos, capacitación y administración del CRM.', renderSettings]
 };
 
 /* ---------- Render ---------- */
@@ -2413,6 +2415,7 @@ const ACTIONS = {
   'save-profile': async () => {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
+  'open-help': () => document.querySelector('.nav-item[data-view="help"]')?.click(),
   'team-add': () => openTeamAdd(),
   'team-resend': async (id) => {
     if (!isAdmin()) return toast('No tienes permiso para administrar el equipo.', 'error');
@@ -3571,6 +3574,7 @@ async function start() {
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
       if ($('auditNav')) $('auditNav').hidden = !isAdmin();
+      if ($('settingsNav')) $('settingsNav').hidden = !isAdmin();
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra(), hydrateTutorials()]);
