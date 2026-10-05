@@ -261,25 +261,27 @@ async function invokeRadar(body) {
 }
 
 
+const CM_DIRECTORY_REVIEWED_AT = '2026-10-05';
 const CM_CURRENT_AGREEMENTS = [
-  { code:'2239-21-LR23', name:'Insumos y Dispositivos Médicos', expires:'2027-06-14' },
-  { code:'2239-12-LR23', name:'Seguros de Vida', expires:'2026-10-25' },
-  { code:'2239-9-LR23', name:'Productos y Servicios de Ferretería', expires:'2027-03-20' },
-  { code:'2239-8-LR24', name:'Emergencias y Prevención', expires:'2026-10-18' },
-  { code:'2239-11-LR24', name:'Licencia de Ofimática', expires:'2028-07-03' },
-  { code:'2239-16-LR24', name:'Artículos de Escritorio y Papelería', expires:'2029-04-04' },
-  { code:'2239-8-LR25', name:'Artículos de Aseo e Higiene', expires:'2028-09-23' },
-  { code:'2239-1-LR25', name:'Gas Licuado de Petróleo', expires:'2029-01-08' },
-  { code:'2239-5-LR25', name:'Venta y Arriendo de Computadores y Accesorios', expires:'2028-11-25' },
-  { code:'2239-13-LR25', name:'Suministro de Combustible', expires:'2027-07-02' },
-  { code:'2239-12-LR25', name:'Transporte de Pasajeros y Arriendo de Vehículos/Maquinaria', expires:'2028-12-26' },
-  { code:'2239-15-LR25', name:'Endoprótesis, Ortesis y Trauma', expires:'2027-09-23' },
-  { code:'2239-4-LR25', name:'Mobiliario General', expires:'2028-11-21' },
-  { code:'2239-6-LR25', name:'Adquisición de Vehículos y Maquinaria', expires:'2030-03-06' },
-  { code:'2239-1-LR26', name:'Administración y Entrega de Beneficios', expires:'2029-03-19' },
-  { code:'2239-19-LR23', name:'Desarrollo, Mantención de Software e IaaS', expires:'2027-01-12' },
-  { code:'2239-9-LR24', name:'Alimentos', expires:'2029-01-08' }
-];
+  { code:'2239-6-LR25', name:'Adquisición de vehículos y maquinaria', expires:'2029-03-13' },
+  { code:'2239-1-LR26', name:'Administración y entrega de beneficios', expires:'2029-05-19' },
+  { code:'2239-16-LR23', name:'Agencias de viajes corporativos y asistencia', expires:'2026-11-23' },
+  { code:'2239-9-LR24', name:'Alimentos', expires:'2028-02-20' },
+  { code:'2239-5-LR25', name:'Arriendo y compra de computadores y accesorios', expires:'2028-10-28' },
+  { code:'2239-8-LR25', name:'Artículos de aseo e higiene', expires:'2027-11-30' },
+  { code:'2239-16-LR24', name:'Artículos de escritorio y papelería', expires:'2028-05-16' },
+  { code:'2239-19-LR23', name:'Desarrollo y mantención de software', expires:'2027-01-12' },
+  { code:'2239-8-LR24', name:'Emergencias, contingencias y prevención', expires:'2026-10-18' },
+  { code:'2239-15-LR25', name:'Endoprótesis, ortopedia y trauma', expires:'2029-02-25' },
+  { code:'2239-1-LR25', name:'Gas licuado de petróleo', expires:'2028-06-03' },
+  { code:'2239-21-LR23', name:'Insumos y dispositivos médicos', expires:'2027-06-14' },
+  { code:'2239-11-LR24', name:'Licencia Ofimática', expires:'2027-12-06' },
+  { code:'2239-4-LR25', name:'Mobiliario general', expires:'2028-09-02' },
+  { code:'2239-9-LR23', name:'Productos de ferretería y servicios', expires:'2027-03-20' },
+  { code:'2239-12-LR23', name:'Seguro colectivo de vida con adicional de salud', expires:'2026-10-25' },
+  { code:'2239-13-LR25', name:'Suministro de combustibles', expires:'2027-07-02' },
+  { code:'2239-12-LR25', name:'Transporte privado de pasajeros y arriendo de vehículos', expires:'2028-01-02' }
+]
 
 function agreementStatus(row) {
   const end = row?.expires ? new Date(row.expires + 'T23:59:59') : null;
@@ -1120,7 +1122,7 @@ function renderCmEntities(data, kind) {
 function renderCmAgreements(data) {
   const observed = new Map((data?.agreements || []).map((row) => [row.code,row]));
   return `<section class="cc-cm-panel">
-    <div class="cc-section-head"><div><h4>Convenios Marco vigentes</h4><p>Directorio de convenios disponibles en la Tienda, cruzado con las órdenes observadas por el CRM.</p></div><div class="cc-cm-source-actions"><button type="button" class="ghost-btn" data-cm-external="https://www.mercadopublico.cl/TiendaHome/">Abrir Tienda oficial ↗</button><button type="button" class="ghost-btn" data-cm-external="https://datos-abiertos.chilecompra.cl/descargas/convenio-marco">Datos Abiertos ↗</button></div></div>
+    <div class="cc-section-head"><div><h4>Convenios Marco vigentes</h4><p>Directorio oficial revisado al ${e(fmtDate(CM_DIRECTORY_REVIEWED_AT))}, cruzado con las órdenes observadas por el CRM.</p></div><div class="cc-cm-source-actions"><button type="button" class="ghost-btn" data-cm-external="https://www.mercadopublico.cl/TiendaHome/">Abrir Tienda oficial ↗</button><button type="button" class="ghost-btn" data-cm-external="https://datos-abiertos.chilecompra.cl/descargas/convenio-marco">Datos Abiertos ↗</button></div></div>
     <div class="cc-cm-agreement-list">${CM_CURRENT_AGREEMENTS.map((agreement) => {
       const status=agreementStatus(agreement);
       const row=observed.get(agreement.code);
