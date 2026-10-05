@@ -2249,6 +2249,22 @@
   color:#7b899b;
   font-size:8px;
 }
+
+.cc-cm-catalog-link{
+  margin-top:3px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#0e71c5;
+  font:inherit;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer;
+}
+.cc-cm-catalog-link:hover{
+  text-decoration:underline;
+}
+
 .cc-cm-agreement-observed{
   justify-items:end;
   text-align:right;
