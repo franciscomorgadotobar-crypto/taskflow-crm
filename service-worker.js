@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'crm-personal-static-v17';
-const RUNTIME_CACHE = 'crm-personal-runtime-v17';
+const STATIC_CACHE = 'crm-personal-static-v20';
+const RUNTIME_CACHE = 'crm-personal-runtime-v20';
 const ALL_CACHES = [STATIC_CACHE, RUNTIME_CACHE];
 
 const CORE = [

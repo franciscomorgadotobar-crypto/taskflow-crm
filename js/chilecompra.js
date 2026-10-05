@@ -28,6 +28,15 @@ export const chilecompraState = {
   detailTab: 'resumen',
   detailLoading: false,
   detailError: '',
+  cmData: null,
+  cmLoading: false,
+  cmError: '',
+  cmDays: 3,
+  cmQuery: '',
+  cmView: 'pulso',
+  cmSelectedCode: '',
+  cmDetail: null,
+  cmDetailLoading: false,
   sort: 'recent',
   lastSyncAt: ''
 };
@@ -41,7 +50,10 @@ export function clearChileCompra() {
     opportunities: [], campaigns: [], matches: [], marketProfile: null, analytics: null,
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
-    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '', sort: 'recent', lastSyncAt: ''
+    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '',
+    cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmView: 'pulso',
+    cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
+    sort: 'recent', lastSyncAt: ''
   });
   notify();
 }
@@ -246,6 +258,139 @@ async function invokeRadar(body) {
   if (error) throw error;
   if (data?.error) throw new Error(data.message || data.error);
   return data || {};
+}
+
+
+const CM_DIRECTORY_REVIEWED_AT = '2026-10-05';
+const CM_CURRENT_AGREEMENTS = [
+  { code:'2239-6-LR25', name:'Adquisición de vehículos y maquinaria', expires:'2029-03-13' },
+  { code:'2239-1-LR26', name:'Administración y entrega de beneficios', expires:'2029-05-19' },
+  { code:'2239-16-LR23', name:'Agencias de viajes corporativos y asistencia', expires:'2026-11-23' },
+  { code:'2239-9-LR24', name:'Alimentos', expires:'2028-02-20' },
+  { code:'2239-5-LR25', name:'Arriendo y compra de computadores y accesorios', expires:'2028-10-28' },
+  { code:'2239-8-LR25', name:'Artículos de aseo e higiene', expires:'2027-11-30' },
+  { code:'2239-16-LR24', name:'Artículos de escritorio y papelería', expires:'2028-05-16' },
+  { code:'2239-19-LR23', name:'Desarrollo y mantención de software', expires:'2027-01-12' },
+  { code:'2239-8-LR24', name:'Emergencias, contingencias y prevención', expires:'2026-10-18' },
+  { code:'2239-15-LR25', name:'Endoprótesis, ortopedia y trauma', expires:'2029-02-25' },
+  { code:'2239-1-LR25', name:'Gas licuado de petróleo', expires:'2028-06-03' },
+  { code:'2239-21-LR23', name:'Insumos y dispositivos médicos', expires:'2027-06-14' },
+  { code:'2239-11-LR24', name:'Licencia Ofimática', expires:'2027-12-06' },
+  { code:'2239-4-LR25', name:'Mobiliario general', expires:'2028-09-02' },
+  { code:'2239-9-LR23', name:'Productos de ferretería y servicios', expires:'2027-03-20' },
+  { code:'2239-12-LR23', name:'Seguro colectivo de vida con adicional de salud', expires:'2026-10-25' },
+  { code:'2239-13-LR25', name:'Suministro de combustibles', expires:'2027-07-02' },
+  { code:'2239-12-LR25', name:'Transporte privado de pasajeros y arriendo de vehículos', expires:'2028-01-02' }
+]
+
+function agreementStatus(row) {
+  const end = row?.expires ? new Date(row.expires + 'T23:59:59') : null;
+  if (!end || Number.isNaN(end.getTime())) return { label:'Vigencia no informada', tone:'neutral' };
+  const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
+  if (days < 0) return { label:'Vencido', tone:'danger' };
+  if (days <= 30) return { label:'Vence en ' + days + ' día' + (days === 1 ? '' : 's'), tone:'warning' };
+  if (days <= 120) return { label:'Vence en ' + days + ' días', tone:'attention' };
+  return { label:'Vigente', tone:'success' };
+}
+
+function cmMoney(value, currency = 'CLP') {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return '—';
+  if (currency === 'CLP') return '$' + Math.round(n).toLocaleString('es-CL');
+  return currency + ' ' + n.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+}
+
+function cmOrderItems(code) {
+  return (chilecompraState.cmData?.items || []).filter((item) => item.order_code === code);
+}
+
+async function loadConvenioMarco({ forceSync = false } = {}) {
+  if (chilecompraState.cmLoading) return chilecompraState.cmData;
+  chilecompraState.cmLoading = true;
+  chilecompraState.cmError = '';
+  notify();
+  rerender();
+  try {
+    const data = await invokeRadar({
+      action: 'cm-dashboard',
+      days: chilecompraState.cmDays,
+      query: chilecompraState.cmQuery,
+      forceSync
+    });
+    chilecompraState.cmData = data;
+    return data;
+  } catch (err) {
+    chilecompraState.cmError = err?.message || 'No se pudo cargar Convenio Marco.';
+    console.error('Convenio Marco', err);
+    throw err;
+  } finally {
+    chilecompraState.cmLoading = false;
+    notify();
+    rerender();
+  }
+}
+
+async function loadCmOrderDetail(code) {
+  if (!code) return null;
+  chilecompraState.cmSelectedCode = code;
+  chilecompraState.cmDetailLoading = true;
+  chilecompraState.cmError = '';
+  rerender();
+  try {
+    const data = await invokeRadar({ action: 'cm-detail', code });
+    chilecompraState.cmDetail = data;
+    return data;
+  } catch (err) {
+    chilecompraState.cmError = err?.message || 'No se pudo cargar la orden de Convenio Marco.';
+    throw err;
+  } finally {
+    chilecompraState.cmDetailLoading = false;
+    rerender();
+  }
+}
+
+async function patchCmCommercialState(code, radarState) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const organizationId = session.profile?.organization_id;
+  if (!organizationId) throw new Error('No se pudo resolver tu organización.');
+  const payload = {
+    organization_id: organizationId,
+    order_code: code,
+    radar_state: radarState,
+    updated_by: session.user?.id || null,
+    updated_at: new Date().toISOString()
+  };
+  const { data, error } = await supabase
+    .from('chilecompra_cm_states')
+    .upsert(payload, { onConflict: 'organization_id,order_code' })
+    .select('*')
+    .single();
+  if (error) throw error;
+
+  if (chilecompraState.cmData?.orders) {
+    chilecompraState.cmData.orders = chilecompraState.cmData.orders.map((order) =>
+      order.code === code ? { ...order, commercial_state: data } : order
+    );
+  }
+  if (chilecompraState.cmDetail?.order?.code === code) {
+    chilecompraState.cmDetail.order = { ...chilecompraState.cmDetail.order, commercial_state: data };
+  }
+  notify();
+  rerender();
+  return data;
+}
+
+async function convertCmToCrm(code) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const { data, error } = await supabase.rpc('chilecompra_convert_cm_order', { p_order_code: code });
+  if (error) throw error;
+  await hydrateCrm();
+  await loadConvenioMarco();
+  if (chilecompraState.cmSelectedCode === code) {
+    await loadCmOrderDetail(code);
+  }
+  toast('Orden de Convenio Marco agregada al CRM.');
+  return data;
 }
 
 export async function syncChileCompra() {
@@ -795,6 +940,7 @@ function campaignRow(c, stats, { controls = true } = {}) {
 function dashboardNav(stats) {
   const primary = [
     ['resumen','Resumen',''],
+    ['convenio','Convenio Marco',''],
     ['coincidencias','Coincidencias',stats.total],
     ['campanas','Seguimientos',stats.activeCampaigns],
     ['buscar','Buscar','']
@@ -880,6 +1026,213 @@ function renderMarketDashboard() {
       ${chilecompraState.analyticsLoading ? '<div class="cc-empty">Analizando licitaciones activas…</div>' : marketBars(data, { limit: 24 })}
       <div class="cc-market-kpis"><div><strong>${Number(data?.publications || 0).toLocaleString('es-CL')}</strong><span>Publicaciones</span></div><div><strong>${Number(data?.buyers || 0).toLocaleString('es-CL')}</strong><span>Compradores</span></div><div><strong>${compactAmount(data?.amount || 0)}</strong><span>Monto observado</span></div></div>
     </section>
+  </section>`;
+}
+
+
+function cmMetricBars(rows = [], { valueKey = 'total', labelKey = 'name', limit = 7, currency = 'CLP' } = {}) {
+  const selected = rows.filter((row) => Number(row?.[valueKey] || 0) > 0).slice(0, limit);
+  const max = Math.max(1, ...selected.map((row) => Number(row[valueKey] || 0)));
+  if (!selected.length) return '<div class="cc-empty">Todavía no hay datos suficientes para este período.</div>';
+  return `<div class="cc-cm-bars">${selected.map((row) => {
+    const value = Number(row[valueKey] || 0);
+    const shown = valueKey === 'total' ? cmMoney(value, currency) : value.toLocaleString('es-CL');
+    return `<div class="cc-cm-bar"><div><span>${e(row[labelKey] || 'Sin nombre')}</span><strong>${e(shown)}</strong></div><i><b style="width:${Math.max(3,(value/max)*100).toFixed(1)}%"></b></i></div>`;
+  }).join('')}</div>`;
+}
+
+function cmCommercialBadge(order) {
+  const state = order?.commercial_state?.radar_state || 'nuevo';
+  const labels = { nuevo:'Nueva', guardado:'Guardada', crm:'En CRM', descartado:'Descartada' };
+  return `<span class="cc-cm-state cc-cm-state--${e(state)}">${e(labels[state] || state)}</span>`;
+}
+
+function cmOrderRow(order) {
+  return `<article class="cc-cm-order" data-cm-order="${e(order.code)}">
+    <div class="cc-cm-order-main">
+      <div class="cc-cm-order-head"><strong>${e(order.name || order.description || 'Orden de Convenio Marco')}</strong>${cmCommercialBadge(order)}</div>
+      <span>${e(order.code)} · ${e(order.agreement_code || 'Convenio no identificado')}</span>
+      <small>${e(order.buyer_name || order.buyer_unit || 'Comprador no informado')} → ${e(order.supplier_name || 'Proveedor no informado')}</small>
+    </div>
+    <div class="cc-cm-order-side">
+      <strong>${e(cmMoney(order.total, order.currency || 'CLP'))}</strong>
+      <span>${order.created_at_mp ? e(fmtDate(order.created_at_mp.slice(0,10))) : 'Sin fecha'}</span>
+    </div>
+    <span class="cc-chevron">›</span>
+  </article>`;
+}
+
+function renderCmPulse(data) {
+  const stats = data?.stats || {};
+  return `<div class="cc-cm-pulse">
+    <div class="cc-kpi-grid cc-cm-kpis">
+      <div><strong>${Number(stats.orders || 0).toLocaleString('es-CL')}</strong><span>Órdenes CM</span></div>
+      <div><strong>${e(cmMoney(stats.total || 0))}</strong><span>Monto observado</span></div>
+      <div><strong>${Number(stats.buyers || 0).toLocaleString('es-CL')}</strong><span>Organismos compradores</span></div>
+      <div><strong>${Number(stats.suppliers || 0).toLocaleString('es-CL')}</strong><span>Proveedores</span></div>
+    </div>
+
+    <div class="cc-cm-grid-2">
+      <section class="cc-cm-panel"><div class="cc-section-head"><div><h4>Quién está comprando más</h4><p>Monto de órdenes de Convenio Marco en el período.</p></div></div>${cmMetricBars(data?.buyers || [])}</section>
+      <section class="cc-cm-panel"><div class="cc-section-head"><div><h4>Quién está vendiendo más</h4><p>Proveedores con mayor monto observado.</p></div></div>${cmMetricBars(data?.suppliers || [])}</section>
+    </div>
+
+    <section class="cc-cm-panel">
+      <div class="cc-section-head"><div><h4>Productos y servicios con mayor gasto</h4><p>Precios y demanda observados en órdenes reales de Convenio Marco.</p></div><button type="button" class="ghost-btn" data-cm-view="productos">Ver productos y precios</button></div>
+      ${cmMetricBars((data?.products || []).map((row) => ({...row,name:row.label})), { labelKey:'name', valueKey:'total', limit:10 })}
+    </section>
+  </div>`;
+}
+
+function renderCmOrders(data) {
+  const rows = data?.orders || [];
+  return `<section class="cc-cm-panel">
+    <div class="cc-section-head"><div><h4>Órdenes de compra por Convenio Marco</h4><p>Compras reales emitidas por organismos del Estado. Abre una orden para revisar productos, proveedor y precios.</p></div></div>
+    <div class="cc-cm-order-list">${rows.length ? rows.map(cmOrderRow).join('') : '<div class="cc-empty">No encontramos órdenes CM para este filtro.</div>'}</div>
+  </section>`;
+}
+
+function renderCmProducts(data) {
+  const rows = data?.products || [];
+  return `<section class="cc-cm-panel">
+    <div class="cc-section-head"><div><h4>Productos y precios observados</h4><p>Se calculan desde órdenes de compra CM reales. Para revisar la maestra oficial vigente usa Catálogo oficial.</p></div><button type="button" class="ghost-btn" data-cm-view="convenios">Catálogo oficial</button></div>
+    <div class="cc-cm-product-list">${rows.length ? rows.map((row) => `<article>
+      <div class="cc-cm-product-title"><strong>${e(row.label || row.productCode || 'Producto')}</strong><span>${e(row.productCode || row.category || '')}</span></div>
+      <div class="cc-cm-product-metrics">
+        <div><small>Órdenes</small><strong>${Number(row.orders || 0).toLocaleString('es-CL')}</strong></div>
+        <div><small>Compradores</small><strong>${Number(row.buyers || 0).toLocaleString('es-CL')}</strong></div>
+        <div><small>Precio prom.</small><strong>${row.avgPrice != null ? e(cmMoney(row.avgPrice)) : '—'}</strong></div>
+        <div><small>Rango</small><strong>${row.minPrice != null ? `${e(cmMoney(row.minPrice))} – ${e(cmMoney(row.maxPrice))}` : '—'}</strong></div>
+        <div><small>Monto</small><strong>${e(cmMoney(row.total || 0))}</strong></div>
+      </div>
+      ${(row.agreementCodes || []).length ? `<div class="cc-tags">${row.agreementCodes.map((code) => tag(code)).join('')}</div>` : ''}
+    </article>`).join('') : '<div class="cc-empty">Todavía no hay ítems detallados suficientes para este período.</div>'}</div>
+  </section>`;
+}
+
+function renderCmEntities(data, kind) {
+  const isBuyer = kind === 'compradores';
+  const rows = isBuyer ? (data?.buyers || []) : (data?.suppliers || []);
+  return `<section class="cc-cm-panel">
+    <div class="cc-section-head"><div><h4>${isBuyer ? 'Organismos compradores' : 'Proveedores en Convenio Marco'}</h4><p>${isBuyer ? 'Quién compra, cuánto y con qué frecuencia.' : 'Quién está capturando las compras observadas en el período.'}</p></div></div>
+    <div class="cc-cm-entity-list">${rows.length ? rows.map((row,index) => `<article><b>${index+1}</b><div><strong>${e(row.name)}</strong><span>${row.orders} orden${row.orders===1?'':'es'} · ${(row.agreements || []).slice(0,3).map(e).join(' · ')}</span></div><strong>${e(cmMoney(row.total || 0))}</strong></article>`).join('') : '<div class="cc-empty">No hay datos para este período.</div>'}</div>
+  </section>`;
+}
+
+function renderCmAgreements(data) {
+  const observed = new Map((data?.agreements || []).map((row) => [row.code,row]));
+  const catalog = new Map((data?.catalogFiles || []).map((row) => [String(row.code || '').toUpperCase(), row]));
+  return `<section class="cc-cm-panel">
+    <div class="cc-section-head"><div><h4>Convenios Marco vigentes</h4><p>Directorio oficial revisado al ${e(fmtDate(CM_DIRECTORY_REVIEWED_AT))}, cruzado con las órdenes observadas por el CRM.</p></div><div class="cc-cm-source-actions"><button type="button" class="ghost-btn" data-cm-external="https://www.mercadopublico.cl/TiendaHome/">Abrir Tienda oficial ↗</button><button type="button" class="ghost-btn" data-cm-external="https://datos-abiertos.chilecompra.cl/descargas/convenio-marco">Datos Abiertos ↗</button></div></div>
+    <div class="cc-cm-agreement-list">${CM_CURRENT_AGREEMENTS.map((agreement) => {
+      const status=agreementStatus(agreement);
+      const row=observed.get(agreement.code);
+      const file=catalog.get(agreement.code);
+      return `<article>
+        <div><span class="cc-cm-agreement-code">${e(agreement.code)}</span><strong>${e(agreement.name)}</strong><small>Vigencia hasta ${e(fmtDate(agreement.expires))}${file?.updatedAt ? ` · maestra actualizada ${e(file.updatedAt)}` : ''}</small></div>
+        <div class="cc-cm-agreement-observed"><span class="cc-cm-validity cc-cm-validity--${status.tone}">${e(status.label)}</span><strong>${row ? e(cmMoney(row.total || 0)) : 'Sin compras en el período'}</strong><small>${row ? `${row.orders} órdenes · ${row.buyers} compradores · ${row.suppliers} proveedores` : 'Amplía el período para buscar transacciones.'}</small>${file?.url ? `<button type="button" class="cc-cm-catalog-link" data-cm-external="${e(file.url)}">Abrir maestra oficial ↗</button>` : ''}</div>
+      </article>`;
+    }).join('')}</div>
+    <div class="cc-api-note cc-cm-catalog-note"><strong>Catálogo oficial integrado</strong><span>El módulo consulta el índice oficial de maestras de Convenio Marco publicado por ChileCompra en Datos Abiertos. Cada convenio muestra la fecha de actualización de su maestra y permite abrir el archivo oficial. Los precios del panel Productos y precios son valores realmente observados en órdenes de compra.</span></div>
+  </section>
+  <section class="cc-cm-panel cc-cm-gran-compra">
+    <div class="cc-section-head"><div><span class="cc-eyebrow">También dentro de Convenio Marco</span><h4>Gran Compra</h4><p>Los procesos de Gran Compra se publican como un conjunto separado en Datos Abiertos. Desde aquí puedes acceder a la fuente oficial para analizar procesos de alto monto.</p></div><button type="button" class="primary-btn" data-cm-external="https://datos-abiertos.chilecompra.cl/descargas">Ver procesos de Gran Compra ↗</button></div>
+  </section>`;
+}
+
+function renderConvenioMarcoDashboard() {
+  const data = chilecompraState.cmData;
+  const view = chilecompraState.cmView || 'pulso';
+  const views = [
+    ['pulso','Pulso'],
+    ['ordenes','Órdenes'],
+    ['productos','Productos y precios'],
+    ['compradores','Compradores'],
+    ['proveedores','Proveedores'],
+    ['convenios','Catálogo oficial']
+  ];
+
+  return `<section class="cc-dashboard cc-cm-dashboard">
+    <section class="cc-dashboard-card cc-cm-hero">
+      <div class="cc-section-head"><div><span class="cc-eyebrow">Inteligencia comercial</span><h3>Convenio Marco</h3><p>Ve qué está comprando el Estado por catálogo, a quién le compra, cuánto paga y qué proveedores están capturando la demanda.</p></div><button type="button" class="primary-btn" data-cm-sync>${chilecompraState.cmLoading ? 'Actualizando…' : 'Actualizar datos'}</button></div>
+      <form id="ccCmSearch" class="cc-cm-controls">
+        <label><span>Período</span><select id="ccCmDays"><option value="1" ${chilecompraState.cmDays===1?'selected':''}>Último día</option><option value="3" ${chilecompraState.cmDays===3?'selected':''}>Últimos 3 días</option><option value="7" ${chilecompraState.cmDays===7?'selected':''}>Últimos 7 días</option><option value="30" ${chilecompraState.cmDays===30?'selected':''}>Últimos 30 días</option></select></label>
+        <label class="cc-cm-search"><span>Buscar</span><input id="ccCmQuery" type="search" value="${e(chilecompraState.cmQuery)}" placeholder="Producto, organismo, proveedor, código OC o convenio"></label>
+        <button type="submit" class="ghost-btn">Aplicar</button>
+      </form>
+      ${data?.coverage ? `<div class="cc-cm-coverage"><span>Período analizado: <strong>${data.days} día${data.days===1?'':'s'}</strong></span><span>Órdenes cargadas: <strong>${Number(data.coverage.orders||0).toLocaleString('es-CL')}</strong></span><span>Detalle de ítems: <strong>${data.coverage.percent}%</strong></span>${data.coverage.truncated ? `<span class="cc-cm-coverage-warning">Hay ${Number(data.coverage.detected||0).toLocaleString('es-CL')} órdenes en caché para el período; el análisis usa las ${Number(data.coverage.loaded||0).toLocaleString('es-CL')} más recientes.</span>` : ''}</div>` : ''}
+      ${chilecompraState.cmError ? `<div class="cc-detail-warning"><strong>No se pudo completar la consulta</strong><span>${e(chilecompraState.cmError)}</span></div>` : ''}
+    </section>
+
+    <nav class="cc-cm-subnav">${views.map(([id,label]) => `<button type="button" data-cm-view="${id}" class="${view===id?'active':''}">${label}</button>`).join('')}</nav>
+
+    ${chilecompraState.cmLoading && !data
+      ? '<section class="cc-cm-panel cc-cm-loading"><span class="cc-search-spinner"></span><strong>Cargando órdenes de Convenio Marco…</strong><small>Consultamos la API oficial de órdenes de compra y filtramos las de tipo CM.</small></section>'
+      : view==='ordenes' ? renderCmOrders(data)
+      : view==='productos' ? renderCmProducts(data)
+      : view==='compradores' ? renderCmEntities(data,'compradores')
+      : view==='proveedores' ? renderCmEntities(data,'proveedores')
+      : view==='convenios' ? renderCmAgreements(data)
+      : renderCmPulse(data)}
+  </section>`;
+}
+
+function renderCmOrderPage() {
+  const payload=chilecompraState.cmDetail;
+  const order=payload?.order || (chilecompraState.cmData?.orders || []).find((row)=>row.code===chilecompraState.cmSelectedCode);
+  if(chilecompraState.cmDetailLoading && !order) return '<section class="cc-cm-panel cc-cm-loading"><span class="cc-search-spinner"></span><strong>Cargando orden de Convenio Marco…</strong></section>';
+  if(!order) return '<section class="cc-detail-page"><div class="cc-empty">No pudimos cargar esta orden de Convenio Marco.</div></section>';
+  const items=payload?.items || cmOrderItems(order.code);
+  const state=order.commercial_state?.radar_state || 'nuevo';
+
+  return `<section class="cc-detail-page cc-cm-detail-page">
+    <div class="cc-detail-page-toolbar"><button type="button" class="cc-back-btn" data-cm-back>← Volver a Convenio Marco</button><span>OC ${e(order.code)}</span></div>
+    <div class="cc-detail-page-shell">
+      <div class="cc-cm-detail">
+        <div class="cc-cm-detail-head"><div><span class="cc-eyebrow">${e(order.agreement_code || 'Convenio Marco')}</span><h2>${e(order.name || order.description || 'Orden de compra')}</h2><p>${e(order.buyer_name || order.buyer_unit || 'Comprador no informado')} → ${e(order.supplier_name || 'Proveedor no informado')}</p></div>${cmCommercialBadge(order)}</div>
+        <div class="cc-cm-detail-kpis">
+          <div><small>Total OC</small><strong>${e(cmMoney(order.total,order.currency||'CLP'))}</strong></div>
+          <div><small>Estado</small><strong>${e(order.status || 'Sin estado')}</strong></div>
+          <div><small>Fecha</small><strong>${order.created_at_mp ? e(fmtDate(order.created_at_mp.slice(0,10))) : 'No informada'}</strong></div>
+          <div><small>Ítems</small><strong>${items.length}</strong></div>
+        </div>
+        ${order.description ? `<section class="cc-detail-block"><h4>Descripción</h4><p class="cc-description">${e(order.description)}</p></section>` : ''}
+        <div class="cc-cm-grid-2">
+          <section class="cc-detail-block"><h4>Organismo comprador</h4><div class="cc-detail-kv">
+            <div><small>Organismo</small><strong>${e(order.buyer_name || 'No informado')}</strong></div>
+            <div><small>Unidad</small><strong>${e(order.buyer_unit || 'No informada')}</strong></div>
+            <div><small>RUT</small><strong>${e(order.buyer_rut || 'No informado')}</strong></div>
+            <div><small>Región / comuna</small><strong>${e([order.buyer_region,order.buyer_commune].filter(Boolean).join(' · ') || 'No informado')}</strong></div>
+            <div><small>Contacto</small><strong>${e(order.buyer_contact || 'No informado')}</strong></div>
+            <div><small>Correo</small><strong>${e(order.buyer_email || 'No informado')}</strong></div>
+          </div></section>
+          <section class="cc-detail-block"><h4>Proveedor</h4><div class="cc-detail-kv">
+            <div><small>Proveedor</small><strong>${e(order.supplier_name || 'No informado')}</strong></div>
+            <div><small>RUT</small><strong>${e(order.supplier_rut || 'No informado')}</strong></div>
+            <div><small>Región / comuna</small><strong>${e([order.supplier_region,order.supplier_commune].filter(Boolean).join(' · ') || 'No informado')}</strong></div>
+            <div><small>Contacto</small><strong>${e(order.supplier_contact || 'No informado')}</strong></div>
+            <div><small>Correo</small><strong>${e(order.supplier_email || 'No informado')}</strong></div>
+            <div><small>Convenio</small><strong>${e(order.agreement_code || 'No identificado')}</strong></div>
+          </div></section>
+        </div>
+        <section class="cc-detail-block"><h4>Productos / servicios comprados</h4>
+          <div class="cc-detail-items">${items.length ? items.map((item,index)=>`<article><div><span>Ítem ${index+1}</span><strong>${e(item.raw?.Producto || item.supplier_spec || item.buyer_spec || item.category || item.product_code || 'Producto')}</strong></div><dl>
+            <div><dt>Producto</dt><dd>${e(item.raw?.Producto || item.supplier_spec || item.buyer_spec || 'No informado')}</dd></div>
+            <div><dt>Código ONU / producto</dt><dd>${e(item.product_code || item.category_code || 'No informado')}</dd></div>
+            <div><dt>Categoría</dt><dd>${e(item.category || 'No informada')}</dd></div>
+            <div><dt>Cantidad</dt><dd>${item.quantity ?? '—'} ${e(item.unit || '')}</dd></div>
+            <div><dt>Precio unitario</dt><dd>${item.unit_price != null ? e(cmMoney(item.unit_price,item.currency||order.currency||'CLP')) : '—'}</dd></div>
+            <div><dt>Total ítem</dt><dd>${item.total != null ? e(cmMoney(item.total,item.currency||order.currency||'CLP')) : '—'}</dd></div>
+            <div><dt>Convenio</dt><dd>${e(item.agreement_code || order.agreement_code || 'No identificado')}</dd></div>
+          </dl></article>`).join('') : '<div class="cc-empty">La API todavía no devolvió el detalle de ítems para esta orden.</div>'}</div>
+        </section>
+        <div class="cc-detail-actions cc-cm-detail-actions">
+          <button type="button" class="primary-btn" data-cm-crm="${e(order.code)}" ${state==='crm'?'disabled':''}>${state==='crm'?'✓ Ya está en CRM':'Agregar al CRM'}</button>
+          <button type="button" class="ghost-btn" data-cm-state="guardado" data-cm-code="${e(order.code)}">${state==='guardado'?'✓ Guardada':'♡ Guardar'}</button>
+          <button type="button" class="ghost-btn" data-cm-state="descartado" data-cm-code="${e(order.code)}">⊘ Descartar</button>
+        </div>
+      </div>
+    </div>
   </section>`;
 }
 
@@ -969,24 +1322,33 @@ function renderOpportunityPage(o) {
 
 function renderInner() {
   const stats = chilecompraDashboardStats();
+  if (chilecompraState.cmSelectedCode) return `${renderCmOrderPage()}${sharedDialogs()}`;
+
   const selected = chilecompraState.selectedId ? selectedOpportunity() : null;
   if (selected) return `${renderOpportunityPage(selected)}${sharedDialogs()}`;
 
   const isSearch = chilecompraState.tab === 'buscar';
+  const isCm = chilecompraState.tab === 'convenio';
   const updated = chilecompraState.lastSyncAt
     ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
     : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Sin revisión reciente';
 
-  return `<section class="cc-module-toolbar ${isSearch ? 'cc-module-toolbar--search' : ''}">
+  const toolbar = isCm ? '' : `<section class="cc-module-toolbar ${isSearch ? 'cc-module-toolbar--search' : ''}">
     <span class="cc-updated"><i></i>${updated}</span>
     <div class="cc-module-actions">
       ${stats.activeCampaigns && !isSearch ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button>` : ''}
       ${!isSearch ? '<button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>' : ''}
     </div>
-  </section>
-  ${dashboardNav(stats)}
-  ${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}
-  ${sharedDialogs()}`;
+  </section>`;
+
+  const content = chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats)
+    : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats)
+    : chilecompraState.tab === 'mercado' ? renderMarketDashboard()
+    : chilecompraState.tab === 'compradores' ? renderBuyersDashboard()
+    : chilecompraState.tab === 'convenio' ? renderConvenioMarcoDashboard()
+    : renderOpportunityWorkspace(stats);
+
+  return `${toolbar}${dashboardNav(stats)}${content}${sharedDialogs()}`;
 }
 
 export function renderChileCompra() {
@@ -1113,6 +1475,11 @@ export function mountChileCompraView() {
     ev.preventDefault();
     try {
       if (ev.target.id === 'ccTraditionalSearch') return await runTraditionalSearch(document.getElementById('ccSearch')?.value || '');
+      if (ev.target.id === 'ccCmSearch') {
+        chilecompraState.cmQuery = document.getElementById('ccCmQuery')?.value?.trim() || '';
+        await loadConvenioMarco();
+        return;
+      }
       if (ev.target.id === 'ccCampaignForm') {
         const name = document.getElementById('ccCampaignName')?.value || '';
         const terms = document.getElementById('ccCampaignTerms')?.value || '';
@@ -1151,6 +1518,60 @@ export function mountChileCompraView() {
       return;
     }
     if (ev.target.closest('[data-cc-business-open]')) { document.getElementById('ccBusinessDialog')?.showModal(); return; }
+
+    const cmView = ev.target.closest('[data-cm-view]');
+    if (cmView) {
+      chilecompraState.cmView = cmView.dataset.cmView || 'pulso';
+      rerender();
+      return;
+    }
+    if (ev.target.closest('[data-cm-sync]')) {
+      try {
+        await loadConvenioMarco({ forceSync: true });
+        toast('Convenio Marco actualizado.');
+      } catch (err) {
+        toast(err.message || 'No se pudieron actualizar las órdenes de Convenio Marco.', 'error');
+      }
+      return;
+    }
+    const cmOrder = ev.target.closest('[data-cm-order]');
+    if (cmOrder) {
+      try {
+        await loadCmOrderDetail(cmOrder.dataset.cmOrder || '');
+      } catch (err) {
+        toast(err.message || 'No se pudo cargar la orden de Convenio Marco.', 'error');
+      }
+      return;
+    }
+    if (ev.target.closest('[data-cm-back]')) {
+      chilecompraState.cmSelectedCode = '';
+      chilecompraState.cmDetail = null;
+      rerender();
+      return;
+    }
+    const cmState = ev.target.closest('[data-cm-state]');
+    if (cmState) {
+      const code = cmState.dataset.cmCode || '';
+      const nextState = cmState.dataset.cmState || 'guardado';
+      try {
+        await patchCmCommercialState(code, nextState);
+        toast(nextState === 'guardado' ? 'Orden guardada.' : 'Orden descartada.');
+      } catch (err) {
+        toast(err.message || 'No se pudo actualizar la orden.', 'error');
+      }
+      return;
+    }
+    const cmCrm = ev.target.closest('[data-cm-crm]');
+    if (cmCrm) {
+      try { await convertCmToCrm(cmCrm.dataset.cmCrm || ''); }
+      catch (err) { toast(err.message || 'No se pudo agregar al CRM.', 'error'); }
+      return;
+    }
+    const cmExternal = ev.target.closest('[data-cm-external]');
+    if (cmExternal) {
+      openExternal(cmExternal.dataset.cmExternal || 'https://www.mercadopublico.cl/TiendaHome/');
+      return;
+    }
 
     const quickSearch = ev.target.closest('[data-cc-quick-search]');
     if (quickSearch) {
@@ -1236,6 +1657,9 @@ export function mountChileCompraView() {
       rerender();
       if (chilecompraState.tab === 'resumen' && !chilecompraState.marketPulse) await ensureMarketPulse();
       if (chilecompraState.tab === 'mercado' && chilecompraState.analyticsUniverse !== 'campaigns' && !chilecompraState.analytics) await refreshAnalyticsFromControls();
+      if (chilecompraState.tab === 'convenio' && !chilecompraState.cmData && !chilecompraState.cmLoading) {
+        try { await loadConvenioMarco(); } catch (err) { toast(err.message || 'No se pudo cargar Convenio Marco.', 'error'); }
+      }
       rerender();
       return;
     }
@@ -1285,6 +1709,11 @@ export function mountChileCompraView() {
       const toggle = ev.target.closest('[data-cc-campaign-toggle]');
       if (toggle) { await toggleCampaign(toggle.dataset.ccCampaignToggle, toggle.checked); rerender(); return; }
       if (ev.target.id === 'ccSort') { chilecompraState.sort = ev.target.value; chilecompraState.selectedId = ''; rerender(); return; }
+      if (ev.target.id === 'ccCmDays') {
+        chilecompraState.cmDays = Number(ev.target.value || 30);
+        await loadConvenioMarco();
+        return;
+      }
       if (ev.target.id === 'ccAnalyticsUniverse') { chilecompraState.analyticsUniverse = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
       if (ev.target.id === 'ccAnalyticsMetric') { chilecompraState.analyticsMetric = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
       if (ev.target.id === 'ccAnalyticsGroupBy') { chilecompraState.analyticsGroupBy = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
@@ -1297,5 +1726,8 @@ export function mountChileCompraView() {
 
   if (!chilecompraState.hydrated && !chilecompraState.loading) {
     hydrateChileCompra().then(rerender).catch((err) => { console.error(err); toast('No se pudo cargar ChileCompra.', 'error'); });
+  }
+  if (chilecompraState.tab === 'convenio' && !chilecompraState.cmData && !chilecompraState.cmLoading) {
+    loadConvenioMarco().catch((err) => { console.error(err); toast('No se pudo cargar Convenio Marco.', 'error'); });
   }
 }

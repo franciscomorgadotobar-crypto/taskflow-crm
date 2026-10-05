@@ -8,6 +8,7 @@ const CORS = {
 };
 const API_BASE = "https://api.mercadopublico.cl/servicios/v1/publico";
 const MP_SEARCH_URL = "https://www.mercadopublico.cl/BuscarLicitacion";
+const CM_MASTER_INDEX_URL = "https://transparenciachc.blob.core.windows.net/maestrascm/CM_publicados.csv";
 
 // El radar no presupone productos. Las coincidencias se definen exclusivamente
 // por campañas y por el perfil de mercado configurados por cada organización.
@@ -494,6 +495,643 @@ async function marketAnalytics(admin,ticket,org,body) {
   };
 }
 
+
+function orderListFrom(payload) {
+  const candidates=[
+    payload?.Listado,
+    payload?.listado,
+    payload?.Listado?.OrdenCompra,
+    payload?.Listado?.ordenCompra,
+    payload?.Ordenes?.Listado,
+    payload?.Ordenes?.Listado?.OrdenCompra,
+    payload?.Ordenes?.Listado?.ordenCompra
+  ];
+  for(const candidate of candidates) {
+    if(Array.isArray(candidate)) return candidate;
+    if(candidate && typeof candidate==="object" && (candidate.Codigo || candidate.codigo)) return [candidate];
+  }
+  return [];
+}
+function orderStatusFrom(item) {
+  const explicit=String(get(item,"Estado","estado")||"").trim();
+  if(explicit) return explicit;
+  return ({
+    4:"Enviada a proveedor",
+    5:"En proceso",
+    6:"Aceptada",
+    9:"Cancelada",
+    12:"Recepción conforme",
+    13:"Pendiente de recepcionar",
+    14:"Recepcionada parcialmente",
+    15:"Recepción conforme incompleta"
+  })[Number(get(item,"CodigoEstado","codigoEstado"))] || "Sin estado";
+}
+function agreementCodeFrom(value) {
+  const text=String(value||"");
+  const direct=text.match(/\b\d{4,}-\d+-L[A-Z]\d{2}\b/i);
+  return direct ? direct[0].toUpperCase() : "";
+}
+function cmOrderFields(item) {
+  const buyer=get(item,"Comprador","comprador")||{};
+  const supplier=get(item,"Proveedor","proveedor")||{};
+  const dates=get(item,"Fechas","fechas")||{};
+  const type=String(get(item,"Tipo","tipo")||"").trim();
+  const typeCode=Number(get(item,"CodigoTipo","codigoTipo"));
+  const agreementCode=String(get(item,"CodigoLicitacion","codigoLicitacion")||"").trim() || agreementCodeFrom(deepText(get(item,"Items","items")||item));
+  return {
+    code:String(get(item,"Codigo","codigo")||"").trim(),
+    name:String(get(item,"Nombre","nombre")||"").trim(),
+    description:String(get(item,"Descripcion","descripcion")||"").trim(),
+    statusCode:Number(get(item,"CodigoEstado","codigoEstado"))||null,
+    status:orderStatusFrom(item),
+    typeCode:Number.isFinite(typeCode) ? typeCode : null,
+    type:type,
+    currency:String(get(item,"TipoMoneda","Moneda","moneda")||"CLP").trim()||"CLP",
+    netTotal:money(get(item,"TotalNeto","totalNeto")),
+    total:money(get(item,"Total","total")),
+    discounts:money(get(item,"Descuentos","descuentos")),
+    charges:money(get(item,"Cargos","cargos")),
+    taxes:money(get(item,"Impuestos","impuestos")),
+    createdAt:isoDate(get(dates,"FechaCreacion")||get(item,"FechaCreacion")),
+    sentAt:isoDate(get(dates,"FechaEnvio")||get(item,"FechaEnvio")),
+    acceptedAt:isoDate(get(dates,"FechaAceptacion")||get(item,"FechaAceptacion")),
+    cancelledAt:isoDate(get(dates,"FechaCancelacion")||get(item,"FechaCancelacion")),
+    modifiedAt:isoDate(get(dates,"FechaUltimaModificacion")||get(item,"FechaUltimaModificacion")),
+    buyerCode:String(get(buyer,"CodigoOrganismo")||"").trim(),
+    buyerName:String(get(buyer,"NombreOrganismo","NombreUnidad")||"").trim(),
+    buyerUnit:String(get(buyer,"NombreUnidad")||"").trim(),
+    buyerRut:String(get(buyer,"RutUnidad")||"").trim(),
+    buyerRegion:String(get(buyer,"RegionUnidad")||"").trim(),
+    buyerCommune:String(get(buyer,"ComunaUnidad")||"").trim(),
+    buyerAddress:String(get(buyer,"DireccionUnidad")||"").trim(),
+    buyerContact:String(get(buyer,"NombreContacto")||"").trim(),
+    buyerEmail:String(get(buyer,"MailContacto")||"").trim(),
+    supplierCode:String(get(supplier,"Codigo")||"").trim(),
+    supplierName:String(get(supplier,"Nombre","NombreSucursal")||"").trim(),
+    supplierRut:String(get(supplier,"RutSucursal")||"").trim(),
+    supplierRegion:String(get(supplier,"Region")||"").trim(),
+    supplierCommune:String(get(supplier,"Comuna")||"").trim(),
+    supplierAddress:String(get(supplier,"Direccion")||"").trim(),
+    supplierContact:String(get(supplier,"NombreContacto")||"").trim(),
+    supplierEmail:String(get(supplier,"MailContacto")||"").trim(),
+    agreementCode
+  };
+}
+function isCmOrder(item) {
+  const f=cmOrderFields(item);
+  return f.typeCode===9
+    || normalize(f.type)==="cm"
+    || normalize(f.type).includes("convenio marco")
+    || /-CM\d{2}$/i.test(f.code);
+}
+function cmOrderRow(item, observedDate=null) {
+  const f=cmOrderFields(item);
+  return {
+    code:f.code,
+    name:f.name,
+    description:f.description,
+    status_code:f.statusCode,
+    status:f.status,
+    type_code:f.typeCode,
+    type:f.type || (/-CM\d{2}$/i.test(f.code) ? "CM" : ""),
+    currency:f.currency,
+    net_total:f.netTotal,
+    total:f.total,
+    discounts:f.discounts,
+    charges:f.charges,
+    taxes:f.taxes,
+    created_at_mp:f.createdAt,
+    sent_at:f.sentAt,
+    accepted_at:f.acceptedAt,
+    cancelled_at:f.cancelledAt,
+    modified_at_mp:f.modifiedAt,
+    observed_date:observedDate || (f.sentAt ? f.sentAt.slice(0,10) : f.createdAt ? f.createdAt.slice(0,10) : null),
+    buyer_code:f.buyerCode,
+    buyer_name:f.buyerName,
+    buyer_unit:f.buyerUnit,
+    buyer_rut:f.buyerRut,
+    buyer_region:f.buyerRegion,
+    buyer_commune:f.buyerCommune,
+    buyer_address:f.buyerAddress,
+    buyer_contact:f.buyerContact,
+    buyer_email:f.buyerEmail,
+    supplier_code:f.supplierCode,
+    supplier_name:f.supplierName,
+    supplier_rut:f.supplierRut,
+    supplier_region:f.supplierRegion,
+    supplier_commune:f.supplierCommune,
+    supplier_address:f.supplierAddress,
+    supplier_contact:f.supplierContact,
+    supplier_email:f.supplierEmail,
+    agreement_code:f.agreementCode,
+    source_url:"https://www.mercadopublico.cl/",
+    raw:item,
+    detail_loaded:Boolean(get(item,"Items","Proveedor","Comprador") && (get(item,"Items")||{}).Listado),
+    first_seen_at:new Date().toISOString(),
+    last_seen_at:new Date().toISOString(),
+    updated_at:new Date().toISOString()
+  };
+}
+function cmOrderItems(item) {
+  const raw=get(item,"Items","items")||{};
+  let list=get(raw,"Listado","listado")||[];
+  if(!Array.isArray(list)) list=list && typeof list==="object" ? [list] : [];
+  const orderAgreement=cmOrderFields(item).agreementCode;
+  return list.map((row,index)=>({
+    line_no:Number(get(row,"Correlativo","correlativo"))||index+1,
+    category_code:String(get(row,"CodigoCategoria","codigoCategoria")||"").trim(),
+    category:String(get(row,"Categoria","categoria")||"").trim(),
+    product_code:String(get(row,"CodigoProducto","codigoProducto")||"").trim(),
+    buyer_spec:String(get(row,"EspecificacionComprador","especificacionComprador")||"").trim(),
+    supplier_spec:String(get(row,"EspecificacionProveedor","especificacionProveedor")||"").trim(),
+    quantity:money(get(row,"Cantidad","cantidad")),
+    unit:String(get(row,"UnidadMedida","unidadMedida","Unidad")||"").trim(),
+    currency:String(get(row,"Moneda","moneda")||cmOrderFields(item).currency||"CLP").trim()||"CLP",
+    unit_price:money(get(row,"PrecioNeto","precioNeto")),
+    charges:money(get(row,"TotalCargos","totalCargos")),
+    discounts:money(get(row,"TotalDescuentos","totalDescuentos")),
+    taxes:money(get(row,"TotalImpuestos","totalImpuestos")),
+    total:money(get(row,"Total","total")),
+    agreement_code:agreementCodeFrom(deepText(row))||orderAgreement,
+    raw:row,
+    updated_at:new Date().toISOString()
+  }));
+}
+function apiDate(date) {
+  const d=new Date(date);
+  const dd=String(d.getUTCDate()).padStart(2,"0");
+  const mm=String(d.getUTCMonth()+1).padStart(2,"0");
+  return dd+mm+d.getUTCFullYear();
+}
+async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
+  let row=cmOrderRow(item);
+  if(!row.code) return null;
+  row.detail_loaded=detailLoaded || row.detail_loaded;
+
+  const {data:existing,error:existingError}=await admin.from("chilecompra_cm_orders")
+    .select("*").eq("code",row.code).maybeSingle();
+  if(existingError && existingError.code!=="PGRST116") throw existingError;
+
+  if(existing?.detail_loaded && !row.detail_loaded) {
+    const preserveText=[
+      "description","buyer_code","buyer_name","buyer_unit","buyer_rut","buyer_region","buyer_commune",
+      "buyer_address","buyer_contact","buyer_email","supplier_code","supplier_name","supplier_rut",
+      "supplier_region","supplier_commune","supplier_address","supplier_contact","supplier_email",
+      "agreement_code","source_url"
+    ];
+    for(const key of preserveText) if(!row[key] && existing[key]) row[key]=existing[key];
+    const preserveNumber=["net_total","total","discounts","charges","taxes"];
+    for(const key of preserveNumber) if(row[key]==null && existing[key]!=null) row[key]=existing[key];
+    const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
+    for(const key of preserveDate) if(!row[key] && existing[key]) row[key]=existing[key];
+    row.raw=existing.raw||row.raw;
+    row.detail_loaded=true;
+  }
+  if(existing?.first_seen_at) row.first_seen_at=existing.first_seen_at;
+  if(existing?.observed_date) row.observed_date=existing.observed_date;
+
+  const {data,error}=await admin.from("chilecompra_cm_orders")
+    .upsert(row,{onConflict:"code"}).select("*").single();
+  if(error) throw error;
+
+  const items=cmOrderItems(item).map(x=>({...x,order_code:row.code}));
+  if(items.length) {
+    const {error:deleteError}=await admin.from("chilecompra_cm_order_items").delete().eq("order_code",row.code);
+    if(deleteError) throw deleteError;
+    const {error:itemError}=await admin.from("chilecompra_cm_order_items").insert(items);
+    if(itemError) throw itemError;
+  }
+  return data;
+}
+async function sleep(ms) {
+  await new Promise(resolve=>setTimeout(resolve,ms));
+}
+async function upsertCmBasicOrders(admin,items,observedDate=null) {
+  const rows=items.map(item=>cmOrderRow(item,observedDate)).filter(row=>row.code);
+  if(!rows.length) return {rows:0,existing:new Map()};
+
+  const existingRows=[];
+  const codes=rows.map(row=>row.code);
+  for(let i=0;i<codes.length;i+=400) {
+    const chunk=codes.slice(i,i+400);
+    const {data,error}=await admin.from("chilecompra_cm_orders").select("*").in("code",chunk);
+    if(error) throw error;
+    existingRows.push(...(data||[]));
+  }
+  const existing=new Map(existingRows.map(row=>[row.code,row]));
+
+  const merged=rows.map(row=>{
+    const old=existing.get(row.code);
+    if(!old) return row;
+    const next={
+      ...row,
+      first_seen_at:old.first_seen_at||row.first_seen_at,
+      observed_date:old.observed_date && row.observed_date
+        ? (old.observed_date < row.observed_date ? old.observed_date : row.observed_date)
+        : (old.observed_date || row.observed_date)
+    };
+    if(old.detail_loaded) {
+      const preserveText=[
+        "description","buyer_code","buyer_name","buyer_unit","buyer_rut","buyer_region","buyer_commune",
+        "buyer_address","buyer_contact","buyer_email","supplier_code","supplier_name","supplier_rut",
+        "supplier_region","supplier_commune","supplier_address","supplier_contact","supplier_email",
+        "agreement_code","source_url"
+      ];
+      for(const key of preserveText) if(!next[key] && old[key]) next[key]=old[key];
+      const preserveNumber=["net_total","total","discounts","charges","taxes"];
+      for(const key of preserveNumber) if(next[key]==null && old[key]!=null) next[key]=old[key];
+      const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
+      for(const key of preserveDate) if(!next[key] && old[key]) next[key]=old[key];
+      next.raw=old.raw||next.raw;
+      next.detail_loaded=true;
+    }
+    return next;
+  });
+
+  for(let i=0;i<merged.length;i+=400) {
+    const chunk=merged.slice(i,i+400);
+    const {error}=await admin.from("chilecompra_cm_orders").upsert(chunk,{onConflict:"code"});
+    if(error) throw error;
+  }
+
+  const itemRows=items.flatMap(item=>{
+    const orderCode=cmOrderFields(item).code;
+    return orderCode ? cmOrderItems(item).map(row=>({...row,order_code:orderCode})) : [];
+  });
+  if(itemRows.length) {
+    const itemCodes=[...new Set(itemRows.map(row=>row.order_code))];
+    for(let i=0;i<itemCodes.length;i+=180) {
+      const chunk=itemCodes.slice(i,i+180);
+      const {error}=await admin.from("chilecompra_cm_order_items").delete().in("order_code",chunk);
+      if(error) throw error;
+    }
+    for(let i=0;i<itemRows.length;i+=450) {
+      const chunk=itemRows.slice(i,i+450);
+      const {error}=await admin.from("chilecompra_cm_order_items")
+        .upsert(chunk,{onConflict:"order_code,line_no"});
+      if(error) throw error;
+    }
+  }
+
+  return {rows:merged.length,items:itemRows.length,existing};
+}
+
+async function fetchCmDetail(admin,ticket,code) {
+  let payload=null;
+  for(let attempt=0;attempt<3;attempt++) {
+    try {
+      payload=await mercado("ordenesdecompra.json",ticket,{codigo:code});
+      break;
+    } catch(error) {
+      const message=error instanceof Error?error.message:String(error);
+      if(!message.includes("429") || attempt===2) throw error;
+      await sleep(900*(attempt+1));
+    }
+  }
+  const item=orderListFrom(payload)[0]||null;
+  if(!item || !isCmOrder(item)) return null;
+  return await upsertCmOrder(admin,item,{detailLoaded:true});
+}
+async function syncCmOrders(admin,ticket,{days=1,detailLimit=12,offsetDays=0}={}) {
+  const safeDays=Math.max(1,Math.min(1,Number(days)||1));
+  const safeOffset=Math.max(0,Math.min(365,Number(offsetDays)||0));
+  const safeDetail=Math.max(0,Math.min(24,Number(detailLimit)||12));
+  const candidates=new Map();
+  const errors=[];
+
+  let observedDate=null;
+  for(let offset=0;offset<safeDays;offset++) {
+    const d=new Date();
+    d.setUTCDate(d.getUTCDate()-safeOffset-offset);
+    observedDate=d.toISOString().slice(0,10);
+    try {
+      let payload=null;
+      for(let attempt=0;attempt<3;attempt++) {
+        try {
+          payload=await mercado("ordenesdecompra.json",ticket,{fecha:apiDate(d)});
+          break;
+        } catch(error) {
+          const message=error instanceof Error?error.message:String(error);
+          if(!message.includes("429") || attempt===2) throw error;
+          await sleep(1400*(attempt+1));
+        }
+      }
+      for(const item of orderListFrom(payload)) {
+        if(!isCmOrder(item)) continue;
+        const code=cmOrderFields(item).code;
+        if(code) candidates.set(code,item);
+      }
+    } catch(error) {
+      errors.push({date:apiDate(d),message:error instanceof Error?error.message:String(error)});
+    }
+  }
+
+  const basicItems=[...candidates.values()];
+  await upsertCmBasicOrders(admin,basicItems,observedDate);
+
+  const detailState=new Map();
+  const candidateCodes=[...candidates.keys()];
+  for(let i=0;i<candidateCodes.length;i+=400) {
+    const chunk=candidateCodes.slice(i,i+400);
+    if(!chunk.length) continue;
+    const {data,error}=await admin.from("chilecompra_cm_orders")
+      .select("code,detail_loaded").in("code",chunk);
+    if(error) throw error;
+    for(const row of data||[]) detailState.set(row.code,Boolean(row.detail_loaded));
+  }
+
+  const codes=candidateCodes
+    .sort((a,b)=>Number(detailState.get(a))-Number(detailState.get(b)))
+    .slice(0,safeDetail);
+
+  let detailed=0;
+  for(const code of codes) {
+    if(detailState.get(code)) continue;
+    try {
+      const full=await fetchCmDetail(admin,ticket,code);
+      if(full) detailed+=1;
+    } catch(error) {
+      errors.push({code,message:error instanceof Error?error.message:String(error)});
+    }
+    await sleep(300);
+  }
+
+  return {
+    days:safeDays,
+    offsetDays:safeOffset,
+    found:candidates.size,
+    detailed,
+    requestedDetails:codes.filter(code=>!detailState.get(code)).length,
+    errors:errors.slice(0,12),
+    syncedAt:new Date().toISOString()
+  };
+}
+async function loadCmItems(admin,codes=[]) {
+  const all=[];
+  for(let i=0;i<codes.length;i+=180) {
+    const chunk=codes.slice(i,i+180);
+    if(!chunk.length) continue;
+    const {data,error}=await admin.from("chilecompra_cm_order_items")
+      .select("*").in("order_code",chunk);
+    if(error) throw error;
+    all.push(...(data||[]));
+  }
+  return all;
+}
+function cmText(order,items=[]) {
+  return normalize([
+    order.code,order.name,order.description,order.buyer_name,order.buyer_unit,
+    order.supplier_name,order.supplier_rut,order.agreement_code,
+    ...items.flatMap(item=>[item.raw?.Producto,item.category,item.product_code,item.buyer_spec,item.supplier_spec,item.agreement_code])
+  ].join(" "));
+}
+function aggregateCmProducts(items,ordersByCode) {
+  const map=new Map();
+  for(const item of items) {
+    const order=ordersByCode.get(item.order_code);
+    if(!order) continue;
+    const label=String(item.raw?.Producto||item.supplier_spec||item.buyer_spec||item.category||item.product_code||"Producto sin nombre").trim();
+    const key=String(item.product_code||"")+"|"+normalize(label);
+    const row=map.get(key)||{
+      key,label,productCode:item.product_code||"",category:item.category||"",
+      orders:new Set(),buyers:new Set(),suppliers:new Set(),quantity:0,total:0,
+      minPrice:null,maxPrice:null,weightedPrice:0,pricedQty:0,agreementCodes:new Set()
+    };
+    row.orders.add(item.order_code);
+    if(order.buyer_name) row.buyers.add(order.buyer_name);
+    if(order.supplier_name) row.suppliers.add(order.supplier_name);
+    const qty=Number(item.quantity||0);
+    const price=Number(item.unit_price||0);
+    row.quantity+=qty;
+    row.total+=Number(item.total||0);
+    if(price>0) {
+      row.minPrice=row.minPrice==null?price:Math.min(row.minPrice,price);
+      row.maxPrice=row.maxPrice==null?price:Math.max(row.maxPrice,price);
+      row.weightedPrice+=price*(qty>0?qty:1);
+      row.pricedQty+=(qty>0?qty:1);
+    }
+    if(item.agreement_code) row.agreementCodes.add(item.agreement_code);
+    map.set(key,row);
+  }
+  return [...map.values()].map(row=>({
+    label:row.label,productCode:row.productCode,category:row.category,
+    orders:row.orders.size,buyers:row.buyers.size,suppliers:row.suppliers.size,
+    quantity:row.quantity,total:row.total,
+    minPrice:row.minPrice,maxPrice:row.maxPrice,
+    avgPrice:row.pricedQty?row.weightedPrice/row.pricedQty:null,
+    agreementCodes:[...row.agreementCodes]
+  })).sort((a,b)=>b.total-a.total || b.orders-a.orders);
+}
+function aggregateCmEntities(orders,field) {
+  const map=new Map();
+  for(const order of orders) {
+    const name=String(order[field]||"").trim();
+    if(!name) continue;
+    const row=map.get(name)||{name,orders:0,total:0,agreements:new Set(),last:""};
+    row.orders+=1;
+    row.total+=Number(order.total||0);
+    if(order.agreement_code) row.agreements.add(order.agreement_code);
+    row.last=[row.last,order.created_at_mp||order.sent_at||""].sort().at(-1)||"";
+    map.set(name,row);
+  }
+  return [...map.values()].map(row=>({...row,agreements:[...row.agreements]}))
+    .sort((a,b)=>b.total-a.total || b.orders-a.orders);
+}
+function aggregateCmAgreements(orders,items) {
+  const map=new Map();
+  for(const order of orders) {
+    const code=order.agreement_code||"";
+    if(!code) continue;
+    const row=map.get(code)||{code,orders:0,total:0,buyers:new Set(),suppliers:new Set(),products:new Set()};
+    row.orders+=1;
+    row.total+=Number(order.total||0);
+    if(order.buyer_name) row.buyers.add(order.buyer_name);
+    if(order.supplier_name) row.suppliers.add(order.supplier_name);
+    map.set(code,row);
+  }
+  for(const item of items) {
+    const code=item.agreement_code||orders.find(o=>o.code===item.order_code)?.agreement_code||"";
+    if(!code) continue;
+    const row=map.get(code)||{code,orders:0,total:0,buyers:new Set(),suppliers:new Set(),products:new Set()};
+    if(item.product_code) row.products.add(item.product_code);
+    map.set(code,row);
+  }
+  return [...map.values()].map(row=>({
+    code:row.code,orders:row.orders,total:row.total,
+    buyers:row.buyers.size,suppliers:row.suppliers.size,products:row.products.size
+  })).sort((a,b)=>b.total-a.total || b.orders-a.orders);
+}
+function parseSemicolonCsv(text) {
+  const lines=String(text||"").replace(/^\uFEFF/,"").split(/\r?\n/).filter(Boolean);
+  if(lines.length<2) return [];
+  const parseLine=line=>{
+    const out=[]; let cur="",quoted=false;
+    for(let i=0;i<line.length;i++) {
+      const ch=line[i];
+      if(ch==='"') {
+        if(quoted && line[i+1]==='"') { cur+='"'; i+=1; }
+        else quoted=!quoted;
+      } else if(ch===';' && !quoted) { out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+    out.push(cur);
+    return out;
+  };
+  const headers=parseLine(lines[0]).map(x=>normalize(x).replace(/\s+/g,"_"));
+  return lines.slice(1).map(line=>{
+    const values=parseLine(line);
+    return Object.fromEntries(headers.map((key,index)=>[key,String(values[index]||"").trim()]));
+  });
+}
+async function cmCatalogFiles() {
+  const response=await fetch(CM_MASTER_INDEX_URL,{headers:{Accept:"text/csv,*/*"}});
+  if(!response.ok) throw new Error("Datos Abiertos respondió "+response.status);
+  const rows=parseSemicolonCsv(await response.text());
+  return rows.map(row=>{
+    const filename=row.nombre_archivo||"";
+    const match=filename.match(/cm_(\d+-\d+-lr\d+)\.zip/i);
+    return {
+      code:match?match[1].toUpperCase():"",
+      filename,
+      url:row.link_archivo||"",
+      updatedAt:row.fecha_actualizacion||""
+    };
+  }).filter(row=>row.code && row.url);
+}
+async function backfillCmOrders(admin,ticket,{days=7,startOffset=0}={}) {
+  const safeDays=Math.max(1,Math.min(10,Number(days)||7));
+  const safeStart=Math.max(0,Math.min(365,Number(startOffset)||0));
+  const results=[];
+  for(let step=0;step<safeDays;step++) {
+    const offset=safeStart+step;
+    const result=await syncCmOrders(admin,ticket,{days:1,offsetDays:offset,detailLimit:0});
+    results.push({offsetDays:offset,found:result.found,errors:result.errors});
+    await sleep(900);
+  }
+  return {
+    days:safeDays,
+    startOffset:safeStart,
+    found:results.reduce((sum,row)=>sum+Number(row.found||0),0),
+    errorDays:results.filter(row=>(row.errors||[]).length).length,
+    results
+  };
+}
+
+async function enrichCmCache(admin,ticket,{limit=8}={}) {
+  const safeLimit=Math.max(1,Math.min(20,Number(limit)||8));
+  const {data:pending,error}=await admin.from("chilecompra_cm_orders")
+    .select("code,observed_date,created_at_mp")
+    .eq("detail_loaded",false)
+    .order("observed_date",{ascending:false})
+    .order("created_at_mp",{ascending:false})
+    .limit(safeLimit);
+  if(error) throw error;
+
+  let detailed=0;
+  const errors=[];
+  for(const row of pending||[]) {
+    try {
+      const full=await fetchCmDetail(admin,ticket,row.code);
+      if(full) detailed+=1;
+    } catch(error) {
+      errors.push({code:row.code,message:error instanceof Error?error.message:String(error)});
+    }
+    await sleep(420);
+  }
+
+  const {count:remaining,error:countError}=await admin.from("chilecompra_cm_orders")
+    .select("code",{count:"exact",head:true})
+    .eq("detail_loaded",false);
+  if(countError) throw countError;
+
+  return {
+    requested:(pending||[]).length,
+    detailed,
+    remaining:Number(remaining||0),
+    errors:errors.slice(0,12),
+    enrichedAt:new Date().toISOString()
+  };
+}
+
+async function cmDashboard(admin,ticket,org,body) {
+  const days=Math.max(1,Math.min(180,Number(body?.days)||30));
+  const query=String(body?.query||"").trim();
+  const forceSync=Boolean(body?.forceSync);
+  const cutoff=new Date(Date.now()-days*86400000).toISOString();
+
+  const {data:lastRows,error:lastError}=await admin.from("chilecompra_cm_orders")
+    .select("code,last_seen_at").order("last_seen_at",{ascending:false}).limit(1);
+  if(lastError) throw lastError;
+  const lastSync=lastRows?.[0]?.last_seen_at ? new Date(lastRows[0].last_seen_at).getTime() : 0;
+  if(forceSync || !lastSync || Date.now()-lastSync>5*3600000) {
+    await syncCmOrders(admin,ticket,{days:1,offsetDays:0,detailLimit:forceSync?24:12});
+  }
+
+  const {data:ordersData,error:ordersError,count:orderCount}=await admin.from("chilecompra_cm_orders")
+    .select("code,name,description,status_code,status,type_code,type,currency,net_total,total,discounts,charges,taxes,created_at_mp,sent_at,accepted_at,cancelled_at,modified_at_mp,observed_date,buyer_code,buyer_name,buyer_unit,buyer_rut,buyer_region,buyer_commune,buyer_address,buyer_contact,buyer_email,supplier_code,supplier_name,supplier_rut,supplier_region,supplier_commune,supplier_address,supplier_contact,supplier_email,agreement_code,source_url,detail_loaded,last_seen_at,updated_at",{count:"exact"})
+    .gte("observed_date",cutoff.slice(0,10))
+    .order("observed_date",{ascending:false})
+    .order("created_at_mp",{ascending:false})
+    .limit(5000);
+  if(ordersError) throw ordersError;
+  const allOrders=ordersData||[];
+  const allItems=await loadCmItems(admin,allOrders.filter(x=>x.detail_loaded).map(x=>x.code));
+  const itemsByOrder=new Map();
+  for(const item of allItems) {
+    if(!itemsByOrder.has(item.order_code)) itemsByOrder.set(item.order_code,[]);
+    itemsByOrder.get(item.order_code).push(item);
+  }
+
+  const selected=query.length>=2
+    ? allOrders.filter(order=>cmText(order,itemsByOrder.get(order.code)||[]).includes(normalize(query)))
+    : allOrders;
+  const selectedCodes=new Set(selected.map(x=>x.code));
+  const items=allItems.filter(x=>selectedCodes.has(x.order_code));
+  const byCode=new Map(selected.map(x=>[x.code,x]));
+
+  const stateCodes=selected.slice(0,1000).map(x=>x.code);
+  let states=[];
+  if(stateCodes.length) {
+    const {data,error}=await admin.from("chilecompra_cm_states")
+      .select("*").eq("organization_id",org).in("order_code",stateCodes);
+    if(error && error.code!=="PGRST116") throw error;
+    states=data||[];
+  }
+  const stateByCode=new Map(states.map(x=>[x.order_code,x]));
+  const orders=selected.map(order=>({...order,commercial_state:stateByCode.get(order.code)||null}));
+
+  const total=orders.reduce((sum,x)=>sum+Number(x.total||0),0);
+  const detailed=orders.filter(x=>x.detail_loaded).length;
+  return {
+    days,query,
+    coverage:{
+      orders:orders.length,
+      detected:Number(orderCount||allOrders.length),
+      loaded:allOrders.length,
+      detailed,
+      percent:orders.length?Math.round(detailed*100/orders.length):0,
+      truncated:Number(orderCount||0)>allOrders.length
+    },
+    stats:{
+      orders:orders.length,
+      total,
+      buyers:new Set(orders.map(x=>x.buyer_name).filter(Boolean)).size,
+      suppliers:new Set(orders.map(x=>x.supplier_name).filter(Boolean)).size,
+      products:new Set(items.map(x=>x.product_code).filter(Boolean)).size
+    },
+    orders:orders.slice(0,700),
+    items:items.slice(0,8000),
+    products:aggregateCmProducts(items,byCode).slice(0,250),
+    buyers:aggregateCmEntities(orders,"buyer_name").slice(0,120),
+    suppliers:aggregateCmEntities(orders,"supplier_name").slice(0,120),
+    agreements:aggregateCmAgreements(orders,items).slice(0,80),
+    catalogFiles:await cmCatalogFiles().catch(error=>{
+      console.error("No se pudo cargar índice oficial de maestras CM",error);
+      return [];
+    })
+  };
+}
+
 Deno.serve(async req=>{
   if(req.method==="OPTIONS") return new Response(null,{status:204,headers:CORS});
   if(req.method!=="POST") return json({error:"method_not_allowed"},405);
@@ -539,6 +1177,46 @@ Deno.serve(async req=>{
     if(action==="analytics") {
       if(cron) return json({error:"analytics_requires_user"},403);
       return json({ok:true,...await marketAnalytics(admin,ticket,org,body)});
+    }
+
+    if(action==="cm-sync") {
+      const days=1;
+      const detailLimit=Math.max(0,Math.min(24,Number(body?.detailLimit)||12));
+      const offsetDays=Math.max(0,Math.min(365,Number(body?.offsetDays)||0));
+      return json({ok:true,...await syncCmOrders(admin,ticket,{days,detailLimit,offsetDays})});
+    }
+
+    if(action==="cm-dashboard") {
+      if(cron) return json({error:"cm_dashboard_requires_user"},403);
+      return json({ok:true,...await cmDashboard(admin,ticket,org,body)});
+    }
+
+    if(action==="cm-backfill") {
+      if(!cron) return json({error:"cm_backfill_requires_cron"},403);
+      const days=Math.max(1,Math.min(10,Number(body?.days)||7));
+      const startOffset=Math.max(0,Math.min(365,Number(body?.startOffset)||0));
+      return json({ok:true,...await backfillCmOrders(admin,ticket,{days,startOffset})});
+    }
+
+    if(action==="cm-enrich") {
+      if(!cron) return json({error:"cm_enrich_requires_cron"},403);
+      const limit=Math.max(1,Math.min(20,Number(body?.limit)||8));
+      return json({ok:true,...await enrichCmCache(admin,ticket,{limit})});
+    }
+
+    if(action==="cm-detail") {
+      if(cron) return json({error:"cm_detail_requires_user"},403);
+      const code=String(body?.code||"").trim();
+      if(!code) return json({error:"code_required"},400);
+      const order=await fetchCmDetail(admin,ticket,code);
+      if(!order) return json({error:"cm_order_not_found",message:"La orden no corresponde a Convenio Marco o no fue encontrada."},404);
+      const {data:items,error:itemsError}=await admin.from("chilecompra_cm_order_items")
+        .select("*").eq("order_code",code).order("line_no");
+      if(itemsError) throw itemsError;
+      const {data:state,error:stateError}=await admin.from("chilecompra_cm_states")
+        .select("*").eq("organization_id",org).eq("order_code",code).maybeSingle();
+      if(stateError && stateError.code!=="PGRST116") throw stateError;
+      return json({ok:true,order:{...order,commercial_state:state||null},items:items||[]});
     }
 
     if(action==="review") {
