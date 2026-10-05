@@ -129,39 +129,33 @@ export const TUTORIALS = {
   },
   chilecompra: {
     id: 'chilecompra',
-    name: 'ChileCompra',
-    description: 'Crea seguimientos, revisa coincidencias y usa la inteligencia de mercado.',
-    version: 1,
-    duration: 5,
+    name: 'Primeros pasos en ChileCompra',
+    description: 'Crea un seguimiento, busca novedades y revisa las licitaciones que coinciden con lo que vendes.',
+    version: 2,
+    duration: 4,
     roles: ['super','admin','comercial','visita'],
     view: 'chilecompra',
     steps: [
       {
         selector: '.cc-radar-head',
-        title: 'Tu radar de compras públicas',
-        text: 'ChileCompra separa lo operativo de lo analítico: campañas, coincidencias y lectura de mercado.'
-      },
-      {
-        selector: '[data-cc-tab="campanas"]',
-        title: 'Tus campañas definen qué seguir',
-        text: 'No existen campañas predefinidas. Tú decides qué productos, servicios o necesidades debe vigilar el CRM.',
-        action: 'click'
+        title: 'Qué hace ChileCompra',
+        text: 'Esta sección busca licitaciones que coinciden con los productos o servicios que te interesa vender.'
       },
       {
         selector: '[data-cc-campaign-new]',
-        title: 'Crea un seguimiento',
-        text: 'Ponle un nombre y agrega términos. El CRM además propone recomendaciones relacionadas mientras escribes.',
+        title: 'Primero crea un seguimiento',
+        text: 'Un seguimiento es una búsqueda automática. Ponle un nombre y define las palabras o frases que quieres detectar.',
         action: 'click'
       },
       {
         selector: '#ccCampaignName, #ccCampaignTerms',
-        title: 'Define la búsqueda',
-        text: 'El nombre organiza tu seguimiento. Las palabras y frases determinan qué licitaciones se consideran coincidencias.'
+        title: 'Dile al CRM qué buscar',
+        text: 'Escribe un nombre fácil de reconocer y agrega los términos del producto, servicio o necesidad. Puedes usar las sugerencias como apoyo.'
       },
       {
-        selector: '#ccCampaignSuggestions, .cc-dashboard-tabs',
-        title: 'Recomendaciones y análisis',
-        text: 'Las recomendaciones son opcionales. Después puedes estudiar rubros, compradores y mercado general desde la sección Mercado.'
+        selector: '.cc-dashboard-nav, .cc-dashboard-tabs',
+        title: 'Después revisa los resultados',
+        text: 'Coincidencias muestra las oportunidades encontradas. Seguimientos permite ajustar tus búsquedas. Buscar sirve para una consulta puntual y Más reúne las herramientas avanzadas.'
       }
     ]
   },
