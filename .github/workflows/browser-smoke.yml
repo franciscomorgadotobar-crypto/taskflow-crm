@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master]
+    branches: [master, feature/desktop-ui-homologation-20261004]
   workflow_dispatch:
 
 permissions:
