@@ -392,10 +392,12 @@ function readCloseRateFromOriginalDashboard(root) {
     : { value: rawValue, hint: rawHint || 'Sobre oportunidades cerradas' };
 }
 
-let ccHomeUniverse = 'general';
-let ccHomeMetric = 'publications';
+const CC_HOME_DEFAULT = Object.freeze({ universe: 'general', metric: 'publications' });
+let ccHomeUniverse = CC_HOME_DEFAULT.universe;
+let ccHomeMetric = CC_HOME_DEFAULT.metric;
 let ccHomeAnalytics = null;
 let ccHomeAnalyticsLoading = false;
+let ccHomeFallbackNotice = '';
 const CC_HOME_COLORS = ['#0b73df','#36a2f5','#31bd98','#ffad43','#ef6670','#8668e8','#97a7ba'];
 
 function compactNumber(value, metric) {
@@ -413,6 +415,37 @@ function homeChileCompraMarket() {
   if (ccHomeUniverse === 'campaigns') return chilecompraLocalBreakdown({ metric: ccHomeMetric });
   if (ccHomeAnalytics?.universe === ccHomeUniverse && ccHomeAnalytics?.metric === ccHomeMetric) return ccHomeAnalytics;
   return null;
+}
+
+function homeMarketHasData(data, metric = ccHomeMetric) {
+  const categories = (data?.categories || []).filter((row) => Number(row.value || 0) > 0);
+  if (!categories.length) return false;
+  const categoryTotal = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const total = metric === 'amount'
+    ? Number(data?.amount || categoryTotal)
+    : metric === 'buyers'
+      ? Number(data?.buyers || categoryTotal)
+      : Number(data?.publications || categoryTotal);
+  return total > 0;
+}
+
+function homeMarketPresetCopy(data) {
+  const categories = (data?.categories || [])
+    .filter((row) => row.label !== 'Sin clasificar' && Number(row.value || 0) > 0)
+    .slice(0, 3);
+  const names = categories.map((row) => row.label);
+  const base = 'Mercado general Chile · Publicaciones activas por rubro';
+  if (ccHomeUniverse !== CC_HOME_DEFAULT.universe || ccHomeMetric !== CC_HOME_DEFAULT.metric) return base;
+  if (!data || !homeMarketHasData(data, 'publications')) return base;
+  if (!names.length) return `${Number(data.publications || 0).toLocaleString('es-CL')} publicaciones activas`;
+  return `${Number(data.publications || 0).toLocaleString('es-CL')} publicaciones activas · lideran ${names.join(', ')}`;
+}
+
+function resetHomeMarketView({ notice = '' } = {}) {
+  ccHomeUniverse = CC_HOME_DEFAULT.universe;
+  ccHomeMetric = CC_HOME_DEFAULT.metric;
+  ccHomeAnalytics = null;
+  ccHomeFallbackNotice = notice;
 }
 
 function homeChileCompraBars(data) {
@@ -455,16 +488,34 @@ function homeChileCompraBars(data) {
   </div>`;
 }
 
-async function refreshHomeChileCompraAnalytics() {
+async function refreshHomeChileCompraAnalytics({ allowFallback = true } = {}) {
   if (ccHomeUniverse === 'campaigns') {
     ccHomeAnalytics = null;
+    ccHomeFallbackNotice = '';
     renderDashboardSummary();
     return;
   }
+
   ccHomeAnalyticsLoading = true;
   renderDashboardSummary();
+
   try {
-    ccHomeAnalytics = await loadChileCompraAnalytics({ universe: ccHomeUniverse, metric: ccHomeMetric, groupBy: 'industry' });
+    const requestedUniverse = ccHomeUniverse;
+    const requestedMetric = ccHomeMetric;
+    const data = await loadChileCompraAnalytics({ universe: requestedUniverse, metric: requestedMetric, groupBy: 'industry' });
+
+    if (
+      allowFallback
+      && !homeMarketHasData(data, requestedMetric)
+      && (requestedUniverse !== CC_HOME_DEFAULT.universe || requestedMetric !== CC_HOME_DEFAULT.metric)
+    ) {
+      resetHomeMarketView({ notice: 'Ese filtro no entregó datos. Volvimos a la vista inicial para no dejar el Resumen vacío.' });
+      ccHomeAnalyticsLoading = false;
+      renderDashboardSummary();
+      return refreshHomeChileCompraAnalytics({ allowFallback: false });
+    }
+
+    ccHomeAnalytics = data;
   } catch (err) {
     console.error('No se pudo cargar analítica ChileCompra para el Home', err);
     ccHomeAnalytics = null;
@@ -553,20 +604,25 @@ function renderDashboardSummary() {
           <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra"><span>Abrir</span><b>›</b></button>
         </div>
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
-        <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Explora dónde se concentra la demanda pública y abre cada rubro para ver ejemplos.</small></div></div>
+        <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Panorama inicial del mercado antes de entrar a tus seguimientos.</small></div></div>
+        <div class="v2-cc-market-preset">
+          <span>Vista inicial</span>
+          <strong>${esc(homeMarketPresetCopy(market))}</strong>
+          ${ccHomeFallbackNotice ? `<small>${esc(ccHomeFallbackNotice)}</small>` : ''}
+        </div>
         <div class="v2-cc-market-controls">
-          <label><span>Universo</span><select id="v2CcUniverse" aria-label="Universo ChileCompra">
+          <label><span>Qué mirar</span><select id="v2CcUniverse" aria-label="Universo ChileCompra">
+            <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>Mercado general Chile</option>
             <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis seguimientos</option>
             <option value="business" ${ccHomeUniverse === 'business' ? 'selected' : ''}>Mi negocio</option>
-            <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>Mercado general Chile</option>
           </select></label>
-          <label><span>Métrica</span><select id="v2CcMetric" aria-label="Métrica ChileCompra">
+          <label><span>Medir por</span><select id="v2CcMetric" aria-label="Métrica ChileCompra">
             <option value="publications" ${ccHomeMetric === 'publications' ? 'selected' : ''}>Publicaciones</option>
             <option value="amount" ${ccHomeMetric === 'amount' ? 'selected' : ''}>Monto publicado</option>
             <option value="buyers" ${ccHomeMetric === 'buyers' ? 'selected' : ''}>Compradores</option>
           </select></label>
         </div>
-        ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Analizando Mercado Público…</div>' : homeChileCompraBars(market)}
+        ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Cargando panorama inicial de Mercado Público…</div>' : homeChileCompraBars(market)}
         
       </article>`;
   }
@@ -872,12 +928,14 @@ function bindGlobalEvents() {
     if (ev.target.id === 'v2CcUniverse') {
       ccHomeUniverse = ev.target.value;
       ccHomeAnalytics = null;
+      ccHomeFallbackNotice = '';
       refreshHomeChileCompraAnalytics();
       return;
     }
     if (ev.target.id === 'v2CcMetric') {
       ccHomeMetric = ev.target.value;
       ccHomeAnalytics = null;
+      ccHomeFallbackNotice = '';
       refreshHomeChileCompraAnalytics();
     }
   });
