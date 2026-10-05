@@ -935,12 +935,14 @@ async function cmDashboard(admin,ticket,org,body) {
     await syncCmOrders(admin,ticket,{days:1,offsetDays:0,detailLimit:forceSync?24:12});
   }
 
-  let orderQuery=admin.from("chilecompra_cm_orders")
-    .select("*").gte("created_at_mp",cutoff).order("created_at_mp",{ascending:false}).limit(3000);
-  const {data:ordersData,error:ordersError}=await orderQuery;
+  const {data:ordersData,error:ordersError,count:orderCount}=await admin.from("chilecompra_cm_orders")
+    .select("code,name,description,status_code,status,type_code,type,currency,net_total,total,discounts,charges,taxes,created_at_mp,sent_at,accepted_at,cancelled_at,modified_at_mp,buyer_code,buyer_name,buyer_unit,buyer_rut,buyer_region,buyer_commune,buyer_address,buyer_contact,buyer_email,supplier_code,supplier_name,supplier_rut,supplier_region,supplier_commune,supplier_address,supplier_contact,supplier_email,agreement_code,source_url,detail_loaded,last_seen_at,updated_at",{count:"exact"})
+    .gte("created_at_mp",cutoff)
+    .order("created_at_mp",{ascending:false})
+    .limit(5000);
   if(ordersError) throw ordersError;
   const allOrders=ordersData||[];
-  const allItems=await loadCmItems(admin,allOrders.map(x=>x.code));
+  const allItems=await loadCmItems(admin,allOrders.filter(x=>x.detail_loaded).map(x=>x.code));
   const itemsByOrder=new Map();
   for(const item of allItems) {
     if(!itemsByOrder.has(item.order_code)) itemsByOrder.set(item.order_code,[]);
@@ -969,7 +971,14 @@ async function cmDashboard(admin,ticket,org,body) {
   const detailed=orders.filter(x=>x.detail_loaded).length;
   return {
     days,query,
-    coverage:{orders:orders.length,detailed,percent:orders.length?Math.round(detailed*100/orders.length):0},
+    coverage:{
+      orders:orders.length,
+      detected:Number(orderCount||allOrders.length),
+      loaded:allOrders.length,
+      detailed,
+      percent:orders.length?Math.round(detailed*100/orders.length):0,
+      truncated:Number(orderCount||0)>allOrders.length
+    },
     stats:{
       orders:orders.length,
       total,
