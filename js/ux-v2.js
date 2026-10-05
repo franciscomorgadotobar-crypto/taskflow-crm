@@ -538,7 +538,7 @@ function renderDashboardSummary() {
         <div class="v2-cc-brand">
           <span class="v2-cc-brand-icon" aria-hidden="true"><img src="https://www.chilecompra.cl/wp-content/uploads/2016/12/datosabiertoslogochilecompra-300x169.jpg" alt="" /></span>
           <div><strong>ChileCompra</strong><small>${chilecompra.activeCampaigns ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'seguimiento activo' : 'seguimientos activos'} · <b>${chilecompra.total}</b> coincidencias nuevas` : 'Aún no tienes seguimientos activos'}</small></div>
-          <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra">›</button>
+          <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra"><span>Abrir</span><b>›</b></button>
         </div>
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
         <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Explora dónde se concentra la demanda pública y abre cada rubro para ver ejemplos.</small></div></div>
@@ -555,7 +555,7 @@ function renderDashboardSummary() {
           </select></label>
         </div>
         ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Analizando Mercado Público…</div>' : homeChileCompraBars(market)}
-        <button type="button" class="primary-btn v2-cc-open" data-action="open-chilecompra">Ver ChileCompra →</button>
+        
       </article>`;
   }
 
