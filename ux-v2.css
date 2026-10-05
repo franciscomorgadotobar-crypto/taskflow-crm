@@ -6162,3 +6162,130 @@ html[data-theme="dark"][data-crm-view="dashboard"] .v2-cc-market-controls select
   border-color:var(--v2-line);
 }
 /* ---------- End homologación desktop ---------- */
+
+
+/* ---------- Navegación contextual y mercado explorable · 2026-10-05 ---------- */
+html[data-crm-view="chilecompra"] .v2-search-wrap,
+html[data-crm-view="chilecompra"] .v2-new-lead{
+  display:none!important;
+}
+html[data-crm-view="chilecompra"] .v2-global-tools{
+  justify-content:flex-end;
+}
+
+.v2-cc-campaign-chip{
+  cursor:pointer;
+  transition:border-color .15s ease,background .15s ease,transform .15s ease;
+}
+.v2-cc-campaign-chip:hover{
+  border-color:#9fc9f2!important;
+  background:#f2f8ff!important;
+  transform:translateY(-1px);
+}
+.v2-cc-campaign-chip::after{
+  content:"›";
+  flex:0 0 auto;
+  color:#6a83a0;
+  font-size:17px;
+  line-height:1;
+}
+
+.v2-cc-bar-row{
+  border:0;
+  background:transparent;
+}
+.v2-cc-bar-row > summary{
+  display:grid;
+  gap:4px;
+  padding:4px 6px;
+  border-radius:8px;
+  list-style:none;
+  cursor:pointer;
+}
+.v2-cc-bar-row > summary::-webkit-details-marker{display:none}
+.v2-cc-bar-row > summary:hover{
+  background:#f4f9ff;
+}
+.v2-cc-bar-row[open] > summary{
+  background:#edf6ff;
+}
+.v2-cc-bar-row[open] .v2-cc-bar-label span{
+  color:#126fbe;
+}
+.v2-cc-bars-total small{
+  display:block;
+  margin-top:4px;
+  color:#8794a4;
+  font-size:7px;
+}
+.v2-cc-bar-examples{
+  display:grid;
+  gap:4px;
+  margin:2px 4px 7px;
+  padding:7px;
+  border:1px solid #dde8f3;
+  border-radius:9px;
+  background:#fbfdff;
+}
+.v2-cc-bar-examples button{
+  width:100%;
+  display:grid;
+  gap:2px;
+  padding:7px 8px;
+  border:0;
+  border-radius:7px;
+  background:#fff;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.v2-cc-bar-examples button:hover{
+  background:#edf6ff;
+}
+.v2-cc-bar-examples span,
+.v2-cc-bar-examples small{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.v2-cc-bar-examples span{
+  color:#183552;
+  font-size:8px;
+  font-weight:700;
+}
+.v2-cc-bar-examples small{
+  color:#78879a;
+  font-size:7px;
+}
+.v2-cc-bar-examples-empty{
+  padding:7px;
+  color:#8491a2;
+  font-size:8px;
+}
+.v2-cc-all-categories{
+  width:100%;
+  min-height:34px;
+  margin-top:3px;
+  border:1px dashed #bad6ef;
+  border-radius:8px;
+  background:#f8fbff;
+  color:#126fbe;
+  font-size:8px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+:root[data-theme="dark"] .v2-cc-bar-examples,
+:root[data-theme="dark"] .v2-cc-bar-examples button{
+  background:#17273c;
+}
+:root[data-theme="dark"] .v2-cc-bar-row > summary:hover,
+:root[data-theme="dark"] .v2-cc-bar-row[open] > summary{
+  background:#1d3049;
+}
+
+@media (max-width:900px){
+  html[data-crm-view="chilecompra"] .v2-context-help{
+    margin-left:auto;
+  }
+}
