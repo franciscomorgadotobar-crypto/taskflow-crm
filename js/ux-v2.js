@@ -405,7 +405,12 @@ function homeChileCompraMarket() {
 
 function homeChileCompraBars(data) {
   const categories = (data?.categories || []).filter((row) => Number(row.value || 0) > 0);
-  const total = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const categoryTotal = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const total = ccHomeMetric === 'amount'
+    ? Number(data?.amount || categoryTotal)
+    : ccHomeMetric === 'buyers'
+      ? Number(data?.buyers || categoryTotal)
+      : Number(data?.publications || categoryTotal);
   if (!categories.length || total <= 0) {
     const text = data?.configured === false
       ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea un seguimiento para comenzar a medir el mercado.')
