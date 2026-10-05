@@ -790,3 +790,208 @@
   .cc-market-bar-label strong{font-size:9px}
 }
 /* ---------- End barras de mercado ---------- */
+
+
+/* ---------- ChileCompra onboarding simplificado ---------- */
+.cc-dashboard-nav{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:stretch;
+  border-bottom:1px solid #e5ebf2;
+  background:#fff;
+}
+.cc-dashboard-nav .cc-tabs{
+  border-bottom:0;
+}
+.cc-more-menu{
+  position:relative;
+  align-self:stretch;
+  display:flex;
+}
+.cc-more-menu > summary{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  min-height:52px;
+  padding:0 16px;
+  color:#52647d;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  border-bottom:3px solid transparent;
+}
+.cc-more-menu > summary::-webkit-details-marker{display:none}
+.cc-more-menu > summary::after{
+  content:"⌄";
+  margin-left:6px;
+  font-size:10px;
+}
+.cc-more-menu > summary.active{
+  color:var(--cc-blue);
+  border-bottom-color:var(--cc-blue);
+}
+.cc-more-menu > div{
+  position:absolute;
+  z-index:20;
+  right:8px;
+  top:calc(100% + 6px);
+  width:190px;
+  display:grid;
+  gap:4px;
+  padding:7px;
+  border:1px solid #dde5ef;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 14px 32px rgba(27,50,87,.16);
+}
+.cc-more-menu button{
+  min-height:38px;
+  padding:8px 10px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:#263b5b;
+  text-align:left;
+  font:inherit;
+  cursor:pointer;
+}
+.cc-more-menu button:hover,
+.cc-more-menu button.active{
+  background:#edf6ff;
+  color:#0f6fc3;
+}
+
+.cc-eyebrow{
+  display:inline-block;
+  margin-bottom:6px;
+  color:#1677d2;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.cc-getting-started{
+  padding:22px;
+}
+.cc-getting-started h3,
+.cc-zero-state h3{
+  margin:0;
+  color:#132a4d;
+  font-size:21px;
+}
+.cc-start-steps{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin:18px 0;
+}
+.cc-start-steps > div{
+  display:grid;
+  grid-template-columns:30px minmax(0,1fr);
+  gap:10px;
+  padding:12px;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#fbfdff;
+}
+.cc-start-steps b{
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#eaf4ff;
+  color:#1677d2;
+}
+.cc-start-steps span{
+  display:grid;
+  gap:3px;
+}
+.cc-start-steps strong{
+  color:#172c4e;
+  font-size:12px;
+}
+.cc-start-steps small{
+  color:#6c7a90;
+  font-size:10px;
+  line-height:1.4;
+}
+.cc-primary-start{
+  min-width:220px;
+}
+
+.cc-zero-state{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.cc-zero-state p{
+  margin:6px 0 0;
+  max-width:620px;
+  color:#68778d;
+  font-size:12px;
+  line-height:1.5;
+}
+.cc-zero-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+@media (max-width:700px){
+  .cc-dashboard-nav{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+  .cc-dashboard-tabs{
+    gap:14px;
+  }
+  .cc-dashboard-tabs button{
+    font-size:11px;
+  }
+  .cc-more-menu > summary{
+    padding:0 12px;
+    font-size:11px;
+  }
+  .cc-more-menu > div{
+    right:4px;
+    width:170px;
+  }
+  .cc-start-steps{
+    grid-template-columns:1fr;
+  }
+  .cc-getting-started{
+    padding:16px;
+  }
+  .cc-getting-started h3,
+  .cc-zero-state h3{
+    font-size:18px;
+  }
+  .cc-primary-start{
+    width:100%;
+    min-width:0;
+  }
+  .cc-zero-state{
+    display:grid;
+  }
+  .cc-zero-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .cc-zero-actions > *{
+    width:100%;
+  }
+}
+
+:root[data-theme="dark"] .cc-dashboard-nav,
+:root[data-theme="dark"] .cc-more-menu > div,
+:root[data-theme="dark"] .cc-start-steps > div{
+  background:var(--v2-panel,#17243a);
+  border-color:var(--v2-line,#2d3b52);
+}
+:root[data-theme="dark"] .cc-more-menu button,
+:root[data-theme="dark"] .cc-start-steps strong,
+:root[data-theme="dark"] .cc-getting-started h3,
+:root[data-theme="dark"] .cc-zero-state h3{
+  color:#e9f1fb;
+}
