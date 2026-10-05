@@ -775,23 +775,37 @@ function renderOpportunityWorkspace(stats) {
     ${searchExperience}
     ${!isSearch && chilecompraState.tab === 'coincidencias' && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} <b>${stats.newByCampaign[c.id] || 0}</b></button>`).join('')}</div>` : ''}
     ${isSearch ? searchResults : `<div class="cc-results-toolbar"><strong class="cc-result-title">${resultHeading(rows)}</strong><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div>${chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}<div class="cc-opportunity-list">${rows.length ? rows.map(opportunityCard).join('') : '<div class="cc-empty">No hay resultados para esta vista.</div>'}</div>`}
-    <dialog id="ccOpportunityDialog" class="modal cc-opportunity-dialog"><div class="modal-card wide cc-opportunity-modal-card"><div class="modal-head cc-opportunity-modal-head"><div><h2>Detalle de licitación</h2><p>${selected ? `ID ${e(selected.external_code)}` : 'ChileCompra'}</p></div><button type="button" class="icon-btn" data-cc-detail-close aria-label="Cerrar">×</button></div><div class="cc-opportunity-modal-body">${detailPanel(selected)}</div></div></dialog>
+  </section>`;
+}
+
+function renderOpportunityPage(o) {
+  if (!o) return '<section class="cc-detail-page"><div class="cc-empty">No pudimos cargar esta licitación.</div></section>';
+  const context = chilecompraState.tab === 'buscar' ? 'Resultados de búsqueda' : chilecompraState.tab === 'coincidencias' ? 'Coincidencias' : 'ChileCompra';
+  return `<section class="cc-detail-page">
+    <div class="cc-detail-page-toolbar">
+      <button type="button" class="cc-back-btn" data-cc-detail-back>← Volver a ${e(context)}</button>
+      <span>ID ${e(o.external_code)}</span>
+    </div>
+    <div class="cc-detail-page-shell">${detailPanel(o)}</div>
   </section>`;
 }
 
 function renderInner() {
   const stats = chilecompraDashboardStats();
+  const selected = chilecompraState.selectedId ? selectedOpportunity() : null;
+  if (selected) return `${renderOpportunityPage(selected)}${sharedDialogs()}`;
+
   const isSearch = chilecompraState.tab === 'buscar';
   const updated = chilecompraState.lastSyncAt
     ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
-    : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Crea un seguimiento para comenzar';
+    : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Sin revisión reciente';
 
-  return `<section class="cc-radar-head ${isSearch ? 'cc-radar-head--minimal' : ''}">
-    <div>
-      <h2>${isSearch ? 'Buscar en ChileCompra' : 'ChileCompra'}</h2>
-      <p>${isSearch ? 'Consulta Mercado Público sin configurar nada.' : 'Oportunidades públicas que coinciden con lo que vendes.'}</p>
+  return `<section class="cc-module-toolbar ${isSearch ? 'cc-module-toolbar--search' : ''}">
+    <span class="cc-updated"><i></i>${updated}</span>
+    <div class="cc-module-actions">
+      ${stats.activeCampaigns && !isSearch ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button>` : ''}
+      ${!isSearch ? '<button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>' : ''}
     </div>
-    ${isSearch ? '' : `<div class="cc-radar-actions"><span class="cc-updated"><i></i>${updated}</span>${stats.activeCampaigns ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>` : ''}</div>`}
   </section>
   ${dashboardNav(stats)}
   ${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}
@@ -807,11 +821,6 @@ function rerender() {
   if (root) root.innerHTML = renderInner();
 }
 
-function openDetailDialog() {
-  const dialog = document.getElementById('ccOpportunityDialog');
-  if (dialog && !dialog.open) dialog.showModal();
-}
-
 async function runTraditionalSearch(query) {
   const clean = query.trim();
   if (clean.length < 2) return toast('Escribe al menos 2 caracteres para buscar.', 'error');
@@ -825,7 +834,6 @@ async function runTraditionalSearch(query) {
     chilecompraState.results = data.results || [];
     chilecompraState.sourceCount = Number(data.sourceCount || 0);
     mergeRows(chilecompraState.results);
-    chilecompraState.selectedId = chilecompraState.results[0]?.id || '';
   } finally {
     chilecompraState.searching = false;
     notify();
@@ -847,7 +855,7 @@ async function markReviewed(id) {
   try { await invokeRadar({ action: 'review', opportunityId: id }); } catch (err) { console.error('No se pudo marcar coincidencia revisada', err); }
 }
 
-async function loadDetail(id, { reopen = false } = {}) {
+async function loadDetail(id) {
   const current = [...chilecompraState.results, ...chilecompraState.opportunities].find((o) => o.id === id);
   if (!current) return;
   await markReviewed(id);
@@ -858,7 +866,6 @@ async function loadDetail(id, { reopen = false } = {}) {
       replaceEverywhere(data.opportunity);
       notify();
       rerender();
-      if (reopen) openDetailDialog();
     }
   } catch (err) {
     console.error('No se pudo cargar detalle ChileCompra', err);
@@ -868,13 +875,11 @@ async function loadDetail(id, { reopen = false } = {}) {
 
 async function patchOpportunity(id, patch) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
-  const reopen = Boolean(document.getElementById('ccOpportunityDialog')?.open);
   const { data, error } = await supabase.from('chilecompra_opportunities').update(patch).eq('id', id).select('*').single();
   if (error) throw error;
   replaceEverywhere(data);
   notify();
   rerender();
-  if (reopen) openDetailDialog();
 }
 
 async function convertToCrm(id) {
