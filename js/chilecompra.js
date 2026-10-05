@@ -909,6 +909,9 @@ export function mountChileCompraView() {
   const root = document.getElementById('chilecompraRoot');
   if (!root) return;
   rerender();
+  if (!chilecompraState.marketPulse && !chilecompraState.marketPulseLoading) {
+    ensureMarketPulse().then(() => rerender());
+  }
 
   root.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -999,30 +1002,55 @@ export function mountChileCompraView() {
       chilecompraState.selectedId = select.dataset.ccSelect;
       chilecompraState.detailTab = 'resumen';
       rerender();
-      openDetailDialog();
-      await loadDetail(chilecompraState.selectedId, { reopen: true });
+      await loadDetail(chilecompraState.selectedId);
       return;
     }
-    if (ev.target.closest('[data-cc-detail-close]')) { document.getElementById('ccOpportunityDialog')?.close(); return; }
+
+    const example = ev.target.closest('[data-cc-example-code]');
+    if (example) {
+      const code = example.dataset.ccExampleCode || '';
+      if (!code) return;
+      await runTraditionalSearch(code);
+      const match = chilecompraState.results.find((row) => row.external_code === code) || chilecompraState.results[0];
+      if (match) {
+        chilecompraState.selectedId = match.id;
+        chilecompraState.detailTab = 'resumen';
+        rerender();
+        await loadDetail(match.id);
+      }
+      return;
+    }
+
+    if (ev.target.closest('[data-cc-detail-back]')) {
+      chilecompraState.selectedId = '';
+      rerender();
+      return;
+    }
     const tab = ev.target.closest('[data-cc-tab]');
     if (tab) {
       chilecompraState.tab = tab.dataset.ccTab;
       if (chilecompraState.tab !== 'coincidencias') chilecompraState.selectedCampaignId = '';
       chilecompraState.selectedId = '';
       rerender();
+      if (chilecompraState.tab === 'resumen' && !chilecompraState.marketPulse) await ensureMarketPulse();
       if (chilecompraState.tab === 'mercado' && chilecompraState.analyticsUniverse !== 'campaigns' && !chilecompraState.analytics) await refreshAnalyticsFromControls();
+      rerender();
       return;
     }
     const detailTab = ev.target.closest('[data-cc-detail-tab]');
     if (detailTab) {
-      const reopen = Boolean(document.getElementById('ccOpportunityDialog')?.open);
       chilecompraState.detailTab = detailTab.dataset.ccDetailTab;
       rerender();
-      if (reopen) openDetailDialog();
       return;
     }
     if (ev.target.closest('[data-cc-sync]')) {
-      try { await syncChileCompra(); rerender(); } catch (err) { toast(err.message || 'No se pudo actualizar el radar.', 'error'); }
+      try {
+        await syncChileCompra();
+        await ensureMarketPulse({ force: true });
+        rerender();
+      } catch (err) {
+        toast(err.message || 'No se pudo actualizar el radar.', 'error');
+      }
       return;
     }
     const save = ev.target.closest('[data-cc-save]');
