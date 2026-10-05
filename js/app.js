@@ -2448,7 +2448,7 @@ const ACTIONS = {
     if (!values.length) return toast('Selecciona al menos un acceso para la barra inferior.', 'error');
     if (new Set(values).size !== values.length) return toast('No repitas un módulo en la barra inferior.', 'error');
 
-    const allowed = new Set(Array.isArray(state.me?.moduleAccess) && state.me.moduleAccess.length
+    const allowed = new Set(Array.isArray(state.me?.moduleAccess)
       ? state.me.moduleAccess
       : USER_MODULES.map((module) => module.id));
     if (values.some((id) => !allowed.has(id))) return toast('Uno de los módulos seleccionados no está habilitado para tu usuario.', 'error');
@@ -2459,7 +2459,7 @@ const ACTIONS = {
     }
   },
   'reset-bottom-nav': async () => {
-    const allowed = new Set(Array.isArray(state.me?.moduleAccess) && state.me.moduleAccess.length
+    const allowed = new Set(Array.isArray(state.me?.moduleAccess)
       ? state.me.moduleAccess
       : USER_MODULES.map((module) => module.id));
     const values = DEFAULT_BOTTOM_NAV.filter((id) => allowed.has(id));
