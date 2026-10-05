@@ -570,13 +570,14 @@ function dashboardNav(stats) {
     ['guardadas','Guardadas'],
     ['crm','En CRM']
   ];
-  const secondaryActive = secondary.some(([id]) => chilecompraState.tab === id);
+  const secondaryCurrent = secondary.find(([id]) => chilecompraState.tab === id);
+  const secondaryActive = Boolean(secondaryCurrent);
   return `<div class="cc-dashboard-nav">
     <nav class="cc-tabs cc-dashboard-tabs">
       ${primary.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? ` <span>(${count})</span>` : ''}</button>`).join('')}
     </nav>
-    <details class="cc-more-menu" ${secondaryActive ? 'open' : ''}>
-      <summary class="${secondaryActive ? 'active' : ''}">Más</summary>
+    <details class="cc-more-menu">
+      <summary class="${secondaryActive ? 'active' : ''}">${secondaryCurrent ? secondaryCurrent[1] : 'Más'}</summary>
       <div>
         ${secondary.map(([id,label]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}</button>`).join('')}
       </div>
