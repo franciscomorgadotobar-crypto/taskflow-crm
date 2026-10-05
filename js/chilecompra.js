@@ -286,15 +286,111 @@ function agreementStatus(row) {
   if (!end || Number.isNaN(end.getTime())) return { label:'Vigencia no informada', tone:'neutral' };
   const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
   if (days < 0) return { label:'Vencido', tone:'danger' };
-  if (days <= 30) return { label:`Vence en ${days} día${days === 1 ? '' : 's'}`, tone:'warning' };
-  if (days <= 120) return { label:`Vence en ${days} días`, tone:'attention' };
+  if (days <= 30) return { label:'Vence en ' + days + ' día' + (days === 1 ? '' : 's'), tone:'warning' };
+  if (days <= 120) return { label:'Vence en ' + days + ' días', tone:'attention' };
   return { label:'Vigente', tone:'success' };
 }
 
 function cmMoney(value, currency = 'CLP') {
   const n = Number(value || 0);
   if (!Number.isFinite(n)) return '—';
-  if (currency === 'CLP') return '
+  if (currency === 'CLP') return '$' + Math.round(n).toLocaleString('es-CL');
+  return currency + ' ' + n.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+}
+
+function cmOrderItems(code) {
+  return (chilecompraState.cmData?.items || []).filter((item) => item.order_code === code);
+}
+
+async function loadConvenioMarco({ forceSync = false } = {}) {
+  if (chilecompraState.cmLoading) return chilecompraState.cmData;
+  chilecompraState.cmLoading = true;
+  chilecompraState.cmError = '';
+  notify();
+  rerender();
+  try {
+    const data = await invokeRadar({
+      action: 'cm-dashboard',
+      days: chilecompraState.cmDays,
+      query: chilecompraState.cmQuery,
+      forceSync
+    });
+    chilecompraState.cmData = data;
+    return data;
+  } catch (err) {
+    chilecompraState.cmError = err?.message || 'No se pudo cargar Convenio Marco.';
+    console.error('Convenio Marco', err);
+    throw err;
+  } finally {
+    chilecompraState.cmLoading = false;
+    notify();
+    rerender();
+  }
+}
+
+async function loadCmOrderDetail(code) {
+  if (!code) return null;
+  chilecompraState.cmSelectedCode = code;
+  chilecompraState.cmDetailLoading = true;
+  chilecompraState.cmError = '';
+  rerender();
+  try {
+    const data = await invokeRadar({ action: 'cm-detail', code });
+    chilecompraState.cmDetail = data;
+    return data;
+  } catch (err) {
+    chilecompraState.cmError = err?.message || 'No se pudo cargar la orden de Convenio Marco.';
+    throw err;
+  } finally {
+    chilecompraState.cmDetailLoading = false;
+    rerender();
+  }
+}
+
+async function patchCmCommercialState(code, radarState) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const organizationId = session.profile?.organization_id;
+  if (!organizationId) throw new Error('No se pudo resolver tu organización.');
+  const payload = {
+    organization_id: organizationId,
+    order_code: code,
+    radar_state: radarState,
+    updated_by: session.user?.id || null,
+    updated_at: new Date().toISOString()
+  };
+  const { data, error } = await supabase
+    .from('chilecompra_cm_states')
+    .upsert(payload, { onConflict: 'organization_id,order_code' })
+    .select('*')
+    .single();
+  if (error) throw error;
+
+  if (chilecompraState.cmData?.orders) {
+    chilecompraState.cmData.orders = chilecompraState.cmData.orders.map((order) =>
+      order.code === code ? { ...order, commercial_state: data } : order
+    );
+  }
+  if (chilecompraState.cmDetail?.order?.code === code) {
+    chilecompraState.cmDetail.order = { ...chilecompraState.cmDetail.order, commercial_state: data };
+  }
+  notify();
+  rerender();
+  return data;
+}
+
+async function convertCmToCrm(code) {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const { data, error } = await supabase.rpc('chilecompra_convert_cm_order', { p_order_code: code });
+  if (error) throw error;
+  await hydrateCrm();
+  await loadConvenioMarco();
+  if (chilecompraState.cmSelectedCode === code) {
+    await loadCmOrderDetail(code);
+  }
+  toast('Orden de Convenio Marco agregada al CRM.');
+  return data;
+}
+
 export async function syncChileCompra() {
   if (chilecompraState.syncing) return;
   if (!activeCampaigns().length) return toast('Crea un seguimiento activo antes de buscar novedades.', 'error');
