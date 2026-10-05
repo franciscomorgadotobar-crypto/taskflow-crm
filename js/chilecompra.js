@@ -821,7 +821,7 @@ function rerender() {
   if (root) root.innerHTML = renderInner();
 }
 
-async function runTraditionalSearch(query) {
+export async function runTraditionalSearch(query) {
   const clean = query.trim();
   if (clean.length < 2) return toast('Escribe al menos 2 caracteres para buscar.', 'error');
   chilecompraState.query = clean;
