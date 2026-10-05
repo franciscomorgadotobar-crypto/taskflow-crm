@@ -122,7 +122,8 @@ function rowFromItem(item, organizationId) {
   return {
     organization_id:organizationId, external_code:f.code, name:f.name, description:f.description,
     buyer_name:f.buyerName, buyer_code:f.buyerCode, status:f.status, procurement_type:f.procurementType,
-    published_at:f.publishedAt, close_at:f.closeAt, amount:f.amount, currency:f.currency, source_url:MP_SEARCH_URL,
+    published_at:f.publishedAt, close_at:f.closeAt, amount:f.amount, currency:f.currency,
+    source_url:f.code ? `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(f.code)}` : MP_SEARCH_URL,
     fit_score:fit.score, fit_level:fit.fitLevel, matched_solutions:fit.solutions,
     matched_capabilities:fit.capabilities, match_reasons:fit.reasons, raw:item,
     last_seen_at:new Date().toISOString(), updated_at:new Date().toISOString()

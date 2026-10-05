@@ -1,6 +1,6 @@
 /* CRM Personal · UX/UI V2
    Enhancement layer: mantiene intacta la lógica de app.js/store.js. */
-import { state, onChange, openTasks, metrics } from './store.js';
+import { state, onChange, openTasks, metrics, saveProfile } from './store.js';
 import { DEFAULT_BOTTOM_NAV, OPEN_STAGES } from './catalog.js';
 import { session, onAuthChange, signOut } from './auth.js';
 import { chilecompraDashboardStats, chilecompraLocalBreakdown, loadChileCompraAnalytics, onChileCompraChange } from './chilecompra.js';
@@ -53,6 +53,7 @@ function mascotPreferenceKey() {
 }
 
 function mascotEnabled() {
+  if (typeof state.me?.mascotEnabled === 'boolean') return state.me.mascotEnabled;
   try {
     return localStorage.getItem(mascotPreferenceKey()) !== '0';
   } catch {
@@ -60,12 +61,12 @@ function mascotEnabled() {
   }
 }
 
-function setMascotPreference(enabled) {
+async function setMascotPreference(enabled) {
   const next = Boolean(enabled);
   try {
     localStorage.setItem(mascotPreferenceKey(), next ? '1' : '0');
   } catch {
-    // La preferencia visual no debe bloquear Configuración.
+    // La preferencia visual no debe bloquear Mi cuenta.
   }
 
   document.dispatchEvent(new CustomEvent('crm-personal:mascot-preference', {
@@ -76,6 +77,17 @@ function setMascotPreference(enabled) {
   if (status) {
     status.textContent = next ? 'Activada' : 'Desactivada';
     status.classList.toggle('success', next);
+  }
+
+  const saved = await saveProfile({ mascotEnabled: next });
+  if (!saved) {
+    const current = mascotEnabled();
+    const toggle = $('v2MascotToggle');
+    if (toggle) toggle.checked = current;
+    if (status) {
+      status.textContent = current ? 'Activada' : 'Desactivada';
+      status.classList.toggle('success', current);
+    }
   }
 }
 
@@ -736,7 +748,7 @@ function injectMascotSettingsCard() {
       <label class="v2-setting-toggle" for="v2MascotToggle">
         <span class="v2-setting-toggle__copy">
           <strong>Activar o desactivar mascota</strong>
-          <small>Muestra al personaje con mensajes contextuales. Aparece en la zona media-alta derecha y se retira automáticamente.</small>
+          <small>La mascota aparece solo al iniciar una sesión y ante cambios importantes de gestión. Si la desactivas, la preferencia queda guardada en tu cuenta.</small>
         </span>
         <span class="v2-switch">
           <input id="v2MascotToggle" type="checkbox" ${enabled ? 'checked' : ''} />
@@ -749,8 +761,8 @@ function injectMascotSettingsCard() {
   if (appCard) appCard.insertAdjacentElement('afterend', card);
   else cards[0].insertAdjacentElement('afterend', card);
 
-  $('v2MascotToggle')?.addEventListener('change', (event) => {
-    setMascotPreference(event.currentTarget.checked);
+  $('v2MascotToggle')?.addEventListener('change', async (event) => {
+    await setMascotPreference(event.currentTarget.checked);
   });
 }
 
