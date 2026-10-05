@@ -544,7 +544,7 @@ function cmOrderFields(item) {
     statusCode:Number(get(item,"CodigoEstado","codigoEstado"))||null,
     status:orderStatusFrom(item),
     typeCode:Number.isFinite(typeCode) ? typeCode : null,
-    type:type||"CM",
+    type:type,
     currency:String(get(item,"TipoMoneda","Moneda","moneda")||"CLP").trim()||"CLP",
     netTotal:money(get(item,"TotalNeto","totalNeto")),
     total:money(get(item,"Total","total")),
@@ -578,7 +578,10 @@ function cmOrderFields(item) {
 }
 function isCmOrder(item) {
   const f=cmOrderFields(item);
-  return f.typeCode===9 || normalize(f.type)==="cm" || normalize(f.type).includes("convenio marco");
+  return f.typeCode===9
+    || normalize(f.type)==="cm"
+    || normalize(f.type).includes("convenio marco")
+    || /-CM\d{2}$/i.test(f.code);
 }
 function cmOrderRow(item) {
   const f=cmOrderFields(item);
@@ -589,7 +592,7 @@ function cmOrderRow(item) {
     status_code:f.statusCode,
     status:f.status,
     type_code:f.typeCode,
-    type:f.type,
+    type:f.type || (/-CM\d{2}$/i.test(f.code) ? "CM" : ""),
     currency:f.currency,
     net_total:f.netTotal,
     total:f.total,
@@ -698,8 +701,21 @@ async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
   }
   return data;
 }
+async function sleep(ms) {
+  await new Promise(resolve=>setTimeout(resolve,ms));
+}
 async function fetchCmDetail(admin,ticket,code) {
-  const payload=await mercado("ordenesdecompra.json",ticket,{codigo:code});
+  let payload=null;
+  for(let attempt=0;attempt<3;attempt++) {
+    try {
+      payload=await mercado("ordenesdecompra.json",ticket,{codigo:code});
+      break;
+    } catch(error) {
+      const message=error instanceof Error?error.message:String(error);
+      if(!message.includes("429") || attempt===2) throw error;
+      await sleep(900*(attempt+1));
+    }
+  }
   const item=orderListFrom(payload)[0]||null;
   if(!item || !isCmOrder(item)) return null;
   return await upsertCmOrder(admin,item,{detailLoaded:true});
@@ -728,20 +744,15 @@ async function syncCmOrders(admin,ticket,{days=3,detailLimit=48}={}) {
 
   let detailed=0;
   const codes=[...candidates.keys()].slice(0,Math.max(0,Math.min(160,Number(detailLimit)||48)));
-  const workers=Math.min(5,codes.length);
-  let cursor=0;
-  await Promise.all(Array.from({length:workers},async()=>{
-    while(cursor<codes.length) {
-      const index=cursor++;
-      const code=codes[index];
-      try {
-        const full=await fetchCmDetail(admin,ticket,code);
-        if(full) detailed+=1;
-      } catch(error) {
-        errors.push({code,message:error instanceof Error?error.message:String(error)});
-      }
+  for(const code of codes) {
+    try {
+      const full=await fetchCmDetail(admin,ticket,code);
+      if(full) detailed+=1;
+    } catch(error) {
+      errors.push({code,message:error instanceof Error?error.message:String(error)});
     }
-  }));
+    await sleep(300);
+  }
 
   return {days:safeDays,found:candidates.size,detailed,errors:errors.slice(0,12),syncedAt:new Date().toISOString()};
 }
