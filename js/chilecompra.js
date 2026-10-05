@@ -844,7 +844,8 @@ function dashboardNav(stats) {
     ['resumen','Resumen',''],
     ['coincidencias','Coincidencias',stats.total],
     ['campanas','Seguimientos',stats.activeCampaigns],
-    ['buscar','Buscar','']
+    ['buscar','Buscar',''],
+    ['convenio','Convenio Marco','']
   ];
   const secondary = [
     ['mercado','Mercado Chile'],
@@ -1220,24 +1221,33 @@ function renderOpportunityPage(o) {
 
 function renderInner() {
   const stats = chilecompraDashboardStats();
+  if (chilecompraState.cmSelectedCode) return `${renderCmOrderPage()}${sharedDialogs()}`;
+
   const selected = chilecompraState.selectedId ? selectedOpportunity() : null;
   if (selected) return `${renderOpportunityPage(selected)}${sharedDialogs()}`;
 
   const isSearch = chilecompraState.tab === 'buscar';
+  const isCm = chilecompraState.tab === 'convenio';
   const updated = chilecompraState.lastSyncAt
     ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
     : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Sin revisión reciente';
 
-  return `<section class="cc-module-toolbar ${isSearch ? 'cc-module-toolbar--search' : ''}">
+  const toolbar = isCm ? '' : `<section class="cc-module-toolbar ${isSearch ? 'cc-module-toolbar--search' : ''}">
     <span class="cc-updated"><i></i>${updated}</span>
     <div class="cc-module-actions">
       ${stats.activeCampaigns && !isSearch ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button>` : ''}
       ${!isSearch ? '<button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>' : ''}
     </div>
-  </section>
-  ${dashboardNav(stats)}
-  ${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}
-  ${sharedDialogs()}`;
+  </section>`;
+
+  const content = chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats)
+    : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats)
+    : chilecompraState.tab === 'mercado' ? renderMarketDashboard()
+    : chilecompraState.tab === 'compradores' ? renderBuyersDashboard()
+    : chilecompraState.tab === 'convenio' ? renderConvenioMarcoDashboard()
+    : renderOpportunityWorkspace(stats);
+
+  return `${toolbar}${dashboardNav(stats)}${content}${sharedDialogs()}`;
 }
 
 export function renderChileCompra() {
