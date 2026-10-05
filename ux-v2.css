@@ -5399,3 +5399,161 @@ html[data-crm-view="settings"] .settings-demo-card .button-row{
     grid-template-columns:1fr;
   }
 }
+
+
+/* ---------- Mi cuenta · barra inferior móvil ---------- */
+.profile-bottom-nav-preview{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:6px;
+  padding:10px;
+  border:1px solid var(--v2-line,#dce5ef);
+  border-radius:14px;
+  background:var(--v2-soft,#f7f9fc);
+}
+.profile-bottom-nav-preview-item{
+  min-width:0;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:4px;
+  min-height:58px;
+  padding:5px 2px;
+  color:var(--v2-muted,#728096);
+  text-align:center;
+}
+.profile-bottom-nav-preview-item small{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:9px;
+  line-height:1.1;
+}
+.profile-bottom-nav-symbol,
+.profile-bottom-nav-logo{
+  width:24px;
+  height:22px;
+  display:block;
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
+}
+.profile-bottom-nav-logo--chilecompra{
+  width:38px;
+  background-image:url("https://www.chilecompra.cl/wp-content/uploads/2016/12/datosabiertoslogochilecompra-300x169.jpg");
+}
+.profile-bottom-nav-symbol::before{
+  display:grid;
+  place-items:center;
+  width:100%;
+  height:100%;
+  font-size:20px;
+  line-height:1;
+}
+.profile-bottom-nav-symbol--dashboard::before{content:"⌂";}
+.profile-bottom-nav-symbol--leads::before{content:"♟";}
+.profile-bottom-nav-symbol--hyperfocus::before{content:"◎";}
+.profile-bottom-nav-symbol--pipeline::before{content:"▥";}
+.profile-bottom-nav-symbol--remarketing::before{content:"◁";}
+.profile-bottom-nav-symbol--implementation::before{content:"✓";}
+.profile-bottom-nav-symbol--templates::before{content:"✎";}
+.profile-bottom-nav-symbol--quotes::before{content:"$";}
+
+.profile-bottom-nav-selects{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+  margin-top:14px;
+}
+.profile-bottom-nav-selects label{
+  display:grid;
+  gap:5px;
+  min-width:0;
+  color:var(--v2-muted,#6f7f92);
+  font-size:10px;
+  font-weight:700;
+}
+.profile-bottom-nav-selects select{
+  min-width:0;
+  width:100%;
+  min-height:40px;
+  padding:0 8px;
+  border:1px solid var(--v2-line,#dce5ef);
+  border-radius:10px;
+  background:var(--v2-panel,#fff);
+  color:var(--v2-text,#172c4e);
+}
+
+@media (max-width:900px){
+  .nav{
+    grid-template-columns:repeat(var(--mobile-nav-count,5),minmax(0,1fr))!important;
+  }
+
+  /* La barra inferior ya no depende de cinco módulos fijos. */
+  .nav .nav-item{
+    display:none!important;
+  }
+  .nav .nav-item[data-mobile-nav-slot]{
+    display:flex!important;
+    order:var(--mobile-order,0);
+    min-width:0;
+    min-height:54px;
+    padding:5px 2px 4px;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:3px;
+    border-radius:12px;
+    color:#728096;
+    font-size:9px;
+    line-height:1.15;
+    font-weight:500;
+    text-align:center;
+    white-space:normal;
+    box-shadow:none;
+  }
+  .nav .nav-item[data-mobile-nav-slot]::before{
+    display:block!important;
+    width:auto;
+    flex:0 0 auto;
+    font-size:19px;
+    line-height:20px;
+    opacity:.9;
+  }
+  .nav .nav-item[data-view="chilecompra"][data-mobile-nav-slot]::before{
+    content:"";
+    width:38px;
+    height:22px;
+    background-image:url("https://www.chilecompra.cl/wp-content/uploads/2016/12/datosabiertoslogochilecompra-300x169.jpg");
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:contain;
+    opacity:1;
+  }
+  .nav .nav-item[data-view="chilecompra"] .nav-new-badge{
+    display:none!important;
+  }
+}
+
+@media (max-width:720px){
+  .profile-bottom-nav-preview{
+    gap:2px;
+    padding:8px 5px;
+  }
+  .profile-bottom-nav-selects{
+    grid-template-columns:1fr;
+    gap:9px;
+  }
+  .profile-bottom-nav-selects label{
+    grid-template-columns:76px minmax(0,1fr);
+    align-items:center;
+  }
+  .profile-bottom-nav-selects label > span{
+    font-size:10px;
+  }
+  .profile-bottom-nav-card .button-row{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+}
