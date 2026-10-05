@@ -946,6 +946,9 @@ async function loadDetail(id, { force = false } = {}) {
     const data = await invokeRadar({ action: 'detail', code: current.external_code });
     if (data?.opportunity) {
       replaceEverywhere(data.opportunity);
+      if (data.detailComplete === false) {
+        chilecompraState.detailError = 'Mercado Público devolvió solo información básica para esta licitación.';
+      }
       notify();
     }
   } catch (err) {
