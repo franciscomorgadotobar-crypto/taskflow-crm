@@ -999,6 +999,42 @@ async function backfillCmOrders(admin,ticket,{days=30}={}) {
   };
 }
 
+async function enrichCmCache(admin,ticket,{limit=8}={}) {
+  const safeLimit=Math.max(1,Math.min(20,Number(limit)||8));
+  const {data:pending,error}=await admin.from("chilecompra_cm_orders")
+    .select("code,observed_date,created_at_mp")
+    .eq("detail_loaded",false)
+    .order("observed_date",{ascending:false})
+    .order("created_at_mp",{ascending:false})
+    .limit(safeLimit);
+  if(error) throw error;
+
+  let detailed=0;
+  const errors=[];
+  for(const row of pending||[]) {
+    try {
+      const full=await fetchCmDetail(admin,ticket,row.code);
+      if(full) detailed+=1;
+    } catch(error) {
+      errors.push({code:row.code,message:error instanceof Error?error.message:String(error)});
+    }
+    await sleep(420);
+  }
+
+  const {count:remaining,error:countError}=await admin.from("chilecompra_cm_orders")
+    .select("code",{count:"exact",head:true})
+    .eq("detail_loaded",false);
+  if(countError) throw countError;
+
+  return {
+    requested:(pending||[]).length,
+    detailed,
+    remaining:Number(remaining||0),
+    errors:errors.slice(0,12),
+    enrichedAt:new Date().toISOString()
+  };
+}
+
 async function cmDashboard(admin,ticket,org,body) {
   const days=Math.max(1,Math.min(180,Number(body?.days)||30));
   const query=String(body?.query||"").trim();
@@ -1141,6 +1177,12 @@ Deno.serve(async req=>{
       if(!cron) return json({error:"cm_backfill_requires_cron"},403);
       const days=Math.max(1,Math.min(45,Number(body?.days)||30));
       return json({ok:true,...await backfillCmOrders(admin,ticket,{days})});
+    }
+
+    if(action==="cm-enrich") {
+      if(!cron) return json({error:"cm_enrich_requires_cron"},403);
+      const limit=Math.max(1,Math.min(20,Number(body?.limit)||8));
+      return json({ok:true,...await enrichCmCache(admin,ticket,{limit})});
     }
 
     if(action==="cm-detail") {
