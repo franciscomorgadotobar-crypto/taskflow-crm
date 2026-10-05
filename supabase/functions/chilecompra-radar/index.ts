@@ -321,20 +321,29 @@ async function syncOrganization(admin,ticket,org) {
 }
 
 const INDUSTRIES=[
-  ["Tecnología / Software",["software","sistema","plataforma","saas","licencia","digital","tecnologia","informatico","informática","computacional"]],
-  ["Salud",["hospital","salud","clinica","clínica","cesfam","medico","médico","farmacia"]],
-  ["Telecomunicaciones",["telecom","fibra","antena","radioenlace","lte","5g","conectividad","red de datos"]],
-  ["Seguridad / Defensa",["seguridad","ejercito","ejército","armada","carabineros","pdi","defensa","armamento","municion","munición"]],
-  ["Educación",["universidad","educacion","educación","colegio","liceo","escuela","junaeb"]],
-  ["Construcción / Infraestructura",["construccion","construcción","obra","infraestructura","edificio","reparacion","reparación"]],
-  ["Energía / Utilities",["energia","energía","electrico","eléctrico","agua potable","sanitaria","generador","electrogeno","electrógeno"]],
-  ["Transporte / Logística",["transporte","logistica","logística","vehiculo","vehículo","camion","camión","metro"]],
-  ["Industria / Minería",["mineria","minería","industrial","planta","faena","proceso productivo"]]
+  ["Tecnología / Software",["software","sistema","plataforma","saas","licencia","digital","tecnologia","informatico","informática","computacional","hosting","cloud","nube","base de datos"]],
+  ["Salud",["hospital","salud","clinica","clínica","cesfam","medico","médico","farmacia","laboratorio","dental","insumo medico","insumo médico"]],
+  ["Telecomunicaciones",["telecom","fibra","antena","radioenlace","lte","5g","conectividad","red de datos","telefonia","telefonía","internet"]],
+  ["Seguridad / Defensa",["seguridad","ejercito","ejército","armada","carabineros","pdi","defensa","vigilancia","cctv","control de acceso"]],
+  ["Educación",["universidad","educacion","educación","colegio","liceo","escuela","junaeb","capacitacion","capacitación","curso"]],
+  ["Construcción / Infraestructura",["construccion","construcción","obra","infraestructura","edificio","reparacion","reparación","pavimento","techumbre"]],
+  ["Energía / Utilities",["energia","energía","electrico","eléctrico","agua potable","sanitaria","generador","electrogeno","electrógeno","panel solar","iluminacion","iluminación","luminaria"]],
+  ["Transporte / Logística",["transporte","logistica","logística","flete","distribucion","distribución","vehiculo","vehículo","camion","camión","metro","traslado"]],
+  ["Industria / Minería",["mineria","minería","industrial","planta","faena","proceso productivo","maquinaria industrial","motor","bomba"]],
+  ["Alimentación / Catering",["alimento","alimentacion","alimentación","catering","casino","colacion","colación","racion","ración","bebida","comestible"]],
+  ["Aseo / Facility",["aseo","limpieza","facility","jardineria","jardinería","sanitizacion","sanitización","desinfeccion","desinfección","residuo","mantencion integral","mantención integral"]],
+  ["Oficina / Insumos",["articulo de oficina","artículo de oficina","insumo de oficina","papeleria","papelería","tinta","toner","tóner","impresora","fotocopiadora","utiles","útiles"]],
+  ["Equipamiento / Mobiliario",["mobiliario","mueble","silla","escritorio","estanteria","estantería","equipamiento"]],
+  ["Consultoría / Servicios profesionales",["consultoria","consultoría","asesoria","asesoría","estudio","auditoria","auditoría","servicio profesional","ingenieria","ingeniería","levantamiento"]],
+  ["Medioambiente",["medioambiente","ambiental","reciclaje","monitoreo ambiental","areas verdes","áreas verdes"]],
+  ["Maquinaria / Vehículos",["maquinaria","excavadora","grua","grúa","camioneta","automovil","automóvil","repuesto","neumatico","neumático"]],
+  ["Textil / EPP",["uniforme","vestuario","ropa","calzado","epp","elemento de proteccion personal","elemento de protección personal"]],
+  ["Comunicaciones / Eventos",["publicidad","difusion","difusión","impresion","impresión","grafica","gráfica","evento","produccion audiovisual","producción audiovisual","comunicaciones"]]
 ];
 function industryOf(item) {
   const f=listingFields(item), text=normalize([f.name,f.description,f.buyerName].join(" "));
   for(const [label,terms] of INDUSTRIES) if(terms.some(t=>termMatches(text,t))) return label;
-  return "Otros";
+  return "Sin clasificar";
 }
 function orgTypeOf(item) {
   const name=normalize(listingFields(item).buyerName);
@@ -344,7 +353,7 @@ function orgTypeOf(item) {
   if(/ejercito|ejército|armada|carabineros|pdi|gendarmeria|gendarmería|defensa/.test(name)) return "FF.AA. / Seguridad";
   if(/empresa|metro|enap|efe|correos/.test(name)) return "Empresas públicas";
   if(name) return "Gobierno / servicios públicos";
-  return "Otros";
+  return "Sin clasificar";
 }
 function analyticsValue(item,metric) {
   if(metric==="amount") return Number(listingFields(item).amount||0);
@@ -357,11 +366,26 @@ function filterByTerms(listings,terms) {
 function aggregateAnalytics(listings,{metric="publications",groupBy="industry"}={}) {
   const groups=new Map();
   const buyerGroups=new Map();
+  const examples=new Map();
+
   for(const item of listings) {
     const f=listingFields(item);
     const key=groupBy==="orgType" ? orgTypeOf(item)
-      : groupBy==="procurementType" ? (f.procurementType||"Otros")
+      : groupBy==="procurementType" ? (f.procurementType||"Sin clasificar")
       : industryOf(item);
+
+    if(!examples.has(key)) examples.set(key,[]);
+    const bucket=examples.get(key);
+    if(bucket.length<6) {
+      bucket.push({
+        code:f.code||"",
+        name:f.name||"Sin nombre",
+        buyer:f.buyerName||"",
+        amount:Number(f.amount||0),
+        closeAt:f.closeAt||""
+      });
+    }
+
     if(metric==="buyers") {
       if(!buyerGroups.has(key)) buyerGroups.set(key,new Set());
       if(f.buyerName) buyerGroups.get(key).add(f.buyerName);
@@ -369,18 +393,17 @@ function aggregateAnalytics(listings,{metric="publications",groupBy="industry"}=
       groups.set(key,(groups.get(key)||0)+analyticsValue(item,metric));
     }
   }
+
   if(metric==="buyers") {
     for(const [key,set] of buyerGroups) groups.set(key,set.size);
   }
-  const categories=[...groups.entries()]
-    .map(([label,value])=>({label,value:Number(value||0)}))
-    .sort((a,b)=>b.value-a.value);
-  if(categories.length>7) {
-    const keep=categories.slice(0,6);
-    keep.push({label:"Otros",value:categories.slice(6).reduce((s,x)=>s+x.value,0)});
-    return keep;
-  }
-  return categories;
+
+  return {
+    categories:[...groups.entries()]
+      .map(([label,value])=>({label,value:Number(value||0)}))
+      .sort((a,b)=>b.value-a.value),
+    categoryExamples:Object.fromEntries([...examples.entries()])
+  };
 }
 async function marketAnalytics(admin,ticket,org,body) {
   const universe=String(body?.universe||"campaigns");
@@ -408,13 +431,15 @@ async function marketAnalytics(admin,ticket,org,body) {
   }
 
   const buyerSet=new Set(selected.map(x=>listingFields(x).buyerName).filter(Boolean));
+  const breakdown=aggregateAnalytics(selected,{metric,groupBy});
   return {
     universe,metric,groupBy,configured,
     sourceCount:listings.length,
     publications:selected.length,
     buyers:buyerSet.size,
     amount:selected.reduce((sum,x)=>sum+Number(listingFields(x).amount||0),0),
-    categories:aggregateAnalytics(selected,{metric,groupBy})
+    categories:breakdown.categories,
+    categoryExamples:breakdown.categoryExamples
   };
 }
 
