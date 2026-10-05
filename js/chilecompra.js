@@ -654,31 +654,69 @@ function renderOpportunityWorkspace(stats) {
   const rows = filteredRows();
   const selected = selectedOpportunity();
   const isSearch = chilecompraState.tab === 'buscar';
+  const query = String(chilecompraState.query || '').trim();
+  const sourceCount = Number(chilecompraState.sourceCount || 0);
+  const quickSearches = ['luminarias LED', 'telemetría', 'software SaaS', 'IoT', 'mantenimiento industrial', 'climatización'];
+
+  const searchExperience = isSearch ? `
+    <section class="cc-search-hero">
+      <div class="cc-search-copy">
+        <span class="cc-eyebrow">Búsqueda puntual</span>
+        <h3>¿Qué quieres encontrar?</h3>
+        <p>Busca una licitación por producto, servicio, necesidad o código.</p>
+      </div>
+      <form id="ccTraditionalSearch" class="cc-search-form">
+        <div class="cc-search-field">
+          <span aria-hidden="true">⌕</span>
+          <input id="ccSearch" type="search" placeholder="Ej. luminarias LED, telemetría, software..." value="${e(query)}" autocomplete="off">
+        </div>
+        <button type="submit" class="primary-btn" ${chilecompraState.searching ? 'disabled' : ''}>${chilecompraState.searching ? 'Buscando…' : 'Buscar'}</button>
+      </form>
+      <div class="cc-quick-searches">
+        <span>Prueba con:</span>
+        ${quickSearches.map((term) => `<button type="button" data-cc-quick-search="${e(term)}">${e(term)}</button>`).join('')}
+      </div>
+    </section>` : '';
+
+  const searchResults = isSearch
+    ? chilecompraState.searching
+      ? '<section class="cc-search-state cc-search-loading"><span class="cc-search-spinner"></span><strong>Buscando en Mercado Público</strong><small>Estamos revisando las licitaciones activas.</small></section>'
+      : !query
+        ? '<section class="cc-search-state"><strong>Empieza con una búsqueda</strong><small>No necesitas crear un seguimiento para consultar ChileCompra.</small></section>'
+        : rows.length
+          ? `<section class="cc-search-results-head"><div><strong>${rows.length} resultado${rows.length === 1 ? '' : 's'} para “${e(query)}”</strong><small>${sourceCount ? `Buscamos dentro de ${sourceCount.toLocaleString('es-CL')} licitaciones activas.` : 'Resultados encontrados en Mercado Público.'}</small></div><div class="cc-search-result-actions"><button type="button" class="ghost-btn" data-cc-follow-search>Crear seguimiento</button><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div></section><div class="cc-opportunity-list">${rows.map(opportunityCard).join('')}</div>`
+          : `<section class="cc-search-state cc-search-empty">
+              <span class="cc-search-empty-icon">⌕</span>
+              <strong>No encontramos resultados para “${e(query)}”</strong>
+              <small>${sourceCount ? `Revisamos ${sourceCount.toLocaleString('es-CL')} licitaciones activas.` : ''} Prueba con menos palabras o un término más general.</small>
+              <div class="cc-search-empty-actions">
+                <button type="button" class="primary-btn" data-cc-focus-search>Modificar búsqueda</button>
+                <button type="button" class="ghost-btn" data-cc-follow-search>Crear seguimiento con este término</button>
+              </div>
+            </section>`
+    : '';
+
   return `<section class="cc-workspace">
-    ${isSearch ? `<form id="ccTraditionalSearch" class="cc-traditional-search"><div class="cc-traditional-search-box"><span aria-hidden="true">⌕</span><input id="ccSearch" type="search" placeholder="Busca palabra, servicio o código de licitación…" value="${e(chilecompraState.query)}" autocomplete="off"><button type="submit" class="primary-btn" ${chilecompraState.searching ? 'disabled' : ''}>${chilecompraState.searching ? 'Buscando…' : 'Buscar'}</button></div><small>La búsqueda manual es puntual. Solo se convierte en seguimiento cuando tú creas un seguimiento.</small></form>` : ''}
-    ${chilecompraState.tab === 'coincidencias' && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} <b>${stats.newByCampaign[c.id] || 0}</b></button>`).join('')}</div>` : ''}
-    <div class="cc-results-toolbar"><strong class="cc-result-title">${resultHeading(rows)}</strong><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div>
-    ${chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}
-    <div class="cc-opportunity-list">${chilecompraState.searching ? '<div class="cc-empty">Consultando Mercado Público…</div>' : rows.length ? rows.map(opportunityCard).join('') : isSearch && !chilecompraState.query ? '<div class="cc-empty cc-empty--search"><strong>Busca directamente en ChileCompra</strong><span>Escribe una palabra, servicio o código de licitación.</span></div>' : '<div class="cc-empty">No hay resultados para esta vista.</div>'}</div>
+    ${searchExperience}
+    ${!isSearch && chilecompraState.tab === 'coincidencias' && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} <b>${stats.newByCampaign[c.id] || 0}</b></button>`).join('')}</div>` : ''}
+    ${isSearch ? searchResults : `<div class="cc-results-toolbar"><strong class="cc-result-title">${resultHeading(rows)}</strong><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div>${chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}<div class="cc-opportunity-list">${rows.length ? rows.map(opportunityCard).join('') : '<div class="cc-empty">No hay resultados para esta vista.</div>'}</div>`}
     <dialog id="ccOpportunityDialog" class="modal cc-opportunity-dialog"><div class="modal-card wide cc-opportunity-modal-card"><div class="modal-head cc-opportunity-modal-head"><div><h2>Detalle de licitación</h2><p>${selected ? `ID ${e(selected.external_code)}` : 'ChileCompra'}</p></div><button type="button" class="icon-btn" data-cc-detail-close aria-label="Cerrar">×</button></div><div class="cc-opportunity-modal-body">${detailPanel(selected)}</div></div></dialog>
   </section>`;
 }
 
 function renderInner() {
   const stats = chilecompraDashboardStats();
+  const isSearch = chilecompraState.tab === 'buscar';
   const updated = chilecompraState.lastSyncAt
     ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
     : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Crea un seguimiento para comenzar';
 
-  return `<section class="cc-radar-head">
+  return `<section class="cc-radar-head ${isSearch ? 'cc-radar-head--minimal' : ''}">
     <div>
-      <h2>ChileCompra</h2>
-      <p>Encuentra licitaciones que coinciden con lo que vendes.</p>
+      <h2>${isSearch ? 'Buscar en ChileCompra' : 'ChileCompra'}</h2>
+      <p>${isSearch ? 'Consulta Mercado Público sin configurar nada.' : 'Oportunidades públicas que coinciden con lo que vendes.'}</p>
     </div>
-    <div class="cc-radar-actions">
-      <span class="cc-updated"><i></i>${updated}</span>
-      ${stats.activeCampaigns ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>` : ''}
-    </div>
+    ${isSearch ? '' : `<div class="cc-radar-actions"><span class="cc-updated"><i></i>${updated}</span>${stats.activeCampaigns ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>` : ''}</div>`}
   </section>
   ${dashboardNav(stats)}
   ${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}
@@ -834,6 +872,31 @@ export function mountChileCompraView() {
       return;
     }
     if (ev.target.closest('[data-cc-business-open]')) { document.getElementById('ccBusinessDialog')?.showModal(); return; }
+
+    const quickSearch = ev.target.closest('[data-cc-quick-search]');
+    if (quickSearch) {
+      await runTraditionalSearch(quickSearch.dataset.ccQuickSearch || '');
+      return;
+    }
+    if (ev.target.closest('[data-cc-focus-search]')) {
+      const input = document.getElementById('ccSearch');
+      input?.focus();
+      input?.select?.();
+      return;
+    }
+    if (ev.target.closest('[data-cc-follow-search]')) {
+      const query = String(chilecompraState.query || '').trim();
+      const dialog = document.getElementById('ccCampaignDialog');
+      if (dialog) {
+        const name = document.getElementById('ccCampaignName');
+        const terms = document.getElementById('ccCampaignTerms');
+        if (name && !name.value) name.value = query ? `Seguimiento · ${query}` : '';
+        if (terms) terms.value = query;
+        dialog.showModal();
+        requestAnimationFrame(renderCampaignTermSuggestions);
+      }
+      return;
+    }
     if (ev.target.closest('.cc-switch')) return;
 
     const campaignOpen = ev.target.closest('[data-cc-campaign-open]');
