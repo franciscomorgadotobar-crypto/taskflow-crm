@@ -10,6 +10,8 @@ export const chilecompraState = {
   marketProfile: null,
   analytics: null,
   analyticsLoading: false,
+  marketPulse: null,
+  marketPulseLoading: false,
   analyticsUniverse: 'general',
   analyticsMetric: 'publications',
   analyticsGroupBy: 'industry',
@@ -35,7 +37,7 @@ const notify = () => listeners.forEach((fn) => fn(chilecompraState));
 export function clearChileCompra() {
   Object.assign(chilecompraState, {
     opportunities: [], campaigns: [], matches: [], marketProfile: null, analytics: null,
-    analyticsLoading: false, loading: false, syncing: false, searching: false,
+    analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
     selectedCampaignId: '', selectedId: '', detailTab: 'resumen', sort: 'recent', lastSyncAt: ''
   });
@@ -219,6 +221,28 @@ export async function syncChileCompra() {
     toast('Radar ChileCompra actualizado.');
   } finally {
     chilecompraState.syncing = false;
+    notify();
+  }
+}
+
+async function ensureMarketPulse({ force = false } = {}) {
+  if (chilecompraState.marketPulseLoading) return chilecompraState.marketPulse;
+  if (chilecompraState.marketPulse && !force) return chilecompraState.marketPulse;
+  chilecompraState.marketPulseLoading = true;
+  notify();
+  try {
+    chilecompraState.marketPulse = await invokeRadar({
+      action: 'analytics',
+      universe: 'general',
+      metric: 'publications',
+      groupBy: 'industry'
+    });
+    return chilecompraState.marketPulse;
+  } catch (err) {
+    console.error('No se pudo cargar el pulso de Mercado Público', err);
+    return null;
+  } finally {
+    chilecompraState.marketPulseLoading = false;
     notify();
   }
 }
