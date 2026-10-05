@@ -615,33 +615,41 @@ function renderDashboardSummary() {
       <article class="v2-summary-kpi v2-kpi-close is-clickable" data-v2-dashboard-action="close" role="button" tabindex="0">
         <span class="v2-kpi-icon" aria-hidden="true">▥</span><span>Tasa de cierre</span><strong>${esc(closeRate.value)}</strong><small>${esc(closeRate.hint)}</small><b class="v2-card-chevron">›</b>
       </article>
-      <article class="v2-summary-kpi v2-chilecompra-card">
+
+      <article class="v2-summary-kpi v2-chilecompra-card v2-chilecompra-card--compact">
         <div class="v2-cc-brand">
           <span class="v2-cc-brand-icon" aria-hidden="true"><img src="https://www.chilecompra.cl/wp-content/uploads/2016/12/datosabiertoslogochilecompra-300x169.jpg" alt="" /></span>
-          <div><strong>ChileCompra</strong><small>${chilecompra.activeCampaigns ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'seguimiento activo' : 'seguimientos activos'} · <b>${chilecompra.total}</b> coincidencias nuevas` : 'Aún no tienes seguimientos activos'}</small></div>
+          <div>
+            <strong>ChileCompra</strong>
+            <small>${chilecompra.activeCampaigns
+              ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'seguimiento activo' : 'seguimientos activos'} · <b>${chilecompra.total}</b> coincidencias por revisar`
+              : 'Aún no tienes seguimientos activos'}</small>
+          </div>
           <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra"><span>Abrir</span><b>›</b></button>
         </div>
-        <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
-        <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Panorama inicial del mercado antes de entrar a tus seguimientos.</small></div></div>
-        <div class="v2-cc-market-preset">
-          <span>${homeMarketIsDefault() ? 'Vista inicial' : 'Vista personalizada'}</span>
-          <strong>${esc(homeMarketPresetCopy(market))}</strong>
-          ${ccHomeFallbackNotice ? `<small>${esc(ccHomeFallbackNotice)}</small>` : ''}
+        <div class="v2-cc-compact-summary">
+          <button type="button" class="v2-cc-compact-stat v2-cc-compact-stat--primary" data-action="open-chilecompra" data-cc-tab="coincidencias">
+            <span>Coincidencias por revisar</span><strong>${chilecompra.total}</strong><small>Según tus seguimientos activos</small>
+          </button>
+          <button type="button" class="v2-cc-compact-stat" data-action="open-chilecompra" data-cc-tab="campanas">
+            <span>Seguimientos</span><strong>${chilecompra.activeCampaigns}</strong><small>Activos ahora</small>
+          </button>
+          <button type="button" class="v2-cc-compact-stat" data-action="open-chilecompra" data-cc-tab="mercado">
+            <span>Mercado Público</span><strong>${market?.publications != null ? Number(market.publications).toLocaleString('es-CL') : '—'}</strong>
+            <small>${market?.categories?.[0]?.label ? `Mayor actividad: ${esc(market.categories[0].label)}` : 'Ver panorama de compras'}</small>
+          </button>
         </div>
-        <div class="v2-cc-market-controls">
-          <label><span>Qué mirar</span><select id="v2CcUniverse" aria-label="Universo ChileCompra">
-            <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>Mercado general Chile</option>
-            <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis seguimientos</option>
-            <option value="business" ${ccHomeUniverse === 'business' ? 'selected' : ''}>Mi negocio</option>
-          </select></label>
-          <label><span>Medir por</span><select id="v2CcMetric" aria-label="Métrica ChileCompra">
-            <option value="publications" ${ccHomeMetric === 'publications' ? 'selected' : ''}>Publicaciones</option>
-            <option value="amount" ${ccHomeMetric === 'amount' ? 'selected' : ''}>Monto publicado</option>
-            <option value="buyers" ${ccHomeMetric === 'buyers' ? 'selected' : ''}>Compradores</option>
-          </select></label>
+        <div class="v2-cc-compact-campaigns">
+          <div class="v2-cc-compact-campaigns-head">
+            <strong>Seguimientos con actividad</strong>
+            <button type="button" class="link-btn" data-action="open-chilecompra" data-cc-tab="campanas">Ver todos</button>
+          </div>
+          <div class="v2-cc-compact-campaign-list">
+            ${chilecompra.campaigns.length
+              ? chilecompra.campaigns.slice().sort((a,b) => Number(chilecompra.newByCampaign?.[b.id] || 0) - Number(chilecompra.newByCampaign?.[a.id] || 0)).slice(0,3).map((campaign) => `<button type="button" class="v2-cc-compact-campaign" data-action="open-chilecompra" data-campaign="${esc(campaign.id)}"><span>${esc(campaign.name)}</span><strong>${chilecompra.newByCampaign?.[campaign.id] || 0}</strong></button>`).join('')
+              : '<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>'}
+          </div>
         </div>
-        ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Cargando panorama inicial de Mercado Público…</div>' : homeChileCompraBars(market)}
-        
       </article>`;
   }
 
