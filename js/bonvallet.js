@@ -1,4 +1,4 @@
-import { metrics, onChange } from './store.js';
+import { metrics, onChange, state } from './store.js';
 import { onAuthChange, session } from './auth.js';
 
 const AVATARS = {
@@ -65,6 +65,7 @@ function mascotPreferenceKey() {
 }
 
 export function isBonvalletEnabled() {
+  if (typeof state.me?.mascotEnabled === 'boolean') return state.me.mascotEnabled;
   try {
     return localStorage.getItem(mascotPreferenceKey()) !== '0';
   } catch {
@@ -104,13 +105,12 @@ export function setBonvalletEnabled(enabled) {
     snapshot = null;
     startupShownForUser = '';
     clearRotationTimer();
-    hideBonvallet();
+    hideBonvallet({ immediate: true });
     return;
   }
 
-  snapshot = null;
-  startupShownForUser = '';
-  showStartupOnce();
+  snapshot = capture(metrics());
+  startupShownForUser = session.user?.id || '';
 }
 
 function ensureHost() {
@@ -189,17 +189,10 @@ function clearRotationTimer() {
   rotationTimer = null;
 }
 
-function scheduleBonvalletRotation({ sooner = false } = {}) {
+function scheduleBonvalletRotation() {
   clearRotationTimer();
-  if (!isBonvalletEnabled() || session.status !== 'signed-in') return;
-
-  const delay = sooner ? 42000 : 76000;
-  rotationTimer = window.setTimeout(() => {
-    if (document.visibilityState === 'visible' && session.status === 'signed-in' && isBonvalletEnabled()) {
-      showBonvalletMessage({ ...rotatingMessage(metrics()), duration: 6200 });
-    }
-    scheduleBonvalletRotation();
-  }, delay);
+  // Sin rotación automática: la mascota solo aparece al inicio de una sesión
+  // y ante hitos reales de gestión.
 }
 
 function startupMessage(m) {
@@ -243,8 +236,7 @@ export function showBonvalletMessage({ text, mood = 'neutral', duration = 7000, 
 
 export function startBonvallet(m = metrics()) {
   snapshot = capture(m);
-  showBonvalletMessage({ ...startupMessage(m), duration: 7000, force: true });
-  scheduleBonvalletRotation({ sooner: true });
+  showBonvalletMessage({ ...startupMessage(m), duration: 6200, force: true });
 }
 
 export function syncBonvallet(m = metrics()) {
@@ -269,7 +261,7 @@ export function syncBonvallet(m = metrics()) {
   snapshot = next;
   if (message) {
     showBonvalletMessage(message);
-    scheduleBonvalletRotation();
+
   }
 }
 
@@ -283,15 +275,30 @@ export function resetBonvallet() {
   hideBonvallet({ immediate: true });
 }
 
+function startupSessionKey(userId) {
+  return `crm.personal.mascot.startup:${userId}`;
+}
+
 function showStartupOnce() {
   const userId = session.user?.id || '';
   if (!isBonvalletEnabled() || session.status !== 'signed-in' || !userId || startupShownForUser === userId) return;
 
+  try {
+    if (sessionStorage.getItem(startupSessionKey(userId)) === '1') {
+      startupShownForUser = userId;
+      snapshot = capture(metrics());
+      return;
+    }
+  } catch {
+    // sessionStorage no es obligatorio.
+  }
+
   startupShownForUser = userId;
   window.setTimeout(() => {
-    if (session.status !== 'signed-in' || session.user?.id !== userId) return;
+    if (session.status !== 'signed-in' || session.user?.id !== userId || !isBonvalletEnabled()) return;
+    try { sessionStorage.setItem(startupSessionKey(userId), '1'); } catch {}
     startBonvallet(metrics());
-  }, 850);
+  }, 3500);
 }
 
 onChange(() => {
@@ -313,11 +320,7 @@ onAuthChange((auth) => {
 
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && session.status === 'signed-in' && isBonvalletEnabled()) {
-    scheduleBonvalletRotation({ sooner: true });
-  } else {
-    clearRotationTimer();
-  }
+  if (document.visibilityState !== 'visible') clearRotationTimer();
 });
 
 document.addEventListener('crm-personal:mascot-preference', (event) => {
