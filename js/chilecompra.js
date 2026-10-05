@@ -26,6 +26,8 @@ export const chilecompraState = {
   selectedCampaignId: '',
   selectedId: '',
   detailTab: 'resumen',
+  detailLoading: false,
+  detailError: '',
   sort: 'recent',
   lastSyncAt: ''
 };
@@ -39,7 +41,7 @@ export function clearChileCompra() {
     opportunities: [], campaigns: [], matches: [], marketProfile: null, analytics: null,
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
-    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', sort: 'recent', lastSyncAt: ''
+    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '', sort: 'recent', lastSyncAt: ''
   });
   notify();
 }
@@ -572,7 +574,22 @@ function detailBody(o) {
   }
   if (chilecompraState.detailTab === 'requisitos') return `<section class="cc-detail-section"><h4>Requisitos</h4>${rawSection(o, ['RequisitosGenerales','AntecedentesTecnicos','Requisitos','Antecedentes'])}</section>`;
   if (chilecompraState.detailTab === 'documentos') return `<section class="cc-detail-section"><h4>Documentos</h4>${rawSection(o, ['Documentos','Adjuntos','Archivos','Items'])}</section>`;
-  return `<section class="cc-detail-section"><div class="cc-detail-facts"><div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div><div><small>Publicación</small><strong>${o.published_at ? fmtDate(o.published_at.slice(0, 10)) : 'No informada'}</strong></div></div><h4>Descripción</h4><p class="cc-description">${e(o.description || 'Abre el detalle para consultar la ficha completa de Mercado Público.')}</p><h4>Seguimientos relacionados</h4><div class="cc-tags">${campaignTags(o) || '<span class="muted">Búsqueda manual.</span>'}</div></section>`;
+  const description = o.description
+    || (chilecompraState.detailLoading
+      ? 'Cargando información desde Mercado Público…'
+      : chilecompraState.detailError
+        ? 'No pudimos completar la ficha desde Mercado Público.'
+        : 'Mercado Público no informó una descripción para esta licitación.');
+  const published = o.published_at
+    ? fmtDate(o.published_at.slice(0, 10))
+    : (chilecompraState.detailLoading ? 'Cargando…' : 'No informada');
+  return `<section class="cc-detail-section">
+    ${chilecompraState.detailLoading ? '<div class="cc-detail-loading"><span class="cc-search-spinner"></span><span>Cargando ficha completa…</span></div>' : ''}
+    ${chilecompraState.detailError ? `<div class="cc-detail-warning"><strong>No se pudo completar la ficha</strong><span>${e(chilecompraState.detailError)}</span><button type="button" class="ghost-btn" data-cc-detail-retry>Reintentar</button></div>` : ''}
+    <div class="cc-detail-facts"><div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div><div><small>Publicación</small><strong>${published}</strong></div></div>
+    <h4>Descripción</h4><p class="cc-description">${e(description)}</p>
+    <h4>Seguimientos relacionados</h4><div class="cc-tags">${campaignTags(o) || '<span class="muted">Búsqueda manual.</span>'}</div>
+  </section>`;
 }
 
 function detailPanel(o) {
@@ -580,7 +597,7 @@ function detailPanel(o) {
   const campaigns = campaignsForOpportunity(o.id);
   return `<aside class="cc-detail">
     <div class="cc-detail-head"><div class="cc-detail-campaign-summary"><strong>${campaigns.length}</strong><span>${campaigns.length === 1 ? 'seguimiento coincide' : 'seguimientos coinciden'}</span></div><button type="button" class="icon-btn" data-cc-save="${o.id}" aria-label="Guardar oportunidad">♡</button></div>
-    <h2>${e(o.name)}</h2><p class="cc-detail-buyer">⌂ ${e(o.buyer_name || 'Comprador disponible al cargar detalle')}</p>
+    <h2>${e(o.name)}</h2><p class="cc-detail-buyer">⌂ ${e(o.buyer_name || (chilecompraState.detailLoading ? 'Cargando comprador…' : 'Comprador no informado'))}</p>
     <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
     <div class="cc-detail-tabs">${[['resumen','Resumen'],['requisitos','Requisitos'],['documentos','Documentos'],['coincidencias','Coincidencias']].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
     ${detailBody(o)}
@@ -906,21 +923,40 @@ async function markReviewed(id) {
   try { await invokeRadar({ action: 'review', opportunityId: id }); } catch (err) { console.error('No se pudo marcar coincidencia revisada', err); }
 }
 
-async function loadDetail(id) {
+async function loadDetail(id, { force = false } = {}) {
   const current = [...chilecompraState.results, ...chilecompraState.opportunities].find((o) => o.id === id);
   if (!current) return;
+
   await markReviewed(id);
-  if (current.detail_loaded) return;
+
+  const hasUsefulDetail = Boolean(
+    current.description
+    || current.buyer_name
+    || current.published_at
+    || current.amount != null
+    || (current.raw && Object.keys(current.raw).length > 6)
+  );
+  if (!force && current.detail_loaded && hasUsefulDetail) return;
+
+  chilecompraState.detailLoading = true;
+  chilecompraState.detailError = '';
+  rerender();
+
   try {
     const data = await invokeRadar({ action: 'detail', code: current.external_code });
     if (data?.opportunity) {
       replaceEverywhere(data.opportunity);
+      if (data.detailComplete === false) {
+        chilecompraState.detailError = 'Mercado Público devolvió solo información básica para esta licitación.';
+      }
       notify();
-      rerender();
     }
   } catch (err) {
     console.error('No se pudo cargar detalle ChileCompra', err);
-    toast('No se pudo cargar el detalle completo.', 'error');
+    chilecompraState.detailError = err?.message || 'Mercado Público no respondió con el detalle de esta licitación.';
+  } finally {
+    chilecompraState.detailLoading = false;
+    rerender();
   }
 }
 
@@ -1052,7 +1088,7 @@ export function mountChileCompraView() {
     if (select) {
       chilecompraState.selectedId = select.dataset.ccSelect;
       chilecompraState.detailTab = 'resumen';
-      rerender();
+      chilecompraState.detailError = '';
       await loadDetail(chilecompraState.selectedId);
       return;
     }
@@ -1066,7 +1102,7 @@ export function mountChileCompraView() {
       if (match) {
         chilecompraState.selectedId = match.id;
         chilecompraState.detailTab = 'resumen';
-        rerender();
+        chilecompraState.detailError = '';
         await loadDetail(match.id);
       }
       return;
@@ -1074,7 +1110,13 @@ export function mountChileCompraView() {
 
     if (ev.target.closest('[data-cc-detail-back]')) {
       chilecompraState.selectedId = '';
+      chilecompraState.detailLoading = false;
+      chilecompraState.detailError = '';
       rerender();
+      return;
+    }
+    if (ev.target.closest('[data-cc-detail-retry]')) {
+      if (chilecompraState.selectedId) await loadDetail(chilecompraState.selectedId, { force: true });
       return;
     }
     const tab = ev.target.closest('[data-cc-tab]');

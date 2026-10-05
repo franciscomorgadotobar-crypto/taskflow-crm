@@ -1684,3 +1684,65 @@
     grid-column:1/-1;
   }
 }
+
+
+/* ---------- Detalle de licitación: carga automática ---------- */
+.cc-detail-loading,
+.cc-detail-warning{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:0 0 14px;
+  padding:10px 12px;
+  border:1px solid #dce8f4;
+  border-radius:10px;
+  background:#f6faff;
+  color:#45627f;
+  font-size:10px;
+}
+.cc-detail-loading .cc-search-spinner{
+  width:16px;
+  height:16px;
+  flex:0 0 16px;
+}
+.cc-detail-warning{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:3px 10px;
+  border-color:#eadfbd;
+  background:#fffaf0;
+}
+.cc-detail-warning strong{
+  color:#674f16;
+  font-size:10px;
+}
+.cc-detail-warning span{
+  color:#806d3e;
+  font-size:9px;
+}
+.cc-detail-warning button{
+  grid-column:2;
+  grid-row:1 / span 2;
+  align-self:center;
+}
+:root[data-theme="dark"] .cc-detail-loading{
+  background:#172a42;
+  border-color:#29445f;
+}
+:root[data-theme="dark"] .cc-detail-warning{
+  background:#2a2619;
+  border-color:#544b2b;
+}
+
+@media (max-width:680px){
+  .cc-detail-warning{
+    grid-template-columns:1fr;
+  }
+  .cc-detail-warning button{
+    grid-column:1;
+    grid-row:auto;
+    width:100%;
+    margin-top:5px;
+  }
+}
+/* ---------- End detalle carga automática ---------- */
