@@ -670,7 +670,7 @@ const DETAIL_TABS = [
   { id: 'discovery', label: 'Levantamiento', sections: ['Levantamiento'] },
   { id: 'quotes', label: 'Cotizaciones', sections: ['Cotizaciones'] },
   { id: 'activity', label: 'Actividad', sections: ['Historial'] },
-  { id: 'more', label: 'Otros datos', sections: ['Otros'] }
+  { id: 'more', label: 'Administración', sections: ['Administración'] }
 ];
 
 function enhanceDetail() {
