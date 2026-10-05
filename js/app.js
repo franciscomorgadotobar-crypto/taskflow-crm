@@ -2653,6 +2653,10 @@ function applyNavigationAccess() {
   $('.nav-item').forEach((btn) => {
     const view = btn.dataset.view;
     if (!view) return;
+    if (view === 'profile') {
+      btn.hidden = true;
+      return;
+    }
     btn.hidden = !canAccessView(view);
   });
 }
