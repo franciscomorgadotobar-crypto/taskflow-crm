@@ -20,6 +20,7 @@ create table if not exists public.chilecompra_cm_orders (
   accepted_at timestamptz,
   cancelled_at timestamptz,
   modified_at_mp timestamptz,
+  observed_date date,
   buyer_code text not null default '',
   buyer_name text not null default '',
   buyer_unit text not null default '',
@@ -81,6 +82,8 @@ create table if not exists public.chilecompra_cm_states (
 
 create index if not exists chilecompra_cm_orders_created_idx
   on public.chilecompra_cm_orders (created_at_mp desc);
+create index if not exists chilecompra_cm_orders_observed_idx
+  on public.chilecompra_cm_orders (observed_date desc);
 create index if not exists chilecompra_cm_orders_buyer_idx
   on public.chilecompra_cm_orders (buyer_name);
 create index if not exists chilecompra_cm_orders_supplier_idx
