@@ -2,6 +2,7 @@ import {
   ACTIVITY_TYPES,
   BUY_TRIGGERS,
   CURRENT_MANAGEMENT,
+  DEFAULT_BOTTOM_NAV,
   DEFAULT_PROBABILITY,
   DEFAULT_TEMPLATES,
   INDUSTRIES,
@@ -2441,6 +2442,35 @@ const ACTIONS = {
   'save-profile': async () => {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
+  'save-bottom-nav': async () => {
+    const selects = [...document.querySelectorAll('[data-bottom-nav-select]')];
+    const values = selects.map((select) => select.value).filter(Boolean);
+    if (!values.length) return toast('Selecciona al menos un acceso para la barra inferior.', 'error');
+    if (new Set(values).size !== values.length) return toast('No repitas un módulo en la barra inferior.', 'error');
+
+    const allowed = new Set(Array.isArray(state.me?.moduleAccess) && state.me.moduleAccess.length
+      ? state.me.moduleAccess
+      : USER_MODULES.map((module) => module.id));
+    if (values.some((id) => !allowed.has(id))) return toast('Uno de los módulos seleccionados no está habilitado para tu usuario.', 'error');
+
+    if (await saveProfile({ bottomNav: values.slice(0, 5) })) {
+      render();
+      toast('Barra inferior actualizada.');
+    }
+  },
+  'reset-bottom-nav': async () => {
+    const allowed = new Set(Array.isArray(state.me?.moduleAccess) && state.me.moduleAccess.length
+      ? state.me.moduleAccess
+      : USER_MODULES.map((module) => module.id));
+    const values = DEFAULT_BOTTOM_NAV.filter((id) => allowed.has(id));
+    USER_MODULES.forEach((module) => {
+      if (values.length < 5 && allowed.has(module.id) && !values.includes(module.id)) values.push(module.id);
+    });
+    if (await saveProfile({ bottomNav: values.slice(0, 5) })) {
+      render();
+      toast('Se restauró la barra inferior predeterminada.');
+    }
+  },
   'open-help': () => document.querySelector('.nav-item[data-view="help"]')?.click(),
   'team-add': () => openTeamAdd(),
   'team-save-modules': async (id, btn) => {
@@ -2671,6 +2701,35 @@ function ensureAccessibleView() {
 
 async function handleViewInput(ev) {
   const el = ev.target;
+
+  if (el.matches?.('[data-bottom-nav-select]')) {
+    if (ev.type !== 'change') return;
+    const selects = [...document.querySelectorAll('[data-bottom-nav-select]')];
+    const values = selects.map((select) => select.value);
+    const duplicateValues = values.filter((value, index) => value && values.indexOf(value) !== index);
+    selects.forEach((select) => {
+      select.setCustomValidity(duplicateValues.includes(select.value) ? 'Este módulo ya está seleccionado.' : '');
+    });
+
+    const preview = $('profileBottomNavPreview');
+    if (preview) {
+      preview.querySelectorAll('[data-preview-view]').forEach((item, index) => {
+        const id = values[index] || '';
+        const module = USER_MODULES.find((row) => row.id === id);
+        item.dataset.previewView = id;
+        const icon = item.querySelector('.profile-bottom-nav-logo, .profile-bottom-nav-symbol');
+        if (icon) {
+          icon.className = id === 'chilecompra'
+            ? 'profile-bottom-nav-logo profile-bottom-nav-logo--chilecompra'
+            : `profile-bottom-nav-symbol profile-bottom-nav-symbol--${id}`;
+        }
+        const label = item.querySelector('small');
+        if (label) label.textContent = module?.label || id;
+      });
+    }
+    return;
+  }
+
   if (el.matches?.('[data-template-preview-lead]')) {
     if (ev.type !== 'change') return;
     ui.templateLead = el.value;
