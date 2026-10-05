@@ -89,6 +89,7 @@ function decorateNavigation() {
     ['dashboard', 'General'],
     ['leads', 'Comercial'],
     ['implementation', 'Operación'],
+    ['templates', 'Herramientas'],
     ['help', 'Sistema']
   ];
   labels.forEach(([view, text]) => {
@@ -407,7 +408,7 @@ function homeChileCompraBars(data) {
   const total = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
   if (!categories.length || total <= 0) {
     const text = data?.configured === false
-      ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea una campaña para comenzar a medir el mercado.')
+      ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea un seguimiento para comenzar a medir el mercado.')
       : 'No hay datos suficientes para este filtro.';
     return `<div class="v2-cc-market-empty">${esc(text)}</div>`;
   }
@@ -520,15 +521,15 @@ function renderDashboardSummary() {
       </article>
       <article class="v2-summary-kpi v2-chilecompra-card">
         <div class="v2-cc-brand">
-          <span class="v2-cc-brand-icon" aria-hidden="true">⌖</span>
-          <div><strong>ChileCompra</strong><small>${chilecompra.activeCampaigns ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'campaña activa' : 'campañas activas'} · <b>${chilecompra.total}</b> coincidencias nuevas` : 'Aún no tienes seguimientos activos'}</small></div>
+          <span class="v2-cc-brand-icon" aria-hidden="true"><img src="https://www.chilecompra.cl/wp-content/uploads/2016/12/datosabiertoslogochilecompra-300x169.jpg" alt="" /></span>
+          <div><strong>ChileCompra</strong><small>${chilecompra.activeCampaigns ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'seguimiento activo' : 'seguimientos activos'} · <b>${chilecompra.total}</b> coincidencias nuevas` : 'Aún no tienes seguimientos activos'}</small></div>
           <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra">›</button>
         </div>
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
         <div class="v2-cc-market-head"><div><strong>Qué se está comprando</strong><small>Top de rubros según el universo y la métrica seleccionados.</small></div></div>
         <div class="v2-cc-market-controls">
           <label><span>Universo</span><select id="v2CcUniverse" aria-label="Universo ChileCompra">
-            <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis campañas</option>
+            <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis seguimientos</option>
             <option value="business" ${ccHomeUniverse === 'business' ? 'selected' : ''}>Mi negocio</option>
             <option value="general" ${ccHomeUniverse === 'general' ? 'selected' : ''}>Mercado general Chile</option>
           </select></label>
