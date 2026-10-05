@@ -1349,3 +1349,338 @@
     padding:8px 5px;
   }
 }
+
+
+/* ---------- ChileCompra IA/UX unificada · 2026-10-05 ---------- */
+.cc-module-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 18px;
+  border:1px solid var(--cc-border);
+  border-bottom:0;
+  border-radius:16px 16px 0 0;
+  background:var(--surface,#fff);
+}
+.cc-module-toolbar--search{
+  justify-content:flex-end;
+}
+.cc-module-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.cc-module-toolbar .cc-updated{
+  margin:0;
+}
+
+.cc-dashboard-nav{
+  display:grid;
+  grid-template-columns:1fr;
+  border:1px solid var(--cc-border);
+  border-radius:0 0 14px 14px;
+  background:var(--surface,#fff);
+  overflow:hidden;
+}
+.cc-dashboard-nav .cc-tabs{
+  border-bottom:1px solid var(--cc-border);
+}
+.cc-secondary-nav{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  padding:7px 10px;
+  overflow:auto;
+  scrollbar-width:none;
+  background:#f8fbff;
+}
+.cc-secondary-nav::-webkit-scrollbar{display:none}
+.cc-secondary-nav button{
+  flex:0 0 auto;
+  min-height:34px;
+  padding:7px 11px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#60728a;
+  font:inherit;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.cc-secondary-nav button:hover{
+  background:#edf5ff;
+  color:#146fbe;
+}
+.cc-secondary-nav button.active{
+  border-color:#bcd8f3;
+  background:#eaf4ff;
+  color:#0c6ec2;
+}
+
+.cc-market-bar-row{
+  border:0;
+  border-radius:10px;
+  background:transparent;
+}
+.cc-market-bar-row > summary{
+  display:grid;
+  gap:4px;
+  padding:5px 7px;
+  border-radius:9px;
+  list-style:none;
+  cursor:pointer;
+  transition:background .15s ease;
+}
+.cc-market-bar-row > summary::-webkit-details-marker{display:none}
+.cc-market-bar-row > summary:hover{
+  background:#f4f9ff;
+}
+.cc-market-bar-row[open] > summary{
+  background:#eef6ff;
+}
+.cc-market-bar-row[open] .cc-market-bar-label span{
+  color:#126fc1;
+}
+.cc-market-bars-summary small{
+  display:block;
+  margin-top:4px;
+  color:#8794a4;
+  font-size:8px;
+}
+.cc-category-examples{
+  display:grid;
+  gap:5px;
+  margin:3px 6px 9px;
+  padding:9px;
+  border:1px solid #dfe8f2;
+  border-radius:10px;
+  background:#fbfdff;
+}
+.cc-category-examples-title{
+  color:#738299;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.cc-category-example{
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:8px 9px;
+  border:0;
+  border-radius:8px;
+  background:#fff;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.cc-category-example:hover{
+  background:#edf6ff;
+}
+.cc-category-example > span{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.cc-category-example strong,
+.cc-category-example small{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.cc-category-example strong{
+  color:#183454;
+  font-size:9px;
+}
+.cc-category-example small{
+  color:#748398;
+  font-size:8px;
+}
+.cc-category-example b{
+  color:#176fbf;
+  font-size:8px;
+  white-space:nowrap;
+}
+.cc-category-empty{
+  color:#8390a2;
+  font-size:9px;
+}
+.cc-market-pulse-card .cc-section-head{
+  align-items:flex-start;
+}
+.cc-market-pulse-card .cc-section-head .cc-eyebrow{
+  margin:0 0 4px;
+}
+
+.cc-detail-page{
+  display:grid;
+  gap:12px;
+}
+.cc-detail-page-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:44px;
+  padding:0 2px;
+}
+.cc-detail-page-toolbar > span{
+  color:#7a899e;
+  font-size:10px;
+  font-weight:700;
+}
+.cc-back-btn{
+  min-height:38px;
+  padding:7px 10px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:#176fbe;
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.cc-back-btn:hover{
+  background:#edf6ff;
+}
+.cc-detail-page-shell{
+  border:1px solid var(--cc-border);
+  border-radius:16px;
+  background:var(--surface,#fff);
+  overflow:hidden;
+}
+.cc-detail-page-shell .cc-detail{
+  position:static;
+  max-height:none;
+  overflow:visible;
+  padding:22px 24px 24px;
+}
+.cc-detail-page-shell .cc-detail-head{
+  margin-bottom:4px;
+}
+.cc-detail-page-shell .cc-detail > h2{
+  max-width:900px;
+  margin-top:14px;
+  font-size:25px;
+  line-height:1.2;
+}
+.cc-detail-page-shell .cc-detail-tabs{
+  margin:16px -24px 0;
+  padding:0 24px;
+}
+.cc-detail-page-shell .cc-detail-section{
+  max-width:980px;
+}
+.cc-detail-page-shell .cc-detail-actions{
+  position:sticky;
+  bottom:0;
+  margin:22px -24px -24px;
+  padding:14px 24px 16px;
+  border-top:1px solid var(--cc-border);
+  background:var(--surface,#fff);
+  z-index:3;
+}
+
+:root[data-theme="dark"] .cc-secondary-nav,
+:root[data-theme="dark"] .cc-category-examples,
+:root[data-theme="dark"] .cc-category-example{
+  background:#17273c;
+}
+:root[data-theme="dark"] .cc-market-bar-row > summary:hover,
+:root[data-theme="dark"] .cc-market-bar-row[open] > summary{
+  background:#1d3049;
+}
+:root[data-theme="dark"] .cc-category-example:hover{
+  background:#223955;
+}
+
+@media (max-width:680px){
+  .cc-module-toolbar{
+    border-radius:0;
+    padding:8px 10px;
+  }
+  .cc-module-toolbar .cc-updated{
+    display:none;
+  }
+  .cc-module-toolbar,
+  .cc-module-actions{
+    width:100%;
+  }
+  .cc-module-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .cc-module-actions > *{
+    width:100%;
+  }
+  .cc-module-toolbar--search{
+    display:none;
+  }
+
+  .cc-dashboard-nav{
+    border-left:0;
+    border-right:0;
+    border-radius:0;
+  }
+  .cc-secondary-nav{
+    padding:6px 9px;
+  }
+  .cc-secondary-nav button{
+    min-height:32px;
+    padding:6px 9px;
+    font-size:9px;
+  }
+
+  .cc-market-bars{
+    grid-template-columns:1fr;
+  }
+  .cc-market-bars-summary{
+    min-width:0;
+  }
+  .cc-category-examples{
+    margin-left:0;
+    margin-right:0;
+  }
+  .cc-category-example{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .cc-category-example b{
+    display:none;
+  }
+
+  .cc-detail-page{
+    gap:6px;
+  }
+  .cc-detail-page-toolbar{
+    padding:0 10px;
+  }
+  .cc-detail-page-shell{
+    border-radius:0;
+    border-left:0;
+    border-right:0;
+  }
+  .cc-detail-page-shell .cc-detail{
+    padding:16px 14px 18px;
+  }
+  .cc-detail-page-shell .cc-detail > h2{
+    font-size:20px;
+  }
+  .cc-detail-page-shell .cc-detail-tabs{
+    margin:14px -14px 0;
+    padding:0 14px;
+  }
+  .cc-detail-page-shell .cc-detail-actions{
+    grid-template-columns:1fr 1fr;
+    margin:18px -14px -18px;
+    padding:12px 14px 14px;
+  }
+  .cc-detail-page-shell .cc-detail-actions .primary-btn{
+    grid-column:1/-1;
+  }
+}
