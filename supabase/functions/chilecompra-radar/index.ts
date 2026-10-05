@@ -583,7 +583,7 @@ function isCmOrder(item) {
     || normalize(f.type).includes("convenio marco")
     || /-CM\d{2}$/i.test(f.code);
 }
-function cmOrderRow(item) {
+function cmOrderRow(item, observedDate=null) {
   const f=cmOrderFields(item);
   return {
     code:f.code,
@@ -604,6 +604,7 @@ function cmOrderRow(item) {
     accepted_at:f.acceptedAt,
     cancelled_at:f.cancelledAt,
     modified_at_mp:f.modifiedAt,
+    observed_date:observedDate || (f.sentAt ? f.sentAt.slice(0,10) : f.createdAt ? f.createdAt.slice(0,10) : null),
     buyer_code:f.buyerCode,
     buyer_name:f.buyerName,
     buyer_unit:f.buyerUnit,
@@ -679,7 +680,7 @@ async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
     for(const key of preserveText) if(!row[key] && existing[key]) row[key]=existing[key];
     const preserveNumber=["net_total","total","discounts","charges","taxes"];
     for(const key of preserveNumber) if(row[key]==null && existing[key]!=null) row[key]=existing[key];
-    const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
+    const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp","observed_date"];
     for(const key of preserveDate) if(!row[key] && existing[key]) row[key]=existing[key];
     row.raw=existing.raw||row.raw;
     row.detail_loaded=true;
@@ -704,8 +705,8 @@ async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
 async function sleep(ms) {
   await new Promise(resolve=>setTimeout(resolve,ms));
 }
-async function upsertCmBasicOrders(admin,items) {
-  const rows=items.map(cmOrderRow).filter(row=>row.code);
+async function upsertCmBasicOrders(admin,items,observedDate=null) {
+  const rows=items.map(item=>cmOrderRow(item,observedDate)).filter(row=>row.code);
   if(!rows.length) return {rows:0,existing:new Map()};
 
   const existingRows=[];
@@ -732,7 +733,7 @@ async function upsertCmBasicOrders(admin,items) {
       for(const key of preserveText) if(!next[key] && old[key]) next[key]=old[key];
       const preserveNumber=["net_total","total","discounts","charges","taxes"];
       for(const key of preserveNumber) if(next[key]==null && old[key]!=null) next[key]=old[key];
-      const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
+      const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp","observed_date"];
       for(const key of preserveDate) if(!next[key] && old[key]) next[key]=old[key];
       next.raw=old.raw||next.raw;
       next.detail_loaded=true;
@@ -771,9 +772,11 @@ async function syncCmOrders(admin,ticket,{days=1,detailLimit=12,offsetDays=0}={}
   const candidates=new Map();
   const errors=[];
 
+  let observedDate=null;
   for(let offset=0;offset<safeDays;offset++) {
     const d=new Date();
     d.setUTCDate(d.getUTCDate()-safeOffset-offset);
+    observedDate=d.toISOString().slice(0,10);
     try {
       const payload=await mercado("ordenesdecompra.json",ticket,{fecha:apiDate(d)});
       for(const item of orderListFrom(payload)) {
@@ -787,7 +790,7 @@ async function syncCmOrders(admin,ticket,{days=1,detailLimit=12,offsetDays=0}={}
   }
 
   const basicItems=[...candidates.values()];
-  await upsertCmBasicOrders(admin,basicItems);
+  await upsertCmBasicOrders(admin,basicItems,observedDate);
 
   const detailState=new Map();
   const candidateCodes=[...candidates.keys()];
@@ -936,8 +939,9 @@ async function cmDashboard(admin,ticket,org,body) {
   }
 
   const {data:ordersData,error:ordersError,count:orderCount}=await admin.from("chilecompra_cm_orders")
-    .select("code,name,description,status_code,status,type_code,type,currency,net_total,total,discounts,charges,taxes,created_at_mp,sent_at,accepted_at,cancelled_at,modified_at_mp,buyer_code,buyer_name,buyer_unit,buyer_rut,buyer_region,buyer_commune,buyer_address,buyer_contact,buyer_email,supplier_code,supplier_name,supplier_rut,supplier_region,supplier_commune,supplier_address,supplier_contact,supplier_email,agreement_code,source_url,detail_loaded,last_seen_at,updated_at",{count:"exact"})
-    .gte("created_at_mp",cutoff)
+    .select("code,name,description,status_code,status,type_code,type,currency,net_total,total,discounts,charges,taxes,created_at_mp,sent_at,accepted_at,cancelled_at,modified_at_mp,observed_date,buyer_code,buyer_name,buyer_unit,buyer_rut,buyer_region,buyer_commune,buyer_address,buyer_contact,buyer_email,supplier_code,supplier_name,supplier_rut,supplier_region,supplier_commune,supplier_address,supplier_contact,supplier_email,agreement_code,source_url,detail_loaded,last_seen_at,updated_at",{count:"exact"})
+    .gte("observed_date",cutoff.slice(0,10))
+    .order("observed_date",{ascending:false})
     .order("created_at_mp",{ascending:false})
     .limit(5000);
   if(ordersError) throw ordersError;
