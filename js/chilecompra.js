@@ -562,26 +562,44 @@ function resultHeading(rows) {
   return `${rows.length} oportunidades`;
 }
 
-function marketBars(data) {
+function marketBars(data, { limit = 18 } = {}) {
   const categories = (data?.categories || []).filter((x) => Number(x.value || 0) > 0);
   const total = categories.reduce((sum, x) => sum + Number(x.value || 0), 0);
   if (!categories.length || total <= 0) {
     return `<div class="cc-market-empty"><strong>Sin datos para este universo</strong><span>${data?.configured === false ? 'Configura las palabras clave para comenzar el análisis.' : 'Todavía no hay información suficiente.'}</span></div>`;
   }
-  const top = categories.slice(0, 8);
+
   const metric = data?.metric || chilecompraState.analyticsMetric || 'publications';
   const unit = metric === 'amount' ? 'monto observado' : metric === 'buyers' ? 'compradores' : 'publicaciones';
   const totalLabel = metric === 'amount' ? compactAmount(total) : total.toLocaleString('es-CL');
+  const rows = categories.slice(0, limit);
+
+  const renderExamples = (label) => {
+    const examples = data?.categoryExamples?.[label] || [];
+    if (!examples.length) return '<span class="cc-category-empty">Sin ejemplos disponibles para este grupo.</span>';
+    return examples.map((item) => `
+      <button type="button" class="cc-category-example" data-cc-example-code="${e(item.code || '')}">
+        <span><strong>${e(item.name || 'Sin nombre')}</strong><small>${e(item.buyer || 'Comprador no informado')}</small></span>
+        <b>${item.amount ? e(compactAmount(item.amount)) : 'Ver'}</b>
+      </button>`).join('');
+  };
+
   return `<div class="cc-market-bars">
-    <div class="cc-market-bars-summary"><strong>${e(totalLabel)}</strong><span>${e(unit)}</span></div>
-    <div class="cc-market-bars-list">${top.map((x) => {
+    <div class="cc-market-bars-summary"><strong>${e(totalLabel)}</strong><span>${e(unit)}</span><small>${categories.length} rubros detectados</small></div>
+    <div class="cc-market-bars-list">${rows.map((x) => {
       const value = Number(x.value || 0);
       const pct = total ? (value / total) * 100 : 0;
       const shown = metric === 'amount' ? compactAmount(value) : value.toLocaleString('es-CL');
-      return `<div class="cc-market-bar-row">
-        <div class="cc-market-bar-label"><span>${e(x.label)}</span><strong>${e(shown)} · ${pct.toFixed(0)}%</strong></div>
-        <div class="cc-market-bar-track"><i style="width:${Math.max(2,pct).toFixed(1)}%"></i></div>
-      </div>`;
+      return `<details class="cc-market-bar-row">
+        <summary>
+          <div class="cc-market-bar-label"><span>${e(x.label)}</span><strong>${e(shown)} · ${pct.toFixed(0)}%</strong></div>
+          <div class="cc-market-bar-track"><i style="width:${Math.max(2,pct).toFixed(1)}%"></i></div>
+        </summary>
+        <div class="cc-category-examples">
+          <span class="cc-category-examples-title">Ejemplos de publicaciones en este grupo</span>
+          ${renderExamples(x.label)}
+        </div>
+      </details>`;
     }).join('')}</div>
   </div>`;
 }
@@ -608,23 +626,18 @@ function dashboardNav(stats) {
     ['buscar','Buscar','']
   ];
   const secondary = [
-    ['mercado','Mercado'],
+    ['mercado','Mercado Chile'],
     ['compradores','Compradores'],
     ['guardadas','Guardadas'],
     ['crm','En CRM']
   ];
-  const secondaryCurrent = secondary.find(([id]) => chilecompraState.tab === id);
-  const secondaryActive = Boolean(secondaryCurrent);
   return `<div class="cc-dashboard-nav">
     <nav class="cc-tabs cc-dashboard-tabs">
       ${primary.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? ` <span>(${count})</span>` : ''}</button>`).join('')}
     </nav>
-    <details class="cc-more-menu">
-      <summary class="${secondaryActive ? 'active' : ''}">${secondaryCurrent ? secondaryCurrent[1] : 'Más'}</summary>
-      <div>
-        ${secondary.map(([id,label]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}</button>`).join('')}
-      </div>
-    </details>
+    <nav class="cc-secondary-nav" aria-label="Herramientas ChileCompra">
+      ${secondary.map(([id,label]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}</button>`).join('')}
+    </nav>
   </div>`;
 }
 
@@ -662,7 +675,13 @@ function renderSummaryDashboard(stats) {
       <div class="cc-user-campaign-list">${stats.campaigns.map((campaign) => campaignRow(campaign, stats, { controls: true })).join('')}</div>
     </section>
 
-    ${hasMatches ? `<section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Qué se está comprando</h3><p>Top de rubros dentro de tus coincidencias.</p></div></div>${marketBars(local)}</section>` : ''}
+    <section class="cc-dashboard-card cc-market-pulse-card">
+      <div class="cc-section-head">
+        <div><span class="cc-eyebrow">Pulso nacional</span><h3>Qué está comprando Chile</h3><p>Rubros con más publicaciones activas en Mercado Público. Abre un rubro para ver ejemplos reales.</p></div>
+        <button type="button" class="ghost-btn" data-cc-tab="mercado">Analizar mercado</button>
+      </div>
+      ${chilecompraState.marketPulseLoading ? '<div class="cc-empty">Analizando Mercado Público…</div>' : marketBars(chilecompraState.marketPulse, { limit: 10 })}
+    </section>
   </section>`;
 }
 
@@ -671,8 +690,20 @@ function renderCampaignsDashboard(stats) {
 }
 
 function renderMarketDashboard() {
-  const data = chilecompraState.analyticsUniverse === 'campaigns' && !chilecompraState.analytics ? chilecompraLocalBreakdown({ metric: chilecompraState.analyticsMetric }) : chilecompraState.analytics;
-  return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Análisis de mercado</h3><p>Compara tus seguimientos, tu negocio o el mercado público general.</p></div></div>${analyticsControls()}${chilecompraState.analyticsLoading ? '<div class="cc-empty">Analizando licitaciones activas…</div>' : marketBars(data)}<div class="cc-market-kpis"><div><strong>${Number(data?.publications || 0).toLocaleString('es-CL')}</strong><span>Publicaciones</span></div><div><strong>${Number(data?.buyers || 0).toLocaleString('es-CL')}</strong><span>Compradores</span></div><div><strong>${compactAmount(data?.amount || 0)}</strong><span>Monto observado</span></div></div></section></section>`;
+  const data = chilecompraState.analyticsUniverse === 'campaigns' && !chilecompraState.analytics
+    ? chilecompraLocalBreakdown({ metric: chilecompraState.analyticsMetric })
+    : chilecompraState.analytics;
+
+  return `<section class="cc-dashboard">
+    <section class="cc-dashboard-card">
+      <div class="cc-section-head">
+        <div><span class="cc-eyebrow">Inteligencia de mercado</span><h3>Cómo respira Mercado Público</h3><p>Compara el mercado general de Chile, tu negocio o tus seguimientos y descubre dónde se concentra la demanda.</p></div>
+      </div>
+      ${analyticsControls()}
+      ${chilecompraState.analyticsLoading ? '<div class="cc-empty">Analizando licitaciones activas…</div>' : marketBars(data, { limit: 24 })}
+      <div class="cc-market-kpis"><div><strong>${Number(data?.publications || 0).toLocaleString('es-CL')}</strong><span>Publicaciones</span></div><div><strong>${Number(data?.buyers || 0).toLocaleString('es-CL')}</strong><span>Compradores</span></div><div><strong>${compactAmount(data?.amount || 0)}</strong><span>Monto observado</span></div></div>
+    </section>
+  </section>`;
 }
 
 function buyerRows() {
