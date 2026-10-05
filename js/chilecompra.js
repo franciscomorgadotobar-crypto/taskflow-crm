@@ -564,12 +564,18 @@ function resultHeading(rows) {
 
 function marketBars(data, { limit = 18 } = {}) {
   const categories = (data?.categories || []).filter((x) => Number(x.value || 0) > 0);
-  const total = categories.reduce((sum, x) => sum + Number(x.value || 0), 0);
+  const metric = data?.metric || chilecompraState.analyticsMetric || 'publications';
+  const categoryTotal = categories.reduce((sum, x) => sum + Number(x.value || 0), 0);
+  const total = metric === 'amount'
+    ? Number(data?.amount || categoryTotal)
+    : metric === 'buyers'
+      ? Number(data?.buyers || categoryTotal)
+      : Number(data?.publications || categoryTotal);
   if (!categories.length || total <= 0) {
     return `<div class="cc-market-empty"><strong>Sin datos para este universo</strong><span>${data?.configured === false ? 'Configura las palabras clave para comenzar el análisis.' : 'Todavía no hay información suficiente.'}</span></div>`;
   }
 
-  const metric = data?.metric || chilecompraState.analyticsMetric || 'publications';
+
   const unit = metric === 'amount' ? 'monto observado' : metric === 'buyers' ? 'compradores' : 'publicaciones';
   const totalLabel = metric === 'amount' ? compactAmount(total) : total.toLocaleString('es-CL');
   const rows = categories.slice(0, limit);
