@@ -1,8 +1,6 @@
 import {
   ACTIVITY_TYPES,
   CHART_DIMENSIONS,
-  CRM_CROSS,
-  CRM_FLOW,
   DISCOUNT_KINDS,
   PAYMENT_METHODS,
   PAYMENT_TERMS,
@@ -831,9 +829,78 @@ export function renderTemplates(ui) {
     </div>`;
 }
 
-/* ---------------- Configuración ---------------- */
+/* ---------------- Mi cuenta / Configuración ---------------- */
+
+export function renderProfile() {
+  const me = state.me;
+  const role = USER_ROLES.find((r) => r.id === me?.role);
+
+  return `
+    <div class="card profile-settings-card">
+      <div class="card-head">
+        <div>
+          <h3>Mi cuenta</h3>
+          <span class="muted">Tus datos personales y seguridad de acceso.</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="settings-grid">
+          <label>Nombre<input id="profileName" value="${e(me?.name)}" placeholder="Tu nombre" /></label>
+          <label>Correo<input value="${e(session.user?.email)}" disabled title="El correo se gestiona en el inicio de sesión" /></label>
+          <label>Teléfono<input id="profilePhone" inputmode="tel" value="${e(me?.phone)}" placeholder="+56 9 ..." /></label>
+          <label>Permiso<input value="${e(role?.label || me?.role)}" disabled /></label>
+        </div>
+        <p class="muted settings-hint" style="margin-top:10px">${e(role?.detail || '')}</p>
+        <div class="button-row" style="margin-top:14px">
+          <button class="primary-btn" data-action="save-profile">Guardar mis datos</button>
+        </div>
+
+        <h4 class="settings-subtitle">Contraseña</h4>
+        <div class="settings-grid">
+          <label>Nueva contraseña<input id="newPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" /></label>
+        </div>
+        <div class="button-row" style="margin-top:10px">
+          <button class="ghost-btn" data-action="change-password">Actualizar contraseña</button>
+          <button class="ghost-btn" data-action="sign-out">Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card profile-app-card" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h3>Aplicación CRM</h3>
+          <span class="muted">Instalación y preferencias personales.</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="muted settings-hint">
+          Instala CRM como aplicación para abrirlo desde tu escritorio o pantalla de inicio,
+          sin depender de una pestaña del navegador.
+        </p>
+        <div class="button-row">
+          <button class="primary-btn" data-action="install-pwa">Instalar CRM</button>
+        </div>
+        <p class="muted settings-hint" style="margin-top:10px">
+          En iPhone o iPad, usa Compartir → Añadir a pantalla de inicio.
+        </p>
+      </div>
+    </div>`;
+}
 
 export function renderSettings() {
+  if (!isAdmin()) {
+    return `
+      <div class="card">
+        <div class="card-body">
+          <div class="empty">
+            <strong>Configuración administrativa</strong>
+            <p>Tu permiso no incluye administración del CRM. Tus datos personales están en Mi cuenta.</p>
+          </div>
+        </div>
+      </div>`;
+  }
+
   const me = state.me;
   const teamAdmin = isAdmin();
   const teamSuper = isSuper();
@@ -846,6 +913,7 @@ export function renderSettings() {
       .filter((r) => teamSuper || ['comercial', 'visita'].includes(r.id))
       .map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`)
       .join('');
+
   const trainingHtml = (u) => {
     if (!teamSuper) return '';
     const tutorials = availableTutorialsForRole(u.role);
@@ -897,6 +965,7 @@ export function renderSettings() {
         </div>
       </details>`;
   };
+
   const memberCard = (u) => {
     const mine = u.id === me?.id;
     const manageable = teamAdmin && canManagePerson(u);
@@ -907,6 +976,7 @@ export function renderSettings() {
       .slice(0, 2)
       .map((p) => p[0]?.toUpperCase())
       .join('') || '?';
+
     return `
       <article class="team-member-card ${u.active ? '' : 'is-inactive'}">
         <div class="team-member-main">
@@ -943,52 +1013,28 @@ export function renderSettings() {
   };
 
   return `
-    <div class="card">
-      <div class="card-head"><h3>Mi usuario</h3></div>
-      <div class="card-body">
-        <div class="settings-grid">
-          <label>Nombre<input id="profileName" value="${e(me?.name)}" placeholder="Tu nombre" /></label>
-          <label>Correo<input value="${e(session.user?.email)}" disabled title="El correo se gestiona en el inicio de sesión" /></label>
-          <label>Teléfono<input id="profilePhone" inputmode="tel" value="${e(me?.phone)}" placeholder="+56 9 ..." /></label>
-          <label>Permiso<input value="${e(USER_ROLES.find((r) => r.id === me?.role)?.label || me?.role)}" disabled /></label>
-        </div>
-        <div class="button-row" style="margin-top:14px">
-          <button class="primary-btn" data-action="save-profile">Guardar mis datos</button>
-        </div>
-        <h4 class="settings-subtitle">Contraseña</h4>
-        <div class="settings-grid">
-          <label>Nueva contraseña<input id="newPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" /></label>
-        </div>
-        <div class="button-row" style="margin-top:10px">
-          <button class="ghost-btn" data-action="change-password">Actualizar contraseña</button>
-          <button class="ghost-btn" data-action="sign-out">Cerrar sesión</button>
+    <div class="card settings-admin-intro">
+      <div class="card-head">
+        <div>
+          <h3>Configuración del CRM</h3>
+          <span class="muted">Administración del equipo, permisos, capacitación y datos.</span>
         </div>
       </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <div class="card-head"><h3>Aplicación CRM</h3></div>
       <div class="card-body">
-        <p class="muted settings-hint">
-          Instala CRM como aplicación para abrirlo desde tu escritorio o pantalla de inicio,
-          sin depender de una pestaña del navegador.
-        </p>
-        <div class="button-row">
-          <button class="primary-btn" data-action="install-pwa">Instalar CRM</button>
+        <div class="notice">
+          <strong>Esta sección administra el CRM, no tu perfil personal.</strong>
+          <span>Tu nombre, teléfono, contraseña, instalación y preferencias están en <strong>Mi cuenta</strong>.</span>
         </div>
-        <p class="muted settings-hint" style="margin-top:10px">
-          En iPhone o iPad, usa Compartir → Añadir a pantalla de inicio.
-        </p>
       </div>
     </div>
 
     <div class="card team-settings-card" style="margin-top:16px">
       <div class="card-head team-card-head">
         <div>
-          <h3>Equipo</h3>
-          <span class="muted">Quién puede entrar al CRM y qué puede hacer.</span>
+          <h3>Usuarios y accesos</h3>
+          <span class="muted">Quién puede entrar al CRM, qué puede hacer y qué capacitación tiene asignada.</span>
         </div>
-        ${teamAdmin ? '<button type="button" class="primary-btn" data-action="team-add">+ Agregar persona</button>' : ''}
+        ${teamAdmin ? '<button type="button" class="primary-btn" data-action="team-add">+ Agregar usuario</button>' : ''}
       </div>
       <div class="card-body">
         <div class="team-summary">
@@ -997,12 +1043,10 @@ export function renderSettings() {
           <div><strong>${activeMembers.filter((u) => u.role === 'comercial').length}</strong><span>comerciales</span></div>
         </div>
 
-        ${teamAdmin
-          ? `<div class="notice team-notice">
-              <strong>Agregar a alguien ahora sí se hace desde aquí.</strong>
-              <span>La cuenta se crea, recibe un enlace para definir su contraseña y luego puedes reenviar acceso, cambiar su permiso o darla de baja sin borrar su historial.</span>
-            </div>`
-          : '<div class="notice">Puedes revisar el equipo. La administración de accesos está reservada a Administrador y Súper administrador.</div>'}
+        <div class="notice team-notice">
+          <strong>Los usuarios nuevos se crean desde Configuración.</strong>
+          <span>Define permiso, acceso y, si eres Súper administrador, las plantillas iniciales. Después puedes asignar tutoriales y revisar su progreso.</span>
+        </div>
 
         <div class="team-members">
           ${activeMembers.length ? activeMembers.map(memberCard).join('') : empty('Sin personas activas', 'Agrega la primera persona al equipo.')}
@@ -1022,62 +1066,34 @@ export function renderSettings() {
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
-      <div class="card-head"><h3>Cómo funciona el CRM</h3><span class="muted">Toca cada paso para ver el detalle</span></div>
-      <div class="card-body">
-        <div class="flow-map">
-          ${CRM_FLOW.map(
-            (n, i) => `
-            <details class="flow-node" ${i === 0 ? 'open' : ''}>
-              <summary>
-                <span class="flow-step">${e(n.step)}</span>
-                <span class="flow-heading">
-                  <strong>${e(n.title)}</strong>
-                  <span class="muted">${e(n.tagline)}</span>
-                </span>
-              </summary>
-              <div class="flow-body">
-                <p class="flow-detail">${e(n.detail)}</p>
-                <div class="flow-cols">
-                  <div>
-                    <h5>Qué se hace acá</h5>
-                    <ul>${n.does.map((d) => `<li>${e(d)}</li>`).join('')}</ul>
-                  </div>
-                  <div>
-                    <h5>Hacia dónde sigue</h5>
-                    <ul>${n.goes.map((g) => `<li>${g}</li>`).join('')}</ul>
-                  </div>
-                </div>
-              </div>
-            </details>
-            ${i < CRM_FLOW.length - 1 ? '<div class="flow-arrow" aria-hidden="true">↓</div>' : ''}`
-          ).join('')}
+    <div class="card settings-help-card" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h3>Ayuda y capacitación</h3>
+          <span class="muted">Los recorridos del CRM ahora viven en el sistema de tutoriales.</span>
         </div>
-
-        <h4 class="settings-subtitle">Piezas que cruzan todo el flujo</h4>
-        <div class="flow-map">
-          ${CRM_CROSS.map(
-            (c) => `
-            <details class="flow-node cross">
-              <summary>
-                <span class="flow-heading"><strong>${e(c.title)}</strong></span>
-              </summary>
-              <div class="flow-body"><p class="flow-detail">${c.detail}</p></div>
-            </details>`
-          ).join('')}
+      </div>
+      <div class="card-body">
+        <p class="muted settings-hint">
+          Ya no mantenemos un segundo tutorial estático dentro de Configuración. Usa Ayuda y tutoriales para aprender cada módulo sobre la interfaz real,
+          repetir un recorrido o revisar el avance de una capacitación asignada.
+        </p>
+        <div class="button-row">
+          <button class="ghost-btn" data-action="open-help">Abrir Ayuda y tutoriales</button>
         </div>
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
+    <div class="card settings-demo-card" style="margin-top:16px">
       <div class="card-head"><h3>Datos de demostración</h3></div>
       <div class="card-body">
         <p class="muted settings-hint">
-          Carga un set de ejemplo para probar el CRM: leads por calificar, oportunidades en el embudo comercial,
-          prospectos en remarketing y clientes ganados en implementación. Es el único lugar desde donde se cargan.
+          Carga un set de ejemplo para probar el CRM: leads por calificar, oportunidades en el pipeline,
+          prospectos en remarketing y clientes ganados en implementación.
         </p>
         <div class="button-row">
-          ${isAdmin() ? '<button class="ghost-btn" data-action="load-demo">Cargar datos demo</button><button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>' : '<span class="muted">Solo administración puede cargar ejemplos o ejecutar un borrado masivo.</span>'}
+          <button class="ghost-btn" data-action="load-demo">Cargar datos demo</button>
+          <button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>
         </div>
       </div>
     </div>`;
