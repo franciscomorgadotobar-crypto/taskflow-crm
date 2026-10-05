@@ -6677,4 +6677,36 @@ html[data-crm-view="audit"] .v2-global-tools{
     min-height:44px!important;
   }
 }
+
+html[data-crm-view="dashboard"] .v2-cc-arrow{
+  width:auto!important;
+  min-width:64px!important;
+  height:34px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  padding:0 9px!important;
+  border:1px solid #dce6f0!important;
+  border-radius:9px!important;
+  background:#fff!important;
+  color:#31597f!important;
+  font-size:9px!important;
+  font-weight:800!important;
+}
+html[data-crm-view="dashboard"] .v2-cc-arrow b{
+  font-size:18px!important;
+  line-height:1!important;
+  font-weight:500!important;
+}
+@media (max-width:900px){
+  html[data-crm-view="dashboard"] .v2-cc-arrow span{display:none!important}
+  html[data-crm-view="dashboard"] .v2-cc-arrow{
+    min-width:30px!important;
+    width:30px!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+  }
+}
 /* ---------- End dashboard polish ---------- */
