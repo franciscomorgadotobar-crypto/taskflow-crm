@@ -717,7 +717,7 @@ export function renderHelp() {
 
   return `<section class="help-page">
     <div class="help-intro">
-      <div><h2>Ayuda y tutoriales</h2><p>Aprende una tarea sobre la interfaz real y retómala cuando lo necesites.</p></div>
+      <div><h2>Centro de aprendizaje</h2><p>Aprende una tarea sobre la interfaz real y retómala cuando lo necesites.</p></div>
       <span class="help-intro-icon" aria-hidden="true">?</span>
     </div>
     <div class="notice help-notice">Los tutoriales guiados resaltan elementos reales del CRM. Puedes salir en cualquier momento y continuar después desde esta pantalla.</div>
