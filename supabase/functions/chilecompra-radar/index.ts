@@ -658,9 +658,33 @@ function apiDate(date) {
   return dd+mm+d.getUTCFullYear();
 }
 async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
-  const row=cmOrderRow(item);
+  let row=cmOrderRow(item);
   if(!row.code) return null;
   row.detail_loaded=detailLoaded || row.detail_loaded;
+
+  const {data:existing,error:existingError}=await admin.from("chilecompra_cm_orders")
+    .select("*").eq("code",row.code).maybeSingle();
+  if(existingError && existingError.code!=="PGRST116") throw existingError;
+
+  if(existing?.detail_loaded && !row.detail_loaded) {
+    const preserveText=[
+      "description","buyer_code","buyer_name","buyer_unit","buyer_rut","buyer_region","buyer_commune",
+      "buyer_address","buyer_contact","buyer_email","supplier_code","supplier_name","supplier_rut",
+      "supplier_region","supplier_commune","supplier_address","supplier_contact","supplier_email",
+      "agreement_code","source_url"
+    ];
+    for(const key of preserveText) if(!row[key] && existing[key]) row[key]=existing[key];
+    const preserveNumber=["net_total","total","discounts","charges","taxes"];
+    for(const key of preserveNumber) if(row[key]==null && existing[key]!=null) row[key]=existing[key];
+    const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
+    for(const key of preserveDate) if(!row[key] && existing[key]) row[key]=existing[key];
+    row.raw=existing.raw||row.raw;
+    row.detail_loaded=true;
+    row.first_seen_at=existing.first_seen_at;
+  } else if(existing?.first_seen_at) {
+    row.first_seen_at=existing.first_seen_at;
+  }
+
   const {data,error}=await admin.from("chilecompra_cm_orders")
     .upsert(row,{onConflict:"code"}).select("*").single();
   if(error) throw error;
@@ -827,7 +851,8 @@ async function cmDashboard(admin,ticket,org,body) {
   if(lastError) throw lastError;
   const lastSync=lastRows?.[0]?.last_seen_at ? new Date(lastRows[0].last_seen_at).getTime() : 0;
   if(forceSync || !lastSync || Date.now()-lastSync>5*3600000) {
-    await syncCmOrders(admin,ticket,{days:Math.min(days,forceSync?31:7),detailLimit:forceSync?100:48});
+    const syncDays=!lastSync ? Math.min(days,31) : Math.min(days,forceSync?31:7);
+    await syncCmOrders(admin,ticket,{days:syncDays,detailLimit:forceSync?100:48});
   }
 
   let orderQuery=admin.from("chilecompra_cm_orders")
@@ -849,10 +874,15 @@ async function cmDashboard(admin,ticket,org,body) {
   const items=allItems.filter(x=>selectedCodes.has(x.order_code));
   const byCode=new Map(selected.map(x=>[x.code,x]));
 
-  const {data:states,error:statesError}=await admin.from("chilecompra_cm_states")
-    .select("*").eq("organization_id",org).in("order_code",selected.slice(0,1000).map(x=>x.code));
-  if(statesError && statesError.code!=="PGRST116") throw statesError;
-  const stateByCode=new Map((states||[]).map(x=>[x.order_code,x]));
+  const stateCodes=selected.slice(0,1000).map(x=>x.code);
+  let states=[];
+  if(stateCodes.length) {
+    const {data,error}=await admin.from("chilecompra_cm_states")
+      .select("*").eq("organization_id",org).in("order_code",stateCodes);
+    if(error && error.code!=="PGRST116") throw error;
+    states=data||[];
+  }
+  const stateByCode=new Map(states.map(x=>[x.order_code,x]));
   const orders=selected.map(order=>({...order,commercial_state:stateByCode.get(order.code)||null}));
 
   const total=orders.reduce((sum,x)=>sum+Number(x.total||0),0);
