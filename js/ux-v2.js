@@ -420,7 +420,7 @@ function homeChileCompraBars(data) {
 
   const top = categories.slice(0, 8);
   const unit = ccHomeMetric === 'amount' ? 'monto observado' : ccHomeMetric === 'buyers' ? 'compradores' : 'publicaciones';
-  const examplesFor = (label) => (data?.categoryExamples?.[label] || []).slice(0, 4);
+  const examplesFor = (label) => (data?.categoryExamples?.[label] || []).slice(0, 3);
 
   return `<div class="v2-cc-bars">
     <div class="v2-cc-bars-total"><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${unit}</span><small>${categories.length} rubros</small></div>
@@ -508,9 +508,11 @@ function renderDashboardSummary() {
 
   if (summary.dataset.signature !== signature) {
     summary.dataset.signature = signature;
-    const campaignButtons = chilecompra.campaigns.map((campaign) => `<button type="button" class="v2-cc-campaign-chip" data-action="open-chilecompra" data-campaign="${esc(campaign.id)}">
+    const campaignButtons = chilecompra.campaigns.slice(0, 4).map((campaign) => `<button type="button" class="v2-cc-campaign-chip" data-action="open-chilecompra" data-campaign="${esc(campaign.id)}">
       <span>${esc(campaign.name)}</span><strong>${chilecompra.newByCampaign?.[campaign.id] || 0}</strong>
-    </button>`).join('');
+    </button>`).join('') + (chilecompra.campaigns.length > 4
+      ? `<button type="button" class="v2-cc-campaign-chip v2-cc-campaign-chip--all" data-action="open-chilecompra" data-cc-tab="campanas"><span>Ver todos los seguimientos</span><strong>+${chilecompra.campaigns.length - 4}</strong></button>`
+      : '');
 
     summary.innerHTML = `
       <article class="v2-summary-kpi v2-pipeline-hero is-clickable" data-v2-dashboard-action="pipeline" role="button" tabindex="0">
@@ -833,6 +835,14 @@ function observeApp() {
 
 /* ---------- Eventos globales ---------- */
 function bindGlobalEvents() {
+  document.addEventListener('toggle', (ev) => {
+    const row = ev.target?.closest?.('.v2-cc-bar-row');
+    if (!row?.open) return;
+    qa('.v2-cc-bar-row[open]').forEach((other) => {
+      if (other !== row) other.open = false;
+    });
+  }, true);
+
   document.addEventListener('click', (ev) => {
     const dashboardTarget = ev.target.closest?.('[data-v2-dashboard-action]');
     if (dashboardTarget) {
