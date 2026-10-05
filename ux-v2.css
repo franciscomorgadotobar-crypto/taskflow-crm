@@ -6830,3 +6830,10 @@ html[data-crm-view="dashboard"] .v2-cc-compact-campaign strong{
 :root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-compact-campaign{background:var(--v2-panel)!important;border-color:var(--v2-line)!important}
 :root[data-theme="dark"] html[data-crm-view="dashboard"] .v2-cc-compact-stat{background:var(--v2-soft)!important;border-color:var(--v2-line)!important}
 /* ---------- End Resumen · ChileCompra compacto ---------- */
+
+/* El badge "Nuevo" de ChileCompra queda retirado en todas las vistas y breakpoints. */
+.nav-new-badge,
+.nav .nav-item[data-view="chilecompra"] .nav-new-badge{
+  display:none !important;
+}
+/* End retiro badge Nuevo */
