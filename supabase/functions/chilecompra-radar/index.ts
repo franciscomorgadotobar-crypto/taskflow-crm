@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { unzipSync } from "npm:fflate@0.8.2";
+import { unzipSync, Unzip, UnzipInflate } from "npm:fflate@0.8.2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -1032,6 +1032,152 @@ async function cmCatalogPreview(code) {
     samples:lines.slice(1,6)
   };
 }
+
+function parseCsvLine(line,delimiter=",") {
+  const out=[]; let cur="",quoted=false;
+  for(let i=0;i<line.length;i++) {
+    const ch=line[i];
+    if(ch==='"') {
+      if(quoted && line[i+1]==='"') { cur+='"'; i+=1; }
+      else quoted=!quoted;
+    } else if(ch===delimiter && !quoted) {
+      out.push(cur); cur="";
+    } else cur+=ch;
+  }
+  out.push(cur);
+  return out;
+}
+function catalogHeaderKey(value) {
+  return normalize(value).replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
+}
+function catalogNumber(value) {
+  if(value==null || value==="") return null;
+  const text=String(value).trim();
+  const normalized=text.includes(",") ? text.replace(/\./g,"").replace(",",".") : text;
+  const n=Number(normalized.replace(/[^\d.-]/g,""));
+  return Number.isFinite(n)?n:null;
+}
+function catalogPublicRow(row) {
+  return {
+    agreement:row.numero_licitacion||row.convenio_marco||"",
+    agreementId:row.id_convenio_marco||"",
+    providerId:row.id_proveedor||"",
+    provider:row.nombre_proveedor||"",
+    providerRut:row.rut_proveedor||"",
+    productId:row.id_producto||"",
+    onuCode:row.codigo_onu||"",
+    product:row.producto||"",
+    productType:row.tipo_producto||"",
+    region:row.region||"",
+    brand:row.marca||"",
+    model:row.modelo||"",
+    measure:row.medida||"",
+    stock:row.stock||"",
+    storePrice:catalogNumber(row.precio_en_tienda),
+    regularPrice:catalogNumber(row.precio_regular),
+    offerPrice:catalogNumber(row.precio_oferta),
+    executionDate:row.fecha_ejecucion||""
+  };
+}
+async function cmCatalogSearch(code,query="",limit=80) {
+  const target=String(code||"").trim().toUpperCase();
+  const cleanQuery=String(query||"").trim();
+  const safeLimit=Math.max(1,Math.min(120,Number(limit)||80));
+  if(!target) throw new Error("Código de convenio requerido");
+
+  const files=await cmCatalogFiles();
+  const file=files.find(row=>row.code===target);
+  if(!file) throw new Error("Maestra oficial no encontrada para "+target);
+
+  const head=await fetch(file.url,{method:"HEAD"});
+  const size=Number(head.headers.get("content-length")||0);
+  const response=await fetch(file.url);
+  if(!response.ok || !response.body) throw new Error("Maestra oficial respondió "+response.status);
+
+  let headerKeys=null;
+  let pending="";
+  let scanned=0;
+  let csvName="";
+  const matches=[];
+  const needle=normalize(cleanQuery);
+  const decoder=new TextDecoder("utf-8");
+  let selected=false;
+  let completed=false;
+
+  let resolveDone, rejectDone;
+  const done=new Promise((resolve,reject)=>{ resolveDone=resolve; rejectDone=reject; });
+
+  const processLine=(line)=>{
+    const clean=String(line||"").replace(/^\uFEFF/,"").trim();
+    if(!clean) return;
+    const values=parseCsvLine(clean,",");
+    if(!headerKeys) {
+      headerKeys=values.map(catalogHeaderKey);
+      return;
+    }
+    scanned+=1;
+    const row=Object.fromEntries(headerKeys.map((key,index)=>[key,String(values[index]??"").trim()]));
+    const publicRow=catalogPublicRow(row);
+    const hay=normalize([
+      publicRow.product,publicRow.productType,publicRow.provider,publicRow.providerRut,
+      publicRow.region,publicRow.brand,publicRow.model,publicRow.onuCode,publicRow.productId
+    ].filter(Boolean).join(" "));
+    if((!needle || hay.includes(needle)) && matches.length<safeLimit) matches.push(publicRow);
+  };
+
+  const unzip=new Unzip((entry)=>{
+    const isCsv=/\.csv$/i.test(entry.name);
+    if(selected || !isCsv) {
+      entry.ondata=()=>{};
+      entry.start();
+      return;
+    }
+    selected=true;
+    csvName=entry.name;
+    entry.ondata=(err,data,final)=>{
+      if(err) { if(!completed){completed=true;rejectDone(err);} return; }
+      pending+=decoder.decode(data,{stream:!final});
+      const lines=pending.split(/\r?\n/);
+      pending=final?"":(lines.pop()||"");
+      for(const line of lines) processLine(line);
+      if(final) {
+        pending+=decoder.decode();
+        if(pending.trim()) processLine(pending);
+        pending="";
+        if(!completed){completed=true;resolveDone();}
+      }
+    };
+    entry.start();
+  });
+  unzip.register(UnzipInflate);
+
+  const reader=response.body.getReader();
+  try {
+    while(true) {
+      const part=await reader.read();
+      if(part.done) break;
+      if(part.value) unzip.push(part.value,false);
+    }
+    unzip.push(new Uint8Array(0),true);
+    if(!selected) {
+      if(!completed){completed=true;rejectDone(new Error("El ZIP oficial no contiene CSV"));}
+    }
+    await done;
+  } finally {
+    try { reader.releaseLock(); } catch {}
+  }
+
+  return {
+    file,
+    size,
+    csvName,
+    query:cleanQuery,
+    scanned,
+    returned:matches.length,
+    truncated:matches.length>=safeLimit,
+    results:matches
+  };
+}
 async function backfillCmOrders(admin,ticket,{days=7,startOffset=0}={}) {
   const safeDays=Math.max(1,Math.min(10,Number(days)||7));
   const safeStart=Math.max(0,Math.min(365,Number(startOffset)||0));
@@ -1236,6 +1382,14 @@ Deno.serve(async req=>{
       if(!cron) return json({error:"cm_catalog_preview_requires_cron"},403);
       const code=String(body?.code||"").trim();
       return json({ok:true,...await cmCatalogPreview(code)});
+    }
+
+    if(action==="cm-catalog-search") {
+      if(cron) return json({error:"cm_catalog_search_requires_user"},403);
+      const code=String(body?.code||"").trim();
+      const query=String(body?.query||"").trim();
+      const limit=Math.max(1,Math.min(120,Number(body?.limit)||80));
+      return json({ok:true,...await cmCatalogSearch(code,query,limit)});
     }
 
     if(action==="cm-enrich") {
