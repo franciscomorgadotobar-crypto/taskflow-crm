@@ -115,6 +115,9 @@ function decorateNavigation() {
 
   const pipeline = q('.nav-item[data-view="pipeline"]', nav);
   if (pipeline) pipeline.textContent = 'Pipeline';
+
+  // Compatibilidad con shells antiguos en caché: ChileCompra ya no lleva badge "Nuevo".
+  qa('.nav-new-badge', nav).forEach((badge) => badge.remove());
 }
 
 function effectiveBottomNav() {
