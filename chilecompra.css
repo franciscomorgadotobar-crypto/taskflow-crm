@@ -1746,3 +1746,119 @@
   }
 }
 /* ---------- End detalle carga automática ---------- */
+
+
+/* ---------- Ficha estructurada de licitación ---------- */
+.cc-detail-block{
+  margin-top:18px;
+}
+.cc-detail-block > h4{
+  margin:0 0 9px;
+}
+.cc-detail-kv{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.cc-detail-kv > div{
+  min-width:0;
+  display:grid;
+  gap:3px;
+  padding:10px 11px;
+  border:1px solid #e1e8f0;
+  border-radius:10px;
+  background:#fbfdff;
+}
+.cc-detail-kv small{
+  color:#7b899c;
+  font-size:8px;
+  font-weight:700;
+}
+.cc-detail-kv strong{
+  overflow-wrap:anywhere;
+  color:#173150;
+  font-size:10px;
+  line-height:1.35;
+}
+.cc-detail-items{
+  display:grid;
+  gap:9px;
+}
+.cc-detail-items article{
+  padding:11px 12px;
+  border:1px solid #e0e8f1;
+  border-radius:11px;
+  background:#fbfdff;
+}
+.cc-detail-items article > div:first-child{
+  display:grid;
+  gap:3px;
+}
+.cc-detail-items article > div:first-child span{
+  color:#7d8a9c;
+  font-size:8px;
+  font-weight:800;
+  text-transform:uppercase;
+}
+.cc-detail-items article > div:first-child strong{
+  color:#183351;
+  font-size:11px;
+  line-height:1.35;
+}
+.cc-detail-items dl{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px 12px;
+  margin:10px 0 0;
+}
+.cc-detail-items dl > div{
+  min-width:0;
+}
+.cc-detail-items dt{
+  color:#8794a5;
+  font-size:7.5px;
+  font-weight:700;
+}
+.cc-detail-items dd{
+  margin:2px 0 0;
+  overflow-wrap:anywhere;
+  color:#425a77;
+  font-size:9px;
+}
+.cc-api-note{
+  display:grid;
+  gap:4px;
+  padding:11px 12px;
+  border:1px solid #d9e6f2;
+  border-radius:10px;
+  background:#f5faff;
+}
+.cc-api-note strong{
+  color:#173555;
+  font-size:10px;
+}
+.cc-api-note span{
+  color:#65788f;
+  font-size:9px;
+  line-height:1.45;
+}
+.cc-open-public-record{
+  margin-top:10px;
+}
+
+:root[data-theme="dark"] .cc-detail-kv > div,
+:root[data-theme="dark"] .cc-detail-items article,
+:root[data-theme="dark"] .cc-api-note{
+  background:#17283e;
+  border-color:#2d4058;
+}
+
+@media (max-width:680px){
+  .cc-detail-kv{
+    grid-template-columns:1fr;
+  }
+  .cc-detail-items dl{
+    grid-template-columns:1fr;
+  }
+}
+/* ---------- End ficha estructurada ---------- */
