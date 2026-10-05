@@ -139,7 +139,7 @@ export const TUTORIALS = {
       {
         selector: '.cc-dashboard-nav',
         title: 'Todo ChileCompra en un módulo',
-        text: 'Resumen, Coincidencias, Seguimientos y Buscar trabajan licitaciones. Convenio Marco analiza compras por catálogo. Debajo están Mercado Chile, Compradores, Guardadas y En CRM.'
+        text: 'Resumen abre el módulo y Convenio Marco queda visible inmediatamente para analizar compras por catálogo. Coincidencias, Seguimientos y Buscar trabajan licitaciones; debajo están Mercado Chile, Compradores, Guardadas y En CRM.'
       },
       {
         selector: '[data-cc-tab="resumen"]',
