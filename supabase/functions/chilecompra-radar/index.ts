@@ -627,6 +627,7 @@ function cmOrderRow(item, observedDate=null) {
     source_url:"https://www.mercadopublico.cl/",
     raw:item,
     detail_loaded:Boolean(get(item,"Items","Proveedor","Comprador") && (get(item,"Items")||{}).Listado),
+    first_seen_at:new Date().toISOString(),
     last_seen_at:new Date().toISOString(),
     updated_at:new Date().toISOString()
   };
