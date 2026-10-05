@@ -28,6 +28,15 @@ export const chilecompraState = {
   detailTab: 'resumen',
   detailLoading: false,
   detailError: '',
+  cmData: null,
+  cmLoading: false,
+  cmError: '',
+  cmDays: 30,
+  cmQuery: '',
+  cmView: 'pulso',
+  cmSelectedCode: '',
+  cmDetail: null,
+  cmDetailLoading: false,
   sort: 'recent',
   lastSyncAt: ''
 };
@@ -41,7 +50,10 @@ export function clearChileCompra() {
     opportunities: [], campaigns: [], matches: [], marketProfile: null, analytics: null,
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
-    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '', sort: 'recent', lastSyncAt: ''
+    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '',
+    cmData: null, cmLoading: false, cmError: '', cmDays: 30, cmQuery: '', cmView: 'pulso',
+    cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
+    sort: 'recent', lastSyncAt: ''
   });
   notify();
 }
