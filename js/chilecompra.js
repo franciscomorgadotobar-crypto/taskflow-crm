@@ -555,15 +555,118 @@ function opportunityCard(o) {
   </article>`;
 }
 
-function rawSection(o, keys) {
-  const raw = o?.raw || {};
-  for (const key of keys) {
-    const value = raw[key] ?? raw?.Fechas?.[key] ?? raw?.Comprador?.[key];
-    if (value == null || value === '') continue;
-    if (typeof value === 'object') return `<pre class="cc-raw">${e(JSON.stringify(value, null, 2))}</pre>`;
-    return `<p>${e(String(value))}</p>`;
+function rawValue(o, path = []) {
+  let value = o?.raw || {};
+  for (const key of path) {
+    if (value == null || typeof value !== 'object') return null;
+    value = value[key];
   }
-  return '<p class="muted">Mercado Público no entrega información adicional para esta sección.</p>';
+  return value;
+}
+
+function detailDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function detailText(value, fallback = 'No informado') {
+  if (value == null || value === '') return fallback;
+  return String(value);
+}
+
+function detailFlag(value) {
+  if (value === 1 || value === '1' || value === true) return 'Sí';
+  if (value === 0 || value === '0' || value === false) return 'No';
+  return detailText(value);
+}
+
+function detailList(title, rows = []) {
+  const useful = rows.filter((row) => row?.[1] != null && row[1] !== '');
+  if (!useful.length) return '';
+  return `<section class="cc-detail-block">
+    <h4>${e(title)}</h4>
+    <div class="cc-detail-kv">
+      ${useful.map(([label,value]) => `<div><small>${e(label)}</small><strong>${e(detailText(value))}</strong></div>`).join('')}
+    </div>
+  </section>`;
+}
+
+function detailBuyerBlock(o) {
+  const buyer = rawValue(o, ['Comprador']) || {};
+  return detailList('Organismo comprador', [
+    ['Organismo', o.buyer_name || buyer.NombreOrganismo],
+    ['Unidad', buyer.NombreUnidad],
+    ['RUT unidad', buyer.RutUnidad],
+    ['Región', buyer.RegionUnidad],
+    ['Comuna', buyer.ComunaUnidad],
+    ['Dirección', buyer.DireccionUnidad],
+    ['Contacto', buyer.NombreUsuario],
+    ['Cargo', buyer.CargoUsuario]
+  ]);
+}
+
+function detailDatesBlock(o) {
+  const dates = rawValue(o, ['Fechas']) || {};
+  return detailList('Fechas clave', [
+    ['Publicación', detailDate(o.published_at || dates.FechaPublicacion)],
+    ['Inicio', detailDate(dates.FechaInicio)],
+    ['Cierre', detailDate(o.close_at || dates.FechaCierre)],
+    ['Publicación de respuestas', detailDate(dates.FechaPubRespuestas)],
+    ['Apertura técnica', detailDate(dates.FechaActoAperturaTecnica)],
+    ['Apertura económica', detailDate(dates.FechaActoAperturaEconomica)],
+    ['Adjudicación estimada', detailDate(dates.FechaEstimadaAdjudicacion || dates.FechaAdjudicacion)]
+  ]);
+}
+
+function detailConditionsBlock(o) {
+  const raw = o?.raw || {};
+  return detailList('Condiciones informadas por Mercado Público', [
+    ['Fuente de financiamiento', raw.FuenteFinanciamiento],
+    ['Tipo de convocatoria', raw.TipoConvocatoria],
+    ['Subcontratación', raw.SubContratacion != null ? detailFlag(raw.SubContratacion) : null],
+    ['Renovable', raw.EsRenovable != null ? detailFlag(raw.EsRenovable) : null],
+    ['Extensión de plazo', raw.ExtensionPlazo != null ? detailFlag(raw.ExtensionPlazo) : null],
+    ['Toma de razón', raw.TomaRazon != null ? detailFlag(raw.TomaRazon) : null],
+    ['Dirección de visita', raw.DireccionVisita],
+    ['Dirección de entrega', raw.DireccionEntrega],
+    ['Cantidad de reclamos', raw.CantidadReclamos]
+  ]);
+}
+
+function detailItemsBlock(o) {
+  const rawItems = rawValue(o, ['Items']);
+  const items = Array.isArray(rawItems?.Listado) ? rawItems.Listado : [];
+  if (!items.length) {
+    return '<section class="cc-detail-block"><h4>Ítems solicitados</h4><p class="muted">La API no informó ítems para esta licitación.</p></section>';
+  }
+  return `<section class="cc-detail-block">
+    <h4>Ítems solicitados</h4>
+    <div class="cc-detail-items">
+      ${items.map((item,index) => `<article>
+        <div><span>Ítem ${index + 1}</span><strong>${e(item.NombreProducto || item.Descripcion || 'Sin nombre')}</strong></div>
+        <dl>
+          <div><dt>Cantidad</dt><dd>${e(detailText(item.Cantidad))} ${e(item.UnidadMedida || '')}</dd></div>
+          <div><dt>Categoría</dt><dd>${e(detailText(item.Categoria))}</dd></div>
+          <div><dt>Descripción</dt><dd>${e(detailText(item.Descripcion))}</dd></div>
+          ${item.CodigoProducto ? `<div><dt>Código producto</dt><dd>${e(String(item.CodigoProducto))}</dd></div>` : ''}
+        </dl>
+      </article>`).join('')}
+    </div>
+  </section>`;
+}
+
+function detailDocumentsBlock(o) {
+  const docs = rawValue(o, ['Documentos']) || rawValue(o, ['Adjuntos']) || rawValue(o, ['Archivos']);
+  const list = Array.isArray(docs) ? docs : Array.isArray(docs?.Listado) ? docs.Listado : [];
+  return `<section class="cc-detail-block">
+    <h4>Documentos y bases</h4>
+    ${list.length
+      ? `<div class="cc-detail-items">${list.map((doc) => `<article><div><strong>${e(doc.Nombre || doc.nombre || doc.Descripcion || 'Documento')}</strong></div></article>`).join('')}</div>`
+      : '<div class="cc-api-note"><strong>Los archivos adjuntos no vienen en esta respuesta de la API de licitaciones.</strong><span>La ficha sí entrega datos del proceso e ítems. Para revisar bases, anexos y archivos oficiales debes abrir la ficha pública de Mercado Público.</span></div>'}
+    <button type="button" class="ghost-btn cc-open-public-record" data-cc-market>Abrir ficha pública y documentos ↗</button>
+  </section>`;
 }
 
 function detailBody(o) {
@@ -572,8 +675,12 @@ function detailBody(o) {
     const terms = matchedTerms(o);
     return `<section class="cc-detail-section"><h4>Seguimientos que encontraron esta publicación</h4><div class="cc-tags">${campaigns.length ? campaigns.map((c) => tag(c.name)).join('') : '<span class="muted">Resultado de búsqueda manual.</span>'}</div><h4>Términos coincidentes</h4><div class="cc-tags">${terms.length ? terms.map(tag).join('') : '<span class="muted">Sin términos asociados.</span>'}</div></section>`;
   }
-  if (chilecompraState.detailTab === 'requisitos') return `<section class="cc-detail-section"><h4>Requisitos</h4>${rawSection(o, ['RequisitosGenerales','AntecedentesTecnicos','Requisitos','Antecedentes'])}</section>`;
-  if (chilecompraState.detailTab === 'documentos') return `<section class="cc-detail-section"><h4>Documentos</h4>${rawSection(o, ['Documentos','Adjuntos','Archivos','Items'])}</section>`;
+  if (chilecompraState.detailTab === 'requisitos') {
+    return `<section class="cc-detail-section">${detailConditionsBlock(o)}${detailBuyerBlock(o)}${detailDatesBlock(o)}</section>`;
+  }
+  if (chilecompraState.detailTab === 'documentos') {
+    return `<section class="cc-detail-section">${detailItemsBlock(o)}${detailDocumentsBlock(o)}</section>`;
+  }
   const description = o.description
     || (chilecompraState.detailLoading
       ? 'Cargando información desde Mercado Público…'
@@ -588,6 +695,8 @@ function detailBody(o) {
     ${chilecompraState.detailError ? `<div class="cc-detail-warning"><strong>No se pudo completar la ficha</strong><span>${e(chilecompraState.detailError)}</span><button type="button" class="ghost-btn" data-cc-detail-retry>Reintentar</button></div>` : ''}
     <div class="cc-detail-facts"><div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div><div><small>Publicación</small><strong>${published}</strong></div></div>
     <h4>Descripción</h4><p class="cc-description">${e(description)}</p>
+    ${detailBuyerBlock(o)}
+    ${detailDatesBlock(o)}
     <h4>Seguimientos relacionados</h4><div class="cc-tags">${campaignTags(o) || '<span class="muted">Búsqueda manual.</span>'}</div>
   </section>`;
 }
@@ -599,7 +708,7 @@ function detailPanel(o) {
     <div class="cc-detail-head"><div class="cc-detail-campaign-summary"><strong>${campaigns.length}</strong><span>${campaigns.length === 1 ? 'seguimiento coincide' : 'seguimientos coinciden'}</span></div><button type="button" class="icon-btn" data-cc-save="${o.id}" aria-label="Guardar oportunidad">♡</button></div>
     <h2>${e(o.name)}</h2><p class="cc-detail-buyer">⌂ ${e(o.buyer_name || (chilecompraState.detailLoading ? 'Cargando comprador…' : 'Comprador no informado'))}</p>
     <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
-    <div class="cc-detail-tabs">${[['resumen','Resumen'],['requisitos','Requisitos'],['documentos','Documentos'],['coincidencias','Coincidencias']].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
+    <div class="cc-detail-tabs">${[['resumen','Resumen'],['requisitos','Condiciones'],['documentos','Ítems y documentos'],['coincidencias','Coincidencias']].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
     ${detailBody(o)}
     <div class="cc-detail-actions">${o.radar_state === 'crm' ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>' : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}<button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button><button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button><button type="button" class="link-btn cc-market-link" data-cc-market>Ver en ChileCompra ↗</button></div>
   </aside>`;
@@ -1156,7 +1265,13 @@ export function mountChileCompraView() {
     if (discard) { await patchOpportunity(discard.dataset.ccDiscard, { radar_state: 'descartado', updated_at: new Date().toISOString() }); return; }
     const crm = ev.target.closest('[data-cc-crm]');
     if (crm) { await convertToCrm(crm.dataset.ccCrm); rerender(); return; }
-    if (ev.target.closest('[data-cc-market]')) openExternal('https://www.mercadopublico.cl/BuscarLicitacion');
+    if (ev.target.closest('[data-cc-market]')) {
+      const selected = selectedOpportunity();
+      const code = selected?.external_code || '';
+      openExternal(code
+        ? `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(code)}`
+        : 'https://buscador.mercadopublico.cl/');
+    }
   });
 
   root.addEventListener('input', (ev) => {
