@@ -940,10 +940,10 @@ function campaignRow(c, stats, { controls = true } = {}) {
 function dashboardNav(stats) {
   const primary = [
     ['resumen','Resumen',''],
+    ['convenio','Convenio Marco',''],
     ['coincidencias','Coincidencias',stats.total],
     ['campanas','Seguimientos',stats.activeCampaigns],
-    ['buscar','Buscar',''],
-    ['convenio','Convenio Marco','']
+    ['buscar','Buscar','']
   ];
   const secondary = [
     ['mercado','Mercado Chile'],
