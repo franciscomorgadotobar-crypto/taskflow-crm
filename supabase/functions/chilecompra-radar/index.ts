@@ -923,6 +923,32 @@ Deno.serve(async req=>{
       return json({ok:true,...await marketAnalytics(admin,ticket,org,body)});
     }
 
+    if(action==="cm-sync") {
+      const days=Math.max(1,Math.min(31,Number(body?.days)||3));
+      const detailLimit=Math.max(0,Math.min(160,Number(body?.detailLimit)||48));
+      return json({ok:true,...await syncCmOrders(admin,ticket,{days,detailLimit})});
+    }
+
+    if(action==="cm-dashboard") {
+      if(cron) return json({error:"cm_dashboard_requires_user"},403);
+      return json({ok:true,...await cmDashboard(admin,ticket,org,body)});
+    }
+
+    if(action==="cm-detail") {
+      if(cron) return json({error:"cm_detail_requires_user"},403);
+      const code=String(body?.code||"").trim();
+      if(!code) return json({error:"code_required"},400);
+      const order=await fetchCmDetail(admin,ticket,code);
+      if(!order) return json({error:"cm_order_not_found",message:"La orden no corresponde a Convenio Marco o no fue encontrada."},404);
+      const {data:items,error:itemsError}=await admin.from("chilecompra_cm_order_items")
+        .select("*").eq("order_code",code).order("line_no");
+      if(itemsError) throw itemsError;
+      const {data:state,error:stateError}=await admin.from("chilecompra_cm_states")
+        .select("*").eq("organization_id",org).eq("order_code",code).maybeSingle();
+      if(stateError && stateError.code!=="PGRST116") throw stateError;
+      return json({ok:true,order:{...order,commercial_state:state||null},items:items||[]});
+    }
+
     if(action==="review") {
       if(cron) return json({error:"review_requires_user"},403);
       const opportunityId=String(body?.opportunityId||"").trim();
