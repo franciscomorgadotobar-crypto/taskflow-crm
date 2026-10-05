@@ -181,7 +181,10 @@ function updateHeaderIdentity() {
   const auditMenu = $('v2AuditMenu');
   if (auditMenu) auditMenu.hidden = Boolean($('auditNav')?.hidden ?? true);
   const settingsMenu = $('v2SettingsMenu');
-  if (settingsMenu) settingsMenu.hidden = Boolean($('settingsNav')?.hidden ?? true);
+  if (settingsMenu) {
+    const currentRole = session.profile?.role || state.me?.role || '';
+    settingsMenu.hidden = !['super', 'admin'].includes(currentRole);
+  }
   updateMobileHeader();
 }
 
