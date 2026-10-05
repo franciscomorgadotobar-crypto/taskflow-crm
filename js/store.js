@@ -1,4 +1,4 @@
-import { CLOSED_STAGES, DEFAULT_PROBABILITY, STAGES } from './catalog.js';
+import { CLOSED_STAGES, DEFAULT_BOTTOM_NAV, DEFAULT_PROBABILITY, STAGES } from './catalog.js';
 import { addDaysISO, daysBetween, nowISO, todayISO, uid, toast } from './utils.js';
 import { supabase } from './supabase.js';
 import { session } from './auth.js';
@@ -182,7 +182,8 @@ const fromDbProfile = (r) => ({
   phone: r.phone || '',
   role: r.role,
   active: r.active,
-  moduleAccess: Array.isArray(r.module_access) ? r.module_access : []
+  moduleAccess: Array.isArray(r.module_access) ? r.module_access : [],
+  bottomNav: Array.isArray(r.bottom_nav) && r.bottom_nav.length ? r.bottom_nav : [...DEFAULT_BOTTOM_NAV]
 });
 
 /* ---------- Hidratación + Realtime ---------- */
@@ -987,7 +988,7 @@ export function ownerNames() {
   return [...new Set(names)];
 }
 
-/** Guarda mi propio nombre/teléfono (el correo lo gestiona la sesión, no se edita acá). */
+/** Guarda mis datos personales y preferencias de interfaz. */
 export async function saveProfile(patch) {
   if (!state.me) return null;
   const before = structuredClone(state.me);
@@ -995,9 +996,15 @@ export async function saveProfile(patch) {
   const idx = state.team.findIndex((t) => t.id === state.me.id);
   if (idx >= 0) state.team[idx] = state.me;
   persist();
+  notify();
+  const payload = {
+    name: patch.name ?? state.me.name,
+    phone: patch.phone ?? state.me.phone
+  };
+  if (Array.isArray(patch.bottomNav)) payload.bottom_nav = patch.bottomNav;
   const { data, error: updateError } = await supabase
     .from('profiles')
-    .update({ name: patch.name ?? state.me.name, phone: patch.phone ?? state.me.phone })
+    .update(payload)
     .eq('id', state.me.id)
     .select('id');
   const error = updateError || (!data?.length ? new Error('El servidor no confirmó tu perfil.') : null);
@@ -1006,6 +1013,7 @@ export async function saveProfile(patch) {
   const current = state.team.findIndex((t) => t.id === state.me.id);
   if (current >= 0) state.team[current] = state.me;
   persist();
+  notify();
   reportError('No se pudo guardar tu perfil', error);
   return null;
 }
