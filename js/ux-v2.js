@@ -430,15 +430,33 @@ function homeMarketHasData(data, metric = ccHomeMetric) {
 }
 
 function homeMarketPresetCopy(data) {
+  const universeLabel = ccHomeUniverse === 'campaigns'
+    ? 'Mis seguimientos'
+    : ccHomeUniverse === 'business'
+      ? 'Mi negocio'
+      : 'Mercado general Chile';
+  const metricLabel = ccHomeMetric === 'amount'
+    ? 'Monto publicado'
+    : ccHomeMetric === 'buyers'
+      ? 'Compradores'
+      : 'Publicaciones';
+
+  if (ccHomeUniverse !== CC_HOME_DEFAULT.universe || ccHomeMetric !== CC_HOME_DEFAULT.metric) {
+    return `${universeLabel} · ${metricLabel} por rubro`;
+  }
+
   const categories = (data?.categories || [])
     .filter((row) => row.label !== 'Sin clasificar' && Number(row.value || 0) > 0)
     .slice(0, 3);
   const names = categories.map((row) => row.label);
   const base = 'Mercado general Chile · Publicaciones activas por rubro';
-  if (ccHomeUniverse !== CC_HOME_DEFAULT.universe || ccHomeMetric !== CC_HOME_DEFAULT.metric) return base;
   if (!data || !homeMarketHasData(data, 'publications')) return base;
   if (!names.length) return `${Number(data.publications || 0).toLocaleString('es-CL')} publicaciones activas`;
   return `${Number(data.publications || 0).toLocaleString('es-CL')} publicaciones activas · lideran ${names.join(', ')}`;
+}
+
+function homeMarketIsDefault() {
+  return ccHomeUniverse === CC_HOME_DEFAULT.universe && ccHomeMetric === CC_HOME_DEFAULT.metric;
 }
 
 function resetHomeMarketView({ notice = '' } = {}) {
@@ -565,7 +583,7 @@ function renderDashboardSummary() {
     pipelineSnapshot.counts.map((row) => row.value), pipelineSnapshot.top.stage, pipelineSnapshot.top.value,
     chilecompra.total, chilecompra.activeCampaigns,
     chilecompra.campaigns.map((c) => [c.id, c.name, chilecompra.newByCampaign?.[c.id] || 0]),
-    ccHomeUniverse, ccHomeMetric, ccHomeAnalyticsLoading,
+    ccHomeUniverse, ccHomeMetric, ccHomeAnalyticsLoading, ccHomeFallbackNotice,
     market?.categories, market?.publications, market?.buyers, market?.amount
   ]);
 
@@ -606,7 +624,7 @@ function renderDashboardSummary() {
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
         <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Panorama inicial del mercado antes de entrar a tus seguimientos.</small></div></div>
         <div class="v2-cc-market-preset">
-          <span>Vista inicial</span>
+          <span>${homeMarketIsDefault() ? 'Vista inicial' : 'Vista personalizada'}</span>
           <strong>${esc(homeMarketPresetCopy(market))}</strong>
           ${ccHomeFallbackNotice ? `<small>${esc(ccHomeFallbackNotice)}</small>` : ''}
         </div>
