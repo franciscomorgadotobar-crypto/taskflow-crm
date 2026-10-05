@@ -2187,7 +2187,7 @@ function renderTeamModuleChecks(selected = USER_MODULES.map((module) => module.i
 }
 
 function selectedTeamModules() {
-  return $('#teamModuleChecks input:checked').map((input) => input.value);
+  return [...document.querySelectorAll('#teamModuleChecks input:checked')].map((input) => input.value);
 }
 
 function refreshTeamTemplateSetup() {
@@ -2650,7 +2650,7 @@ function handleKeydown(ev) {
 }
 
 function applyNavigationAccess() {
-  $('.nav-item').forEach((btn) => {
+  document.querySelectorAll('.nav-item').forEach((btn) => {
     const view = btn.dataset.view;
     if (!view) return;
     if (view === 'profile') {
@@ -2664,7 +2664,7 @@ function applyNavigationAccess() {
 function ensureAccessibleView() {
   if (canAccessView(ui.view)) return;
   ui.view = firstAccessibleView();
-  $('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === ui.view));
+  document.querySelectorAll('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === ui.view));
 }
 
 /* ---------- Controles de vista ---------- */
@@ -3502,7 +3502,7 @@ function bindEvents() {
       const nextView = btn.dataset.view;
       if (!canAccessView(nextView)) return toast('Este módulo no está habilitado para tu perfil.', 'error');
       ui.view = nextView;
-      $('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
+      document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
       render();
       if (ui.view === 'audit' && isAdmin()) hydrateAudit();
     })
