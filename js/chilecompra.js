@@ -33,6 +33,7 @@ export const chilecompraState = {
   cmError: '',
   cmDays: 3,
   cmQuery: '',
+  cmCampaignId: '',
   cmView: 'pulso',
   cmSelectedCode: '',
   cmDetail: null,
@@ -51,7 +52,7 @@ export function clearChileCompra() {
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
     selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '',
-    cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmView: 'pulso',
+    cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmCampaignId: '', cmView: 'pulso',
     cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
     sort: 'recent', lastSyncAt: ''
   });
@@ -315,6 +316,7 @@ async function loadConvenioMarco({ forceSync = false } = {}) {
       action: 'cm-dashboard',
       days: chilecompraState.cmDays,
       query: chilecompraState.cmQuery,
+      campaignId: chilecompraState.cmCampaignId,
       forceSync
     });
     chilecompraState.cmData = data;
@@ -1053,6 +1055,7 @@ function cmOrderRow(order) {
       <div class="cc-cm-order-head"><strong>${e(order.name || order.description || 'Orden de Convenio Marco')}</strong>${cmCommercialBadge(order)}</div>
       <span>${e(order.code)} · ${e(order.agreement_code || 'Convenio no identificado')}</span>
       <small>${e(order.buyer_name || order.buyer_unit || 'Comprador no informado')} → ${e(order.supplier_name || 'Proveedor no informado')}</small>
+      ${(order.matched_campaigns || []).length ? `<div class="cc-tags">${order.matched_campaigns.slice(0,3).map((campaign) => tag(campaign.name)).join('')}</div>` : ''}
     </div>
     <div class="cc-cm-order-side">
       <strong>${e(cmMoney(order.total, order.currency || 'CLP'))}</strong>
@@ -1162,6 +1165,10 @@ function renderConvenioMarcoDashboard() {
       </form>
       ${data?.coverage ? `<div class="cc-cm-coverage"><span>Período analizado: <strong>${data.days} día${data.days===1?'':'s'}</strong></span><span>Órdenes cargadas: <strong>${Number(data.coverage.orders||0).toLocaleString('es-CL')}</strong></span><span>Detalle de ítems: <strong>${data.coverage.percent}%</strong></span>${data.coverage.truncated ? `<span class="cc-cm-coverage-warning">Hay ${Number(data.coverage.detected||0).toLocaleString('es-CL')} órdenes en caché para el período; el análisis usa las ${Number(data.coverage.loaded||0).toLocaleString('es-CL')} más recientes.</span>` : ''}</div>` : ''}
       ${chilecompraState.cmError ? `<div class="cc-detail-warning"><strong>No se pudo completar la consulta</strong><span>${e(chilecompraState.cmError)}</span></div>` : ''}
+      ${(data?.campaigns || []).length ? `<div class="cc-campaign-filter cc-cm-campaign-filter">
+        <button type="button" data-cm-campaign-filter="" class="${!chilecompraState.cmCampaignId ? 'active' : ''}">Todo Convenio Marco</button>
+        ${data.campaigns.map((campaign) => `<button type="button" data-cm-campaign-filter="${e(campaign.id)}" class="${chilecompraState.cmCampaignId===campaign.id?'active':''}">${e(campaign.name)} <b>${Number(campaign.orders || 0).toLocaleString('es-CL')}</b></button>`).join('')}
+      </div>` : ''}
     </section>
 
     <nav class="cc-cm-subnav">${views.map(([id,label]) => `<button type="button" data-cm-view="${id}" class="${view===id?'active':''}">${label}</button>`).join('')}</nav>
@@ -1518,6 +1525,16 @@ export function mountChileCompraView() {
       return;
     }
     if (ev.target.closest('[data-cc-business-open]')) { document.getElementById('ccBusinessDialog')?.showModal(); return; }
+
+    const cmCampaignFilter = ev.target.closest('[data-cm-campaign-filter]');
+    if (cmCampaignFilter) {
+      chilecompraState.cmCampaignId = cmCampaignFilter.dataset.cmCampaignFilter || '';
+      chilecompraState.cmData = null;
+      rerender();
+      try { await loadConvenioMarco(); }
+      catch (err) { toast(err.message || 'No se pudo filtrar Convenio Marco.', 'error'); }
+      return;
+    }
 
     const cmView = ev.target.closest('[data-cm-view]');
     if (cmView) {
