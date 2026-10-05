@@ -321,29 +321,54 @@ async function syncOrganization(admin,ticket,org) {
 }
 
 const INDUSTRIES=[
-  ["Tecnología / Software",["software","sistema","plataforma","saas","licencia","digital","tecnologia","informatico","informática","computacional","hosting","cloud","nube","base de datos"]],
-  ["Salud",["hospital","salud","clinica","clínica","cesfam","medico","médico","farmacia","laboratorio","dental","insumo medico","insumo médico"]],
-  ["Telecomunicaciones",["telecom","fibra","antena","radioenlace","lte","5g","conectividad","red de datos","telefonia","telefonía","internet"]],
-  ["Seguridad / Defensa",["seguridad","ejercito","ejército","armada","carabineros","pdi","defensa","vigilancia","cctv","control de acceso"]],
-  ["Educación",["universidad","educacion","educación","colegio","liceo","escuela","junaeb","capacitacion","capacitación","curso"]],
-  ["Construcción / Infraestructura",["construccion","construcción","obra","infraestructura","edificio","reparacion","reparación","pavimento","techumbre"]],
-  ["Energía / Utilities",["energia","energía","electrico","eléctrico","agua potable","sanitaria","generador","electrogeno","electrógeno","panel solar","iluminacion","iluminación","luminaria"]],
-  ["Transporte / Logística",["transporte","logistica","logística","flete","distribucion","distribución","vehiculo","vehículo","camion","camión","metro","traslado"]],
-  ["Industria / Minería",["mineria","minería","industrial","planta","faena","proceso productivo","maquinaria industrial","motor","bomba"]],
-  ["Alimentación / Catering",["alimento","alimentacion","alimentación","catering","casino","colacion","colación","racion","ración","bebida","comestible"]],
-  ["Aseo / Facility",["aseo","limpieza","facility","jardineria","jardinería","sanitizacion","sanitización","desinfeccion","desinfección","residuo","mantencion integral","mantención integral"]],
-  ["Oficina / Insumos",["articulo de oficina","artículo de oficina","insumo de oficina","papeleria","papelería","tinta","toner","tóner","impresora","fotocopiadora","utiles","útiles"]],
-  ["Equipamiento / Mobiliario",["mobiliario","mueble","silla","escritorio","estanteria","estantería","equipamiento"]],
-  ["Consultoría / Servicios profesionales",["consultoria","consultoría","asesoria","asesoría","estudio","auditoria","auditoría","servicio profesional","ingenieria","ingeniería","levantamiento"]],
-  ["Medioambiente",["medioambiente","ambiental","reciclaje","monitoreo ambiental","areas verdes","áreas verdes"]],
-  ["Maquinaria / Vehículos",["maquinaria","excavadora","grua","grúa","camioneta","automovil","automóvil","repuesto","neumatico","neumático"]],
-  ["Textil / EPP",["uniforme","vestuario","ropa","calzado","epp","elemento de proteccion personal","elemento de protección personal"]],
-  ["Comunicaciones / Eventos",["publicidad","difusion","difusión","impresion","impresión","grafica","gráfica","evento","produccion audiovisual","producción audiovisual","comunicaciones"]]
+  ["Salud",["prestaciones medicas","prestacion medica","imagenologia","ambulatoria","hospital","salud","clinica","cesfam","medica","medico","farmacia","laboratorio clinico","dental","insumo medico"]],
+  ["Tecnología / Software",["software","plataforma","saas","licencia de software","tecnologia de informacion","tecnologia","informatico","computacional","hosting","cloud","nube","base de datos","ciberseguridad","realidad virtual","simulacion","desarrollo web","aplicacion movil","aplicacion web"]],
+  ["Telecomunicaciones",["telecom","fibra optica","fibra","antena","radioenlace","lte","5g","conectividad","red de datos","telefonia","internet"]],
+  ["Seguridad / Defensa",["seguridad","ejercito","armada","carabineros","pdi","defensa","vigilancia","cctv","control de acceso"]],
+  ["Educación",["universidad","educacion","colegio","liceo","escuela","junaeb","capacitacion","curso","docencia"]],
+  ["Construcción / Infraestructura",["construccion","obra civil","infraestructura","edificio","pavimento","techumbre","urbanizacion","habilitacion de espacios"]],
+  ["Energía / Utilities",["energia","electrico","electricidad","agua potable","sanitaria","generador","electrogeno","panel solar","iluminacion","luminaria"]],
+  ["Transporte / Logística",["transporte","logistica","flete","distribucion","vehiculo","camion","metro","traslado","bodega","almacenamiento"]],
+  ["Industria / Minería",["mineria","industrial","planta industrial","faena","proceso productivo","maquinaria industrial","motor industrial","bomba industrial"]],
+  ["Alimentación / Catering",["alimento","alimentacion","catering","casino","colacion","racion","bebida","comestible"]],
+  ["Aseo / Facility",["aseo","limpieza","facility","jardineria","sanitizacion","desinfeccion","residuo","mantencion integral","mantenimiento integral"]],
+  ["Oficina / Insumos",["articulo de oficina","insumo de oficina","papeleria","tinta","toner","impresora","fotocopiadora","utiles de oficina"]],
+  ["Equipamiento / Mobiliario",["mobiliario","mueble","silla","escritorio","estanteria","equipamiento mobiliario"]],
+  ["Consultoría / Servicios profesionales",["consultoria","asesoria","estudio","auditoria","servicio profesional","ingenieria","levantamiento","consultor"]],
+  ["Medioambiente",["medioambiente","ambiental","reciclaje","monitoreo ambiental","areas verdes","gestion de residuos"]],
+  ["Maquinaria / Vehículos",["maquinaria","excavadora","grua","camioneta","automovil","repuesto","neumatico"]],
+  ["Textil / EPP",["uniforme","vestuario","ropa de trabajo","calzado","epp","elemento de proteccion personal"]],
+  ["Comunicaciones / Eventos",["publicidad","difusion","impresion grafica","grafica","evento","produccion audiovisual","comunicaciones"]],
+  ["Finanzas / Seguros",["seguro","poliza","bancaria","bancario","conciliacion bancaria","servicio financiero","financiero","leasing"]],
+  ["Legal / Personas",["juridico","juridica","abogado","legal","recursos humanos","seleccion de personal","reclutamiento","evaluacion psicologica"]],
+  ["Arriendo / Servicios operacionales",["arriendo","arrendamiento","mantencion","mantenimiento","reparacion","soporte tecnico","servicio tecnico"]],
+  ["Cultura / Deporte / Turismo",["cultura","cultural","deporte","deportivo","turismo","hotel","alojamiento","recreacion"]],
+  ["Ciencias / Laboratorio",["reactivo","laboratorio","microscopio","instrumental cientifico","equipo cientifico","analisis quimico"]],
+  ["Agricultura / Veterinaria",["agricola","agricultura","veterinaria","veterinario","animal","riego","semilla","fertilizante"]]
 ];
+
+function industryScore(text, term, weight) {
+  if (!termMatches(text,term)) return 0;
+  const normalizedTerm=normalize(term);
+  const specificity=normalizedTerm.includes(" ") ? 1.1 : normalizedTerm.length>=9 ? .55 : 0;
+  return weight+specificity;
+}
 function industryOf(item) {
-  const f=listingFields(item), text=normalize([f.name,f.description,f.buyerName].join(" "));
-  for(const [label,terms] of INDUSTRIES) if(terms.some(t=>termMatches(text,t))) return label;
-  return "Sin clasificar";
+  const f=listingFields(item);
+  const name=normalize(f.name);
+  const description=normalize(f.description);
+  const buyer=normalize(f.buyerName);
+  let bestLabel="Sin clasificar", bestScore=0;
+  for(const [label,terms] of INDUSTRIES) {
+    let score=0;
+    for(const term of terms) {
+      score+=industryScore(name,term,3);
+      score+=industryScore(description,term,1.4);
+      score+=industryScore(buyer,term,.65);
+    }
+    if(score>bestScore) { bestScore=score; bestLabel=label; }
+  }
+  return bestScore>=2.2 ? bestLabel : "Sin clasificar";
 }
 function orgTypeOf(item) {
   const name=normalize(listingFields(item).buyerName);
@@ -401,7 +426,11 @@ function aggregateAnalytics(listings,{metric="publications",groupBy="industry"}=
   return {
     categories:[...groups.entries()]
       .map(([label,value])=>({label,value:Number(value||0)}))
-      .sort((a,b)=>b.value-a.value),
+      .sort((a,b)=>{
+        if(a.label==="Sin clasificar") return 1;
+        if(b.label==="Sin clasificar") return -1;
+        return b.value-a.value;
+      }),
     categoryExamples:Object.fromEntries([...examples.entries()])
   };
 }

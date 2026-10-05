@@ -98,36 +98,66 @@ export function chilecompraDashboardStats() {
 }
 
 const LOCAL_INDUSTRIES = [
-  ['Tecnología / Software', ['software','sistema','plataforma','saas','licencia','digital','tecnologia','informatico','computacional','hosting','cloud','nube','base de datos']],
-  ['Salud', ['hospital','salud','clinica','cesfam','medico','farmacia','laboratorio','dental','insumo medico']],
-  ['Telecomunicaciones', ['telecom','fibra','antena','radioenlace','lte','5g','conectividad','red de datos','telefonia','internet']],
+  ['Salud', ['prestaciones medicas','prestacion medica','imagenologia','ambulatoria','hospital','salud','clinica','cesfam','medica','medico','farmacia','laboratorio clinico','dental','insumo medico']],
+  ['Tecnología / Software', ['software','plataforma','saas','licencia de software','tecnologia de informacion','tecnologia','informatico','computacional','hosting','cloud','nube','base de datos','ciberseguridad','realidad virtual','simulacion','desarrollo web','aplicacion movil','aplicacion web']],
+  ['Telecomunicaciones', ['telecom','fibra optica','fibra','antena','radioenlace','lte','5g','conectividad','red de datos','telefonia','internet']],
   ['Seguridad / Defensa', ['seguridad','ejercito','armada','carabineros','pdi','defensa','vigilancia','cctv','control de acceso']],
-  ['Educación', ['universidad','educacion','colegio','liceo','escuela','junaeb','capacitacion','curso']],
-  ['Construcción / Infraestructura', ['construccion','obra','infraestructura','edificio','reparacion','pavimento','techumbre']],
-  ['Energía / Utilities', ['energia','electrico','agua potable','sanitaria','generador','electrogeno','panel solar','iluminacion','luminaria']],
-  ['Transporte / Logística', ['transporte','logistica','flete','distribucion','vehiculo','camion','metro','traslado']],
-  ['Industria / Minería', ['mineria','industrial','planta','faena','proceso productivo','maquinaria industrial','motor','bomba']],
+  ['Educación', ['universidad','educacion','colegio','liceo','escuela','junaeb','capacitacion','curso','docencia']],
+  ['Construcción / Infraestructura', ['construccion','obra civil','infraestructura','edificio','pavimento','techumbre','urbanizacion','habilitacion de espacios']],
+  ['Energía / Utilities', ['energia','electrico','electricidad','agua potable','sanitaria','generador','electrogeno','panel solar','iluminacion','luminaria']],
+  ['Transporte / Logística', ['transporte','logistica','flete','distribucion','vehiculo','camion','metro','traslado','bodega','almacenamiento']],
+  ['Industria / Minería', ['mineria','industrial','planta industrial','faena','proceso productivo','maquinaria industrial','motor industrial','bomba industrial']],
   ['Alimentación / Catering', ['alimento','alimentacion','catering','casino','colacion','racion','bebida','comestible']],
-  ['Aseo / Facility', ['aseo','limpieza','facility','jardineria','sanitizacion','desinfeccion','residuo','mantencion integral']],
-  ['Oficina / Insumos', ['articulo de oficina','insumo de oficina','papeleria','tinta','toner','impresora','fotocopiadora','utiles']],
-  ['Equipamiento / Mobiliario', ['mobiliario','mueble','silla','escritorio','estanteria','equipamiento']],
-  ['Consultoría / Servicios profesionales', ['consultoria','asesoria','estudio','auditoria','servicio profesional','ingenieria','levantamiento']],
-  ['Medioambiente', ['medioambiente','ambiental','reciclaje','monitoreo ambiental','areas verdes']],
+  ['Aseo / Facility', ['aseo','limpieza','facility','jardineria','sanitizacion','desinfeccion','residuo','mantencion integral','mantenimiento integral']],
+  ['Oficina / Insumos', ['articulo de oficina','insumo de oficina','papeleria','tinta','toner','impresora','fotocopiadora','utiles de oficina']],
+  ['Equipamiento / Mobiliario', ['mobiliario','mueble','silla','escritorio','estanteria','equipamiento mobiliario']],
+  ['Consultoría / Servicios profesionales', ['consultoria','asesoria','estudio','auditoria','servicio profesional','ingenieria','levantamiento','consultor']],
+  ['Medioambiente', ['medioambiente','ambiental','reciclaje','monitoreo ambiental','areas verdes','gestion de residuos']],
   ['Maquinaria / Vehículos', ['maquinaria','excavadora','grua','camioneta','automovil','repuesto','neumatico']],
-  ['Textil / EPP', ['uniforme','vestuario','ropa','calzado','epp','elemento de proteccion personal']],
-  ['Comunicaciones / Eventos', ['publicidad','difusion','impresion','grafica','evento','produccion audiovisual','comunicaciones']]
+  ['Textil / EPP', ['uniforme','vestuario','ropa de trabajo','calzado','epp','elemento de proteccion personal']],
+  ['Comunicaciones / Eventos', ['publicidad','difusion','impresion grafica','grafica','evento','produccion audiovisual','comunicaciones']],
+  ['Finanzas / Seguros', ['seguro','poliza','bancaria','bancario','conciliacion bancaria','servicio financiero','financiero','leasing']],
+  ['Legal / Personas', ['juridico','juridica','abogado','legal','recursos humanos','seleccion de personal','reclutamiento','evaluacion psicologica']],
+  ['Arriendo / Servicios operacionales', ['arriendo','arrendamiento','mantencion','mantenimiento','reparacion','soporte tecnico','servicio tecnico']],
+  ['Cultura / Deporte / Turismo', ['cultura','cultural','deporte','deportivo','turismo','hotel','alojamiento','recreacion']],
+  ['Ciencias / Laboratorio', ['reactivo','laboratorio','microscopio','instrumental cientifico','equipo cientifico','analisis quimico']],
+  ['Agricultura / Veterinaria', ['agricola','agricultura','veterinaria','veterinario','animal','riego','semilla','fertilizante']]
 ];
 
 function normalized(value = '') {
   return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es');
 }
 
-function localIndustry(o) {
-  const text = normalized([o.name, o.description, o.buyer_name].filter(Boolean).join(' '));
-  for (const [label, terms] of LOCAL_INDUSTRIES) {
-    if (terms.some((term) => text.includes(normalized(term)))) return label;
+function localTermMatch(text, term) {
+  const needle = normalized(term).trim();
+  if (!needle) return false;
+  if (/^[a-z0-9]{1,4}$/.test(needle)) {
+    return new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}([^a-z0-9]|$)`, 'i').test(text);
   }
-  return 'Sin clasificar';
+  return text.includes(needle);
+}
+
+function localIndustry(o) {
+  const name = normalized(o.name);
+  const description = normalized(o.description);
+  const buyer = normalized(o.buyer_name);
+  let bestLabel = 'Sin clasificar';
+  let bestScore = 0;
+  for (const [label, terms] of LOCAL_INDUSTRIES) {
+    let score = 0;
+    terms.forEach((term) => {
+      const normalizedTerm = normalized(term);
+      const specificity = normalizedTerm.includes(' ') ? 1.1 : normalizedTerm.length >= 9 ? .55 : 0;
+      if (localTermMatch(name, term)) score += 3 + specificity;
+      if (localTermMatch(description, term)) score += 1.4 + specificity;
+      if (localTermMatch(buyer, term)) score += .65 + specificity;
+    });
+    if (score > bestScore) {
+      bestScore = score;
+      bestLabel = label;
+    }
+  }
+  return bestScore >= 2.2 ? bestLabel : 'Sin clasificar';
 }
 
 export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
@@ -146,7 +176,13 @@ export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
     }
   });
   if (metric === 'buyers') buyerGroups.forEach((set, key) => groups.set(key, set.size));
-  const categories = [...groups.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+  const categories = [...groups.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => {
+      if (a.label === 'Sin clasificar') return 1;
+      if (b.label === 'Sin clasificar') return -1;
+      return b.value - a.value;
+    });
   const categoryExamples = {};
   categories.forEach(({ label }) => {
     categoryExamples[label] = rows
@@ -578,7 +614,13 @@ function marketBars(data, { limit = 18 } = {}) {
 
   const unit = metric === 'amount' ? 'monto observado' : metric === 'buyers' ? 'compradores' : 'publicaciones';
   const totalLabel = metric === 'amount' ? compactAmount(total) : total.toLocaleString('es-CL');
-  const rows = categories.slice(0, limit);
+  const unclassified = categories.find((row) => row.label === 'Sin clasificar');
+  const rows = categories.length <= limit
+    ? categories
+    : [
+        ...categories.filter((row) => row.label !== 'Sin clasificar').slice(0, Math.max(1, limit - (unclassified ? 1 : 0))),
+        ...(unclassified ? [unclassified] : [])
+      ];
 
   const renderExamples = (label) => {
     const examples = data?.categoryExamples?.[label] || [];

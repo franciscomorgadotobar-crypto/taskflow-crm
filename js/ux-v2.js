@@ -420,7 +420,7 @@ function homeChileCompraBars(data) {
 
   const top = categories.slice(0, 8);
   const unit = ccHomeMetric === 'amount' ? 'monto observado' : ccHomeMetric === 'buyers' ? 'compradores' : 'publicaciones';
-  const examplesFor = (label) => (data?.categoryExamples?.[label] || []).slice(0, 4);
+  const examplesFor = (label) => (data?.categoryExamples?.[label] || []).slice(0, 3);
 
   return `<div class="v2-cc-bars">
     <div class="v2-cc-bars-total"><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${unit}</span><small>${categories.length} rubros</small></div>
@@ -508,9 +508,11 @@ function renderDashboardSummary() {
 
   if (summary.dataset.signature !== signature) {
     summary.dataset.signature = signature;
-    const campaignButtons = chilecompra.campaigns.map((campaign) => `<button type="button" class="v2-cc-campaign-chip" data-action="open-chilecompra" data-campaign="${esc(campaign.id)}">
+    const campaignButtons = chilecompra.campaigns.slice(0, 4).map((campaign) => `<button type="button" class="v2-cc-campaign-chip" data-action="open-chilecompra" data-campaign="${esc(campaign.id)}">
       <span>${esc(campaign.name)}</span><strong>${chilecompra.newByCampaign?.[campaign.id] || 0}</strong>
-    </button>`).join('');
+    </button>`).join('') + (chilecompra.campaigns.length > 4
+      ? `<button type="button" class="v2-cc-campaign-chip v2-cc-campaign-chip--all" data-action="open-chilecompra" data-cc-tab="campanas"><span>Ver todos los seguimientos</span><strong>+${chilecompra.campaigns.length - 4}</strong></button>`
+      : '');
 
     summary.innerHTML = `
       <article class="v2-summary-kpi v2-pipeline-hero is-clickable" data-v2-dashboard-action="pipeline" role="button" tabindex="0">
@@ -536,7 +538,7 @@ function renderDashboardSummary() {
         <div class="v2-cc-brand">
           <span class="v2-cc-brand-icon" aria-hidden="true"><img src="https://www.chilecompra.cl/wp-content/uploads/2016/12/datosabiertoslogochilecompra-300x169.jpg" alt="" /></span>
           <div><strong>ChileCompra</strong><small>${chilecompra.activeCampaigns ? `<b>${chilecompra.activeCampaigns}</b> ${chilecompra.activeCampaigns === 1 ? 'seguimiento activo' : 'seguimientos activos'} · <b>${chilecompra.total}</b> coincidencias nuevas` : 'Aún no tienes seguimientos activos'}</small></div>
-          <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra">›</button>
+          <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra"><span>Abrir</span><b>›</b></button>
         </div>
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
         <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Explora dónde se concentra la demanda pública y abre cada rubro para ver ejemplos.</small></div></div>
@@ -553,7 +555,7 @@ function renderDashboardSummary() {
           </select></label>
         </div>
         ${ccHomeAnalyticsLoading ? '<div class="v2-cc-market-empty">Analizando Mercado Público…</div>' : homeChileCompraBars(market)}
-        <button type="button" class="primary-btn v2-cc-open" data-action="open-chilecompra">Ver ChileCompra →</button>
+        
       </article>`;
   }
 
@@ -833,6 +835,14 @@ function observeApp() {
 
 /* ---------- Eventos globales ---------- */
 function bindGlobalEvents() {
+  document.addEventListener('toggle', (ev) => {
+    const row = ev.target?.closest?.('.v2-cc-bar-row');
+    if (!row?.open) return;
+    qa('.v2-cc-bar-row[open]').forEach((other) => {
+      if (other !== row) other.open = false;
+    });
+  }, true);
+
   document.addEventListener('click', (ev) => {
     const dashboardTarget = ev.target.closest?.('[data-v2-dashboard-action]');
     if (dashboardTarget) {
