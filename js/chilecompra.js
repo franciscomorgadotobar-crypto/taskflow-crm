@@ -1374,6 +1374,11 @@ export function mountChileCompraView() {
     ev.preventDefault();
     try {
       if (ev.target.id === 'ccTraditionalSearch') return await runTraditionalSearch(document.getElementById('ccSearch')?.value || '');
+      if (ev.target.id === 'ccCmSearch') {
+        chilecompraState.cmQuery = document.getElementById('ccCmQuery')?.value?.trim() || '';
+        await loadConvenioMarco();
+        return;
+      }
       if (ev.target.id === 'ccCampaignForm') {
         const name = document.getElementById('ccCampaignName')?.value || '';
         const terms = document.getElementById('ccCampaignTerms')?.value || '';
@@ -1412,6 +1417,60 @@ export function mountChileCompraView() {
       return;
     }
     if (ev.target.closest('[data-cc-business-open]')) { document.getElementById('ccBusinessDialog')?.showModal(); return; }
+
+    const cmView = ev.target.closest('[data-cm-view]');
+    if (cmView) {
+      chilecompraState.cmView = cmView.dataset.cmView || 'pulso';
+      rerender();
+      return;
+    }
+    if (ev.target.closest('[data-cm-sync]')) {
+      try {
+        await loadConvenioMarco({ forceSync: true });
+        toast('Convenio Marco actualizado.');
+      } catch (err) {
+        toast(err.message || 'No se pudieron actualizar las órdenes de Convenio Marco.', 'error');
+      }
+      return;
+    }
+    const cmOrder = ev.target.closest('[data-cm-order]');
+    if (cmOrder) {
+      try {
+        await loadCmOrderDetail(cmOrder.dataset.cmOrder || '');
+      } catch (err) {
+        toast(err.message || 'No se pudo cargar la orden de Convenio Marco.', 'error');
+      }
+      return;
+    }
+    if (ev.target.closest('[data-cm-back]')) {
+      chilecompraState.cmSelectedCode = '';
+      chilecompraState.cmDetail = null;
+      rerender();
+      return;
+    }
+    const cmState = ev.target.closest('[data-cm-state]');
+    if (cmState) {
+      const code = cmState.dataset.cmCode || '';
+      const nextState = cmState.dataset.cmState || 'guardado';
+      try {
+        await patchCmCommercialState(code, nextState);
+        toast(nextState === 'guardado' ? 'Orden guardada.' : 'Orden descartada.');
+      } catch (err) {
+        toast(err.message || 'No se pudo actualizar la orden.', 'error');
+      }
+      return;
+    }
+    const cmCrm = ev.target.closest('[data-cm-crm]');
+    if (cmCrm) {
+      try { await convertCmToCrm(cmCrm.dataset.cmCrm || ''); }
+      catch (err) { toast(err.message || 'No se pudo agregar al CRM.', 'error'); }
+      return;
+    }
+    const cmExternal = ev.target.closest('[data-cm-external]');
+    if (cmExternal) {
+      openExternal(cmExternal.dataset.cmExternal || 'https://www.mercadopublico.cl/TiendaHome/');
+      return;
+    }
 
     const quickSearch = ev.target.closest('[data-cc-quick-search]');
     if (quickSearch) {
@@ -1497,6 +1556,9 @@ export function mountChileCompraView() {
       rerender();
       if (chilecompraState.tab === 'resumen' && !chilecompraState.marketPulse) await ensureMarketPulse();
       if (chilecompraState.tab === 'mercado' && chilecompraState.analyticsUniverse !== 'campaigns' && !chilecompraState.analytics) await refreshAnalyticsFromControls();
+      if (chilecompraState.tab === 'convenio' && !chilecompraState.cmData && !chilecompraState.cmLoading) {
+        try { await loadConvenioMarco(); } catch (err) { toast(err.message || 'No se pudo cargar Convenio Marco.', 'error'); }
+      }
       rerender();
       return;
     }
@@ -1546,6 +1608,11 @@ export function mountChileCompraView() {
       const toggle = ev.target.closest('[data-cc-campaign-toggle]');
       if (toggle) { await toggleCampaign(toggle.dataset.ccCampaignToggle, toggle.checked); rerender(); return; }
       if (ev.target.id === 'ccSort') { chilecompraState.sort = ev.target.value; chilecompraState.selectedId = ''; rerender(); return; }
+      if (ev.target.id === 'ccCmDays') {
+        chilecompraState.cmDays = Number(ev.target.value || 30);
+        await loadConvenioMarco();
+        return;
+      }
       if (ev.target.id === 'ccAnalyticsUniverse') { chilecompraState.analyticsUniverse = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
       if (ev.target.id === 'ccAnalyticsMetric') { chilecompraState.analyticsMetric = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
       if (ev.target.id === 'ccAnalyticsGroupBy') { chilecompraState.analyticsGroupBy = ev.target.value; chilecompraState.analytics = null; return await refreshAnalyticsFromControls(); }
@@ -1558,6 +1625,9 @@ export function mountChileCompraView() {
 
   if (!chilecompraState.hydrated && !chilecompraState.loading) {
     hydrateChileCompra().then(rerender).catch((err) => { console.error(err); toast('No se pudo cargar ChileCompra.', 'error'); });
+  }
+  if (chilecompraState.tab === 'convenio' && !chilecompraState.cmData && !chilecompraState.cmLoading) {
+    loadConvenioMarco().catch((err) => { console.error(err); toast('No se pudo cargar Convenio Marco.', 'error'); });
   }
 } + Math.round(n).toLocaleString('es-CL');
   return `${currency} ${n.toLocaleString('es-CL', { maximumFractionDigits: 2 })}`;
