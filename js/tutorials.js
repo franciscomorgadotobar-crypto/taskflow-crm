@@ -130,16 +130,16 @@ export const TUTORIALS = {
   chilecompra: {
     id: 'chilecompra',
     name: 'Primeros pasos en ChileCompra',
-    description: 'Busca licitaciones, sigue oportunidades y entiende cómo se mueve Mercado Público.',
-    version: 4,
-    duration: 5,
+    description: 'Busca licitaciones, analiza Convenio Marco y entiende cómo se mueve Mercado Público.',
+    version: 5,
+    duration: 6,
     roles: ['super','admin','comercial','visita'],
     view: 'chilecompra',
     steps: [
       {
         selector: '.cc-dashboard-nav',
-        title: 'Dos niveles, sin menús ocultos',
-        text: 'Arriba están las acciones de trabajo: Resumen, Coincidencias, Seguimientos y Buscar. Debajo están Mercado Chile, Compradores, Guardadas y En CRM.'
+        title: 'Todo ChileCompra en un módulo',
+        text: 'Resumen, Coincidencias, Seguimientos y Buscar trabajan licitaciones. Convenio Marco analiza compras por catálogo. Debajo están Mercado Chile, Compradores, Guardadas y En CRM.'
       },
       {
         selector: '[data-cc-tab="resumen"]',
@@ -147,20 +147,26 @@ export const TUTORIALS = {
         text: 'Además de tus seguimientos, Resumen muestra qué rubros concentran publicaciones activas en Chile. Puedes abrir cada rubro para ver ejemplos reales.'
       },
       {
-        selector: '[data-cc-tab="buscar"]',
-        title: 'Busca sin configurar nada',
-        text: 'Consulta directamente Mercado Público por producto, servicio, necesidad o código.',
+        selector: '[data-cc-tab="convenio"]',
+        title: 'Convenio Marco',
+        text: 'Revisa órdenes CM reales, productos y precios observados, compradores, proveedores y los convenios vigentes.',
         action: 'click'
       },
       {
-        selector: '.cc-search-hero',
-        title: 'Prueba una búsqueda',
-        text: 'Escribe lo que vendes o usa una sugerencia. Al abrir una licitación entras a una ficha completa dentro del módulo, no a una ventana flotante.'
+        selector: '.cc-cm-subnav',
+        title: 'Entiende quién compra y a qué precio',
+        text: 'Pulso resume el mercado. Órdenes permite bajar al detalle; Productos y precios muestra valores observados; Compradores y Proveedores revelan concentración de demanda y oferta.'
+      },
+      {
+        selector: '[data-cc-tab="buscar"]',
+        title: 'Busca una licitación puntual',
+        text: 'Consulta Mercado Público por producto, servicio, necesidad o código sin crear un seguimiento.',
+        action: 'click'
       },
       {
         selector: '.cc-secondary-nav',
-        title: 'Análisis y seguimiento',
-        text: 'Mercado Chile sirve para entender demanda, compradores y monto; Guardadas reúne lo que quieres revisar y En CRM muestra lo que ya convertiste.'
+        title: 'Más inteligencia comercial',
+        text: 'Mercado Chile sirve para entender demanda general; Guardadas reúne lo que quieres revisar y En CRM muestra lo que ya convertiste.'
       }
     ]
   },
