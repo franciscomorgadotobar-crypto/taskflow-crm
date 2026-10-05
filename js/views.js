@@ -1,6 +1,7 @@
 import {
   ACTIVITY_TYPES,
   CHART_DIMENSIONS,
+  DEFAULT_BOTTOM_NAV,
   DISCOUNT_KINDS,
   PAYMENT_METHODS,
   PAYMENT_TERMS,
@@ -835,6 +836,23 @@ export function renderTemplates(ui) {
 export function renderProfile() {
   const me = state.me;
   const role = USER_ROLES.find((r) => r.id === me?.role);
+  const enabledModuleIds = new Set(Array.isArray(me?.moduleAccess) && me.moduleAccess.length
+    ? me.moduleAccess
+    : USER_MODULES.map((module) => module.id));
+  const navChoices = USER_MODULES.filter((module) => enabledModuleIds.has(module.id));
+  const currentBottomNav = [...new Set(Array.isArray(me?.bottomNav) && me.bottomNav.length ? me.bottomNav : DEFAULT_BOTTOM_NAV)]
+    .filter((id) => enabledModuleIds.has(id));
+  navChoices.forEach((module) => {
+    if (currentBottomNav.length < 5 && !currentBottomNav.includes(module.id)) currentBottomNav.push(module.id);
+  });
+  const bottomNav = currentBottomNav.slice(0, 5);
+  const navOption = (selected = '') => navChoices
+    .map((module) => `<option value="${module.id}" ${module.id === selected ? 'selected' : ''}>${e(module.label)}</option>`)
+    .join('');
+  const navPreviewIcon = (id) => id === 'chilecompra'
+    ? '<span class="profile-bottom-nav-logo profile-bottom-nav-logo--chilecompra" aria-label="ChileCompra"></span>'
+    : `<span class="profile-bottom-nav-symbol profile-bottom-nav-symbol--${e(id)}" aria-hidden="true"></span>`;
+  const navPreviewLabel = (id) => USER_MODULES.find((module) => module.id === id)?.label || id;
 
   return `
     <div class="card profile-settings-card">
@@ -863,6 +881,33 @@ export function renderProfile() {
         <div class="button-row" style="margin-top:10px">
           <button class="ghost-btn" data-action="change-password">Actualizar contraseña</button>
           <button class="ghost-btn" data-action="sign-out">Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card profile-bottom-nav-card" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h3>Barra inferior</h3>
+          <span class="muted">Elige los cinco accesos rápidos que quieres ver en el teléfono.</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="profile-bottom-nav-preview" id="profileBottomNavPreview" aria-label="Vista previa de la barra inferior">
+          ${bottomNav.map((id) => `<div class="profile-bottom-nav-preview-item" data-preview-view="${e(id)}">${navPreviewIcon(id)}<small>${e(navPreviewLabel(id))}</small></div>`).join('')}
+        </div>
+        <div class="profile-bottom-nav-selects">
+          ${Array.from({ length: 5 }, (_, index) => {
+            const selected = bottomNav[index] || navChoices[index]?.id || '';
+            return `<label><span>Posición ${index + 1}</span><select data-bottom-nav-select="${index + 1}">${navOption(selected)}</select></label>`;
+          }).join('')}
+        </div>
+        <p class="muted settings-hint">
+          El orden de estos campos es el mismo de izquierda a derecha. Solo puedes elegir módulos habilitados para tu usuario.
+        </p>
+        <div class="button-row" style="margin-top:12px">
+          <button class="primary-btn" data-action="save-bottom-nav">Guardar barra inferior</button>
+          <button class="ghost-btn" data-action="reset-bottom-nav">Usar configuración predeterminada</button>
         </div>
       </div>
     </div>
