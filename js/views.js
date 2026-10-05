@@ -859,7 +859,7 @@ export function renderProfile() {
     <div class="card profile-settings-card">
       <div class="card-head">
         <div>
-          <h3>Mi cuenta</h3>
+          <h3>Datos personales</h3>
           <span class="muted">Tus datos personales y seguridad de acceso.</span>
         </div>
       </div>
@@ -1097,7 +1097,7 @@ export function renderSettings() {
     <div class="card settings-admin-intro">
       <div class="card-head">
         <div>
-          <h3>Configuración del CRM</h3>
+          <h3>Administración general</h3>
           <span class="muted">Administración del equipo, permisos, capacitación y datos.</span>
         </div>
       </div>
@@ -1320,7 +1320,7 @@ function renderQuotesList(ui) {
   return `
     <div class="card">
       <div class="card-head">
-        <h3>Cotizaciones</h3>
+        <h3>Propuestas comerciales</h3>
         <button class="primary-btn" data-action="new-quote">+ Nueva cotización</button>
       </div>
       <div class="card-body">
@@ -1914,7 +1914,7 @@ export function renderLeadDetail(id) {
       )}
 
       ${section(
-        'Otros',
+        'Administración',
         `<p class="muted">Eliminar borra la empresa con su levantamiento y todo su historial. No se puede deshacer.</p>
          <button class="small-btn danger" data-action="delete-lead" data-id="${l.id}">Eliminar oportunidad</button>`
       )}

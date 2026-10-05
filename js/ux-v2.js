@@ -380,7 +380,7 @@ function readCloseRateFromOriginalDashboard(root) {
     : { value: rawValue, hint: rawHint || 'Sobre oportunidades cerradas' };
 }
 
-let ccHomeUniverse = 'campaigns';
+let ccHomeUniverse = 'general';
 let ccHomeMetric = 'publications';
 let ccHomeAnalytics = null;
 let ccHomeAnalyticsLoading = false;
@@ -405,27 +405,40 @@ function homeChileCompraMarket() {
 
 function homeChileCompraBars(data) {
   const categories = (data?.categories || []).filter((row) => Number(row.value || 0) > 0);
-  const total = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const categoryTotal = categories.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const total = ccHomeMetric === 'amount'
+    ? Number(data?.amount || categoryTotal)
+    : ccHomeMetric === 'buyers'
+      ? Number(data?.buyers || categoryTotal)
+      : Number(data?.publications || categoryTotal);
   if (!categories.length || total <= 0) {
     const text = data?.configured === false
       ? (ccHomeUniverse === 'business' ? 'Configura “Mi negocio” dentro de ChileCompra.' : 'Crea un seguimiento para comenzar a medir el mercado.')
       : 'No hay datos suficientes para este filtro.';
     return `<div class="v2-cc-market-empty">${esc(text)}</div>`;
   }
-  const top = categories.slice(0, 6);
+
+  const top = categories.slice(0, 8);
   const unit = ccHomeMetric === 'amount' ? 'monto observado' : ccHomeMetric === 'buyers' ? 'compradores' : 'publicaciones';
+  const examplesFor = (label) => (data?.categoryExamples?.[label] || []).slice(0, 4);
+
   return `<div class="v2-cc-bars">
-    <div class="v2-cc-bars-total"><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${unit}</span></div>
+    <div class="v2-cc-bars-total"><strong>${esc(compactNumber(total, ccHomeMetric))}</strong><span>${unit}</span><small>${categories.length} rubros</small></div>
     <div class="v2-cc-bars-list">
       ${top.map((row) => {
         const value = Number(row.value || 0);
         const pct = total ? (value / total) * 100 : 0;
         const shown = ccHomeMetric === 'amount' ? compactNumber(value, ccHomeMetric) : value.toLocaleString('es-CL');
-        return `<div class="v2-cc-bar-row">
-          <div class="v2-cc-bar-label"><span>${esc(row.label)}</span><strong>${esc(shown)} · ${pct.toFixed(0)}%</strong></div>
-          <div class="v2-cc-bar-track"><i style="width:${Math.max(2,pct).toFixed(1)}%"></i></div>
-        </div>`;
+        const examples = examplesFor(row.label);
+        return `<details class="v2-cc-bar-row">
+          <summary>
+            <div class="v2-cc-bar-label"><span>${esc(row.label)}</span><strong>${esc(shown)} · ${pct.toFixed(0)}%</strong></div>
+            <div class="v2-cc-bar-track"><i style="width:${Math.max(2,pct).toFixed(1)}%"></i></div>
+          </summary>
+          ${examples.length ? `<div class="v2-cc-bar-examples">${examples.map((item) => `<button type="button" data-action="open-chilecompra" data-cc-tab="buscar" data-query="${esc(item.code || '')}"><span>${esc(item.name || 'Sin nombre')}</span><small>${esc(item.buyer || 'Comprador no informado')}</small></button>`).join('')}</div>` : '<div class="v2-cc-bar-examples-empty">Sin ejemplos disponibles.</div>'}
+        </details>`;
       }).join('')}
+      ${categories.length > top.length ? `<button type="button" class="v2-cc-all-categories" data-action="open-chilecompra" data-cc-tab="mercado">Ver los ${categories.length} rubros →</button>` : ''}
     </div>
   </div>`;
 }
@@ -526,7 +539,7 @@ function renderDashboardSummary() {
           <button type="button" class="v2-cc-arrow" data-action="open-chilecompra" aria-label="Abrir ChileCompra">›</button>
         </div>
         <div class="v2-cc-campaigns">${campaignButtons || `<button type="button" class="v2-cc-empty-campaigns" data-action="open-chilecompra" data-cc-tab="campanas">+ Crear seguimiento</button>`}</div>
-        <div class="v2-cc-market-head"><div><strong>Qué se está comprando</strong><small>Top de rubros según el universo y la métrica seleccionados.</small></div></div>
+        <div class="v2-cc-market-head"><div><strong>Qué está comprando Chile</strong><small>Explora dónde se concentra la demanda pública y abre cada rubro para ver ejemplos.</small></div></div>
         <div class="v2-cc-market-controls">
           <label><span>Universo</span><select id="v2CcUniverse" aria-label="Universo ChileCompra">
             <option value="campaigns" ${ccHomeUniverse === 'campaigns' ? 'selected' : ''}>Mis seguimientos</option>
@@ -662,7 +675,7 @@ const DETAIL_TABS = [
   { id: 'discovery', label: 'Levantamiento', sections: ['Levantamiento'] },
   { id: 'quotes', label: 'Cotizaciones', sections: ['Cotizaciones'] },
   { id: 'activity', label: 'Actividad', sections: ['Historial'] },
-  { id: 'more', label: 'Más', sections: ['Otros'] }
+  { id: 'more', label: 'Administración', sections: ['Administración'] }
 ];
 
 function enhanceDetail() {
@@ -780,6 +793,9 @@ function refineDialogs() {
 function enhanceCurrentView() {
   updateMobileHeader();
   renderDashboardSummary();
+  if (document.documentElement.dataset.crmView === 'dashboard' && ccHomeUniverse !== 'campaigns' && !ccHomeAnalytics && !ccHomeAnalyticsLoading) {
+    queueMicrotask(refreshHomeChileCompraAnalytics);
+  }
   injectMascotSettingsCard();
   injectSettingsDataCard();
 }
@@ -847,6 +863,7 @@ function bindGlobalEvents() {
   document.addEventListener('keydown', (ev) => {
     const shortcut = (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k';
     if (shortcut) {
+      if (document.documentElement.dataset.crmView === 'chilecompra') return;
       ev.preventDefault();
       const input = $('v2GlobalSearch');
       if (input) {
