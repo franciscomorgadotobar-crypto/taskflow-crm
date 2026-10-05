@@ -5207,3 +5207,53 @@ html[data-crm-view="templates"] .template-preview-result > strong{
     margin:0 16px 14px;
   }
 }
+
+
+/* Mi cuenta separada de Configuración administrativa */
+html[data-crm-view="profile"] #viewRoot > .card{
+  max-width:900px;
+}
+html[data-crm-view="profile"] .profile-settings-card .card-head,
+html[data-crm-view="profile"] .profile-app-card .card-head{
+  align-items:flex-start;
+}
+html[data-crm-view="profile"] .settings-hint{
+  max-width:720px;
+}
+html[data-crm-view="settings"] .settings-admin-intro .notice{
+  margin:0;
+}
+html[data-crm-view="settings"] .settings-help-card .button-row{
+  margin-top:12px;
+}
+html[data-crm-view="settings"] .settings-demo-card .button-row{
+  margin-top:12px;
+}
+
+@media (max-width:720px){
+  html[data-crm-view="profile"] #viewRoot > .card > .card-head{
+    min-height:58px !important;
+    padding:14px 14px 10px !important;
+  }
+  html[data-crm-view="profile"] #viewRoot > .card > .card-head h3{
+    font-size:16px !important;
+  }
+  html[data-crm-view="profile"] #viewRoot > .card > .card-body{
+    padding:13px !important;
+  }
+  html[data-crm-view="profile"] .settings-grid{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  html[data-crm-view="profile"] .settings-grid input,
+  html[data-crm-view="profile"] select{
+    min-height:42px;
+    font-size:16px;
+  }
+  html[data-crm-view="profile"] .button-row{
+    gap:7px;
+  }
+  html[data-crm-view="profile"] .button-row > button{
+    min-height:38px;
+  }
+}
