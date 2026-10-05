@@ -41,10 +41,19 @@ function get(obj,...keys) {
   for (const key of keys) if (obj && obj[key]!==undefined && obj[key]!==null) return obj[key];
 }
 function listFrom(payload) {
-  if (Array.isArray(payload?.Listado)) return payload.Listado;
-  if (Array.isArray(payload?.listado)) return payload.listado;
-  if (Array.isArray(payload?.Licitaciones?.Listado)) return payload.Licitaciones.Listado;
-  if (Array.isArray(payload?.Listado?.Licitacion)) return payload.Listado.Licitacion;
+  const candidates=[
+    payload?.Listado,
+    payload?.listado,
+    payload?.Listado?.Licitacion,
+    payload?.Listado?.licitacion,
+    payload?.Licitaciones?.Listado,
+    payload?.Licitaciones?.Listado?.Licitacion,
+    payload?.Licitaciones?.Listado?.licitacion
+  ];
+  for(const candidate of candidates) {
+    if(Array.isArray(candidate)) return candidate;
+    if(candidate && typeof candidate==="object" && (candidate.CodigoExterno || candidate.codigoExterno || candidate.Codigo)) return [candidate];
+  }
   return [];
 }
 function isoDate(value) {
@@ -175,13 +184,25 @@ function campaignMatch(item, terms=[]) {
   const matched=[...new Set((terms||[]).filter(term=>termMatches(hay,term)).map(term=>String(term).trim()).filter(Boolean))];
   return { matched, score: matched.length ? Math.min(100, 45 + (matched.length-1)*12) : 0 };
 }
+function hasDetailedFields(item) {
+  const f=listingFields(item);
+  return Boolean(
+    f.description
+    || f.buyerName
+    || f.publishedAt
+    || f.amount!=null
+    || get(item,"Items","Documentos","Adjuntos")
+    || get(item,"Comprador","comprador")
+    || get(item,"Fechas")
+  );
+}
 async function enrichRows(rows,ticket,limit=8) {
   const out=[...rows];
   for(let i=0;i<Math.min(limit,out.length);i++) {
     try {
       const payload=await mercado("licitaciones.json",ticket,{codigo:out[i].external_code});
       const item=listFrom(payload)[0]||payload;
-      out[i]={...out[i],...rowFromItem(item,out[i].organization_id),detail_loaded:true};
+      out[i]={...out[i],...rowFromItem(item,out[i].organization_id),detail_loaded:hasDetailedFields(item)};
     } catch {
       out[i]={...out[i],detail_loaded:false};
     }
@@ -545,13 +566,14 @@ Deno.serve(async req=>{
       const payload=await mercado("licitaciones.json",ticket,{codigo:code});
       const item=listFrom(payload)[0]||payload;
       const full=rowFromItem(item,org);
+      const detailComplete=hasDetailedFields(item);
       delete full.organization_id;
       delete full.external_code;
       const {data,error}=await admin.from("chilecompra_opportunities")
-        .update({...full,detail_loaded:true,updated_at:new Date().toISOString()})
+        .update({...full,detail_loaded:detailComplete,updated_at:new Date().toISOString()})
         .eq("id",existing.id).select("*").single();
       if(error) throw error;
-      return json({opportunity:data});
+      return json({opportunity:data,detailComplete});
     }
 
     if(action==="sync") {
