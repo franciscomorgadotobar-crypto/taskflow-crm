@@ -6289,3 +6289,22 @@ html[data-crm-view="chilecompra"] .v2-global-tools{
     margin-left:auto;
   }
 }
+
+
+/* ---------- Acciones globales según contexto ---------- */
+html[data-crm-view="help"] .v2-search-wrap,
+html[data-crm-view="help"] .v2-new-lead,
+html[data-crm-view="profile"] .v2-search-wrap,
+html[data-crm-view="profile"] .v2-new-lead,
+html[data-crm-view="settings"] .v2-search-wrap,
+html[data-crm-view="settings"] .v2-new-lead,
+html[data-crm-view="audit"] .v2-search-wrap,
+html[data-crm-view="audit"] .v2-new-lead{
+  display:none!important;
+}
+html[data-crm-view="help"] .v2-global-tools,
+html[data-crm-view="profile"] .v2-global-tools,
+html[data-crm-view="settings"] .v2-global-tools,
+html[data-crm-view="audit"] .v2-global-tools{
+  justify-content:flex-end;
+}
