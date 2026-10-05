@@ -647,12 +647,9 @@ function sharedDialogs() {
 }
 
 function renderSummaryDashboard(stats) {
-  const local = chilecompraLocalBreakdown({ metric: 'publications' });
   const hasMatches = stats.total > 0;
-
-  if (!stats.activeCampaigns) {
-    return `<section class="cc-dashboard">
-      <section class="cc-dashboard-card cc-getting-started">
+  const onboarding = !stats.activeCampaigns
+    ? `<section class="cc-dashboard-card cc-getting-started">
         <span class="cc-eyebrow">Empieza aquí</span>
         <h3>Encuentra oportunidades en 3 pasos</h3>
         <div class="cc-start-steps">
@@ -661,20 +658,26 @@ function renderSummaryDashboard(stats) {
           <div><b>3</b><span><strong>Revisa y pasa al CRM</strong><small>Abre una coincidencia, guárdala o conviértela en oportunidad.</small></span></div>
         </div>
         <button type="button" class="primary-btn cc-primary-start" data-cc-campaign-new>Crear mi primer seguimiento</button>
-      </section>
-    </section>`;
-  }
+      </section>`
+    : '';
+
+  const radar = stats.activeCampaigns
+    ? (hasMatches
+      ? `<div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Coincidencias nuevas</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Seguimientos activos</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>`
+      : `<section class="cc-dashboard-card cc-zero-state"><div><span class="cc-eyebrow">Radar al día</span><h3>No hay coincidencias nuevas</h3><p>Tus ${stats.activeCampaigns} seguimiento${stats.activeCampaigns === 1 ? '' : 's'} están activos. Puedes buscar novedades ahora o revisar sus términos si esperabas más resultados.</p></div><div class="cc-zero-actions"><button type="button" class="primary-btn" data-cc-tab="campanas">Revisar seguimientos</button><button type="button" class="ghost-btn" data-cc-tab="buscar">Hacer búsqueda puntual</button></div></section>`)
+    : '';
+
+  const followups = stats.activeCampaigns
+    ? `<section class="cc-dashboard-card">
+        <div class="cc-section-head"><div><h3>Seguimientos activos</h3><p>Estas búsquedas funcionan de forma automática. Toca una para ver sus coincidencias.</p></div></div>
+        <div class="cc-user-campaign-list">${stats.campaigns.map((campaign) => campaignRow(campaign, stats, { controls: true })).join('')}</div>
+      </section>`
+    : '';
 
   return `<section class="cc-dashboard">
-    ${hasMatches
-      ? `<div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Coincidencias nuevas</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Seguimientos activos</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>`
-      : `<section class="cc-dashboard-card cc-zero-state"><div><span class="cc-eyebrow">Radar al día</span><h3>No hay coincidencias nuevas</h3><p>Tus ${stats.activeCampaigns} seguimiento${stats.activeCampaigns === 1 ? '' : 's'} están activos. Puedes buscar novedades ahora o revisar sus términos si esperabas más resultados.</p></div><div class="cc-zero-actions"><button type="button" class="primary-btn" data-cc-tab="campanas">Revisar seguimientos</button><button type="button" class="ghost-btn" data-cc-tab="buscar">Hacer búsqueda puntual</button></div></section>`}
-
-    <section class="cc-dashboard-card">
-      <div class="cc-section-head"><div><h3>Seguimientos activos</h3><p>Estas búsquedas funcionan de forma automática. Toca una para ver sus coincidencias.</p></div></div>
-      <div class="cc-user-campaign-list">${stats.campaigns.map((campaign) => campaignRow(campaign, stats, { controls: true })).join('')}</div>
-    </section>
-
+    ${onboarding}
+    ${radar}
+    ${followups}
     <section class="cc-dashboard-card cc-market-pulse-card">
       <div class="cc-section-head">
         <div><span class="cc-eyebrow">Pulso nacional</span><h3>Qué está comprando Chile</h3><p>Rubros con más publicaciones activas en Mercado Público. Abre un rubro para ver ejemplos reales.</p></div>
