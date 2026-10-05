@@ -203,27 +203,37 @@ export const TUTORIALS = {
   },
   gestionar_equipo: {
     id: 'gestionar_equipo',
-    name: 'Gestionar equipo',
-    description: 'Agrega personas, define permisos, reenvía accesos y administra bajas.',
-    version: 1,
+    name: 'Configuración y equipo',
+    description: 'Administra usuarios, permisos, capacitaciones y las opciones generales del CRM.',
+    version: 2,
     duration: 4,
     roles: ['super','admin'],
     view: 'settings',
     steps: [
       {
+        selector: '.settings-admin-intro',
+        title: 'Configuración es administración',
+        text: 'Esta pantalla ya no es tu perfil personal. Aquí se concentran usuarios, permisos, capacitación y tareas administrativas del CRM.'
+      },
+      {
         selector: '.team-settings-card',
-        title: 'Equipo y accesos',
-        text: 'Desde esta sección administras quién puede entrar al CRM y con qué nivel de permiso.'
+        title: 'Usuarios y accesos',
+        text: 'Revisa quién puede entrar, su permiso, estado y capacitación. Los perfiles personales se gestionan desde Mi cuenta.'
       },
       {
         selector: '[data-action="team-add"]',
-        title: 'Agregar una persona',
-        text: 'Crea la cuenta desde el CRM. La persona recibe un enlace para definir su propia contraseña.'
+        title: 'Los usuarios nuevos se crean aquí',
+        text: 'Agregar usuario abre el alta de acceso. El Súper administrador además puede definir las plantillas iniciales que quedarán disponibles para la organización.'
       },
       {
         selector: '.team-member-card, .team-settings-card',
-        title: 'Permisos y estado',
-        text: 'Puedes cambiar permisos, reenviar el acceso, dar de baja o reactivar sin borrar el historial comercial.'
+        title: 'Permisos y capacitación',
+        text: 'Puedes cambiar permisos, reenviar accesos, dar de baja o reactivar. El Súper administrador también asigna tutoriales y revisa su progreso.'
+      },
+      {
+        selector: '.settings-help-card',
+        title: 'Un solo sistema de ayuda',
+        text: 'El antiguo recorrido estático de “Cómo funciona el CRM” se retiró. Los recorridos vigentes están en Ayuda y tutoriales y trabajan sobre la interfaz real.'
       }
     ]
   }
