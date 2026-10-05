@@ -996,6 +996,7 @@ export async function saveProfile(patch) {
   const idx = state.team.findIndex((t) => t.id === state.me.id);
   if (idx >= 0) state.team[idx] = state.me;
   persist();
+  notify();
   const payload = {
     name: patch.name ?? state.me.name,
     phone: patch.phone ?? state.me.phone
@@ -1012,6 +1013,7 @@ export async function saveProfile(patch) {
   const current = state.team.findIndex((t) => t.id === state.me.id);
   if (current >= 0) state.team[current] = state.me;
   persist();
+  notify();
   reportError('No se pudo guardar tu perfil', error);
   return null;
 }
