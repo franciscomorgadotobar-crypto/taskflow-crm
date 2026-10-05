@@ -10,7 +10,7 @@ export const chilecompraState = {
   marketProfile: null,
   analytics: null,
   analyticsLoading: false,
-  analyticsUniverse: 'campaigns',
+  analyticsUniverse: 'general',
   analyticsMetric: 'publications',
   analyticsGroupBy: 'industry',
   loading: false,
@@ -96,15 +96,24 @@ export function chilecompraDashboardStats() {
 }
 
 const LOCAL_INDUSTRIES = [
-  ['Tecnología / Software', ['software','sistema','plataforma','saas','licencia','digital','tecnologia','informatico','computacional']],
-  ['Salud', ['hospital','salud','clinica','cesfam','medico','farmacia']],
-  ['Telecomunicaciones', ['telecom','fibra','antena','radioenlace','lte','5g','conectividad','red de datos']],
-  ['Seguridad / Defensa', ['seguridad','ejercito','armada','carabineros','pdi','defensa','armamento','municion']],
-  ['Educación', ['universidad','educacion','colegio','liceo','escuela','junaeb']],
-  ['Construcción / Infraestructura', ['construccion','obra','infraestructura','edificio','reparacion']],
-  ['Energía / Utilities', ['energia','electrico','agua potable','sanitaria','generador','electrogeno']],
-  ['Transporte / Logística', ['transporte','logistica','vehiculo','camion','metro']],
-  ['Industria / Minería', ['mineria','industrial','planta','faena','proceso productivo']]
+  ['Tecnología / Software', ['software','sistema','plataforma','saas','licencia','digital','tecnologia','informatico','computacional','hosting','cloud','nube','base de datos']],
+  ['Salud', ['hospital','salud','clinica','cesfam','medico','farmacia','laboratorio','dental','insumo medico']],
+  ['Telecomunicaciones', ['telecom','fibra','antena','radioenlace','lte','5g','conectividad','red de datos','telefonia','internet']],
+  ['Seguridad / Defensa', ['seguridad','ejercito','armada','carabineros','pdi','defensa','vigilancia','cctv','control de acceso']],
+  ['Educación', ['universidad','educacion','colegio','liceo','escuela','junaeb','capacitacion','curso']],
+  ['Construcción / Infraestructura', ['construccion','obra','infraestructura','edificio','reparacion','pavimento','techumbre']],
+  ['Energía / Utilities', ['energia','electrico','agua potable','sanitaria','generador','electrogeno','panel solar','iluminacion','luminaria']],
+  ['Transporte / Logística', ['transporte','logistica','flete','distribucion','vehiculo','camion','metro','traslado']],
+  ['Industria / Minería', ['mineria','industrial','planta','faena','proceso productivo','maquinaria industrial','motor','bomba']],
+  ['Alimentación / Catering', ['alimento','alimentacion','catering','casino','colacion','racion','bebida','comestible']],
+  ['Aseo / Facility', ['aseo','limpieza','facility','jardineria','sanitizacion','desinfeccion','residuo','mantencion integral']],
+  ['Oficina / Insumos', ['articulo de oficina','insumo de oficina','papeleria','tinta','toner','impresora','fotocopiadora','utiles']],
+  ['Equipamiento / Mobiliario', ['mobiliario','mueble','silla','escritorio','estanteria','equipamiento']],
+  ['Consultoría / Servicios profesionales', ['consultoria','asesoria','estudio','auditoria','servicio profesional','ingenieria','levantamiento']],
+  ['Medioambiente', ['medioambiente','ambiental','reciclaje','monitoreo ambiental','areas verdes']],
+  ['Maquinaria / Vehículos', ['maquinaria','excavadora','grua','camioneta','automovil','repuesto','neumatico']],
+  ['Textil / EPP', ['uniforme','vestuario','ropa','calzado','epp','elemento de proteccion personal']],
+  ['Comunicaciones / Eventos', ['publicidad','difusion','impresion','grafica','evento','produccion audiovisual','comunicaciones']]
 ];
 
 function normalized(value = '') {
@@ -116,7 +125,7 @@ function localIndustry(o) {
   for (const [label, terms] of LOCAL_INDUSTRIES) {
     if (terms.some((term) => text.includes(normalized(term)))) return label;
   }
-  return 'Otros';
+  return 'Sin clasificar';
 }
 
 export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
@@ -135,17 +144,27 @@ export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
     }
   });
   if (metric === 'buyers') buyerGroups.forEach((set, key) => groups.set(key, set.size));
-  let categories = [...groups.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-  if (categories.length > 7) {
-    const rest = categories.slice(6).reduce((sum, x) => sum + x.value, 0);
-    categories = [...categories.slice(0, 6), { label: 'Otros', value: rest }];
-  }
+  const categories = [...groups.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+  const categoryExamples = {};
+  categories.forEach(({ label }) => {
+    categoryExamples[label] = rows
+      .filter((o) => localIndustry(o) === label)
+      .slice(0, 6)
+      .map((o) => ({
+        code: o.external_code || '',
+        name: o.name || 'Sin nombre',
+        buyer: o.buyer_name || '',
+        amount: Number(o.amount || 0),
+        closeAt: o.close_at || ''
+      }));
+  });
   return {
     universe: 'campaigns', metric, configured: activeCampaigns().length > 0,
     publications: rows.length,
     buyers: new Set(rows.map((o) => o.buyer_name).filter(Boolean)).size,
     amount: rows.reduce((sum, o) => sum + Number(o.amount || 0), 0),
-    categories
+    categories,
+    categoryExamples
   };
 }
 
