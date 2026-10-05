@@ -198,8 +198,8 @@ export const TUTORIALS = {
   gestionar_equipo: {
     id: 'gestionar_equipo',
     name: 'Configuración y equipo',
-    description: 'Administra usuarios, permisos, capacitaciones y las opciones generales del CRM.',
-    version: 2,
+    description: 'Administra usuarios, perfiles base, módulos habilitados y capacitaciones.',
+    version: 3,
     duration: 4,
     roles: ['super','admin'],
     view: 'settings',
@@ -207,27 +207,22 @@ export const TUTORIALS = {
       {
         selector: '.settings-admin-intro',
         title: 'Configuración es administración',
-        text: 'Esta pantalla ya no es tu perfil personal. Aquí se concentran usuarios, permisos, capacitación y tareas administrativas del CRM.'
-      },
-      {
-        selector: '.team-settings-card',
-        title: 'Usuarios y accesos',
-        text: 'Revisa quién puede entrar, su permiso, estado y capacitación. Los perfiles personales se gestionan desde Mi cuenta.'
+        text: 'Esta pantalla concentra la administración del CRM. Tus datos personales siguen separados en Mi cuenta.'
       },
       {
         selector: '[data-action="team-add"]',
-        title: 'Los usuarios nuevos se crean aquí',
-        text: 'Agregar usuario abre el alta de acceso. El Súper administrador además puede definir las plantillas iniciales que quedarán disponibles para la organización.'
+        title: 'Agrega un usuario',
+        text: 'Define sus datos, el perfil base y exactamente qué módulos tendrá habilitados desde el primer ingreso.'
       },
       {
-        selector: '.team-member-card, .team-settings-card',
-        title: 'Permisos y capacitación',
-        text: 'Puedes cambiar permisos, reenviar accesos, dar de baja o reactivar. El Súper administrador también asigna tutoriales y revisa su progreso.'
+        selector: '.team-module-panel, .team-member-card',
+        title: 'Ajusta módulos por persona',
+        text: 'Cada usuario puede tener un conjunto distinto de módulos. El perfil base define el nivel de permiso y los módulos definen dónde puede entrar.'
       },
       {
-        selector: '.settings-help-card',
-        title: 'Un solo sistema de ayuda',
-        text: 'El antiguo recorrido estático de “Cómo funciona el CRM” se retiró. Los recorridos vigentes están en Ayuda y tutoriales y trabajan sobre la interfaz real.'
+        selector: '.team-training-panel, .team-member-card',
+        title: 'Capacitación y acceso',
+        text: 'También puedes asignar tutoriales, reenviar el acceso, dar de baja o reactivar sin borrar el historial.'
       }
     ]
   }
