@@ -136,15 +136,38 @@ async function activeListings(ticket) {
   return listFrom(await mercado("licitaciones.json",ticket,{estado:"activas"}));
 }
 function traditionalMatches(listings,query) {
-  const q=normalize(query), tokens=q.split(/\s+/).filter(x=>x.length>=2), exact=[], partial=[];
+  const q=normalize(query);
+  const tokens=[...new Set(q.split(/\s+/).filter(x=>x.length>=2))];
+  const ranked=[];
   for (const item of listings) {
     const f=listingFields(item);
     if(!f.code||!f.name) continue;
-    const hay=normalize(f.code+" "+f.name);
-    if(hay.includes(q)) exact.push(item);
-    else if(tokens.length && tokens.every(t=>hay.includes(t))) partial.push(item);
+
+    const code=normalize(f.code);
+    const name=normalize(f.name);
+    const hay=normalize([f.code,f.name,f.description,f.buyerName,f.procurementType].filter(Boolean).join(" "));
+    if(!hay) continue;
+
+    let score=0;
+    if(code===q) score+=400;
+    if(name===q) score+=260;
+    if(hay.includes(q)) score+=180;
+
+    let hits=0;
+    for (const token of tokens) {
+      if(!hay.includes(token)) continue;
+      hits+=1;
+      score+=35;
+      if(name.includes(token)) score+=24;
+      if(code.includes(token)) score+=30;
+    }
+
+    const minimumHits=tokens.length<=1 ? 1 : Math.max(1,Math.ceil(tokens.length*0.6));
+    if(!hay.includes(q) && hits<minimumHits) continue;
+    if(score>0) ranked.push({item,score,hits});
   }
-  return [...exact,...partial].slice(0,120);
+  ranked.sort((a,b)=>b.score-a.score || b.hits-a.hits);
+  return ranked.slice(0,120).map(x=>x.item);
 }
 function campaignMatch(item, terms=[]) {
   const f=listingFields(item);
