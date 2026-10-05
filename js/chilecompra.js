@@ -558,24 +558,72 @@ function campaignRow(c, stats, { controls = true } = {}) {
 }
 
 function dashboardNav(stats) {
-  const tabs = [['resumen','Resumen',''],['coincidencias','Coincidencias',stats.total],['campanas','Campañas',stats.activeCampaigns],['mercado','Mercado',''],['compradores','Compradores',''],['buscar','Búsqueda',''],['guardadas','Guardadas',stats.saved],['crm','En CRM',stats.crm]];
-  return `<nav class="cc-tabs cc-dashboard-tabs">${tabs.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? ` <span>(${count})</span>` : ''}</button>`).join('')}</nav>`;
+  const primary = [
+    ['resumen','Resumen',''],
+    ['coincidencias','Coincidencias',stats.total],
+    ['campanas','Seguimientos',stats.activeCampaigns],
+    ['buscar','Buscar','']
+  ];
+  const secondary = [
+    ['mercado','Mercado'],
+    ['compradores','Compradores'],
+    ['guardadas','Guardadas'],
+    ['crm','En CRM']
+  ];
+  const secondaryActive = secondary.some(([id]) => chilecompraState.tab === id);
+  return `<div class="cc-dashboard-nav">
+    <nav class="cc-tabs cc-dashboard-tabs">
+      ${primary.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? ` <span>(${count})</span>` : ''}</button>`).join('')}
+    </nav>
+    <details class="cc-more-menu" ${secondaryActive ? 'open' : ''}>
+      <summary class="${secondaryActive ? 'active' : ''}">Más</summary>
+      <div>
+        ${secondary.map(([id,label]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}</button>`).join('')}
+      </div>
+    </details>
+  </div>`;
 }
 
 function sharedDialogs() {
-  return `<dialog id="ccCampaignDialog" class="modal cc-campaign-dialog"><form id="ccCampaignForm" class="modal-card"><div class="modal-head"><div><h2>Crear seguimiento</h2><p>Define exactamente qué quieres que ChileCompra vigile.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccCampaignDialog">×</button></div><div class="form-grid"><label class="span-2">Nombre de la campaña<input id="ccCampaignName" required placeholder="Ej. Telemetría industrial"></label><label class="span-2">Palabras o frases a seguir<textarea id="ccCampaignTerms" rows="5" required placeholder="Escribe palabras o frases de búsqueda"></textarea></label></div><div id="ccCampaignSuggestions" class="cc-campaign-suggestions"><div class="cc-suggestion-hint">Escribe el nombre o una palabra clave y te sugeriremos búsquedas relacionadas.</div></div><p class="muted">Sepáralas por coma o por línea. Las recomendaciones son opcionales: tú decides qué términos sigue la campaña.</p><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccCampaignDialog">Cancelar</button><button type="submit" class="primary-btn">Crear y buscar</button></div></form></dialog>
+  return `<dialog id="ccCampaignDialog" class="modal cc-campaign-dialog"><form id="ccCampaignForm" class="modal-card"><div class="modal-head"><div><h2>Crear seguimiento</h2><p>Dinos qué vendes o qué oportunidad quieres detectar. El CRM buscará coincidencias por ti.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccCampaignDialog">×</button></div><div class="form-grid"><label class="span-2">Nombre del seguimiento<input id="ccCampaignName" required placeholder="Ej. Telemetría industrial"></label><label class="span-2">Palabras o frases a seguir<textarea id="ccCampaignTerms" rows="5" required placeholder="Escribe palabras o frases de búsqueda"></textarea></label></div><div id="ccCampaignSuggestions" class="cc-campaign-suggestions"><div class="cc-suggestion-hint">Escribe el nombre o una palabra clave y te sugeriremos búsquedas relacionadas.</div></div><p class="muted">Sepáralas por coma o por línea. Puedes usar las recomendaciones o escribir tus propios términos.</p><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccCampaignDialog">Cancelar</button><button type="submit" class="primary-btn">Crear y buscar</button></div></form></dialog>
   <dialog id="ccBusinessDialog" class="modal cc-campaign-dialog"><form id="ccBusinessForm" class="modal-card"><div class="modal-head"><div><h2>Mi negocio</h2><p>Define el universo estratégico que quieres estudiar, independiente de tus campañas.</p></div><button type="button" class="icon-btn" data-cc-dialog-close="ccBusinessDialog">×</button></div><div class="form-grid"><label class="span-2">Palabras o frases de tu negocio<textarea id="ccBusinessTerms" rows="6" placeholder="software operacional, IoT, trazabilidad, telemetría...">${e((chilecompraState.marketProfile?.query_terms || []).join(', '))}</textarea></label></div><div class="modal-actions"><button type="button" class="ghost-btn" data-cc-dialog-close="ccBusinessDialog">Cancelar</button><button type="submit" class="primary-btn">Guardar perfil</button></div></form></dialog>`;
 }
 
 function renderSummaryDashboard(stats) {
   const local = chilecompraLocalBreakdown({ metric: 'publications' });
-  return `<section class="cc-dashboard"><div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Coincidencias nuevas</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Campañas activas</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>
-  <section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Campañas activas</h3><p>Todas tus búsquedas automáticas y sus coincidencias nuevas.</p></div><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear campaña</button></div><div class="cc-user-campaign-list">${stats.campaigns.length ? stats.campaigns.map((c) => campaignRow(c, stats, { controls: true })).join('') : '<div class="cc-empty"><strong>No tienes campañas activas</strong><span>Crea un seguimiento para que el radar empiece a buscar por ti.</span><button type="button" class="primary-btn" data-cc-campaign-new>Crear seguimiento</button></div>'}</div></section>
-  <section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Qué se está comprando</h3><p>Top de rubros dentro de tus campañas activas.</p></div></div>${marketBars(local)}</section></section>`;
+  const hasMatches = stats.total > 0;
+
+  if (!stats.activeCampaigns) {
+    return `<section class="cc-dashboard">
+      <section class="cc-dashboard-card cc-getting-started">
+        <span class="cc-eyebrow">Empieza aquí</span>
+        <h3>Encuentra oportunidades en 3 pasos</h3>
+        <div class="cc-start-steps">
+          <div><b>1</b><span><strong>Crea un seguimiento</strong><small>Escribe qué producto o servicio quieres detectar.</small></span></div>
+          <div><b>2</b><span><strong>El radar busca por ti</strong><small>Revisamos licitaciones activas y guardamos las coincidencias.</small></span></div>
+          <div><b>3</b><span><strong>Revisa y pasa al CRM</strong><small>Abre una coincidencia, guárdala o conviértela en oportunidad.</small></span></div>
+        </div>
+        <button type="button" class="primary-btn cc-primary-start" data-cc-campaign-new>Crear mi primer seguimiento</button>
+      </section>
+    </section>`;
+  }
+
+  return `<section class="cc-dashboard">
+    ${hasMatches
+      ? `<div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Coincidencias nuevas</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Seguimientos activos</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>`
+      : `<section class="cc-dashboard-card cc-zero-state"><div><span class="cc-eyebrow">Radar al día</span><h3>No hay coincidencias nuevas</h3><p>Tus ${stats.activeCampaigns} seguimiento${stats.activeCampaigns === 1 ? '' : 's'} están activos. Puedes buscar novedades ahora o revisar sus términos si esperabas más resultados.</p></div><div class="cc-zero-actions"><button type="button" class="primary-btn" data-cc-sync>Buscar novedades</button><button type="button" class="ghost-btn" data-cc-tab="campanas">Revisar seguimientos</button></div></section>`}
+
+    <section class="cc-dashboard-card">
+      <div class="cc-section-head"><div><h3>Seguimientos activos</h3><p>Estas búsquedas funcionan de forma automática. Toca una para ver sus coincidencias.</p></div></div>
+      <div class="cc-user-campaign-list">${stats.campaigns.map((campaign) => campaignRow(campaign, stats, { controls: true })).join('')}</div>
+    </section>
+
+    ${hasMatches ? `<section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Qué se está comprando</h3><p>Top de rubros dentro de tus coincidencias.</p></div></div>${marketBars(local)}</section>` : ''}
+  </section>`;
 }
 
 function renderCampaignsDashboard(stats) {
-  return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Campañas</h3><p>Tú defines qué sigue el CRM. No hay campañas predefinidas.</p></div><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear campaña</button></div><div class="cc-user-campaign-list">${chilecompraState.campaigns.length ? chilecompraState.campaigns.map((c) => campaignRow(c, stats, { controls: true })).join('') : '<div class="cc-empty"><strong>Sin campañas</strong><span>Crea la primera búsqueda automática.</span></div>'}</div></section></section>`;
+  return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Seguimientos</h3><p>Cada seguimiento es una búsqueda automática. Puedes activarlo, pausarlo o abrir sus coincidencias.</p></div><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button></div><div class="cc-user-campaign-list">${chilecompraState.campaigns.length ? chilecompraState.campaigns.map((c) => campaignRow(c, stats, { controls: true })).join('') : '<div class="cc-empty"><strong>Sin seguimientos</strong><span>Crea la primera búsqueda automática para empezar.</span></div>'}</div></section></section>`;
 }
 
 function renderMarketDashboard() {
@@ -618,7 +666,24 @@ function renderOpportunityWorkspace(stats) {
 
 function renderInner() {
   const stats = chilecompraDashboardStats();
-  return `<section class="cc-radar-head"><div><h2>ChileCompra</h2><p>Inteligencia comercial en compras públicas.</p></div><div class="cc-radar-actions"><span class="cc-updated"><i></i>${chilecompraState.lastSyncAt ? 'Radar actualizado ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : stats.activeCampaigns ? 'Radar pendiente de primera actualización' : 'Sin campañas activas'}</span><button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing || !stats.activeCampaigns ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Actualizando…' : 'Actualizar radar'}</button><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear campaña</button></div></section>${dashboardNav(stats)}${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}${sharedDialogs()}`;
+  const updated = chilecompraState.lastSyncAt
+    ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
+    : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Crea un seguimiento para comenzar';
+
+  return `<section class="cc-radar-head">
+    <div>
+      <h2>ChileCompra</h2>
+      <p>Encuentra licitaciones que coinciden con lo que vendes.</p>
+    </div>
+    <div class="cc-radar-actions">
+      <span class="cc-updated"><i></i>${updated}</span>
+      ${stats.activeCampaigns ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button>` : ''}
+      <button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>
+    </div>
+  </section>
+  ${dashboardNav(stats)}
+  ${chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats) : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats) : chilecompraState.tab === 'mercado' ? renderMarketDashboard() : chilecompraState.tab === 'compradores' ? renderBuyersDashboard() : renderOpportunityWorkspace(stats)}
+  ${sharedDialogs()}`;
 }
 
 export function renderChileCompra() {
@@ -740,7 +805,7 @@ export function mountChileCompraView() {
         await createCampaign({ name, terms });
         document.getElementById('ccCampaignDialog')?.close();
         chilecompraState.tab = 'resumen';
-        toast('Campaña creada y radar actualizado.');
+        toast('Seguimiento creado y radar actualizado.');
         rerender();
         return;
       }
