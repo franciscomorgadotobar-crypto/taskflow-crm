@@ -805,7 +805,17 @@ async function syncCmOrders(admin,ticket,{days=1,detailLimit=12,offsetDays=0}={}
     d.setUTCDate(d.getUTCDate()-safeOffset-offset);
     observedDate=d.toISOString().slice(0,10);
     try {
-      const payload=await mercado("ordenesdecompra.json",ticket,{fecha:apiDate(d)});
+      let payload=null;
+      for(let attempt=0;attempt<3;attempt++) {
+        try {
+          payload=await mercado("ordenesdecompra.json",ticket,{fecha:apiDate(d)});
+          break;
+        } catch(error) {
+          const message=error instanceof Error?error.message:String(error);
+          if(!message.includes("429") || attempt===2) throw error;
+          await sleep(1400*(attempt+1));
+        }
+      }
       for(const item of orderListFrom(payload)) {
         if(!isCmOrder(item)) continue;
         const code=cmOrderFields(item).code;
@@ -996,7 +1006,7 @@ async function backfillCmOrders(admin,ticket,{days=7,startOffset=0}={}) {
     const offset=safeStart+step;
     const result=await syncCmOrders(admin,ticket,{days:1,offsetDays:offset,detailLimit:0});
     results.push({offsetDays:offset,found:result.found,errors:result.errors});
-    await sleep(220);
+    await sleep(900);
   }
   return {
     days:safeDays,
