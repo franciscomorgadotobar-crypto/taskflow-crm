@@ -704,6 +704,50 @@ async function upsertCmOrder(admin,item,{detailLoaded=false}={}) {
 async function sleep(ms) {
   await new Promise(resolve=>setTimeout(resolve,ms));
 }
+async function upsertCmBasicOrders(admin,items) {
+  const rows=items.map(cmOrderRow).filter(row=>row.code);
+  if(!rows.length) return {rows:0,existing:new Map()};
+
+  const existingRows=[];
+  const codes=rows.map(row=>row.code);
+  for(let i=0;i<codes.length;i+=400) {
+    const chunk=codes.slice(i,i+400);
+    const {data,error}=await admin.from("chilecompra_cm_orders").select("*").in("code",chunk);
+    if(error) throw error;
+    existingRows.push(...(data||[]));
+  }
+  const existing=new Map(existingRows.map(row=>[row.code,row]));
+
+  const merged=rows.map(row=>{
+    const old=existing.get(row.code);
+    if(!old) return row;
+    const next={...row,first_seen_at:old.first_seen_at||row.first_seen_at};
+    if(old.detail_loaded) {
+      const preserveText=[
+        "description","buyer_code","buyer_name","buyer_unit","buyer_rut","buyer_region","buyer_commune",
+        "buyer_address","buyer_contact","buyer_email","supplier_code","supplier_name","supplier_rut",
+        "supplier_region","supplier_commune","supplier_address","supplier_contact","supplier_email",
+        "agreement_code","source_url"
+      ];
+      for(const key of preserveText) if(!next[key] && old[key]) next[key]=old[key];
+      const preserveNumber=["net_total","total","discounts","charges","taxes"];
+      for(const key of preserveNumber) if(next[key]==null && old[key]!=null) next[key]=old[key];
+      const preserveDate=["created_at_mp","sent_at","accepted_at","cancelled_at","modified_at_mp"];
+      for(const key of preserveDate) if(!next[key] && old[key]) next[key]=old[key];
+      next.raw=old.raw||next.raw;
+      next.detail_loaded=true;
+    }
+    return next;
+  });
+
+  for(let i=0;i<merged.length;i+=400) {
+    const chunk=merged.slice(i,i+400);
+    const {error}=await admin.from("chilecompra_cm_orders").upsert(chunk,{onConflict:"code"});
+    if(error) throw error;
+  }
+  return {rows:merged.length,existing};
+}
+
 async function fetchCmDetail(admin,ticket,code) {
   let payload=null;
   for(let attempt=0;attempt<3;attempt++) {
@@ -720,13 +764,16 @@ async function fetchCmDetail(admin,ticket,code) {
   if(!item || !isCmOrder(item)) return null;
   return await upsertCmOrder(admin,item,{detailLoaded:true});
 }
-async function syncCmOrders(admin,ticket,{days=3,detailLimit=48}={}) {
-  const safeDays=Math.max(1,Math.min(31,Number(days)||3));
+async function syncCmOrders(admin,ticket,{days=1,detailLimit=12,offsetDays=0}={}) {
+  const safeDays=Math.max(1,Math.min(1,Number(days)||1));
+  const safeOffset=Math.max(0,Math.min(365,Number(offsetDays)||0));
+  const safeDetail=Math.max(0,Math.min(24,Number(detailLimit)||12));
   const candidates=new Map();
   const errors=[];
+
   for(let offset=0;offset<safeDays;offset++) {
     const d=new Date();
-    d.setUTCDate(d.getUTCDate()-offset);
+    d.setUTCDate(d.getUTCDate()-safeOffset-offset);
     try {
       const payload=await mercado("ordenesdecompra.json",ticket,{fecha:apiDate(d)});
       for(const item of orderListFrom(payload)) {
@@ -740,11 +787,26 @@ async function syncCmOrders(admin,ticket,{days=3,detailLimit=48}={}) {
   }
 
   const basicItems=[...candidates.values()];
-  for(const item of basicItems) await upsertCmOrder(admin,item,{detailLoaded:false});
+  await upsertCmBasicOrders(admin,basicItems);
+
+  const detailState=new Map();
+  const candidateCodes=[...candidates.keys()];
+  for(let i=0;i<candidateCodes.length;i+=400) {
+    const chunk=candidateCodes.slice(i,i+400);
+    if(!chunk.length) continue;
+    const {data,error}=await admin.from("chilecompra_cm_orders")
+      .select("code,detail_loaded").in("code",chunk);
+    if(error) throw error;
+    for(const row of data||[]) detailState.set(row.code,Boolean(row.detail_loaded));
+  }
+
+  const codes=candidateCodes
+    .sort((a,b)=>Number(detailState.get(a))-Number(detailState.get(b)))
+    .slice(0,safeDetail);
 
   let detailed=0;
-  const codes=[...candidates.keys()].slice(0,Math.max(0,Math.min(160,Number(detailLimit)||48)));
   for(const code of codes) {
+    if(detailState.get(code)) continue;
     try {
       const full=await fetchCmDetail(admin,ticket,code);
       if(full) detailed+=1;
@@ -754,7 +816,15 @@ async function syncCmOrders(admin,ticket,{days=3,detailLimit=48}={}) {
     await sleep(300);
   }
 
-  return {days:safeDays,found:candidates.size,detailed,errors:errors.slice(0,12),syncedAt:new Date().toISOString()};
+  return {
+    days:safeDays,
+    offsetDays:safeOffset,
+    found:candidates.size,
+    detailed,
+    requestedDetails:codes.filter(code=>!detailState.get(code)).length,
+    errors:errors.slice(0,12),
+    syncedAt:new Date().toISOString()
+  };
 }
 async function loadCmItems(admin,codes=[]) {
   const all=[];
@@ -862,8 +932,7 @@ async function cmDashboard(admin,ticket,org,body) {
   if(lastError) throw lastError;
   const lastSync=lastRows?.[0]?.last_seen_at ? new Date(lastRows[0].last_seen_at).getTime() : 0;
   if(forceSync || !lastSync || Date.now()-lastSync>5*3600000) {
-    const syncDays=!lastSync ? Math.min(days,31) : Math.min(days,forceSync?31:7);
-    await syncCmOrders(admin,ticket,{days:syncDays,detailLimit:forceSync?100:48});
+    await syncCmOrders(admin,ticket,{days:1,offsetDays:0,detailLimit:forceSync?24:12});
   }
 
   let orderQuery=admin.from("chilecompra_cm_orders")
@@ -965,9 +1034,10 @@ Deno.serve(async req=>{
     }
 
     if(action==="cm-sync") {
-      const days=Math.max(1,Math.min(31,Number(body?.days)||3));
-      const detailLimit=Math.max(0,Math.min(160,Number(body?.detailLimit)||48));
-      return json({ok:true,...await syncCmOrders(admin,ticket,{days,detailLimit})});
+      const days=1;
+      const detailLimit=Math.max(0,Math.min(24,Number(body?.detailLimit)||12));
+      const offsetDays=Math.max(0,Math.min(365,Number(body?.offsetDays)||0));
+      return json({ok:true,...await syncCmOrders(admin,ticket,{days,detailLimit,offsetDays})});
     }
 
     if(action==="cm-dashboard") {
