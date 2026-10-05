@@ -175,7 +175,15 @@ const toDbActivity = (a) => ({
 const fromDbTemplate = (r) => ({ id: r.id, name: r.name, channel: r.channel, subject: r.subject || '', body: r.body || '' });
 const toDbTemplate = (t) => ({ name: t.name || '', channel: t.channel || 'both', subject: t.subject || '', body: t.body || '' });
 
-const fromDbProfile = (r) => ({ id: r.id, name: r.name || '', email: r.email || '', phone: r.phone || '', role: r.role, active: r.active });
+const fromDbProfile = (r) => ({
+  id: r.id,
+  name: r.name || '',
+  email: r.email || '',
+  phone: r.phone || '',
+  role: r.role,
+  active: r.active,
+  moduleAccess: Array.isArray(r.module_access) ? r.module_access : []
+});
 
 /* ---------- Hidratación + Realtime ---------- */
 
