@@ -970,50 +970,53 @@ export function renderSettings(ui = {}) {
     if (!teamSuper) return '';
     const tutorials = availableTutorialsForRole(u.role);
     if (!tutorials.length) return '';
+    const rows = tutorials.map((tutorial) => ({ tutorial, ...teamTutorialStatus(u.id, tutorial) }));
+    const assignedCount = rows.filter((row) => row.assigned).length;
     return `
-      <details class="team-training-panel">
+      <details class="team-module-panel team-training-panel">
         <summary>
           <span>Tutoriales asignados</span>
-          <small>Asignar y revisar progreso</small>
+          <small>${assignedCount} de ${tutorials.length}</small>
         </summary>
-        <div class="team-training-list">
-          ${tutorials.map((tutorial) => {
-            const { assigned, assignment, progress } = teamTutorialStatus(u.id, tutorial);
-            const completed = progress?.status === 'completed';
-            const inProgress = progress?.status === 'in_progress';
-            const status = completed ? 'Completado' : inProgress ? 'En curso' : assigned ? 'Pendiente' : 'No asignado';
-            const percent = completed ? 100 : inProgress
-              ? Math.round(((Number(progress.current_step || 0) + 1) / tutorial.steps.length) * 100)
-              : 0;
-            return `
-              <div class="team-training-row">
-                <label class="team-training-main">
-                  <input type="checkbox"
-                    data-tutorial-assign-profile="${u.id}"
-                    data-tutorial-id="${tutorial.id}"
-                    data-tutorial-version="${tutorial.version}"
-                    ${assigned ? 'checked' : ''}>
-                  <span>
-                    <strong>${e(tutorial.name)}</strong>
-                    <small>${tutorial.duration} min · ${e(status)}</small>
-                  </span>
-                </label>
-                ${assigned ? `
-                  <div class="team-training-actions">
-                    <label><input type="checkbox"
-                      data-tutorial-auto-profile="${u.id}"
+        <div class="team-module-panel-body team-training-panel-body">
+          <div class="team-training-list">
+            ${rows.map(({ tutorial, assigned, assignment, progress }) => {
+              const completed = progress?.status === 'completed';
+              const inProgress = progress?.status === 'in_progress';
+              const status = completed ? 'Completado' : inProgress ? 'En curso' : assigned ? 'Pendiente' : 'No asignado';
+              const percent = completed ? 100 : inProgress
+                ? Math.round(((Number(progress.current_step || 0) + 1) / tutorial.steps.length) * 100)
+                : 0;
+              return `
+                <div class="team-training-row">
+                  <label class="team-training-main">
+                    <input type="checkbox"
+                      data-tutorial-assign-profile="${u.id}"
                       data-tutorial-id="${tutorial.id}"
                       data-tutorial-version="${tutorial.version}"
-                      ${assignment?.auto_start ? 'checked' : ''}> Mostrar al ingresar</label>
-                    ${completed ? `<button type="button" class="link-btn"
-                      data-tutorial-reset-profile="${u.id}"
-                      data-tutorial-id="${tutorial.id}"
-                      data-tutorial-version="${tutorial.version}">Reasignar</button>` : ''}
-                  </div>
-                  ${(inProgress || completed) ? `<div class="team-training-progress"><i style="width:${percent}%"></i></div>` : ''}
-                ` : ''}
-              </div>`;
-          }).join('')}
+                      ${assigned ? 'checked' : ''}>
+                    <span>
+                      <strong>${e(tutorial.name)}</strong>
+                      <small>${tutorial.duration} min · ${e(status)}</small>
+                    </span>
+                  </label>
+                  ${assigned ? `
+                    <div class="team-training-actions">
+                      <label><input type="checkbox"
+                        data-tutorial-auto-profile="${u.id}"
+                        data-tutorial-id="${tutorial.id}"
+                        data-tutorial-version="${tutorial.version}"
+                        ${assignment?.auto_start ? 'checked' : ''}> Mostrar al ingresar</label>
+                      ${completed ? `<button type="button" class="link-btn"
+                        data-tutorial-reset-profile="${u.id}"
+                        data-tutorial-id="${tutorial.id}"
+                        data-tutorial-version="${tutorial.version}">Reasignar</button>` : ''}
+                    </div>
+                    ${(inProgress || completed) ? `<div class="team-training-progress"><i style="width:${percent}%"></i></div>` : ''}
+                  ` : ''}
+                </div>`;
+            }).join('')}
+          </div>
         </div>
       </details>`;
   };
@@ -1052,6 +1055,7 @@ export function renderSettings(ui = {}) {
           </label>
           <p class="team-role-help">${e(role?.detail || '')}</p>
           ${moduleAccessHtml(u, manageable)}
+          ${trainingHtml(u)}
           ${manageable
             ? `<div class="team-member-actions">
                 <button type="button" class="ghost-btn" data-action="team-resend" data-id="${u.id}" ${u.active ? '' : 'disabled'}>Reenviar acceso</button>
@@ -1061,7 +1065,6 @@ export function renderSettings(ui = {}) {
               </div>`
             : '<p class="muted team-lock-note">No tienes permiso para modificar este perfil.</p>'}
         </div>
-        ${trainingHtml(u)}
       </article>`;
   };
 
