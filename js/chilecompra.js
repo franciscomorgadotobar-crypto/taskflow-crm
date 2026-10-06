@@ -1361,13 +1361,13 @@ function renderInner() {
     ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
     : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Sin revisión reciente';
 
-  const toolbar = isCm ? '' : `<section class="cc-module-toolbar ${isSearch ? 'cc-module-toolbar--search' : ''}">
+  const showToolbar = !isCm && !isSearch && stats.activeCampaigns > 0 && chilecompraState.tab !== 'campanas';
+  const toolbar = showToolbar ? `<section class="cc-module-toolbar">
     <span class="cc-updated"><i></i>${updated}</span>
     <div class="cc-module-actions">
-      ${stats.activeCampaigns && !isSearch ? `<button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button>` : ''}
-      ${!isSearch ? '<button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button>' : ''}
+      <button type="button" class="ghost-btn" data-cc-sync ${chilecompraState.syncing ? 'disabled' : ''}>↻ ${chilecompraState.syncing ? 'Buscando…' : 'Buscar novedades'}</button>
     </div>
-  </section>`;
+  </section>` : '';
 
   const content = chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats)
     : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats)
