@@ -7417,3 +7417,84 @@ html[data-crm-view="settings"] .team-settings-card .role-list{
   }
 }
 /* ---------- End configuración hub ---------- */
+
+
+/* ---------- Tutoriales asignados · despliegue homologado ---------- */
+.team-training-panel{
+  margin-top:10px;
+}
+.team-training-panel-body{
+  padding:10px;
+}
+.team-training-list{
+  display:grid;
+  gap:8px;
+}
+.team-training-row{
+  display:grid;
+  gap:8px;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:11px;
+  background:var(--panel);
+}
+.team-training-main{
+  display:grid !important;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:start;
+  gap:9px !important;
+  cursor:pointer;
+}
+.team-training-main input{
+  margin-top:3px;
+}
+.team-training-main > span{
+  display:grid;
+  gap:2px;
+}
+.team-training-main strong{
+  color:var(--text);
+  font-size:11px;
+}
+.team-training-main small{
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.35;
+}
+.team-training-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  padding-top:8px;
+  border-top:1px solid var(--border);
+}
+.team-training-actions label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--muted);
+  font-size:9px;
+}
+.team-training-progress{
+  height:5px;
+  overflow:hidden;
+  border-radius:999px;
+  background:var(--panel-soft,#eef2f6);
+}
+.team-training-progress > i{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:#2f8fd8;
+}
+@media(max-width:720px){
+  .team-training-panel{
+    margin-top:10px;
+  }
+  .team-training-row{
+    padding:9px;
+  }
+}
+/* ---------- End tutoriales homologados ---------- */
