@@ -2141,7 +2141,7 @@ async function finishFichaTask(id, { withoutNext = false } = {}) {
 }
 
 function teamRedirectTo() {
-  return `${window.location.origin}${window.location.pathname}`;
+  return CFG.publicUrl || `${window.location.origin}${window.location.pathname}`;
 }
 
 async function teamRequest(body) {
