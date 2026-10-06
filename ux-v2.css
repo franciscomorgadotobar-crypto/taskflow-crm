@@ -6837,3 +6837,99 @@ html[data-crm-view="dashboard"] .v2-cc-compact-campaign strong{
   display:none !important;
 }
 /* End retiro badge Nuevo */
+
+/* ---------- Módulos de equipo · todos visibles y clickeables ---------- */
+#teamModuleChecks.team-module-grid,
+.team-module-panel .team-module-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+#teamModuleChecks .team-module-option,
+.team-module-panel .team-module-option{
+  min-width:0;
+  min-height:72px;
+  align-content:start;
+}
+#teamModuleChecks .team-module-option > span,
+.team-module-panel .team-module-option > span{
+  min-width:0;
+}
+#teamModuleChecks .team-module-option strong,
+.team-module-panel .team-module-option strong{
+  display:block;
+  line-height:1.2;
+}
+#teamModuleChecks .team-module-option small,
+.team-module-panel .team-module-option small{
+  display:block;
+  margin-top:3px;
+  line-height:1.25;
+}
+
+@media (max-width:720px){
+  #teamModuleChecks.team-module-grid,
+  .team-module-panel .team-module-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:7px !important;
+  }
+  #teamModuleChecks .team-module-option,
+  .team-module-panel .team-module-option{
+    min-height:60px !important;
+    grid-template-columns:24px minmax(0,1fr) !important;
+    gap:7px !important;
+    padding:8px 9px !important;
+    border-radius:10px !important;
+  }
+  #teamModuleChecks .team-module-option input,
+  .team-module-panel .team-module-option input{
+    width:20px !important;
+    height:20px !important;
+    margin:1px 0 0 !important;
+  }
+  #teamModuleChecks .team-module-option strong,
+  .team-module-panel .team-module-option strong{
+    font-size:11px !important;
+  }
+  #teamModuleChecks .team-module-option small,
+  .team-module-panel .team-module-option small{
+    font-size:8px !important;
+    line-height:1.2 !important;
+  }
+  .team-module-head{
+    gap:8px !important;
+  }
+  .team-module-head > div:first-child > span{
+    font-size:9px !important;
+    line-height:1.3 !important;
+  }
+  .team-module-actions{
+    width:100%;
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:6px !important;
+  }
+  .team-module-actions .link-btn{
+    min-height:34px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    background:var(--panel);
+    font-size:10px;
+    font-weight:800;
+  }
+}
+@media (max-width:390px){
+  #teamModuleChecks.team-module-grid,
+  .team-module-panel .team-module-grid{
+    gap:6px !important;
+  }
+  #teamModuleChecks .team-module-option,
+  .team-module-panel .team-module-option{
+    min-height:56px !important;
+    padding:7px !important;
+  }
+  #teamModuleChecks .team-module-option small,
+  .team-module-panel .team-module-option small{
+    display:none;
+  }
+}
+/* ---------- End módulos de equipo ---------- */
