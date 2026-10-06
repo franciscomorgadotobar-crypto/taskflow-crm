@@ -961,26 +961,45 @@ function campaignRow(c, stats, { controls = true } = {}) {
 }
 
 function dashboardNav(stats) {
+  const opportunityTabs = new Set(['coincidencias','guardadas','crm','buscar']);
+  const marketTabs = new Set(['mercado','compradores','convenio']);
+  const activeSection = chilecompraState.tab === 'resumen'
+    ? 'resumen'
+    : chilecompraState.tab === 'campanas'
+      ? 'campanas'
+      : opportunityTabs.has(chilecompraState.tab)
+        ? 'oportunidades'
+        : 'mercado';
+
   const primary = [
-    ['resumen','Resumen',''],
-    ['convenio','Convenio Marco',''],
-    ['coincidencias','Coincidencias',stats.total],
-    ['campanas','Seguimientos',stats.activeCampaigns],
-    ['buscar','Buscar','']
+    ['resumen','Resumen','resumen'],
+    ['coincidencias','Oportunidades','oportunidades'],
+    ['campanas','Seguimientos','campanas'],
+    ['mercado','Mercado','mercado']
   ];
-  const secondary = [
-    ['mercado','Mercado Chile'],
-    ['compradores','Compradores'],
-    ['guardadas','Guardadas'],
-    ['crm','En CRM']
-  ];
-  return `<div class="cc-dashboard-nav">
-    <nav class="cc-tabs cc-dashboard-tabs">
-      ${primary.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? ` <span>(${count})</span>` : ''}</button>`).join('')}
+
+  const secondary = activeSection === 'oportunidades'
+    ? [
+        ['coincidencias','Coincidencias',stats.total],
+        ['guardadas','Guardadas',''],
+        ['crm','En CRM',''],
+        ['buscar','Buscar','']
+      ]
+    : activeSection === 'mercado'
+      ? [
+          ['mercado','Mercado Chile',''],
+          ['compradores','Compradores',''],
+          ['convenio','Convenio Marco','']
+        ]
+      : [];
+
+  return `<div class="cc-dashboard-nav cc-dashboard-nav--grouped">
+    <nav class="cc-tabs cc-dashboard-tabs cc-dashboard-tabs--primary" aria-label="Secciones ChileCompra">
+      ${primary.map(([id,label,section]) => `<button type="button" data-cc-tab="${id}" class="${activeSection === section ? 'active' : ''}">${label}</button>`).join('')}
     </nav>
-    <nav class="cc-secondary-nav" aria-label="Herramientas ChileCompra">
-      ${secondary.map(([id,label]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}</button>`).join('')}
-    </nav>
+    ${secondary.length ? `<nav class="cc-secondary-nav cc-secondary-nav--context" aria-label="${activeSection === 'mercado' ? 'Mercado' : 'Oportunidades'}">
+      ${secondary.map(([id,label,count]) => `<button type="button" data-cc-tab="${id}" class="${chilecompraState.tab === id ? 'active' : ''}">${label}${count !== '' ? `<span class="cc-nav-count">${count}</span>` : ''}</button>`).join('')}
+    </nav>` : ''}
   </div>`;
 }
 
