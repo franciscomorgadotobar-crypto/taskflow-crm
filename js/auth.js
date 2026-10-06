@@ -105,9 +105,7 @@ export async function signOut() {
 }
 
 export async function resetPassword(email) {
-  // Vuelve a la misma URL donde está publicado el CRM (sirve igual en GitHub Pages,
-  // que publica bajo /nombre-del-repo/, que en local).
-  const redirectTo = `${window.location.origin}${window.location.pathname}`;
+  const redirectTo = CFG.publicUrl || `${window.location.origin}${window.location.pathname}`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
 }
