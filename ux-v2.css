@@ -7498,3 +7498,24 @@ html[data-crm-view="settings"] .team-settings-card .role-list{
   }
 }
 /* ---------- End tutoriales homologados ---------- */
+
+
+/* ---------- Configuración · eliminación de textos repetidos ---------- */
+.team-users-toolbar{
+  padding:14px 14px 0;
+}
+.team-users-toolbar .primary-btn{
+  width:100%;
+}
+.settings-section-head > div{
+  align-items:center;
+}
+.settings-section-head > div > span{
+  display:none !important;
+}
+@media(max-width:720px){
+  .team-users-toolbar{
+    padding:14px 13px 0;
+  }
+}
+/* ---------- End limpieza de textos ---------- */
