@@ -190,13 +190,13 @@ function initPwa() {
   window.addEventListener('beforeinstallprompt', (ev) => {
     ev.preventDefault();
     deferredPwaInstallPrompt = ev;
-    if (ui?.view === 'profile') render();
+    if (ui?.view === 'profile' || (ui?.view === 'settings' && ui?.settingsSection === 'account')) render();
   });
 
   window.addEventListener('appinstalled', () => {
     pwaInstalled = true;
     deferredPwaInstallPrompt = null;
-    if (ui?.view === 'profile') render();
+    if (ui?.view === 'profile' || (ui?.view === 'settings' && ui?.settingsSection === 'account')) render();
     toast('CRM quedó instalado.');
   });
 
@@ -228,6 +228,7 @@ const ui = {
   quoteFilters: { status: '' },
   priceListId: '',
   auditFilters: { query: '', entity: '', action: '' },
+  settingsSection: 'home',
   quoteBuilder: null
 };
 
@@ -244,7 +245,7 @@ const VIEWS = {
   audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   help: ['Ayuda y tutoriales', 'Capacitaciones guiadas sobre la interfaz real del CRM.', renderHelp],
   profile: ['Mi cuenta', 'Tus datos personales, contraseña y preferencias.', renderProfile],
-  settings: ['Configuración', 'Usuarios, permisos, capacitación y administración del CRM.', renderSettings]
+  settings: ['Configuración', 'Cuenta, navegación y administración del CRM.', renderSettings]
 };
 
 /* ---------- Render ---------- */
@@ -2495,6 +2496,14 @@ const ACTIONS = {
       toast('Se restauró la barra inferior predeterminada.');
     }
   },
+  'settings-open': (id) => {
+    ui.settingsSection = id || 'home';
+    render();
+  },
+  'settings-home': () => {
+    ui.settingsSection = 'home';
+    render();
+  },
   'open-help': () => document.querySelector('.nav-item[data-view="help"]')?.click(),
   'team-add': () => openTeamAdd(),
   'team-save-modules': async (id, btn) => {
@@ -3595,6 +3604,7 @@ function bindEvents() {
       const nextView = btn.dataset.view;
       if (!canAccessView(nextView)) return toast('Este módulo no está habilitado para tu perfil.', 'error');
       ui.view = nextView;
+      if (nextView === 'settings') ui.settingsSection = 'home';
       document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
       render();
       if (ui.view === 'audit' && isAdmin()) hydrateAudit();
