@@ -1094,21 +1094,6 @@ export function renderSettings() {
   };
 
   return `
-    <div class="card settings-admin-intro">
-      <div class="card-head">
-        <div>
-          <h3>Administración general</h3>
-          <span class="muted">Administración del equipo, permisos, capacitación y datos.</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="notice">
-          <strong>Esta sección administra el CRM, no tu perfil personal.</strong>
-          <span>Tu nombre, teléfono, contraseña, instalación y preferencias están en <strong>Mi cuenta</strong>.</span>
-        </div>
-      </div>
-    </div>
-
     <div class="card team-settings-card" style="margin-top:16px">
       <div class="card-head team-card-head">
         <div>
