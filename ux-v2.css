@@ -7605,3 +7605,13 @@ html[data-crm-view="settings"] .team-settings-card .role-list{
   }
 }
 /* ---------- End acceso compacto ---------- */
+
+
+/* ---------- Escritorio · nunca mostrar Más móvil ---------- */
+@media(min-width:901px){
+  .sidebar .v2-more-nav,
+  .sidebar [data-mobile-more]{
+    display:none !important;
+  }
+}
+/* ---------- End Más móvil ---------- */
