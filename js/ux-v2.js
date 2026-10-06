@@ -183,8 +183,6 @@ function renderMobileDrawer() {
   }).join('');
 
   const systemLinks = [
-    { id:'profile', label:'Mi cuenta', allowed:true },
-    { id:'help', label:'Ayuda', allowed:true },
     { id:'settings', label:'Configuración', allowed:canAccessView('settings') },
     { id:'audit', label:'Auditoría', allowed:canAccessView('audit') }
   ].filter((item) => item.allowed);
@@ -196,14 +194,14 @@ function renderMobileDrawer() {
     </div>
     <div class="v2-drawer-scroll">
       ${moduleGroups}
-      <section class="v2-drawer-group v2-drawer-system">
-        <strong class="v2-drawer-group-title">Sistema</strong>
+      ${systemLinks.length ? `<section class="v2-drawer-group v2-drawer-system">
+        <strong class="v2-drawer-group-title">Administración</strong>
         <div class="v2-drawer-links">
           ${systemLinks.map((item) => `<button type="button" class="v2-drawer-link" data-v2-drawer-view="${item.id}">
             ${mobileDrawerIcon(item.id)}<span>${item.label}</span><b aria-hidden="true">›</b>
           </button>`).join('')}
         </div>
-      </section>
+      </section>` : ''}
     </div>`;
 
   const activeView = q('.nav-item.active')?.dataset.view || '';
@@ -288,13 +286,6 @@ function buildHeaderTools() {
           <div class="v2-menu-profile"><strong id="v2MenuName">Usuario</strong><span id="v2MenuEmail"></span></div>
           <button class="v2-menu-item" type="button" data-v2-action="profile"><span>Mi cuenta</span><span>›</span></button>
           <button id="v2SettingsMenu" class="v2-menu-item" type="button" data-v2-view="settings" hidden><span>Configuración</span><span>›</span></button>
-          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="implementation"><span>Implementación</span><span>›</span></button>
-          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="templates"><span>Plantillas</span><span>›</span></button>
-          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="quotes"><span>Cotizaciones</span><span>›</span></button>
-          <button class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="chilecompra"><span>ChileCompra</span><span>›</span></button>
-          <button id="v2AuditMenu" class="v2-menu-item v2-mobile-only-menu" type="button" data-v2-view="audit" hidden><span>Auditoría</span><span>›</span></button>
-          <button class="v2-menu-item" type="button" data-v2-view="help"><span>Ayuda y tutoriales</span><span>›</span></button>
-          <button class="v2-menu-item" type="button" data-v2-action="data"><span>Datos y respaldo</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="theme"><span>Cambiar apariencia</span><span>◐</span></button>
           <button class="v2-menu-item danger" type="button" data-v2-action="signout"><span>Cerrar sesión</span><span>↗</span></button>
           <div id="v2SystemLine" class="v2-system-line"><span class="v2-system-dot"></span><span id="v2SystemText">Estado del sistema</span></div>
@@ -334,15 +325,8 @@ function updateHeaderIdentity() {
   if ($('v2UserRole')) $('v2UserRole').textContent = role;
   if ($('v2MenuName')) $('v2MenuName').textContent = name;
   if ($('v2MenuEmail')) $('v2MenuEmail').textContent = currentEmail();
-  const auditMenu = $('v2AuditMenu');
-  if (auditMenu) auditMenu.hidden = !canAccessView('audit');
   const settingsMenu = $('v2SettingsMenu');
   if (settingsMenu) settingsMenu.hidden = !canAccessView('settings');
-  qa('#v2UserMenu [data-v2-view]').forEach((button) => {
-    const view = button.dataset.v2View;
-    if (view === 'settings' || view === 'audit') return;
-    button.hidden = !canAccessView(view);
-  });
   updateMobileHeader();
 }
 
