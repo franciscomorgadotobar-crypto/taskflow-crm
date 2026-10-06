@@ -4,6 +4,7 @@ window.CRM_PERSONAL_CONFIG = {
   companyName: '',
   productName: 'CRM',
   website: '',
+  publicUrl: 'https://franciscomorgadotobar-crypto.github.io/taskflow-crm/',
   // Proyecto Supabase (URL y llave publicable — ambas son públicas por diseño, la
   // seguridad real la da Row Level Security, no mantener esto en secreto).
   supabaseUrl: 'https://egglrpexexcodsreumnz.supabase.co',
