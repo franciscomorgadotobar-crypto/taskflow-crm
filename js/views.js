@@ -933,6 +933,20 @@ export function renderSettings() {
       .filter((r) => teamSuper || ['comercial', 'visita'].includes(r.id))
       .map((r) => `<option value="${r.id}" ${u.role === r.id ? 'selected' : ''}>${e(r.label)}</option>`)
       .join('');
+  const mobileNavMode = me?.mobileNavMode === 'bottom' ? 'bottom' : 'drawer';
+  const mobileMenuPosition = me?.mobileMenuPosition === 'right' ? 'right' : 'left';
+  const enabledModuleIds = new Set(Array.isArray(me?.moduleAccess) && me.moduleAccess.length
+    ? me.moduleAccess
+    : USER_MODULES.map((module) => module.id));
+  const mobileNavChoices = USER_MODULES.filter((module) => enabledModuleIds.has(module.id));
+  const mobileFavorites = [];
+  [...(Array.isArray(me?.bottomNav) ? me.bottomNav : []), ...DEFAULT_BOTTOM_NAV, ...mobileNavChoices.map((module) => module.id)]
+    .forEach((id) => {
+      if (mobileFavorites.length >= 4 || mobileFavorites.includes(id) || !enabledModuleIds.has(id)) return;
+      mobileFavorites.push(id);
+    });
+  const mobileFavoriteOption = (selected = '') =>
+    mobileNavChoices.map((module) => `<option value="${module.id}" ${module.id === selected ? 'selected' : ''}>${e(module.label)}</option>`).join('');
 
   const moduleAccessHtml = (u, manageable) => {
     const selected = new Set(Array.isArray(u.moduleAccess) ? u.moduleAccess : USER_MODULES.map((module) => module.id));
@@ -1100,6 +1114,54 @@ export function renderSettings() {
       </div>
     </div>
 
+    <div class="card settings-mobile-nav-card" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h3>Navegación móvil</h3>
+          <span class="muted">Elige una sola navegación principal para el teléfono.</span>
+        </div>
+      </div>
+      <div class="card-body mobile-nav-settings">
+        <div class="mobile-nav-mode-grid" role="radiogroup" aria-label="Tipo de navegación móvil">
+          <label class="mobile-nav-mode-option">
+            <input type="radio" name="mobileNavMode" value="drawer" ${mobileNavMode === 'drawer' ? 'checked' : ''}>
+            <span><strong>Menú hamburguesa</strong><small>Un único botón en el encabezado abre todos los módulos.</small></span>
+          </label>
+          <label class="mobile-nav-mode-option">
+            <input type="radio" name="mobileNavMode" value="bottom" ${mobileNavMode === 'bottom' ? 'checked' : ''}>
+            <span><strong>Barra inferior</strong><small>Cuatro accesos rápidos y “Más” para el resto de los módulos.</small></span>
+          </label>
+        </div>
+
+        <div id="mobileDrawerSettings" class="mobile-nav-dependent" ${mobileNavMode === 'drawer' ? '' : 'hidden'}>
+          <label class="mobile-nav-field">
+            <span>Ubicación del menú</span>
+            <select id="mobileMenuPosition">
+              <option value="left" ${mobileMenuPosition === 'left' ? 'selected' : ''}>Izquierda</option>
+              <option value="right" ${mobileMenuPosition === 'right' ? 'selected' : ''}>Derecha</option>
+            </select>
+            <small>El panel lateral se abrirá desde el mismo lado del botón.</small>
+          </label>
+        </div>
+
+        <div id="mobileBottomSettings" class="mobile-nav-dependent" ${mobileNavMode === 'bottom' ? '' : 'hidden'}>
+          <div class="mobile-nav-field">
+            <span>Accesos rápidos</span>
+            <small>El quinto acceso es “Más” y siempre abre todos tus módulos habilitados.</small>
+          </div>
+          <div class="mobile-nav-favorites-grid">
+            ${Array.from({ length: 4 }, (_, index) => {
+              const selected = mobileFavorites[index] || mobileNavChoices[index]?.id || '';
+              return `<label><span>Posición ${index + 1}</span><select data-mobile-nav-favorite="${index + 1}">${mobileFavoriteOption(selected)}</select></label>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="button-row mobile-nav-save">
+          <button type="button" class="primary-btn" data-action="save-mobile-navigation">Guardar navegación móvil</button>
+        </div>
+      </div>
+    </div>
     <div class="card settings-help-card" style="margin-top:16px">
       <div class="card-head">
         <div>
