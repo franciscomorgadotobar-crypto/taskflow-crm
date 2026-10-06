@@ -7261,3 +7261,159 @@ html[data-crm-view="dashboard"] .v2-cc-compact-campaign strong{
   }
 }
 /* ---------- End preferencia navegación móvil ---------- */
+
+
+/* ---------- Configuración · hub por secciones ---------- */
+html[data-crm-view="settings"] #viewRoot{
+  max-width:980px;
+  margin:0 auto;
+}
+.settings-hub-card{
+  overflow:hidden;
+  padding:0 !important;
+  border:1px solid var(--v2-line);
+  border-radius:16px;
+  background:var(--v2-panel);
+}
+.settings-hub-group{
+  display:grid;
+  padding:10px 0;
+}
+.settings-hub-group + .settings-hub-group{
+  border-top:1px solid var(--v2-line);
+}
+.settings-hub-label{
+  padding:8px 18px 6px;
+  color:#7b899b;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.settings-hub-row{
+  width:100%;
+  min-height:64px;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:10px 18px;
+  border:0;
+  background:transparent;
+  color:var(--v2-text);
+  text-align:left;
+  cursor:pointer;
+}
+.settings-hub-row + .settings-hub-row{
+  border-top:1px solid color-mix(in srgb,var(--v2-line) 72%,transparent);
+}
+.settings-hub-row:hover{
+  background:var(--v2-panel-soft);
+}
+.settings-hub-icon{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  background:#eef5fb;
+  color:#315777;
+  font-size:17px;
+  font-weight:800;
+}
+.settings-hub-row > span:nth-child(2){
+  min-width:0;
+  display:grid;
+  gap:3px;
+}
+.settings-hub-row strong{
+  color:#173153;
+  font-size:13px;
+  line-height:1.2;
+}
+.settings-hub-row small{
+  color:var(--v2-muted);
+  font-size:10px;
+  line-height:1.35;
+}
+.settings-hub-row > b{
+  color:#9aa9b9;
+  font-size:20px;
+  font-weight:400;
+}
+.settings-section-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:12px;
+}
+.settings-section-head > div{
+  display:grid;
+  gap:2px;
+}
+.settings-section-head strong{
+  color:#173153;
+  font-size:18px;
+}
+.settings-section-head span{
+  color:var(--v2-muted);
+  font-size:10px;
+}
+.settings-back{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--v2-line);
+  border-radius:11px;
+  background:var(--v2-panel);
+  color:#315777;
+  font-size:24px;
+  line-height:1;
+  cursor:pointer;
+}
+.settings-account-host > .card:first-child,
+#settingsDataSectionHost > .card:first-child,
+.settings-section-head + .card{
+  margin-top:0 !important;
+}
+html[data-crm-view="settings"] .team-settings-card .settings-subtitle,
+html[data-crm-view="settings"] .team-settings-card .role-list{
+  display:none !important;
+}
+@media(max-width:720px){
+  html[data-crm-view="settings"] #viewRoot{
+    max-width:none;
+  }
+  .settings-hub-card{
+    border-radius:15px;
+  }
+  .settings-hub-label{
+    padding:8px 14px 5px;
+  }
+  .settings-hub-row{
+    min-height:62px;
+    grid-template-columns:34px minmax(0,1fr) auto;
+    gap:10px;
+    padding:10px 14px;
+  }
+  .settings-hub-icon{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    font-size:16px;
+  }
+  .settings-hub-row strong{
+    font-size:12px;
+  }
+  .settings-hub-row small{
+    font-size:9px;
+  }
+  .settings-section-head{
+    margin:2px 0 10px;
+  }
+  .settings-section-head strong{
+    font-size:16px;
+  }
+}
+/* ---------- End configuración hub ---------- */
