@@ -127,10 +127,10 @@ export const CHART_DIMENSIONS = [
 
 /** Perfiles de acceso. El detalle describe qué puede hacer cada uno dentro del CRM. */
 export const USER_ROLES = [
-  { id: 'super', label: 'Súper administrador', detail: 'Control total del CRM. Configuración y auditoría quedan habilitadas por el perfil.' },
-  { id: 'admin', label: 'Administrador', detail: 'Administra usuarios Comercial y Visita. Configuración y auditoría quedan habilitadas por el perfil.' },
-  { id: 'comercial', label: 'Comercial', detail: 'Puede trabajar y editar dentro de los módulos que le habilites.' },
-  { id: 'visita', label: 'Visita', detail: 'Solo lectura dentro de los módulos que le habilites.' }
+  { id: 'super', label: 'Súper administrador', detail: 'Acceso total al CRM y su administración.' },
+  { id: 'admin', label: 'Administrador', detail: 'Administra usuarios Comercial y Visita.' },
+  { id: 'comercial', label: 'Comercial', detail: 'Edita los módulos que tenga habilitados.' },
+  { id: 'visita', label: 'Visita', detail: 'Solo lectura en los módulos habilitados.' }
 ];
 
 export const USER_MODULES = [
