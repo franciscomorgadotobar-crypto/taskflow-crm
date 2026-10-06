@@ -842,8 +842,9 @@ function injectMascotSettingsCard() {
       </label>
     </div>`;
 
-  // Datos y respaldo debe ser la última sección de Configuración.
-  root.appendChild(card);
+  const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación CRM');
+  if (appCard) appCard.insertAdjacentElement('afterend', card);
+  else cards[0].insertAdjacentElement('afterend', card);
 
   $('v2MascotToggle')?.addEventListener('change', async (event) => {
     await setMascotPreference(event.currentTarget.checked);
@@ -864,7 +865,7 @@ function injectSettingsDataCard() {
       <p class="muted">Exporta o importa respaldos, descarga leads y revisa el estado de sincronización. Las acciones sensibles quedan separadas de la operación comercial.</p>
       <div class="v2-data-actions"><button type="button" class="ghost-btn" data-v2-open-data>Gestionar datos y respaldo</button></div>
     </div>`;
-  cards[0].insertAdjacentElement('afterend', card);
+  root.appendChild(card);
   q('[data-v2-open-data]', card)?.addEventListener('click', () => $('dataBtn')?.click());
 }
 
