@@ -219,16 +219,44 @@ function toggleMobileDrawer(force) {
   overlay.hidden = !open;
   document.documentElement.classList.toggle('v2-drawer-open', open);
   $('v2MobileMenuBtn')?.setAttribute('aria-expanded', String(open));
+  q('[data-mobile-more]', $('nav'))?.setAttribute('aria-expanded', String(open));
 }
 
 function applyMobileBottomNav() {
   const nav = $('nav');
+  const mode = state.me?.mobileNavMode === 'bottom' ? 'bottom' : 'drawer';
+  const position = state.me?.mobileMenuPosition === 'right' ? 'right' : 'left';
+  document.documentElement.dataset.mobileNavMode = mode;
+  document.documentElement.dataset.mobileMenuPosition = position;
+
   if (nav) {
     q('[data-mobile-more]', nav)?.remove();
     qa('.nav-item', nav).forEach((item) => {
       delete item.dataset.mobileNavSlot;
       item.style.removeProperty('--mobile-order');
     });
+
+    if (mode === 'bottom') {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'nav-item v2-more-nav';
+      more.dataset.mobileMore = 'true';
+      more.setAttribute('aria-label', 'Ver todos los módulos');
+      more.setAttribute('aria-expanded', 'false');
+      more.innerHTML = '<span class="v2-more-icon" aria-hidden="true">☰</span><span>Más</span>';
+      nav.appendChild(more);
+
+      const views = effectiveBottomNav();
+      nav.style.setProperty('--mobile-nav-count', '5');
+      views.forEach((view, index) => {
+        const item = q(`.nav-item[data-view="${view}"]`, nav);
+        if (!item) return;
+        item.dataset.mobileNavSlot = String(index + 1);
+        item.style.setProperty('--mobile-order', String(index + 1));
+      });
+      more.dataset.mobileNavSlot = '5';
+      more.style.setProperty('--mobile-order', '5');
+    }
   }
   renderMobileDrawer();
 }
@@ -1020,7 +1048,7 @@ function bindGlobalEvents() {
   }, true);
 
   document.addEventListener('click', (ev) => {
-    const mobileMenu = ev.target.closest?.('[data-mobile-menu]');
+    const mobileMenu = ev.target.closest?.('[data-mobile-menu], [data-mobile-more]');
     if (mobileMenu) {
       ev.preventDefault();
       ev.stopPropagation();
