@@ -253,9 +253,11 @@ async function upsertCampaignMatches(admin,campaignId,items,opportunityByCode) {
   if(error) throw error;
   return data||[];
 }
-async function searchCampaign(admin,ticket,org,campaignId) {
-  const {data:campaign,error:campaignError}=await admin.from("chilecompra_campaigns")
-    .select("*").eq("id",campaignId).eq("organization_id",org).maybeSingle();
+async function searchCampaign(admin,ticket,org,campaignId,userId,role) {
+  let campaignQuery=admin.from("chilecompra_campaigns")
+    .select("*").eq("id",campaignId).eq("organization_id",org);
+  if(!["super","admin"].includes(role)) campaignQuery=campaignQuery.eq("created_by",userId);
+  const {data:campaign,error:campaignError}=await campaignQuery.maybeSingle();
   if(campaignError) throw campaignError;
   if(!campaign) throw new Error("Campaña no encontrada");
   const listings=await activeListings(ticket);
@@ -286,9 +288,11 @@ async function searchCampaign(admin,ticket,org,campaignId) {
   saved.sort((a,b)=>(order.get(a.external_code)??999)-(order.get(b.external_code)??999));
   return {sourceCount:listings.length,results:saved.slice(0,250),campaign};
 }
-async function syncOrganization(admin,ticket,org) {
-  const {data:campaigns,error:campaignError}=await admin.from("chilecompra_campaigns")
-    .select("*").eq("organization_id",org).eq("active",true).order("created_at");
+async function syncOrganization(admin,ticket,org,userId="",role="super") {
+  let campaignQuery=admin.from("chilecompra_campaigns")
+    .select("*").eq("organization_id",org).eq("active",true);
+  if(userId && !["super","admin"].includes(role)) campaignQuery=campaignQuery.eq("created_by",userId);
+  const {data:campaigns,error:campaignError}=await campaignQuery.order("created_at");
   if(campaignError) throw campaignError;
   if(!(campaigns||[]).length) {
     return {organizationId:org,sourceCount:0,campaigns:0,matched:0,newMatches:0};
@@ -457,7 +461,7 @@ function aggregateAnalytics(listings,{metric="publications",groupBy="industry"}=
     categoryExamples:Object.fromEntries([...examples.entries()])
   };
 }
-async function marketAnalytics(admin,ticket,org,body) {
+async function marketAnalytics(admin,ticket,org,body,userId,role) {
   const universe=String(body?.universe||"campaigns");
   const metric=String(body?.metric||"publications");
   const groupBy=String(body?.groupBy||"industry");
@@ -465,15 +469,17 @@ async function marketAnalytics(admin,ticket,org,body) {
   let selected=listings, configured=true;
 
   if(universe==="campaigns") {
-    const {data:campaigns,error}=await admin.from("chilecompra_campaigns")
+    let campaignQuery=admin.from("chilecompra_campaigns")
       .select("query_terms").eq("organization_id",org).eq("active",true);
+    if(!["super","admin"].includes(role)) campaignQuery=campaignQuery.eq("created_by",userId);
+    const {data:campaigns,error}=await campaignQuery;
     if(error) throw error;
     const terms=[...new Set((campaigns||[]).flatMap(c=>c.query_terms||[]))];
     configured=terms.length>0;
     selected=filterByTerms(listings,terms);
   } else if(universe==="business") {
     const {data:profile,error}=await admin.from("chilecompra_market_profiles")
-      .select("query_terms").eq("organization_id",org).maybeSingle();
+      .select("query_terms").eq("organization_id",org).eq("profile_id",userId).maybeSingle();
     if(error) throw error;
     const terms=profile?.query_terms||[];
     configured=terms.length>0;
@@ -1062,7 +1068,7 @@ function cmCampaignMatches(order,items,campaigns=[]) {
   }).filter(Boolean);
 }
 
-async function cmDashboard(admin,ticket,org,body) {
+async function cmDashboard(admin,ticket,org,body,userId,role) {
   const days=Math.max(1,Math.min(180,Number(body?.days)||30));
   const query=String(body?.query||"").trim();
   const campaignId=String(body?.campaignId||"").trim();
@@ -1084,11 +1090,14 @@ async function cmDashboard(admin,ticket,org,body) {
       .order("observed_date",{ascending:false})
       .order("created_at_mp",{ascending:false})
       .limit(5000),
-    admin.from("chilecompra_campaigns")
-      .select("id,name,query_terms,active")
-      .eq("organization_id",org)
-      .eq("active",true)
-      .order("created_at",{ascending:true})
+    (() => {
+      let q=admin.from("chilecompra_campaigns")
+        .select("id,name,query_terms,active")
+        .eq("organization_id",org)
+        .eq("active",true);
+      if(!["super","admin"].includes(role)) q=q.eq("created_by",userId);
+      return q.order("created_at",{ascending:true});
+    })()
   ]);
   if(ordersError) throw ordersError;
   if(campaignError) throw campaignError;
@@ -1129,7 +1138,7 @@ async function cmDashboard(admin,ticket,org,body) {
   let states=[];
   if(stateCodes.length) {
     const {data,error}=await admin.from("chilecompra_cm_states")
-      .select("*").eq("organization_id",org).in("order_code",stateCodes);
+      .select("*").eq("organization_id",org).eq("profile_id",userId).in("order_code",stateCodes);
     if(error && error.code!=="PGRST116") throw error;
     states=data||[];
   }
@@ -1188,7 +1197,7 @@ Deno.serve(async req=>{
 
   try {
     const cronHeader=req.headers.get("x-radar-cron")||"";
-    let org="", cron=false;
+    let org="", userId="", role="", cron=false;
     if(cronHeader) cron=cronHeader===await loadSecret(admin,"internal_chilecompra_cron_key");
 
     if(!cron) {
@@ -1197,9 +1206,11 @@ Deno.serve(async req=>{
       const {data:auth,error:authError}=await admin.auth.getUser(jwt);
       if(authError||!auth?.user) return json({error:"unauthorized"},401);
       const {data:profile,error:profileError}=await admin.from("profiles")
-        .select("organization_id,active").eq("id",auth.user.id).maybeSingle();
+        .select("organization_id,active,role").eq("id",auth.user.id).maybeSingle();
       if(profileError||!profile?.active||!profile.organization_id) return json({error:"profile_unavailable"},403);
       org=profile.organization_id;
+      userId=auth.user.id;
+      role=String(profile.role||"");
     }
 
     const body=await req.json().catch(()=>({}));
@@ -1217,12 +1228,12 @@ Deno.serve(async req=>{
       if(cron) return json({error:"campaign_requires_user"},403);
       const campaignId=String(body?.campaignId||"").trim();
       if(!campaignId) return json({error:"campaign_required"},400);
-      return json({ok:true,...await searchCampaign(admin,ticket,org,campaignId)});
+      return json({ok:true,...await searchCampaign(admin,ticket,org,campaignId,userId,role)});
     }
 
     if(action==="analytics") {
       if(cron) return json({error:"analytics_requires_user"},403);
-      return json({ok:true,...await marketAnalytics(admin,ticket,org,body)});
+      return json({ok:true,...await marketAnalytics(admin,ticket,org,body,userId,role)});
     }
 
     if(action==="cm-sync") {
@@ -1234,7 +1245,7 @@ Deno.serve(async req=>{
 
     if(action==="cm-dashboard") {
       if(cron) return json({error:"cm_dashboard_requires_user"},403);
-      return json({ok:true,...await cmDashboard(admin,ticket,org,body)});
+      return json({ok:true,...await cmDashboard(admin,ticket,org,body,userId,role)});
     }
 
     if(action==="cm-backfill") {
@@ -1260,7 +1271,7 @@ Deno.serve(async req=>{
         .select("*").eq("order_code",code).order("line_no");
       if(itemsError) throw itemsError;
       const {data:state,error:stateError}=await admin.from("chilecompra_cm_states")
-        .select("*").eq("organization_id",org).eq("order_code",code).maybeSingle();
+        .select("*").eq("organization_id",org).eq("profile_id",userId).eq("order_code",code).maybeSingle();
       if(stateError && stateError.code!=="PGRST116") throw stateError;
       return json({ok:true,order:{...order,commercial_state:state||null},items:items||[]});
     }
@@ -1269,8 +1280,9 @@ Deno.serve(async req=>{
       if(cron) return json({error:"review_requires_user"},403);
       const opportunityId=String(body?.opportunityId||"").trim();
       if(!opportunityId) return json({error:"opportunity_required"},400);
-      const {data:campaigns}=await admin.from("chilecompra_campaigns")
-        .select("id").eq("organization_id",org);
+      let campaignQuery=admin.from("chilecompra_campaigns").select("id").eq("organization_id",org);
+      if(!["super","admin"].includes(role)) campaignQuery=campaignQuery.eq("created_by",userId);
+      const {data:campaigns}=await campaignQuery;
       const ids=(campaigns||[]).map(x=>x.id);
       if(ids.length) {
         const {error}=await admin.from("chilecompra_campaign_matches")
@@ -1309,7 +1321,7 @@ Deno.serve(async req=>{
         orgs=(data||[]).map(x=>x.id).filter(Boolean);
       } else orgs=[org];
       const results=[];
-      for(const orgId of orgs) results.push(await syncOrganization(admin,ticket,orgId));
+      for(const orgId of orgs) results.push(await syncOrganization(admin,ticket,orgId,cron?"":userId,cron?"super":role));
       return json({ok:true,syncedAt:new Date().toISOString(),results});
     }
 
