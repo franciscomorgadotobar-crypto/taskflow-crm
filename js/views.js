@@ -860,7 +860,7 @@ export function renderProfile() {
       <div class="card-head">
         <div>
           <h3>Datos personales</h3>
-          <span class="muted">Tus datos personales y seguridad de acceso.</span>
+          <span class="muted">Información y seguridad de acceso.</span>
         </div>
       </div>
       <div class="card-body">
@@ -1068,20 +1068,16 @@ export function renderSettings(ui = {}) {
       </article>`;
   };
 
-  const back = (title, subtitle = '') => `
+  const back = (title) => `
     <div class="settings-section-head">
       <button type="button" class="settings-back" data-action="settings-home" aria-label="Volver a Configuración">‹</button>
-      <div><strong>${e(title)}</strong>${subtitle ? `<span>${e(subtitle)}</span>` : ''}</div>
+      <div><strong>${e(title)}</strong></div>
     </div>`;
 
   const usersSection = `
-    ${back('Usuarios y permisos', 'Accesos, perfiles y módulos')}
+    ${back('Usuarios y permisos')}
     <div class="card team-settings-card">
-      <div class="card-head team-card-head">
-        <div>
-          <h3>Usuarios y permisos</h3>
-          <span class="muted">Quién puede entrar y qué módulos puede usar.</span>
-        </div>
+      <div class="team-users-toolbar">
         ${teamAdmin ? '<button type="button" class="primary-btn" data-action="team-add">+ Agregar usuario</button>' : ''}
       </div>
       <div class="card-body">
@@ -1103,7 +1099,7 @@ export function renderSettings(ui = {}) {
     </div>`;
 
   const navigationSection = `
-    ${back('Navegación móvil', 'Cómo te mueves por el CRM en el teléfono')}
+    ${back('Navegación móvil')}
     <div class="card settings-mobile-nav-card">
       <div class="card-body mobile-nav-settings">
         <div class="mobile-nav-mode-grid" role="radiogroup" aria-label="Tipo de navegación móvil">
@@ -1144,7 +1140,7 @@ export function renderSettings(ui = {}) {
     </div>`;
 
   const demoSection = `
-    ${back('Datos de demostración', 'Contenido de prueba')}
+    ${back('Datos de demostración')}
     <div class="card settings-demo-card">
       <div class="card-body">
         <p class="muted settings-hint">Carga información de ejemplo para probar el CRM o elimina esos datos cuando termines.</p>
@@ -1156,13 +1152,13 @@ export function renderSettings(ui = {}) {
     </div>`;
 
   if (section === 'account') {
-    return `${back('Mi cuenta', 'Datos personales, acceso y aplicación')}<div id="settingsAccountHost" class="settings-account-host">${renderProfile()}</div>`;
+    return `${back('Mi cuenta')}<div id="settingsAccountHost" class="settings-account-host">${renderProfile()}</div>`;
   }
   if (section === 'navigation') return navigationSection;
   if (section === 'users' && teamAdmin) return usersSection;
   if (section === 'demo' && teamAdmin) return demoSection;
   if (section === 'data' && teamAdmin) {
-    return `${back('Datos y respaldo', 'Exportación, importación y sincronización')}<div id="settingsDataSectionHost"></div>`;
+    return `${back('Datos y respaldo')}<div id="settingsDataSectionHost"></div>`;
   }
 
   return `
