@@ -224,6 +224,7 @@ function toggleMobileDrawer(force) {
 
 function applyMobileBottomNav() {
   const nav = $('nav');
+  const isMobile = window.matchMedia('(max-width: 900px)').matches;
   const mode = state.me?.mobileNavMode === 'bottom' ? 'bottom' : 'drawer';
   const position = state.me?.mobileMenuPosition === 'right' ? 'right' : 'left';
   document.documentElement.dataset.mobileNavMode = mode;
@@ -236,7 +237,7 @@ function applyMobileBottomNav() {
       item.style.removeProperty('--mobile-order');
     });
 
-    if (mode === 'bottom') {
+    if (isMobile && mode === 'bottom') {
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'nav-item v2-more-nav';
@@ -258,7 +259,9 @@ function applyMobileBottomNav() {
       more.style.setProperty('--mobile-order', '5');
     }
   }
-  renderMobileDrawer();
+
+  if (isMobile) renderMobileDrawer();
+  else toggleMobileDrawer(false);
 }
 
 function gotoView(view) {
@@ -1143,6 +1146,11 @@ function init() {
   onChileCompraChange(() => queueMicrotask(() => {
     renderDashboardSummary();
   }));
+
+  const mobileNavMedia = window.matchMedia('(max-width: 900px)');
+  const refreshMobileNavigation = () => applyMobileBottomNav();
+  if (mobileNavMedia.addEventListener) mobileNavMedia.addEventListener('change', refreshMobileNavigation);
+  else mobileNavMedia.addListener?.(refreshMobileNavigation);
 
   window.addEventListener('storage', (event) => {
     if (event.key !== mascotPreferenceKey()) return;
