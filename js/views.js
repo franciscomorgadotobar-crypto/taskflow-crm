@@ -886,34 +886,6 @@ export function renderProfile() {
       </div>
     </div>
 
-    <div class="card profile-bottom-nav-card" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h3>Barra inferior</h3>
-          <span class="muted">Elige cuatro accesos rápidos. “Más” queda fijo y abre todos tus módulos habilitados.</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="profile-bottom-nav-preview" id="profileBottomNavPreview" aria-label="Vista previa de la barra inferior">
-          ${bottomNav.map((id) => `<div class="profile-bottom-nav-preview-item" data-preview-view="${e(id)}">${navPreviewIcon(id)}<small>${e(navPreviewLabel(id))}</small></div>`).join('')}
-          <div class="profile-bottom-nav-preview-item profile-bottom-nav-preview-more"><span class="profile-bottom-nav-symbol profile-bottom-nav-symbol--more" aria-hidden="true"></span><small>Más</small></div>
-        </div>
-        <div class="profile-bottom-nav-selects">
-          ${Array.from({ length: 4 }, (_, index) => {
-            const selected = bottomNav[index] || navChoices[index]?.id || '';
-            return `<label><span>Posición ${index + 1}</span><select data-bottom-nav-select="${index + 1}">${navOption(selected)}</select></label>`;
-          }).join('')}
-        </div>
-        <p class="muted settings-hint">
-          Estos cuatro accesos aparecen de izquierda a derecha. “Más” siempre queda al final y muestra todos los módulos habilitados.
-        </p>
-        <div class="button-row" style="margin-top:12px">
-          <button class="primary-btn" data-action="save-bottom-nav">Guardar barra inferior</button>
-          <button class="ghost-btn" data-action="reset-bottom-nav">Usar configuración predeterminada</button>
-        </div>
-      </div>
-    </div>
-
     <div class="card profile-app-card" style="margin-top:16px">
       <div class="card-head">
         <div>
