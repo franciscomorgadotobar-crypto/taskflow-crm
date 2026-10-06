@@ -7126,3 +7126,53 @@ html[data-crm-view="dashboard"] .v2-cc-compact-campaign strong{
   .v2-mobile-drawer,.v2-mobile-drawer-overlay{display:none!important}
 }
 /* ---------- End navegación móvil ---------- */
+
+/* ---------- Navegación móvil única · drawer desde header ---------- */
+.v2-mobile-menu-btn{display:none;}
+@media(max-width:900px){
+  body{
+    padding-bottom:0 !important;
+  }
+  .sidebar{
+    display:none !important;
+  }
+  .main{
+    padding-bottom:24px !important;
+  }
+  .topbar > div:first-child{
+    display:flex !important;
+    align-items:center !important;
+    gap:11px !important;
+  }
+  .v2-mobile-menu-btn{
+    flex:0 0 46px;
+    width:46px;
+    height:46px;
+    display:grid;
+    place-items:center;
+    padding:0;
+    border:1px solid rgba(255,255,255,.28);
+    border-radius:14px;
+    background:rgba(255,255,255,.08);
+    color:#fff;
+    box-shadow:none;
+    cursor:pointer;
+  }
+  .v2-mobile-menu-btn > span{
+    font-size:24px;
+    line-height:1;
+    transform:translateY(-1px);
+  }
+  .v2-mobile-heading{
+    flex:1 1 auto;
+    min-width:0;
+  }
+  .nav .v2-more-nav,
+  .nav .nav-item[data-mobile-nav-slot]{
+    display:none !important;
+  }
+}
+@media(min-width:901px){
+  .v2-mobile-menu-btn{display:none !important;}
+}
+/* ---------- End navegación móvil única ---------- */
