@@ -2456,7 +2456,7 @@ const ACTIONS = {
       : USER_MODULES.map((module) => module.id));
     if (values.some((id) => !allowed.has(id))) return toast('Uno de los módulos seleccionados no está habilitado para tu usuario.', 'error');
 
-    if (await saveProfile({ bottomNav: values.slice(0, 5) })) {
+    if (await saveProfile({ bottomNav: values.slice(0, 4) })) {
       render();
       toast('Barra inferior actualizada.');
     }
@@ -2467,9 +2467,9 @@ const ACTIONS = {
       : USER_MODULES.map((module) => module.id));
     const values = DEFAULT_BOTTOM_NAV.filter((id) => allowed.has(id));
     USER_MODULES.forEach((module) => {
-      if (values.length < 5 && allowed.has(module.id) && !values.includes(module.id)) values.push(module.id);
+      if (values.length < 4 && allowed.has(module.id) && !values.includes(module.id)) values.push(module.id);
     });
-    if (await saveProfile({ bottomNav: values.slice(0, 5) })) {
+    if (await saveProfile({ bottomNav: values.slice(0, 4) })) {
       render();
       toast('Se restauró la barra inferior predeterminada.');
     }
