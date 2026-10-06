@@ -708,7 +708,6 @@ function renderDashboardSummary() {
         <div class="v2-kpi-label-row"><span>Pipeline activo</span><span class="v2-kpi-info" aria-label="Valor total de oportunidades abiertas">i</span></div>
         <strong>${esc(money(m.pipelineValue))}</strong>
         <small><b>${m.open.length}</b> ${m.open.length === 1 ? 'oportunidad abierta' : 'oportunidades abiertas'}</small>
-        <div class="v2-pipeline-insight"><span>Mayor carga</span><strong>${esc(pipelineSnapshot.top.stage)}</strong><small>${pipelineSnapshot.top.value} ${pipelineSnapshot.top.value === 1 ? 'oportunidad' : 'oportunidades'}</small></div>
         <div class="v2-pipeline-chart" aria-label="Oportunidades por etapa">${pipelineSnapshot.bars}</div>
       </article>
       <article class="v2-summary-kpi v2-kpi-opportunities is-clickable" data-v2-dashboard-action="opportunities" role="button" tabindex="0">
