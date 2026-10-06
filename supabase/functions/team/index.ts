@@ -39,13 +39,13 @@ function reply(body: unknown, status = 200) {
 
 function safeRedirect(value: unknown) {
   const raw = String(value || "").trim();
-  if (!raw) return "https://franciscomorgadotobar-crypto.github.io/";
+  if (!raw) return "https://franciscomorgadotobar-crypto.github.io/taskflow-crm/";
   try {
     const url = new URL(raw);
     if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("invalid");
     return url.toString();
   } catch {
-    return "https://franciscomorgadotobar-crypto.github.io/";
+    return "https://franciscomorgadotobar-crypto.github.io/taskflow-crm/";
   }
 }
 
