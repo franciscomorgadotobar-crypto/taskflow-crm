@@ -1051,11 +1051,6 @@ export function renderSettings(ui = {}) {
             </select>
           </label>
           <p class="team-role-help">${e(role?.detail || '')}</p>
-          ${mine
-            ? manageable
-              ? '<p class="muted team-lock-note">Tu perfil base está protegido aquí. Como Súper administrador sí puedes ajustar tus módulos.</p>'
-              : '<p class="muted team-lock-note">Tu perfil base y módulos los gestiona un Súper administrador.</p>'
-            : ''}
           ${moduleAccessHtml(u, manageable)}
           ${manageable
             ? `<div class="team-member-actions">
