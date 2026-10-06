@@ -245,7 +245,7 @@ const VIEWS = {
   audit: ['Auditoría', 'Trazabilidad de cambios, responsables y registros modificados.', renderAudit],
   help: ['Ayuda y tutoriales', 'Capacitaciones guiadas sobre la interfaz real del CRM.', renderHelp],
   profile: ['Mi cuenta', 'Tus datos personales, contraseña y preferencias.', renderProfile],
-  settings: ['Configuración', 'Cuenta, navegación y administración del CRM.', renderSettings]
+  settings: ['Configuración', 'Preferencias y administración.', renderSettings]
 };
 
 /* ---------- Render ---------- */
