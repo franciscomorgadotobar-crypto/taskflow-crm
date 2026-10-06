@@ -1398,7 +1398,7 @@ export async function runTraditionalSearch(query) {
   rerender();
   try {
     const data = await invokeRadar({ action: 'search', query: clean });
-    chilecompraState.results = data.results || [];
+    chilecompraState.results = (data.results || []).map(withUserState);
     chilecompraState.sourceCount = Number(data.sourceCount || 0);
     mergeRows(chilecompraState.results);
   } finally {
