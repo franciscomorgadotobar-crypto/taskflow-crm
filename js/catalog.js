@@ -141,7 +141,7 @@ export const USER_MODULES = [
   { id: 'remarketing', label: 'Remarketing', group: 'Comercial', detail: 'Prospectos para retomar más adelante.' },
   { id: 'implementation', label: 'Implementación', group: 'Operación', detail: 'Clientes ganados y puesta en marcha.' },
   { id: 'templates', label: 'Plantillas', group: 'Herramientas', detail: 'Mensajes reutilizables para comunicación.' },
-  { id: 'chilecompra', label: 'ChileCompra', group: 'Herramientas', detail: 'Seguimientos y oportunidades de compras públicas.' },
+  { id: 'chilecompra', label: 'ChileCompra', group: 'Comercial', detail: 'Seguimientos y oportunidades de compras públicas.' },
   { id: 'quotes', label: 'Cotizaciones', group: 'Herramientas', detail: 'Listas de precios y cotizaciones.' }
 ];
 
