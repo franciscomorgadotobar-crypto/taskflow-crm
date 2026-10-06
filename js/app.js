@@ -2445,6 +2445,27 @@ const ACTIONS = {
   'save-profile': async () => {
     if (await saveProfile({ name: $('profileName').value.trim(), phone: $('profilePhone').value.trim() })) toast('Datos guardados.');
   },
+  'save-mobile-navigation': async () => {
+    const mode = document.querySelector('[name="mobileNavMode"]:checked')?.value === 'bottom' ? 'bottom' : 'drawer';
+    const position = $('mobileMenuPosition')?.value === 'right' ? 'right' : 'left';
+    const favorites = [...document.querySelectorAll('[data-mobile-nav-favorite]')].map((select) => select.value).filter(Boolean);
+
+    if (mode === 'bottom') {
+      if (favorites.length !== 4) return toast('Selecciona cuatro accesos rápidos.', 'error');
+      if (new Set(favorites).size !== favorites.length) return toast('No repitas un módulo en la barra inferior.', 'error');
+      const allowed = new Set(Array.isArray(state.me?.moduleAccess) && state.me.moduleAccess.length
+        ? state.me.moduleAccess
+        : USER_MODULES.map((module) => module.id));
+      if (favorites.some((id) => !allowed.has(id))) return toast('Uno de los accesos no está habilitado para tu usuario.', 'error');
+    }
+
+    const patch = { mobileNavMode: mode, mobileMenuPosition: position };
+    if (favorites.length) patch.bottomNav = favorites.slice(0, 4);
+    if (await saveProfile(patch)) {
+      render();
+      toast(mode === 'bottom' ? 'Barra inferior activada.' : 'Menú hamburguesa activado.');
+    }
+  },
   'save-bottom-nav': async () => {
     const selects = [...document.querySelectorAll('[data-bottom-nav-select]')];
     const values = selects.map((select) => select.value).filter(Boolean);
@@ -2704,6 +2725,16 @@ function ensureAccessibleView() {
 
 async function handleViewInput(ev) {
   const el = ev.target;
+
+  if (el.matches?.('[name="mobileNavMode"]')) {
+    if (ev.type !== 'change') return;
+    const mode = document.querySelector('[name="mobileNavMode"]:checked')?.value === 'bottom' ? 'bottom' : 'drawer';
+    const drawerSettings = $('mobileDrawerSettings');
+    const bottomSettings = $('mobileBottomSettings');
+    if (drawerSettings) drawerSettings.hidden = mode !== 'drawer';
+    if (bottomSettings) bottomSettings.hidden = mode !== 'bottom';
+    return;
+  }
 
   if (el.matches?.('[data-bottom-nav-select]')) {
     if (ev.type !== 'change') return;
