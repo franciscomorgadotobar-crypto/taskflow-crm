@@ -3708,6 +3708,7 @@ function bindEvents() {
 }
 
 let authSyncGeneration = 0;
+let activeDataUserId = '';
 
 async function start() {
   document.title = `${CFG.appName} · ${CFG.companyName}`;
@@ -3742,8 +3743,21 @@ async function start() {
   onAuthChange(async (s) => {
     const generation = ++authSyncGeneration;
     if (s.status === 'signed-in') {
+      const nextUserId = s.user?.id || '';
+      const userChanged = activeDataUserId !== nextUserId;
+      if (userChanged) {
+        stopRealtime();
+        quotesStopRealtime();
+        hyperFocusStopRealtime();
+        clearLocal();
+        quotesClearLocal();
+        hyperFocusClearLocal();
+        clearChileCompra();
+        clearTutorials();
+        activeDataUserId = nextUserId;
+      }
       $('authScreen').hidden = true;
-      $('appShell').hidden = false;
+      $('appShell').hidden = userChanged;
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
       try {
         await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra(), hydrateTutorials()]);
@@ -3767,6 +3781,7 @@ async function start() {
         ensureAccessibleView();
         refreshNotificationBadge();
         paintSync({ state: 'ok', message: 'Conectado' });
+        $('appShell').hidden = false;
       } catch (err) {
         if (generation !== authSyncGeneration) return;
         paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
@@ -3780,6 +3795,7 @@ async function start() {
         }
       }
     } else if (s.status === 'profile-error') {
+      activeDataUserId = '';
       stopRealtime();
       quotesStopRealtime();
       hyperFocusStopRealtime();
@@ -3795,6 +3811,7 @@ async function start() {
       $('authError').textContent = s.error?.message || 'No se pudo cargar tu perfil. Revisa la conexión e intenta entrar nuevamente.';
       $('authError').hidden = false;
     } else if (s.status === 'signed-out') {
+      activeDataUserId = '';
       stopRealtime();
       quotesStopRealtime();
       hyperFocusStopRealtime();
