@@ -290,7 +290,6 @@ function buildHeaderTools() {
         </button>
         <div id="v2UserMenu" class="v2-user-menu" role="menu" hidden>
           <div class="v2-menu-profile"><strong id="v2MenuName">Usuario</strong><span id="v2MenuEmail"></span></div>
-          <button class="v2-menu-item" type="button" data-v2-action="profile"><span>Mi cuenta</span><span>›</span></button>
           <button id="v2SettingsMenu" class="v2-menu-item" type="button" data-v2-view="settings" hidden><span>Configuración</span><span>›</span></button>
           <button class="v2-menu-item" type="button" data-v2-action="theme"><span>Cambiar apariencia</span><span>◐</span></button>
           <button class="v2-menu-item danger" type="button" data-v2-action="signout"><span>Cerrar sesión</span><span>↗</span></button>
@@ -381,7 +380,6 @@ async function handleMenuAction(ev) {
   const view = btn.dataset.v2View;
   toggleUserMenu(false);
   if (view) gotoView(view);
-  if (action === 'profile') gotoView('profile');
   if (action === 'data') $('dataBtn')?.click();
   if (action === 'theme') $('themeToggle')?.click();
   if (action === 'signout') await signOut();
@@ -918,11 +916,12 @@ function setDetailTab(id) {
 
 /* ---------- Settings ---------- */
 function injectMascotSettingsCard() {
-  if ($('viewTitle')?.textContent.trim() !== 'Mi cuenta') return;
   const root = $('viewRoot');
-  if (!root || q('.v2-mascot-settings-card', root)) return;
+  const accountHost = $('settingsAccountHost');
+  const host = accountHost || ($('viewTitle')?.textContent.trim() === 'Mi cuenta' ? root : null);
+  if (!host || q('.v2-mascot-settings-card', host)) return;
 
-  const cards = qa(':scope > .card', root);
+  const cards = qa(':scope > .card', host);
   if (!cards.length) return;
 
   const enabled = mascotEnabled();
@@ -959,11 +958,8 @@ function injectMascotSettingsCard() {
 }
 
 function injectSettingsDataCard() {
-  if ($('viewTitle')?.textContent.trim() !== 'Configuración') return;
-  const root = $('viewRoot');
-  if (!root || q('.v2-data-card', root)) return;
-  const cards = qa(':scope > .card', root);
-  if (!cards.length) return;
+  const host = $('settingsDataSectionHost');
+  if (!host || q('.v2-data-card', host)) return;
   const card = document.createElement('div');
   card.className = 'card v2-data-card';
   card.innerHTML = `
@@ -972,7 +968,7 @@ function injectSettingsDataCard() {
       <p class="muted">Exporta o importa respaldos, descarga leads y revisa el estado de sincronización. Las acciones sensibles quedan separadas de la operación comercial.</p>
       <div class="v2-data-actions"><button type="button" class="ghost-btn" data-v2-open-data>Gestionar datos y respaldo</button></div>
     </div>`;
-  root.appendChild(card);
+  host.appendChild(card);
   q('[data-v2-open-data]', card)?.addEventListener('click', () => $('dataBtn')?.click());
 }
 
