@@ -2168,10 +2168,7 @@ function refreshTeamRoleDetail() {
   const role = $('teamRole')?.value || 'comercial';
   const detail = $('teamRoleDetail');
   if (!detail) return;
-  const system = ['super', 'admin'].includes(role)
-    ? ' Configuración y Auditoría se habilitan automáticamente por este perfil.'
-    : '';
-  detail.innerHTML = `<strong>${escapeHtml(USER_ROLES.find((r) => r.id === role)?.label || role)}</strong><span>${escapeHtml(teamRoleDescription(role) + system)}</span>`;
+  detail.innerHTML = `<strong>${escapeHtml(USER_ROLES.find((r) => r.id === role)?.label || role)}</strong><span>${escapeHtml(teamRoleDescription(role))}</span>`;
 }
 
 function renderTeamModuleChecks(selected = USER_MODULES.map((module) => module.id)) {
