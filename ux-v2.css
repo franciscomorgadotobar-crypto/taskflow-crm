@@ -7519,3 +7519,39 @@ html[data-crm-view="settings"] .team-settings-card .role-list{
   }
 }
 /* ---------- End limpieza de textos ---------- */
+
+
+/* ---------- Dashboard · gráfico pipeline sin Mayor carga ---------- */
+@media(max-width:900px){
+  html[data-crm-view="dashboard"] .v2-pipeline-chart{
+    top:22px !important;
+    right:8px !important;
+    bottom:auto !important;
+    width:52% !important;
+    height:102px !important;
+  }
+  html[data-crm-view="dashboard"] .v2-pipeline-stage{
+    height:102px !important;
+    grid-template-rows:14px 72px 13px !important;
+  }
+  html[data-crm-view="dashboard"] .v2-pipeline-stage i{
+    max-height:72px !important;
+  }
+}
+@media(min-width:901px){
+  html[data-crm-view="dashboard"] .v2-pipeline-chart{
+    top:22px !important;
+    right:15px !important;
+    bottom:auto !important;
+    width:52% !important;
+    height:118px !important;
+  }
+  html[data-crm-view="dashboard"] .v2-pipeline-stage{
+    height:118px !important;
+    grid-template-rows:14px 88px 12px !important;
+  }
+  html[data-crm-view="dashboard"] .v2-pipeline-stage i{
+    max-height:88px !important;
+  }
+}
+/* ---------- End gráfico pipeline sin Mayor carga ---------- */
