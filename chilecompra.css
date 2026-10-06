@@ -2498,3 +2498,138 @@
   }
 }
 /* ---------- End Convenio Marco ---------- */
+
+
+/* ---------- ChileCompra navegación agrupada · 4 secciones ---------- */
+.cc-dashboard-nav--grouped{
+  display:grid;
+  grid-template-columns:1fr;
+  overflow:hidden;
+  border:1px solid var(--cc-border);
+  border-radius:14px;
+  background:var(--surface,#fff);
+}
+.cc-dashboard-tabs--primary{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:0 !important;
+  padding:0 !important;
+  overflow:visible !important;
+  border:0 !important;
+}
+.cc-dashboard-tabs--primary button{
+  min-width:0;
+  min-height:50px;
+  padding:0 10px;
+  border:0;
+  border-bottom:3px solid transparent;
+  border-radius:0;
+  background:transparent;
+  color:#5e6e84;
+  font:inherit;
+  font-size:11px;
+  font-weight:700;
+  text-align:center;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.cc-dashboard-tabs--primary button:hover{
+  background:#f7fbff;
+  color:#176fbe;
+}
+.cc-dashboard-tabs--primary button.active{
+  background:#fbfdff;
+  color:#0b70c6;
+  border-bottom-color:#1684e8;
+}
+.cc-secondary-nav--context{
+  min-height:46px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-top:1px solid var(--cc-border);
+  background:#f7faff;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.cc-secondary-nav--context::-webkit-scrollbar{display:none}
+.cc-secondary-nav--context button{
+  flex:0 0 auto;
+  min-height:32px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#66778d;
+  font:inherit;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.cc-secondary-nav--context button.active{
+  border-color:#c1dcf5;
+  background:#eaf4ff;
+  color:#0d70c5;
+}
+.cc-nav-count{
+  min-width:19px;
+  height:19px;
+  display:inline-grid;
+  place-items:center;
+  padding:0 5px;
+  border-radius:999px;
+  background:#dceeff;
+  color:#0a68b4;
+  font-size:8px;
+  font-weight:800;
+}
+@media(max-width:700px){
+  .cc-dashboard-nav--grouped{
+    border-radius:12px;
+  }
+  .cc-dashboard-tabs--primary button{
+    min-height:48px;
+    padding:0 4px;
+    font-size:10px;
+  }
+  .cc-secondary-nav--context{
+    min-height:44px;
+    gap:5px;
+    padding:6px 8px;
+  }
+  .cc-secondary-nav--context button{
+    min-height:31px;
+    padding:6px 9px;
+    font-size:9px;
+  }
+}
+:root[data-theme="dark"] .cc-dashboard-nav--grouped{
+  background:var(--v2-panel,#17243a);
+  border-color:var(--v2-line,#2d3b52);
+}
+:root[data-theme="dark"] .cc-dashboard-tabs--primary button{
+  color:#aebbc9;
+}
+:root[data-theme="dark"] .cc-dashboard-tabs--primary button:hover,
+:root[data-theme="dark"] .cc-dashboard-tabs--primary button.active{
+  background:#1c2d43;
+  color:#8fc8ff;
+}
+:root[data-theme="dark"] .cc-secondary-nav--context{
+  background:#142337;
+  border-color:#2d3b52;
+}
+:root[data-theme="dark"] .cc-secondary-nav--context button{
+  color:#aebbc9;
+}
+:root[data-theme="dark"] .cc-secondary-nav--context button.active{
+  background:#203b59;
+  border-color:#345b80;
+  color:#9fd1ff;
+}
+/* ---------- End navegación agrupada ---------- */
