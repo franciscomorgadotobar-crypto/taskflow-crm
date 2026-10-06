@@ -2,8 +2,8 @@ import { DEFAULT_USER_MODULE_IDS } from './catalog.js';
 import { session } from './auth.js';
 import { state } from './store.js';
 
-const ALWAYS_VISIBLE = new Set(['help', 'profile']);
-const ADMIN_VIEWS = new Set(['settings', 'audit']);
+const ALWAYS_VISIBLE = new Set(['help', 'profile', 'settings']);
+const ADMIN_VIEWS = new Set(['audit']);
 
 export function currentAccessProfile() {
   return state.me || session.profile || null;
