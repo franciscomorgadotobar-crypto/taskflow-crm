@@ -908,21 +908,11 @@ export function renderProfile() {
     </div>`;
 }
 
-export function renderSettings() {
-  if (!isAdmin()) {
-    return `
-      <div class="card">
-        <div class="card-body">
-          <div class="empty">
-            <strong>Configuración administrativa</strong>
-            <p>Tu permiso no incluye administración del CRM. Tus datos personales están en Mi cuenta.</p>
-          </div>
-        </div>
-      </div>`;
-  }
-
+export function renderSettings(ui = {}) {
   const me = state.me;
   const teamAdmin = isAdmin();
+  const requestedSection = ui.settingsSection || 'home';
+  const section = !teamAdmin && ['users', 'demo', 'data'].includes(requestedSection) ? 'home' : requestedSection;
   const teamSuper = isSuper();
   const members = [...state.team].sort((a, b) => Number(b.active) - Number(a.active) || String(a.name || a.email).localeCompare(String(b.name || b.email), 'es'));
   const activeMembers = members.filter((u) => u.active);
@@ -983,8 +973,8 @@ export function renderSettings() {
     return `
       <details class="team-training-panel">
         <summary>
-          <span>Capacitación</span>
-          <small>Asignar tutoriales y revisar progreso</small>
+          <span>Tutoriales asignados</span>
+          <small>Asignar y revisar progreso</small>
         </summary>
         <div class="team-training-list">
           ${tutorials.map((tutorial) => {
@@ -1080,12 +1070,19 @@ export function renderSettings() {
       </article>`;
   };
 
-  return `
-    <div class="card team-settings-card" style="margin-top:16px">
+  const back = (title, subtitle = '') => `
+    <div class="settings-section-head">
+      <button type="button" class="settings-back" data-action="settings-home" aria-label="Volver a Configuración">‹</button>
+      <div><strong>${e(title)}</strong>${subtitle ? `<span>${e(subtitle)}</span>` : ''}</div>
+    </div>`;
+
+  const usersSection = `
+    ${back('Usuarios y permisos', 'Accesos, perfiles y módulos')}
+    <div class="card team-settings-card">
       <div class="card-head team-card-head">
         <div>
-          <h3>Usuarios y accesos</h3>
-          <span class="muted">Quién puede entrar al CRM, qué puede hacer y qué capacitación tiene asignada.</span>
+          <h3>Usuarios y permisos</h3>
+          <span class="muted">Quién puede entrar y qué módulos puede usar.</span>
         </div>
         ${teamAdmin ? '<button type="button" class="primary-btn" data-action="team-add">+ Agregar usuario</button>' : ''}
       </div>
@@ -1095,59 +1092,45 @@ export function renderSettings() {
           <div><strong>${inactiveMembers.length}</strong><span>dados de baja</span></div>
           <div><strong>${activeMembers.filter((u) => u.role === 'comercial').length}</strong><span>comerciales</span></div>
         </div>
-
         <div class="team-members">
           ${activeMembers.length ? activeMembers.map(memberCard).join('') : empty('Sin personas activas', 'Agrega la primera persona al equipo.')}
         </div>
-
         ${inactiveMembers.length
           ? `<details class="team-inactive">
               <summary>Dados de baja (${inactiveMembers.length})</summary>
               <div class="team-members">${inactiveMembers.map(memberCard).join('')}</div>
             </details>`
           : ''}
-
-        <h4 class="settings-subtitle">Perfiles base</h4>
-        <div class="role-list">
-          ${USER_ROLES.map((r) => `<div class="role-row"><strong>${e(r.label)}</strong><span class="muted">${e(r.detail)}</span></div>`).join('')}
-        </div>
       </div>
-    </div>
+    </div>`;
 
-    <div class="card settings-mobile-nav-card" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h3>Navegación móvil</h3>
-          <span class="muted">Elige una sola navegación principal para el teléfono.</span>
-        </div>
-      </div>
+  const navigationSection = `
+    ${back('Navegación móvil', 'Cómo te mueves por el CRM en el teléfono')}
+    <div class="card settings-mobile-nav-card">
       <div class="card-body mobile-nav-settings">
         <div class="mobile-nav-mode-grid" role="radiogroup" aria-label="Tipo de navegación móvil">
           <label class="mobile-nav-mode-option">
             <input type="radio" name="mobileNavMode" value="drawer" ${mobileNavMode === 'drawer' ? 'checked' : ''}>
-            <span><strong>Menú hamburguesa</strong><small>Un único botón en el encabezado abre todos los módulos.</small></span>
+            <span><strong>Menú hamburguesa</strong><small>Un botón en el encabezado abre todos tus módulos.</small></span>
           </label>
           <label class="mobile-nav-mode-option">
             <input type="radio" name="mobileNavMode" value="bottom" ${mobileNavMode === 'bottom' ? 'checked' : ''}>
-            <span><strong>Barra inferior</strong><small>Cuatro accesos rápidos y “Más” para el resto de los módulos.</small></span>
+            <span><strong>Barra inferior</strong><small>Cuatro accesos rápidos y “Más” para el resto.</small></span>
           </label>
         </div>
-
         <div id="mobileDrawerSettings" class="mobile-nav-dependent" ${mobileNavMode === 'drawer' ? '' : 'hidden'}>
           <label class="mobile-nav-field">
-            <span>Ubicación del menú</span>
+            <span>Ubicación</span>
             <select id="mobileMenuPosition">
               <option value="left" ${mobileMenuPosition === 'left' ? 'selected' : ''}>Izquierda</option>
               <option value="right" ${mobileMenuPosition === 'right' ? 'selected' : ''}>Derecha</option>
             </select>
-            <small>El panel lateral se abrirá desde el mismo lado del botón.</small>
           </label>
         </div>
-
         <div id="mobileBottomSettings" class="mobile-nav-dependent" ${mobileNavMode === 'bottom' ? '' : 'hidden'}>
           <div class="mobile-nav-field">
             <span>Accesos rápidos</span>
-            <small>El quinto acceso es “Más” y siempre abre todos tus módulos habilitados.</small>
+            <small>El quinto acceso siempre es “Más”.</small>
           </div>
           <div class="mobile-nav-favorites-grid">
             ${Array.from({ length: 4 }, (_, index) => {
@@ -1156,43 +1139,70 @@ export function renderSettings() {
             }).join('')}
           </div>
         </div>
-
         <div class="button-row mobile-nav-save">
-          <button type="button" class="primary-btn" data-action="save-mobile-navigation">Guardar navegación móvil</button>
+          <button type="button" class="primary-btn" data-action="save-mobile-navigation">Guardar</button>
         </div>
       </div>
-    </div>
-    <div class="card settings-help-card" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h3>Ayuda y capacitación</h3>
-          <span class="muted">Los recorridos del CRM ahora viven en el sistema de tutoriales.</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <p class="muted settings-hint">
-          Ya no mantenemos un segundo tutorial estático dentro de Configuración. Usa Ayuda y tutoriales para aprender cada módulo sobre la interfaz real,
-          repetir un recorrido o revisar el avance de una capacitación asignada.
-        </p>
-        <div class="button-row">
-          <button class="ghost-btn" data-action="open-help">Abrir Ayuda y tutoriales</button>
-        </div>
-      </div>
-    </div>
+    </div>`;
 
-    <div class="card settings-demo-card" style="margin-top:16px">
-      <div class="card-head"><h3>Datos de demostración</h3></div>
+  const demoSection = `
+    ${back('Datos de demostración', 'Contenido de prueba')}
+    <div class="card settings-demo-card">
       <div class="card-body">
-        <p class="muted settings-hint">
-          Carga un set de ejemplo para probar el CRM: leads por calificar, oportunidades en el pipeline,
-          prospectos en remarketing y clientes ganados en implementación.
-        </p>
+        <p class="muted settings-hint">Carga información de ejemplo para probar el CRM o elimina esos datos cuando termines.</p>
         <div class="button-row">
           <button class="ghost-btn" data-action="load-demo">Cargar datos demo</button>
           <button class="danger-btn" data-action="clear-demo">Borrar todos los datos</button>
         </div>
       </div>
     </div>`;
+
+  if (section === 'account') {
+    return `${back('Mi cuenta', 'Datos personales, acceso y aplicación')}<div id="settingsAccountHost" class="settings-account-host">${renderProfile()}</div>`;
+  }
+  if (section === 'navigation') return navigationSection;
+  if (section === 'users' && teamAdmin) return usersSection;
+  if (section === 'demo' && teamAdmin) return demoSection;
+  if (section === 'data' && teamAdmin) {
+    return `${back('Datos y respaldo', 'Exportación, importación y sincronización')}<div id="settingsDataSectionHost"></div>`;
+  }
+
+  return `
+    <div class="card settings-hub-card">
+      <div class="settings-hub-group">
+        <span class="settings-hub-label">Cuenta</span>
+        <button type="button" class="settings-hub-row" data-action="settings-open" data-id="account">
+          <span class="settings-hub-icon">◉</span>
+          <span><strong>Mi cuenta</strong><small>Datos personales, contraseña y aplicación.</small></span>
+          <b>›</b>
+        </button>
+        <button type="button" class="settings-hub-row" data-action="settings-open" data-id="navigation">
+          <span class="settings-hub-icon">☰</span>
+          <span><strong>Navegación móvil</strong><small>Barra inferior o menú hamburguesa.</small></span>
+          <b>›</b>
+        </button>
+      </div>
+      ${teamAdmin ? `
+        <div class="settings-hub-group">
+          <span class="settings-hub-label">Administración</span>
+          <button type="button" class="settings-hub-row" data-action="settings-open" data-id="users">
+            <span class="settings-hub-icon">◎</span>
+            <span><strong>Usuarios y permisos</strong><small>Accesos, perfiles y módulos habilitados.</small></span>
+            <b>›</b>
+          </button>
+          <button type="button" class="settings-hub-row" data-action="settings-open" data-id="demo">
+            <span class="settings-hub-icon">▦</span>
+            <span><strong>Datos de demostración</strong><small>Carga o elimina contenido de prueba.</small></span>
+            <b>›</b>
+          </button>
+          <button type="button" class="settings-hub-row" data-action="settings-open" data-id="data">
+            <span class="settings-hub-icon">⇩</span>
+            <span><strong>Datos y respaldo</strong><small>Exportar, importar y revisar sincronización.</small></span>
+            <b>›</b>
+          </button>
+        </div>` : ''}
+    </div>`;
+
 }
 
 /* ---------------- Cotizador ---------------- */
