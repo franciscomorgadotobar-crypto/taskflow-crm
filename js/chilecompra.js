@@ -7,6 +7,7 @@ export const chilecompraState = {
   opportunities: [],
   campaigns: [],
   matches: [],
+  userStates: [],
   marketProfile: null,
   analytics: null,
   analyticsLoading: false,
@@ -48,7 +49,7 @@ const notify = () => listeners.forEach((fn) => fn(chilecompraState));
 
 export function clearChileCompra() {
   Object.assign(chilecompraState, {
-    opportunities: [], campaigns: [], matches: [], marketProfile: null, analytics: null,
+    opportunities: [], campaigns: [], matches: [], userStates: [], marketProfile: null, analytics: null,
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
     selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '',
@@ -65,6 +66,20 @@ function activeCampaigns() {
 
 function opportunityMap() {
   return new Map(chilecompraState.opportunities.map((o) => [o.id, o]));
+}
+
+function userStateMap() {
+  return new Map(chilecompraState.userStates.map((row) => [row.opportunity_id, row]));
+}
+
+function withUserState(opportunity) {
+  if (!opportunity) return opportunity;
+  const personal = userStateMap().get(opportunity.id);
+  return {
+    ...opportunity,
+    radar_state: personal?.radar_state || 'nuevo',
+    lead_id: personal?.lead_id || null
+  };
 }
 
 function activeCampaignIds() {
@@ -223,8 +238,8 @@ export function chilecompraLocalBreakdown({ metric = 'publications' } = {}) {
 
 function mergeRows(rows = []) {
   const byCode = new Map(chilecompraState.opportunities.map((o) => [o.external_code, o]));
-  rows.forEach((row) => byCode.set(row.external_code, row));
-  chilecompraState.opportunities = [...byCode.values()];
+  rows.forEach((row) => byCode.set(row.external_code, withUserState(row)));
+  chilecompraState.opportunities = [...byCode.values()].map(withUserState);
 }
 
 export async function hydrateChileCompra() {
@@ -232,19 +247,23 @@ export async function hydrateChileCompra() {
   chilecompraState.loading = true;
   notify();
   try {
-    const [campaigns, opportunities, matches, profile] = await Promise.all([
+    const [campaigns, opportunities, matches, userStates, profile] = await Promise.all([
       supabase.from('chilecompra_campaigns').select('*').order('created_at', { ascending: true }),
       supabase.from('chilecompra_opportunities').select('*').order('updated_at', { ascending: false }).limit(1200),
       supabase.from('chilecompra_campaign_matches').select('*').order('updated_at', { ascending: false }).limit(5000),
+      supabase.from('chilecompra_user_states').select('*').order('updated_at', { ascending: false }),
       supabase.from('chilecompra_market_profiles').select('*').maybeSingle()
     ]);
     if (campaigns.error) throw campaigns.error;
     if (opportunities.error) throw opportunities.error;
     if (matches.error) throw matches.error;
+    if (userStates.error) throw userStates.error;
     if (profile.error && profile.error.code !== 'PGRST116') throw profile.error;
     chilecompraState.campaigns = campaigns.data || [];
-    chilecompraState.opportunities = opportunities.data || [];
     chilecompraState.matches = matches.data || [];
+    chilecompraState.userStates = userStates.data || [];
+    chilecompraState.opportunities = (opportunities.data || []).map(withUserState);
+    chilecompraState.results = chilecompraState.results.map(withUserState);
     chilecompraState.marketProfile = profile.data || null;
     chilecompraState.hydrated = true;
     chilecompraState.lastSyncAt = chilecompraState.matches.map((m) => m.updated_at).filter(Boolean).sort().at(-1) || '';
@@ -357,6 +376,7 @@ async function patchCmCommercialState(code, radarState) {
   if (!organizationId) throw new Error('No se pudo resolver tu organización.');
   const payload = {
     organization_id: organizationId,
+    profile_id: session.user?.id,
     order_code: code,
     radar_state: radarState,
     updated_by: session.user?.id || null,
@@ -364,7 +384,7 @@ async function patchCmCommercialState(code, radarState) {
   };
   const { data, error } = await supabase
     .from('chilecompra_cm_states')
-    .upsert(payload, { onConflict: 'organization_id,order_code' })
+    .upsert(payload, { onConflict: 'organization_id,profile_id,order_code' })
     .select('*')
     .single();
   if (error) throw error;
@@ -619,11 +639,12 @@ async function saveBusinessProfile(termsText) {
   const terms = parseTerms(termsText);
   const { data, error } = await supabase.from('chilecompra_market_profiles').upsert({
     organization_id: organizationId,
+    profile_id: session.user?.id,
     name: 'Mi negocio',
     query_terms: terms,
     updated_by: session.user?.id || null,
     updated_at: new Date().toISOString()
-  }, { onConflict: 'organization_id' }).select('*').single();
+  }, { onConflict: 'organization_id,profile_id' }).select('*').single();
   if (error) throw error;
   chilecompraState.marketProfile = data;
   chilecompraState.analytics = null;
@@ -1388,10 +1409,11 @@ export async function runTraditionalSearch(query) {
 }
 
 function replaceEverywhere(updated) {
+  const merged = withUserState(updated);
   const oi = chilecompraState.opportunities.findIndex((o) => o.id === updated.id);
-  if (oi >= 0) chilecompraState.opportunities[oi] = updated;
+  if (oi >= 0) chilecompraState.opportunities[oi] = merged;
   const ri = chilecompraState.results.findIndex((o) => o.id === updated.id);
-  if (ri >= 0) chilecompraState.results[ri] = updated;
+  if (ri >= 0) chilecompraState.results[ri] = merged;
 }
 
 async function markReviewed(id) {
@@ -1440,9 +1462,29 @@ async function loadDetail(id, { force = false } = {}) {
 
 async function patchOpportunity(id, patch) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
-  const { data, error } = await supabase.from('chilecompra_opportunities').update(patch).eq('id', id).select('*').single();
+  const organizationId = session.profile?.organization_id;
+  const profileId = session.user?.id;
+  if (!organizationId || !profileId) throw new Error('No se pudo resolver tu perfil.');
+  const current = chilecompraState.userStates.find((row) => row.opportunity_id === id);
+  const payload = {
+    organization_id: organizationId,
+    profile_id: profileId,
+    opportunity_id: id,
+    radar_state: patch.radar_state || current?.radar_state || 'nuevo',
+    lead_id: patch.lead_id ?? current?.lead_id ?? null,
+    updated_at: patch.updated_at || new Date().toISOString()
+  };
+  const { data, error } = await supabase
+    .from('chilecompra_user_states')
+    .upsert(payload, { onConflict: 'organization_id,profile_id,opportunity_id' })
+    .select('*')
+    .single();
   if (error) throw error;
-  replaceEverywhere(data);
+  const idx = chilecompraState.userStates.findIndex((row) => row.opportunity_id === id);
+  if (idx >= 0) chilecompraState.userStates[idx] = data;
+  else chilecompraState.userStates.push(data);
+  const canonical = [...chilecompraState.opportunities, ...chilecompraState.results].find((o) => o.id === id);
+  if (canonical) replaceEverywhere(canonical);
   notify();
   rerender();
 }
