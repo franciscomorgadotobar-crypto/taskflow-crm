@@ -218,40 +218,18 @@ function toggleMobileDrawer(force) {
   drawer.hidden = !open;
   overlay.hidden = !open;
   document.documentElement.classList.toggle('v2-drawer-open', open);
-  q('[data-mobile-more]', $('nav'))?.setAttribute('aria-expanded', String(open));
+  $('v2MobileMenuBtn')?.setAttribute('aria-expanded', String(open));
 }
 
 function applyMobileBottomNav() {
   const nav = $('nav');
-  if (!nav) return;
-  qa('.nav-item', nav).forEach((item) => {
-    if (item.dataset.mobileMore === 'true') return;
-    delete item.dataset.mobileNavSlot;
-    item.style.removeProperty('--mobile-order');
-  });
-
-  let more = q('[data-mobile-more]', nav);
-  if (!more) {
-    more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'nav-item v2-more-nav';
-    more.dataset.mobileMore = 'true';
-    more.setAttribute('aria-label', 'Ver todos los módulos');
-    more.setAttribute('aria-expanded', 'false');
-    more.innerHTML = '<span class="v2-more-icon" aria-hidden="true">☰</span><span>Más</span>';
-    nav.appendChild(more);
+  if (nav) {
+    q('[data-mobile-more]', nav)?.remove();
+    qa('.nav-item', nav).forEach((item) => {
+      delete item.dataset.mobileNavSlot;
+      item.style.removeProperty('--mobile-order');
+    });
   }
-
-  const views = effectiveBottomNav();
-  nav.style.setProperty('--mobile-nav-count', '5');
-  views.forEach((view, index) => {
-    const item = q(`.nav-item[data-view="${view}"]`, nav);
-    if (!item) return;
-    item.dataset.mobileNavSlot = String(index + 1);
-    item.style.setProperty('--mobile-order', String(index + 1));
-  });
-  more.dataset.mobileNavSlot = '5';
-  more.style.setProperty('--mobile-order', '5');
   renderMobileDrawer();
 }
 
@@ -300,6 +278,17 @@ function buildHeaderTools() {
     mobileHeading.innerHTML = '<strong id="v2MobileGreeting">Hola</strong><span id="v2MobileContext">Resumen comercial</span>';
     titleWrap.prepend(mobileHeading);
   }
+  if (titleWrap && !$('v2MobileMenuBtn')) {
+    const mobileMenu = document.createElement('button');
+    mobileMenu.id = 'v2MobileMenuBtn';
+    mobileMenu.className = 'v2-mobile-menu-btn';
+    mobileMenu.type = 'button';
+    mobileMenu.dataset.mobileMenu = 'true';
+    mobileMenu.setAttribute('aria-label', 'Abrir módulos');
+    mobileMenu.setAttribute('aria-expanded', 'false');
+    mobileMenu.innerHTML = '<span aria-hidden="true">☰</span>';
+    titleWrap.insertBefore(mobileMenu, q('.v2-mobile-heading', titleWrap) || titleWrap.firstChild);
+  }
 
     $('v2GlobalSearch')?.addEventListener('input', renderSearchResults);
   $('v2GlobalSearch')?.addEventListener('focus', renderSearchResults);
@@ -310,6 +299,7 @@ function buildHeaderTools() {
   });
   $('v2UserBtn')?.addEventListener('click', (ev) => {
     ev.stopPropagation();
+    toggleMobileDrawer(false);
     toggleUserMenu();
   });
   $('v2UserMenu')?.addEventListener('click', handleMenuAction);
@@ -1030,10 +1020,11 @@ function bindGlobalEvents() {
   }, true);
 
   document.addEventListener('click', (ev) => {
-    const moreNav = ev.target.closest?.('[data-mobile-more]');
-    if (moreNav) {
+    const mobileMenu = ev.target.closest?.('[data-mobile-menu]');
+    if (mobileMenu) {
       ev.preventDefault();
       ev.stopPropagation();
+      toggleUserMenu(false);
       toggleMobileDrawer();
       return;
     }
