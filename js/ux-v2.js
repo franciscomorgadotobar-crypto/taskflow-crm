@@ -842,9 +842,8 @@ function injectMascotSettingsCard() {
       </label>
     </div>`;
 
-  const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación CRM');
-  if (appCard) appCard.insertAdjacentElement('afterend', card);
-  else cards[0].insertAdjacentElement('afterend', card);
+  // Datos y respaldo debe ser la última sección de Configuración.
+  root.appendChild(card);
 
   $('v2MascotToggle')?.addEventListener('change', async (event) => {
     await setMascotPreference(event.currentTarget.checked);
