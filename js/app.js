@@ -2214,39 +2214,42 @@ function openTeamAdd() {
 }
 
 function showTeamAccessResult(data, { name = '', email = '', resend = false, templateSummary = null } = {}) {
-  $('teamAccessTitle').textContent = resend ? 'Acceso reenviado' : 'Persona agregada';
+  $('teamAccessTitle').textContent = 'Acceso listo';
   $('teamAccessSubtitle').textContent = [name, email].filter(Boolean).join(' · ');
   const fallback = $('teamAccessFallback');
   const status = $('teamAccessStatus');
   const link = String(data?.access_link || '');
+  const emailError = String(data?.email_error || '');
+  const rateLimited = /rate limit|too many requests|429/i.test(emailError);
 
   if (data?.email_sent) {
     status.className = 'notice success-notice';
-    status.innerHTML = '<strong>Correo enviado.</strong><span>La persona recibirá un enlace para definir una contraseña nueva.</span>';
+    status.innerHTML = '<strong>Correo enviado.</strong><span>La persona recibirá el enlace para definir su contraseña.</span>';
     fallback.hidden = true;
     $('teamAccessLink').value = '';
   } else if (link) {
     status.className = 'notice warning-notice';
-    status.innerHTML = `<strong>La cuenta quedó lista, pero el correo no salió.</strong><span>${escapeHtml(data?.email_error || 'Comparte el enlace manualmente.')}</span>`;
+    status.innerHTML = rateLimited
+      ? '<strong>El correo no pudo enviarse en este momento.</strong><span>La cuenta ya está creada. Comparte el enlace de acceso de un solo uso.</span>'
+      : '<strong>El correo no pudo enviarse.</strong><span>La cuenta ya está creada. Comparte el enlace de acceso de un solo uso.</span>';
     $('teamAccessLink').value = link;
     fallback.hidden = false;
   } else {
     status.className = 'notice warning-notice';
-    status.innerHTML = `<strong>La cuenta quedó creada, pero no se pudo entregar el acceso.</strong><span>${escapeHtml(data?.email_error || data?.link_error || 'Reintenta desde Equipo.')}</span>`;
+    status.innerHTML = '<strong>La cuenta fue creada, pero falta entregar el acceso.</strong><span>Vuelve a intentar desde Usuarios y permisos.</span>';
     fallback.hidden = true;
   }
 
   const templateStatus = $('teamAccessTemplateStatus');
   if (templateStatus) {
-    if (templateSummary) {
+    if (templateSummary?.error) {
       templateStatus.hidden = false;
-      if (templateSummary.error) {
-        templateStatus.className = 'notice warning-notice team-access-template-status';
-        templateStatus.innerHTML = `<strong>La persona fue creada, pero la carga de plantillas no terminó.</strong><span>${escapeHtml(templateSummary.error)}</span>`;
-      } else {
-        templateStatus.className = 'notice team-access-template-status';
-        templateStatus.innerHTML = `<strong>Plantillas del CRM actualizadas.</strong><span>Se agregaron ${templateSummary.created} y ${templateSummary.skipped} ya existían.</span>`;
-      }
+      templateStatus.className = 'notice warning-notice team-access-template-status';
+      templateStatus.innerHTML = '<strong>Las plantillas no pudieron completarse.</strong><span>La cuenta de usuario sí quedó creada.</span>';
+    } else if (Number(templateSummary?.created || 0) > 0) {
+      templateStatus.hidden = false;
+      templateStatus.className = 'notice success-notice team-access-template-status';
+      templateStatus.innerHTML = `<strong>Plantillas listas.</strong><span>Se agregaron ${Number(templateSummary.created)} nuevas.</span>`;
     } else {
       templateStatus.hidden = true;
       templateStatus.innerHTML = '';
