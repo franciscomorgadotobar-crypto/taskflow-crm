@@ -939,7 +939,7 @@ function injectMascotSettingsCard() {
       <label class="v2-setting-toggle" for="v2MascotToggle">
         <span class="v2-setting-toggle__copy">
           <strong>Activar o desactivar mascota</strong>
-          <small>La mascota aparece solo al iniciar una sesión y ante cambios importantes de gestión. Si la desactivas, la preferencia queda guardada en tu cuenta.</small>
+          <small>Muestra u oculta la mascota del CRM.</small>
         </span>
         <span class="v2-switch">
           <input id="v2MascotToggle" type="checkbox" ${enabled ? 'checked' : ''} />
@@ -965,7 +965,7 @@ function injectSettingsDataCard() {
   card.innerHTML = `
     <div class="card-head"><h3>Datos y respaldo</h3><span class="muted">Administración</span></div>
     <div class="card-body">
-      <p class="muted">Exporta o importa respaldos, descarga leads y revisa el estado de sincronización. Las acciones sensibles quedan separadas de la operación comercial.</p>
+      <p class="muted">Exporta, importa y revisa la sincronización de tus datos.</p>
       <div class="v2-data-actions"><button type="button" class="ghost-btn" data-v2-open-data>Gestionar datos y respaldo</button></div>
     </div>`;
   host.appendChild(card);
