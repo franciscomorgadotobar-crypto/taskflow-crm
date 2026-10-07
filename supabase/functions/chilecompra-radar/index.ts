@@ -1226,6 +1226,7 @@ Deno.serve(async req=>{
     }
 
     if(action==="cm-sync") {
+      if(cron) return json({error:"cm_sync_requires_user"},403);
       const days=1;
       const detailLimit=Math.max(0,Math.min(24,Number(body?.detailLimit)||12));
       const offsetDays=Math.max(0,Math.min(365,Number(body?.offsetDays)||0));
