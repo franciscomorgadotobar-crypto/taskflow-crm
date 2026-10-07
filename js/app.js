@@ -1253,7 +1253,6 @@ async function submitTemplatePack(ev) {
   if (!isSuper()) return toast('Solo el Súper administrador puede cargar paquetes.', 'error');
   const packages = [
     $('templatePackGeneral').checked ? 'general' : '',
-    $('templatePackTaskflow').checked ? 'taskflow' : '',
     $('templatePackNeoff').checked ? 'neoff' : ''
   ].filter(Boolean);
   if (!packages.length) return toast('Selecciona al menos un paquete.', 'error');
@@ -2205,7 +2204,6 @@ function openTeamAdd() {
     .map((r) => `<option value="${r.id}" ${r.id === 'comercial' ? 'selected' : ''}>${escapeHtml(r.label)}</option>`)
     .join('');
   if ($('teamTemplateMode')) $('teamTemplateMode').value = 'none';
-  if ($('teamTemplateTaskflow')) $('teamTemplateTaskflow').checked = false;
   if ($('teamTemplateNeoff')) $('teamTemplateNeoff').checked = false;
   renderTeamModuleChecks();
   refreshTeamRoleDetail();
@@ -2275,10 +2273,9 @@ async function submitTeamAdd(ev) {
     if (mode === 'general') templatePackages = ['general'];
     if (mode === 'specific') {
       templatePackages = [
-        $('teamTemplateTaskflow')?.checked ? 'taskflow' : '',
         $('teamTemplateNeoff')?.checked ? 'neoff' : ''
       ].filter(Boolean);
-      if (!templatePackages.length) return toast('Selecciona TaskFlow, NEOFF o ambas.', 'error');
+      if (!templatePackages.length) return toast('Selecciona NEOFF.', 'error');
     }
   }
 

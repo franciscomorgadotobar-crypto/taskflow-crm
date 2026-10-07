@@ -287,36 +287,6 @@ export const DEFAULT_TEMPLATES = [
 ];
 
 export const TEMPLATE_PRESET_PACKS = {
-  taskflow: [
-    {
-      name: 'TaskFlow | Presentación',
-      channel: 'both',
-      subject: 'TaskFlow para {{empresa}}',
-      body:
-        'Hola {{nombre}},\n\nQuisiera mostrarte cómo TaskFlow puede apoyar a {{empresa}} en la gestión de órdenes de trabajo, inventario y trazabilidad de la operación. Podemos revisar el flujo actual y enfocar una demo en {{dolor}}.\n\n¿Te acomoda que coordinemos una breve reunión?'
-    },
-    {
-      name: 'TaskFlow | Coordinación de demo',
-      channel: 'both',
-      subject: 'Demo TaskFlow para {{empresa}}',
-      body:
-        'Hola {{nombre}},\n\nCoordinemos una demo de TaskFlow enfocada en el proceso real de {{empresa}}. Revisaremos únicamente los módulos relacionados con {{dolor}} y {{modulos}}, para que la sesión sea concreta y útil.\n\nQuedo atento a día y horario.'
-    },
-    {
-      name: 'TaskFlow | Seguimiento de demo',
-      channel: 'both',
-      subject: 'Seguimiento demo TaskFlow',
-      body:
-        'Hola {{nombre}},\n\nGracias por el tiempo en la demo. Quería saber si lo revisado en TaskFlow hace sentido para la operación de {{empresa}} y si quedó algún punto técnico o comercial pendiente.\n\nSi te parece, definimos el siguiente paso.'
-    },
-    {
-      name: 'TaskFlow | Reactivación',
-      channel: 'both',
-      subject: 'Retomemos TaskFlow en {{empresa}}',
-      body:
-        'Hola {{nombre}},\n\nHace un tiempo conversamos sobre TaskFlow y la necesidad de mejorar {{dolor}} en {{empresa}}. Quería saber si el proyecto sigue vigente.\n\nSi cambió el escenario, podemos revisar nuevamente el alcance y mostrar las mejoras más relevantes.'
-    }
-  ],
   neoff: [
     {
       name: 'NEOFF | Presentación',
