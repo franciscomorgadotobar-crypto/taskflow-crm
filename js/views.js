@@ -1510,6 +1510,9 @@ export function quoteDocHtml(doc) {
 
 /** Documento a partir de una versión guardada. */
 export function quoteDocFromSaved(q) {
+  const list = quoteState.priceLists.find((row) => row.id === q.priceListId);
+  const savedIssuer = q.issuer && Object.keys(q.issuer).length ? q.issuer : null;
+  const savedCommercial = Array.isArray(q.commercialInfo) && q.commercialInfo.length ? q.commercialInfo : null;
   return {
     number: q.number,
     version: q.version,
@@ -1525,8 +1528,8 @@ export function quoteDocFromSaved(q) {
     paymentTerms: q.paymentTerms,
     notes: q.notes,
     client: q.client,
-    issuer: q.issuer || {},
-    commercialInfo: q.commercialInfo || [],
+    issuer: savedIssuer || list?.issuerProfile || {},
+    commercialInfo: savedCommercial || list?.commercialInfo || [],
     lines: q.items,
     totals: q.totals
   };
