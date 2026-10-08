@@ -2633,3 +2633,121 @@
   color:#9fd1ff;
 }
 /* ---------- End navegación agrupada ---------- */
+
+
+/* ---------- Expediente de licitación ---------- */
+.cc-detail-tabs{
+  display:flex;
+  gap:4px;
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
+  scrollbar-width:none;
+}
+.cc-detail-tabs::-webkit-scrollbar{display:none}
+.cc-detail-tabs button{
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.cc-detail-block-title{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:12px;
+}
+.cc-detail-block-title>div{
+  display:grid;
+  gap:3px;
+}
+.cc-detail-block-title h4{
+  margin:0;
+}
+.cc-detail-block-title span{
+  color:var(--cc-muted);
+  font-size:10px;
+}
+.cc-document-list{
+  display:grid;
+  gap:8px;
+}
+.cc-document-row{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid var(--cc-border);
+  border-radius:11px;
+  background:#fff;
+}
+.cc-document-icon{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+  background:#edf6ff;
+  color:#1676c8;
+  font-size:16px;
+}
+.cc-document-row>div{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.cc-document-row strong{
+  overflow:hidden;
+  color:#183455;
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.cc-document-row small{
+  color:var(--cc-muted);
+  font-size:9px;
+}
+.cc-document-open{
+  min-height:34px !important;
+  padding:6px 10px !important;
+  text-decoration:none;
+}
+.cc-open-public-record{
+  margin-top:10px;
+}
+.cc-market-link{
+  opacity:.82;
+}
+@media(max-width:700px){
+  .cc-detail-tabs{
+    margin-inline:-2px;
+    padding-bottom:2px;
+  }
+  .cc-detail-tabs button{
+    min-height:38px;
+    padding-inline:10px;
+    font-size:9px;
+  }
+  .cc-detail-block-title{
+    align-items:stretch;
+    flex-direction:column;
+    gap:8px;
+  }
+  .cc-detail-block-title>.link-btn{
+    align-self:flex-start;
+  }
+  .cc-document-row{
+    grid-template-columns:32px minmax(0,1fr);
+  }
+  .cc-document-row>.cc-document-open{
+    grid-column:1/-1;
+    width:100%;
+  }
+}
+:root[data-theme="dark"] .cc-document-row{
+  background:var(--v2-panel,#17243a);
+  border-color:var(--v2-line,#2d3b52);
+}
+:root[data-theme="dark"] .cc-document-row strong{
+  color:#eef5ff;
+}
+/* ---------- End expediente ---------- */
