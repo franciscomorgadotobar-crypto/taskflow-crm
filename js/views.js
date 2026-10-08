@@ -1460,6 +1460,7 @@ export function quoteDocHtml(doc) {
           ${issuer.email ? `<span>${e(issuer.email)}</span>` : ''}
           ${issuer.phone ? `<span>${e(issuer.phone)}</span>` : ''}
           ${issuer.website ? `<span>${e(issuer.website)}</span>` : ''}
+          ${issuer.address ? `<span>${e(issuer.address)}</span>` : ''}
         </div>
         <div class="qd-client">
           <div>Cliente: <strong>${e(client.company || '—')}</strong></div>
