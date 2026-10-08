@@ -82,6 +82,7 @@ import {
   state as quoteState,
   stopRealtime as quotesStopRealtime,
   updatePriceList,
+  uploadPriceListLogo,
   versionsOf
 } from './quotes.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
@@ -1287,6 +1288,31 @@ const quoteRef = () => uid().slice(0, 8);
 let quotePreviewTimer = null;
 let quotePreviewSeq = 0;
 
+const DEFAULT_QUOTE_COMMERCIAL_INFO = [
+  'Soporte 24/7',
+  'Implementación guiada por 1 mes',
+  'Marketing conjunto incluido (opcional)'
+];
+
+const commercialInfoLines = (value) =>
+  String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+function issuerProfileFromFields(prefix) {
+  const value = (name) => $(`${prefix}${name}`)?.value.trim() || '';
+  return {
+    commercialName: value('CommercialName'),
+    legalName: value('LegalName'),
+    rut: value('Rut'),
+    address: value('Address'),
+    phone: value('Phone'),
+    email: value('Email'),
+    website: value('Website')
+  };
+}
+
 const activePriceLists = () => quoteState.priceLists.filter((l) => l.status === 'vigente');
 const listItemOf = (id) => getPriceListItem(id);
 
@@ -1347,6 +1373,7 @@ function fillQuoteServiceOptions() {
 function builderDoc() {
   const b = ui.quoteBuilder;
   const calc = b.calc;
+  const list = getPriceList(b.priceListId);
   const lines = (calc?.items || []).map((ci) => {
     const cl = calc.lines.find((l) => l.ref === ci.ref) || {};
     return {
@@ -1376,6 +1403,8 @@ function builderDoc() {
     paymentTerms: b.paymentTerms,
     notes: b.notes,
     client: b.client,
+    issuer: list?.issuerProfile || {},
+    commercialInfo: list?.commercialInfo || [],
     lines,
     totals: calc || {}
   };
@@ -1384,11 +1413,27 @@ function builderDoc() {
 function renderQuoteSummary() {
   const b = ui.quoteBuilder;
   $('quoteLinesRoot').innerHTML = quoteLinesHtml(b);
-  $('quoteSummaryRoot').innerHTML = b.calcError
-    ? `<p class="import-error">${escapeHtml(b.calcError)}</p>`
-    : b.calc
-      ? quoteDocHtml(builderDoc())
-      : '<p class="muted">Calculando…</p>';
+  if (b.calcError) {
+    $('quoteSummaryRoot').innerHTML = `<p class="import-error">${escapeHtml(b.calcError)}</p>`;
+    return;
+  }
+  if (!b.calc) {
+    $('quoteSummaryRoot').innerHTML = '<p class="muted">Calculando…</p>';
+    return;
+  }
+
+  const cur = b.currency || 'UF';
+  const money = (value) => fmtCurrency(Number(value || 0), cur);
+  const list = getPriceList(b.priceListId);
+  const company = list?.issuerProfile?.commercialName || list?.issuerProfile?.legalName || 'Empresa emisora no configurada';
+  $('quoteSummaryRoot').innerHTML = `
+    <div class="quote-builder-summary">
+      <div><span>Empresa emisora</span><strong>${escapeHtml(company)}</strong></div>
+      <div><span>Habilitación</span><strong>${money(b.calc.setup?.total)}</strong></div>
+      <div><span>Mensual mes 1</span><strong>${money(b.calc.monthly?.total)}</strong></div>
+      <div class="quote-builder-summary-total"><span>Total contrato</span><strong>${money(b.calc.contract?.total)}</strong></div>
+    </div>
+    <p class="muted quote-builder-preview-hint">Usa “Previsualizar” para revisar el documento completo antes de guardar.</p>`;
 }
 
 function renderQuoteDiscounts() {
@@ -1929,6 +1974,11 @@ function openPriceImport() {
   $('priceImportFile').value = '';
   $('priceImportName').value = '';
   $('priceImportCurrency').value = 'UF';
+  $('priceImportLogo').value = '';
+  ['CommercialName','LegalName','Rut','Phone','Email','Website','Address'].forEach((field) => {
+    $(`priceImport${field}`).value = '';
+  });
+  $('priceImportCommercialInfo').value = DEFAULT_QUOTE_COMMERCIAL_INFO.join('\n');
   renderPriceImportPreview();
   $('priceImportDialog').showModal();
 }
@@ -1960,6 +2010,7 @@ async function submitPriceImport(e) {
   if (!name) return toast('Ponle un nombre a la lista.', 'error');
   buildPriceImportItems();
   if (!priceImport.items.length || priceImport.errors.length) return toast('Corrige las filas con error antes de importar.', 'error');
+
   const id = await importPriceList({
     name,
     currency: $('priceImportCurrency').value,
@@ -1967,11 +2018,96 @@ async function submitPriceImport(e) {
     items: priceImport.items.map(({ problems, ...it }) => it)
   });
   if (!id) return;
+
+  const issuerProfile = issuerProfileFromFields('priceImport');
+  const commercialInfo = commercialInfoLines($('priceImportCommercialInfo').value);
+  try {
+    const logo = $('priceImportLogo').files?.[0];
+    if (logo) issuerProfile.logoUrl = await uploadPriceListLogo(id, logo);
+    await updatePriceList(id, { issuerProfile, commercialInfo });
+  } catch (err) {
+    console.error('No se pudo completar la identidad de la lista', err);
+    toast('La lista se importó, pero no se pudo guardar toda la identidad de la empresa.', 'error');
+  }
+
   $('priceImportDialog').close();
   ui.quotesView = 'lists';
   ui.priceListId = id;
   render();
   toast(`Lista "${name}" importada con ${priceImport.items.length} servicios.`);
+}
+
+function renderPriceBrandLogo(url = '') {
+  const root = $('priceBrandLogoPreview');
+  if (!root) return;
+  root.innerHTML = url
+    ? `<img src="${escapeHtml(url)}" alt="Logo de la empresa" />`
+    : '<span>LOGO</span>';
+}
+
+function openPriceBrand(id) {
+  if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  const list = getPriceList(id);
+  if (!list) return;
+  const issuer = list.issuerProfile || {};
+  $('priceBrandListId').value = list.id;
+  $('priceBrandSubtitle').textContent = `Lista “${list.name}” · identidad que aparecerá en sus cotizaciones.`;
+  $('priceBrandLogo').value = '';
+  $('priceBrandCommercialName').value = issuer.commercialName || '';
+  $('priceBrandLegalName').value = issuer.legalName || '';
+  $('priceBrandRut').value = issuer.rut || '';
+  $('priceBrandPhone').value = issuer.phone || '';
+  $('priceBrandEmail').value = issuer.email || '';
+  $('priceBrandWebsite').value = issuer.website || '';
+  $('priceBrandAddress').value = issuer.address || '';
+  $('priceBrandCommercialInfo').value = (list.commercialInfo?.length ? list.commercialInfo : DEFAULT_QUOTE_COMMERCIAL_INFO).join('\n');
+  renderPriceBrandLogo(issuer.logoUrl || '');
+  $('priceBrandDialog').showModal();
+}
+
+async function submitPriceBrand(e) {
+  e.preventDefault();
+  if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  const id = $('priceBrandListId').value;
+  const list = getPriceList(id);
+  if (!list) return;
+  const submit = e.submitter;
+  if (submit) submit.disabled = true;
+  try {
+    const issuerProfile = issuerProfileFromFields('priceBrand');
+    issuerProfile.logoUrl = list.issuerProfile?.logoUrl || '';
+    const logo = $('priceBrandLogo').files?.[0];
+    if (logo) issuerProfile.logoUrl = await uploadPriceListLogo(id, logo);
+    const commercialInfo = commercialInfoLines($('priceBrandCommercialInfo').value);
+    if (!(await updatePriceList(id, { issuerProfile, commercialInfo }))) return;
+    $('priceBrandDialog').close();
+    render();
+    toast('Empresa emisora actualizada.');
+  } catch (err) {
+    toast(err.message || 'No se pudo guardar la empresa emisora.', 'error');
+  } finally {
+    if (submit?.isConnected) submit.disabled = false;
+  }
+}
+
+function handlePriceBrandLogoChange() {
+  const file = $('priceBrandLogo').files?.[0];
+  if (!file) {
+    const list = getPriceList($('priceBrandListId').value);
+    renderPriceBrandLogo(list?.issuerProfile?.logoUrl || '');
+    return;
+  }
+  if (!/^image\/(png|jpeg|webp)$/i.test(file.type || '')) {
+    $('priceBrandLogo').value = '';
+    return toast('El logo debe ser PNG, JPG o WEBP.', 'error');
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    $('priceBrandLogo').value = '';
+    return toast('El logo no puede superar 2 MB.', 'error');
+  }
+  const url = URL.createObjectURL(file);
+  renderPriceBrandLogo(url);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function openPriceItem(listId, itemId = '') {
@@ -2594,6 +2730,7 @@ const ACTIONS = {
     render();
   },
   'import-price-list': () => openPriceImport(),
+  'edit-price-brand': (id) => openPriceBrand(id),
   'toggle-price-list': async (id) => {
     if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
     const list = getPriceList(id);
@@ -2657,6 +2794,16 @@ const ACTIONS = {
     scheduleQuotePreview();
   },
   'refresh-uf': () => loadQuoteUf({ force: true }),
+  'quote-builder-preview': async () => {
+    const b = ui.quoteBuilder;
+    if (!b) return;
+    readQuoteHeader();
+    if (!b.calc) await runQuotePreview();
+    if (!b.calc) return toast(b.calcError || 'Completa la cotización para previsualizarla.', 'error');
+    $('quoteBuilderPreviewBody').innerHTML = quoteDocHtml(builderDoc());
+    if ($('quotePreviewDialog').open) $('quotePreviewDialog').close();
+    $('quotePreviewDialog').showModal();
+  },
   'quote-builder-pdf': async () => {
     const b = ui.quoteBuilder;
     if (!b?.calc) return toast(b?.calcError || 'Completa la cotización para generar el PDF.', 'error');
@@ -3675,6 +3822,8 @@ function bindEvents() {
     $('priceImportSubmit').disabled = !priceImport.items.length || priceImport.errors.length > 0 || !$('priceImportName').value.trim();
   });
   bindSubmitOnce('priceItemForm', submitPriceItem);
+  bindSubmitOnce('priceBrandForm', submitPriceBrand);
+  $('priceBrandLogo').addEventListener('change', handlePriceBrandLogoChange);
   bindSubmitOnce('quoteForm', submitQuoteBuilder);
   $('quoteForm').addEventListener('input', handleQuoteFormChange);
   $('quoteForm').addEventListener('change', handleQuoteFormChange);
