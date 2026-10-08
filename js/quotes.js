@@ -19,10 +19,13 @@ const notify = () => listeners.forEach((fn) => fn(state));
 
 const fromDbPriceList = (r) => ({
   id: r.id,
+  organizationId: r.organization_id || '',
   name: r.name,
   currency: r.currency || 'UF',
   status: r.status || 'vigente',
   sourceFile: r.source_file || '',
+  issuerProfile: r.issuer_profile || {},
+  commercialInfo: Array.isArray(r.commercial_info) ? r.commercial_info : [],
   createdBy: r.created_by || '',
   createdAt: r.created_at,
   updatedAt: r.updated_at
@@ -89,6 +92,8 @@ function fromDbQuote(r, items = [], discounts = []) {
     ivaRate: Number(r.iva_rate ?? 0.19),
     totals: r.totals || {},
     client: r.client_snapshot || {},
+    issuer: r.issuer_snapshot || {},
+    commercialInfo: Array.isArray(r.commercial_snapshot) ? r.commercial_snapshot : [],
     subtotalNeto: Number(r.subtotal_neto || 0),
     iva: Number(r.iva || 0),
     total: Number(r.total || 0),
@@ -221,6 +226,8 @@ export async function updatePriceList(id, patch) {
   const row = {};
   if ('name' in patch) row.name = patch.name;
   if ('status' in patch) row.status = patch.status;
+  if ('issuerProfile' in patch) row.issuer_profile = patch.issuerProfile || {};
+  if ('commercialInfo' in patch) row.commercial_info = Array.isArray(patch.commercialInfo) ? patch.commercialInfo : [];
   const { data, error: updateError } = await supabase.from('price_lists').update(row).eq('id', id).select('id');
   const error = updateError || (!data?.length ? new Error('El servidor no confirmó el cambio.') : null);
   if (error) {
@@ -231,12 +238,39 @@ export async function updatePriceList(id, patch) {
   return true;
 }
 
+export async function uploadPriceListLogo(id, file) {
+  const list = getPriceList(id);
+  if (!list?.organizationId) throw new Error('No se pudo identificar la organización de la lista.');
+  if (!file) return list.issuerProfile?.logoUrl || '';
+  if (!/^image\/(png|jpeg|webp)$/i.test(file.type || '')) {
+    throw new Error('El logo debe ser PNG, JPG o WEBP.');
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('El logo no puede superar 2 MB.');
+  }
+
+  const path = `${list.organizationId}/${id}/logo`;
+  const { error } = await supabase.storage.from('quote-branding').upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+    cacheControl: '3600'
+  });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from('quote-branding').getPublicUrl(path);
+  return data?.publicUrl ? `${data.publicUrl}?v=${Date.now()}` : '';
+}
+
 export async function deletePriceList(id) {
+  const list = getPriceList(id);
   const { data, error: deleteError } = await supabase.from('price_lists').delete().eq('id', id).select('id');
   const error = deleteError || (!data?.length ? new Error('El servidor no confirmó la eliminación.') : null);
   if (error) {
     reportError('No se pudo eliminar la lista', friendlyListError(error));
     return false;
+  }
+  if (list?.organizationId) {
+    supabase.storage.from('quote-branding').remove([`${list.organizationId}/${id}/logo`]).catch(() => {});
   }
   await hydrate();
   return true;
