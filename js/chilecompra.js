@@ -29,6 +29,7 @@ export const chilecompraState = {
   detailTab: 'resumen',
   detailLoading: false,
   detailError: '',
+  detailReturnY: 0,
   cmData: null,
   cmLoading: false,
   cmError: '',
@@ -52,7 +53,7 @@ export function clearChileCompra() {
     opportunities: [], campaigns: [], matches: [], userStates: [], marketProfile: null, analytics: null,
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
-    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '',
+    selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '', detailReturnY: 0,
     cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmCampaignId: '', cmView: 'pulso',
     cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
     sort: 'recent', lastSyncAt: ''
@@ -825,15 +826,44 @@ function detailItemsBlock(o) {
   </section>`;
 }
 
+function documentUrl(doc) {
+  if (!doc || typeof doc !== 'object') return '';
+  const direct = [
+    doc.Url, doc.URL, doc.url, doc.Enlace, doc.enlace, doc.Link, doc.link,
+    doc.Href, doc.href, doc.Ruta, doc.ruta, doc.UrlArchivo, doc.URLArchivo,
+    doc.Descarga, doc.descarga
+  ].find((value) => /^https?:\/\//i.test(String(value || '').trim()));
+  if (direct) return String(direct).trim();
+
+  for (const value of Object.values(doc)) {
+    if (typeof value === 'string' && /^https?:\/\//i.test(value.trim())) return value.trim();
+  }
+  return '';
+}
+
 function detailDocumentsBlock(o) {
   const docs = rawValue(o, ['Documentos']) || rawValue(o, ['Adjuntos']) || rawValue(o, ['Archivos']);
   const list = Array.isArray(docs) ? docs : Array.isArray(docs?.Listado) ? docs.Listado : [];
-  return `<section class="cc-detail-block">
-    <h4>Documentos y bases</h4>
+  return `<section class="cc-detail-block cc-documents-block">
+    <div class="cc-detail-block-title">
+      <div><h4>Bases y documentos</h4><span>Archivos oficiales asociados a la licitación.</span></div>
+      <button type="button" class="link-btn" data-cc-market>Fuente oficial ↗</button>
+    </div>
     ${list.length
-      ? `<div class="cc-detail-items">${list.map((doc) => `<article><div><strong>${e(doc.Nombre || doc.nombre || doc.Descripcion || 'Documento')}</strong></div></article>`).join('')}</div>`
-      : '<div class="cc-api-note"><strong>Los archivos adjuntos no vienen en esta respuesta de la API de licitaciones.</strong><span>La ficha sí entrega datos del proceso e ítems. Para revisar bases, anexos y archivos oficiales debes abrir la ficha pública de Mercado Público.</span></div>'}
-    <button type="button" class="ghost-btn cc-open-public-record" data-cc-market>Abrir ficha pública y documentos ↗</button>
+      ? `<div class="cc-document-list">${list.map((doc,index) => {
+          const name = doc?.Nombre || doc?.nombre || doc?.Descripcion || doc?.descripcion || doc?.Titulo || `Documento ${index + 1}`;
+          const url = documentUrl(doc);
+          return `<article class="cc-document-row">
+            <span class="cc-document-icon" aria-hidden="true">▤</span>
+            <div><strong>${e(name)}</strong><small>${url ? 'Documento oficial disponible' : 'Documento informado por Mercado Público'}</small></div>
+            ${url ? `<a class="ghost-btn cc-document-open" href="${e(url)}" target="_blank" rel="noopener noreferrer">Ver ↗</a>` : ''}
+          </article>`;
+        }).join('')}</div>`
+      : `<div class="cc-api-note">
+          <strong>Mercado Público no entregó los archivos adjuntos mediante la API.</strong>
+          <span>Puedes seguir analizando esta licitación dentro del CRM. Para descargar las bases oficiales, abre la fuente en una pestaña nueva.</span>
+        </div>`}
+    ${!list.length ? '<button type="button" class="ghost-btn cc-open-public-record" data-cc-market>Abrir bases en Mercado Público ↗</button>' : ''}
   </section>`;
 }
 
@@ -844,10 +874,16 @@ function detailBody(o) {
     return `<section class="cc-detail-section"><h4>Seguimientos que encontraron esta publicación</h4><div class="cc-tags">${campaigns.length ? campaigns.map((c) => tag(c.name)).join('') : '<span class="muted">Resultado de búsqueda manual.</span>'}</div><h4>Términos coincidentes</h4><div class="cc-tags">${terms.length ? terms.map(tag).join('') : '<span class="muted">Sin términos asociados.</span>'}</div></section>`;
   }
   if (chilecompraState.detailTab === 'requisitos') {
-    return `<section class="cc-detail-section">${detailConditionsBlock(o)}${detailBuyerBlock(o)}${detailDatesBlock(o)}</section>`;
+    return `<section class="cc-detail-section">${detailConditionsBlock(o)}</section>`;
   }
   if (chilecompraState.detailTab === 'documentos') {
-    return `<section class="cc-detail-section">${detailItemsBlock(o)}${detailDocumentsBlock(o)}</section>`;
+    return `<section class="cc-detail-section">${detailDocumentsBlock(o)}</section>`;
+  }
+  if (chilecompraState.detailTab === 'items') {
+    return `<section class="cc-detail-section">${detailItemsBlock(o)}</section>`;
+  }
+  if (chilecompraState.detailTab === 'fechas') {
+    return `<section class="cc-detail-section">${detailDatesBlock(o)}</section>`;
   }
   const description = o.description
     || (chilecompraState.detailLoading
@@ -864,7 +900,6 @@ function detailBody(o) {
     <div class="cc-detail-facts"><div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div><div><small>Publicación</small><strong>${published}</strong></div></div>
     <h4>Descripción</h4><p class="cc-description">${e(description)}</p>
     ${detailBuyerBlock(o)}
-    ${detailDatesBlock(o)}
     <h4>Seguimientos relacionados</h4><div class="cc-tags">${campaignTags(o) || '<span class="muted">Búsqueda manual.</span>'}</div>
   </section>`;
 }
@@ -876,9 +911,16 @@ function detailPanel(o) {
     <div class="cc-detail-head"><div class="cc-detail-campaign-summary"><strong>${campaigns.length}</strong><span>${campaigns.length === 1 ? 'seguimiento coincide' : 'seguimientos coinciden'}</span></div><button type="button" class="icon-btn" data-cc-save="${o.id}" aria-label="Guardar oportunidad">♡</button></div>
     <h2>${e(o.name)}</h2><p class="cc-detail-buyer">⌂ ${e(o.buyer_name || (chilecompraState.detailLoading ? 'Cargando comprador…' : 'Comprador no informado'))}</p>
     <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
-    <div class="cc-detail-tabs">${[['resumen','Resumen'],['requisitos','Condiciones'],['documentos','Ítems y documentos'],['coincidencias','Coincidencias']].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
+    <div class="cc-detail-tabs">${[
+      ['resumen','Resumen'],
+      ['documentos','Bases y documentos'],
+      ['requisitos','Condiciones'],
+      ['items','Ítems'],
+      ['fechas','Fechas'],
+      ['coincidencias','Coincidencias']
+    ].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
     ${detailBody(o)}
-    <div class="cc-detail-actions">${o.radar_state === 'crm' ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>' : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}<button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button><button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button><button type="button" class="link-btn cc-market-link" data-cc-market>Ver en ChileCompra ↗</button></div>
+    <div class="cc-detail-actions">${o.radar_state === 'crm' ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>' : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}<button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button><button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button><button type="button" class="link-btn cc-market-link" data-cc-market>Fuente oficial en Mercado Público ↗</button></div>
   </aside>`;
 }
 
@@ -1355,9 +1397,20 @@ function renderOpportunityWorkspace(stats) {
   </section>`;
 }
 
+function detailReturnLabel() {
+  if (chilecompraState.tab === 'buscar') return 'Resultados de búsqueda';
+  if (chilecompraState.tab === 'guardadas') return 'Guardadas';
+  if (chilecompraState.tab === 'crm') return 'En CRM';
+  if (chilecompraState.tab === 'coincidencias') {
+    const campaign = chilecompraState.campaigns.find((row) => row.id === chilecompraState.selectedCampaignId);
+    return campaign ? `Coincidencias · ${campaign.name}` : 'Coincidencias';
+  }
+  return 'Oportunidades';
+}
+
 function renderOpportunityPage(o) {
   if (!o) return '<section class="cc-detail-page"><div class="cc-empty">No pudimos cargar esta licitación.</div></section>';
-  const context = chilecompraState.tab === 'buscar' ? 'Resultados de búsqueda' : chilecompraState.tab === 'coincidencias' ? 'Coincidencias' : 'ChileCompra';
+  const context = detailReturnLabel();
   return `<section class="cc-detail-page">
     <div class="cc-detail-page-toolbar">
       <button type="button" class="cc-back-btn" data-cc-detail-back>← Volver a ${e(context)}</button>
@@ -1694,6 +1747,7 @@ export function mountChileCompraView() {
     }
     const select = ev.target.closest('[data-cc-select]');
     if (select) {
+      chilecompraState.detailReturnY = window.scrollY || 0;
       chilecompraState.selectedId = select.dataset.ccSelect;
       chilecompraState.detailTab = 'resumen';
       chilecompraState.detailError = '';
@@ -1708,6 +1762,7 @@ export function mountChileCompraView() {
       await runTraditionalSearch(code);
       const match = chilecompraState.results.find((row) => row.external_code === code) || chilecompraState.results[0];
       if (match) {
+        chilecompraState.detailReturnY = window.scrollY || 0;
         chilecompraState.selectedId = match.id;
         chilecompraState.detailTab = 'resumen';
         chilecompraState.detailError = '';
@@ -1717,10 +1772,12 @@ export function mountChileCompraView() {
     }
 
     if (ev.target.closest('[data-cc-detail-back]')) {
+      const returnY = Number(chilecompraState.detailReturnY || 0);
       chilecompraState.selectedId = '';
       chilecompraState.detailLoading = false;
       chilecompraState.detailError = '';
       rerender();
+      requestAnimationFrame(() => window.scrollTo({ top: returnY, behavior: 'instant' }));
       return;
     }
     if (ev.target.closest('[data-cc-detail-retry]')) {
