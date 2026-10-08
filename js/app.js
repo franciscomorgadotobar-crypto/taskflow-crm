@@ -1592,7 +1592,11 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     $('quoteContactPhone').value = base.client?.phone || '';
     $('quoteContactEmail').value = base.client?.email || '';
   }
-  $('quotePriceList').innerHTML = lists.map((l) => `<option value="${l.id}">${escapeHtml(l.name)} (${l.currency})</option>`).join('');
+  $('quotePriceList').innerHTML = lists.map((l) => {
+    const issuerName = l.issuerProfile?.commercialName || l.issuerProfile?.legalName || '';
+    const label = [l.name, issuerName].filter(Boolean).join(' · ');
+    return `<option value="${l.id}">${escapeHtml(label)} (${l.currency})</option>`;
+  }).join('');
   $('quotePriceList').value = b.priceListId;
   $('quoteCurrency').value = b.currency;
   $('quoteUfValue').value = '';
