@@ -1483,7 +1483,7 @@ export function quoteDocHtml(doc) {
       ${doc.notes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(doc.notes)}</p>` : ''}
       ${commercialInfo.length ? `
         <section class="qd-commercial">
-          <h4>Incluido en la propuesta</h4>
+          <h4>Beneficios y acompañamiento</h4>
           <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
         </section>` : ''}
 
