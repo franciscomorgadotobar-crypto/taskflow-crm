@@ -511,10 +511,63 @@
         <label>Nombre de la lista<input id="priceImportName" required /></label>
         <label>Moneda de los precios<select id="priceImportCurrency"><option value="UF">UF</option><option value="CLP">CLP</option></select></label>
       </div>
+      <details class="price-brand-editor" open>
+        <summary>Empresa emisora y contenido comercial</summary>
+        <div class="form-grid price-brand-grid">
+          <label class="span-2">Logo <span class="muted">(PNG, JPG o WEBP · máx. 2 MB)</span><input id="priceImportLogo" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <label>Nombre comercial<input id="priceImportCommercialName" placeholder="Ej. 4R Labs" /></label>
+          <label>Razón social<input id="priceImportLegalName" placeholder="Ej. Cuatro R Labs SpA" /></label>
+          <label>RUT<input id="priceImportRut" placeholder="76.123.456-7" /></label>
+          <label>Teléfono<input id="priceImportPhone" placeholder="+56 9 ..." /></label>
+          <label>Correo<input id="priceImportEmail" type="email" placeholder="contacto@empresa.cl" /></label>
+          <label>Sitio web<input id="priceImportWebsite" placeholder="www.empresa.cl" /></label>
+          <label class="span-2">Dirección<input id="priceImportAddress" placeholder="Dirección comercial" /></label>
+          <label class="span-2">Información comercial <span class="muted">(una por línea)</span>
+            <textarea id="priceImportCommercialInfo" rows="4"></textarea>
+          </label>
+        </div>
+      </details>
       <div id="priceImportPreview" class="price-import-preview"></div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="priceImportDialog">Cancelar</button>
         <button type="submit" class="primary-btn" id="priceImportSubmit" disabled>Importar lista</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Empresa emisora de una lista de precios -->
+  <dialog id="priceBrandDialog" class="modal">
+    <form id="priceBrandForm" class="modal-card wide" novalidate>
+      <div class="modal-head">
+        <div>
+          <h2>Empresa emisora</h2>
+          <p id="priceBrandSubtitle">Identidad y contenido que aparecerán en las cotizaciones de esta lista.</p>
+        </div>
+        <button type="button" class="icon-btn" data-close-dialog="priceBrandDialog" aria-label="Cerrar">×</button>
+      </div>
+      <input type="hidden" id="priceBrandListId" />
+      <div class="price-brand-logo-row">
+        <div id="priceBrandLogoPreview" class="price-brand-logo-preview"><span>LOGO</span></div>
+        <label class="grow">Logo <span class="muted">(PNG, JPG o WEBP · máx. 2 MB)</span>
+          <input id="priceBrandLogo" type="file" accept="image/png,image/jpeg,image/webp" />
+        </label>
+      </div>
+      <div class="form-grid price-brand-grid">
+        <label>Nombre comercial<input id="priceBrandCommercialName" placeholder="Ej. 4R Labs" /></label>
+        <label>Razón social<input id="priceBrandLegalName" /></label>
+        <label>RUT<input id="priceBrandRut" /></label>
+        <label>Teléfono<input id="priceBrandPhone" /></label>
+        <label>Correo<input id="priceBrandEmail" type="email" /></label>
+        <label>Sitio web<input id="priceBrandWebsite" /></label>
+        <label class="span-2">Dirección<input id="priceBrandAddress" /></label>
+        <label class="span-2">Información comercial <span class="muted">(una por línea)</span>
+          <textarea id="priceBrandCommercialInfo" rows="5"></textarea>
+        </label>
+      </div>
+      <p class="muted price-brand-hint">Estos datos quedan asociados a esta lista. Cada cotización guarda una copia para que las cotizaciones antiguas no cambien si luego editas la empresa.</p>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="priceBrandDialog">Cancelar</button>
+        <button type="submit" class="primary-btn">Guardar empresa</button>
       </div>
     </form>
   </dialog>
@@ -611,10 +664,26 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="ghost-btn" data-close-dialog="quoteDialog">Cancelar</button>
+        <button type="button" class="ghost-btn" data-action="quote-builder-preview">Previsualizar</button>
         <button type="button" class="ghost-btn" data-action="quote-builder-pdf">Descargar PDF</button>
         <button type="submit" class="primary-btn">Guardar cotización</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Previsualizar cotización en edición -->
+  <dialog id="quotePreviewDialog" class="modal quote-preview-modal">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <div><h2>Previsualización</h2><p>Así se verá la propuesta comercial y su PDF.</p></div>
+        <button type="button" class="icon-btn" data-close-dialog="quotePreviewDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div id="quoteBuilderPreviewBody" class="quote-preview-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-dialog="quotePreviewDialog">Volver a editar</button>
+        <button type="button" class="primary-btn" data-action="quote-builder-pdf">Descargar PDF</button>
+      </div>
+    </div>
   </dialog>
 
   <!-- Ver cotización -->
