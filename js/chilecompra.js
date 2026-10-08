@@ -711,7 +711,7 @@ function campaignTags(o) {
 
 function opportunityCard(o) {
   const campaigns = campaignsForOpportunity(o.id);
-  return `<article class="cc-opportunity ${selectedOpportunity()?.id === o.id ? 'is-selected' : ''}" data-cc-select="${o.id}">
+  return `<article class="cc-opportunity ${chilecompraState.selectedId === o.id ? 'is-selected' : ''}" data-cc-select="${o.id}">
     <div class="cc-match-count"><strong>${campaigns.length || '•'}</strong><small>${campaigns.length === 1 ? 'seguimiento' : campaigns.length ? 'seguimientos' : 'búsqueda'}</small></div>
     <div class="cc-opportunity-main">
       <strong class="cc-opportunity-title">${e(o.name)}</strong>
@@ -1508,7 +1508,12 @@ async function loadDetail(id, { force = false } = {}) {
     || current.amount != null
     || (current.raw && Object.keys(current.raw).length > 6)
   );
-  if (!force && current.detail_loaded && hasUsefulDetail) return;
+  if (!force && current.detail_loaded && hasUsefulDetail) {
+    chilecompraState.detailLoading = false;
+    chilecompraState.detailError = '';
+    rerender();
+    return;
+  }
 
   chilecompraState.detailLoading = true;
   chilecompraState.detailError = '';
@@ -1751,6 +1756,7 @@ export function mountChileCompraView() {
       chilecompraState.selectedId = select.dataset.ccSelect;
       chilecompraState.detailTab = 'resumen';
       chilecompraState.detailError = '';
+      rerender();
       await loadDetail(chilecompraState.selectedId);
       return;
     }
@@ -1766,6 +1772,7 @@ export function mountChileCompraView() {
         chilecompraState.selectedId = match.id;
         chilecompraState.detailTab = 'resumen';
         chilecompraState.detailError = '';
+        rerender();
         await loadDetail(match.id);
       }
       return;
