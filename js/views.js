@@ -1390,6 +1390,9 @@ export function quoteDocHtml(doc) {
   const cur = doc.currency || 'UF';
   const t = doc.totals || {};
   const client = doc.client || {};
+  const issuer = doc.issuer || {};
+  const commercialInfo = Array.isArray(doc.commercialInfo) ? doc.commercialInfo.filter(Boolean) : [];
+  const issuerName = issuer.commercialName || issuer.legalName || QUOTE_ISSUER.name || '';
   const setup = doc.lines.filter((l) => l.periodicity === 'unico');
   const monthly = doc.lines.filter((l) => l.periodicity !== 'unico');
   const amount = (n) => fmtAmount(n, cur);
@@ -1429,9 +1432,15 @@ export function quoteDocHtml(doc) {
     <div class="quote-doc">
       <div class="qd-head">
         <div class="qd-issuer">
-          <div class="crm-brand-mark qd-brand-mark" aria-label="CRM">CRM</div>
-          ${QUOTE_ISSUER.name ? `<strong>${e(QUOTE_ISSUER.name)}</strong>` : ``}
-          ${QUOTE_ISSUER.rut ? `<span>RUT ${e(QUOTE_ISSUER.rut)}</span>` : ``}
+          ${issuer.logoUrl
+            ? `<img class="qd-logo" src="${e(issuer.logoUrl)}" alt="${e(issuerName || 'Logo')}" />`
+            : '<div class="crm-brand-mark qd-brand-mark" aria-label="CRM">CRM</div>'}
+          ${issuerName ? `<strong>${e(issuerName)}</strong>` : ''}
+          ${issuer.legalName && issuer.legalName !== issuerName ? `<span>${e(issuer.legalName)}</span>` : ''}
+          ${issuer.rut ? `<span>RUT ${e(issuer.rut)}</span>` : ''}
+          ${issuer.email ? `<span>${e(issuer.email)}</span>` : ''}
+          ${issuer.phone ? `<span>${e(issuer.phone)}</span>` : ''}
+          ${issuer.website ? `<span>${e(issuer.website)}</span>` : ''}
         </div>
         <div class="qd-client">
           <div>Cliente: <strong>${e(client.company || '—')}</strong></div>
@@ -1452,6 +1461,11 @@ export function quoteDocHtml(doc) {
         </div>
       </div>
       ${doc.notes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(doc.notes)}</p>` : ''}
+      ${commercialInfo.length ? `
+        <section class="qd-commercial">
+          <h4>Incluido en la propuesta</h4>
+          <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
+        </section>` : ''}
 
       <h4>Habilitación inicial (pago único)</h4>
       ${table(setup, false)}
@@ -1491,6 +1505,8 @@ export function quoteDocFromSaved(q) {
     paymentTerms: q.paymentTerms,
     notes: q.notes,
     client: q.client,
+    issuer: q.issuer || {},
+    commercialInfo: q.commercialInfo || [],
     lines: q.items,
     totals: q.totals
   };
