@@ -1252,6 +1252,20 @@ function renderPriceListItems(list) {
         ${admin ? `<button class="primary-btn" data-action="new-price-item" data-id="${list.id}">+ Agregar servicio</button>` : ''}
       </div>
       <div class="card-body">
+        <div class="price-list-brand-summary">
+          <div class="price-list-brand-logo">
+            ${list.issuerProfile?.logoUrl
+              ? `<img src="${e(list.issuerProfile.logoUrl)}" alt="Logo ${e(list.issuerProfile.commercialName || list.issuerProfile.legalName || list.name)}" />`
+              : '<span>LOGO</span>'}
+          </div>
+          <div class="price-list-brand-copy">
+            <strong>${e(list.issuerProfile?.commercialName || list.issuerProfile?.legalName || 'Empresa no configurada')}</strong>
+            ${list.issuerProfile?.legalName && list.issuerProfile?.legalName !== list.issuerProfile?.commercialName ? `<span>${e(list.issuerProfile.legalName)}</span>` : ''}
+            ${list.issuerProfile?.rut ? `<small>RUT ${e(list.issuerProfile.rut)}</small>` : '<small>Configura la empresa que emitirá las cotizaciones de esta lista.</small>'}
+            ${list.commercialInfo?.length ? `<small>${list.commercialInfo.length} beneficio(s) comercial(es) configurado(s)</small>` : ''}
+          </div>
+          ${admin ? `<button class="small-btn" data-action="edit-price-brand" data-id="${list.id}">Datos de empresa</button>` : ''}
+        </div>
         ${
           items.length
             ? `<div class="table-wrap"><table class="data-table price-items-table">
@@ -1300,13 +1314,17 @@ function renderPriceLists(ui) {
         ${
           lists.length
             ? `<div class="table-wrap"><table class="data-table">
-                <thead><tr><th>Nombre</th><th>Moneda</th><th class="num">Servicios</th><th>Estado</th><th>Cargada</th><th>Acciones</th></tr></thead>
+                <thead><tr><th>Nombre</th><th>Empresa emisora</th><th>Moneda</th><th class="num">Servicios</th><th>Estado</th><th>Cargada</th><th>Acciones</th></tr></thead>
                 <tbody>${lists
                   .map((l) => {
                     const items = itemsOfPriceList(l.id);
                     const active = items.filter((it) => it.active).length;
                     return `<tr class="${selected?.id === l.id ? 'row-selected' : ''}">
                       <td><strong>${e(l.name)}</strong>${l.sourceFile ? `<div class="muted">${e(l.sourceFile)}</div>` : ''}</td>
+                      <td><div class="price-list-company-cell">
+                        ${l.issuerProfile?.logoUrl ? `<img src="${e(l.issuerProfile.logoUrl)}" alt="" />` : ''}
+                        <span>${e(l.issuerProfile?.commercialName || l.issuerProfile?.legalName || 'Sin configurar')}</span>
+                      </div></td>
                       <td>${e(l.currency)}</td>
                       <td class="num">${active} de ${items.length} activos</td>
                       <td>${l.status === 'vigente' ? '<span class="badge success">Vigente</span>' : '<span class="badge warning">Archivada</span>'}</td>
@@ -1315,7 +1333,8 @@ function renderPriceLists(ui) {
                         <button class="small-btn" data-action="view-price-list" data-id="${l.id}">Ver</button>
                         ${
                           admin
-                            ? `<button class="small-btn" data-action="toggle-price-list" data-id="${l.id}">${l.status === 'vigente' ? 'Archivar' : 'Reactivar'}</button>
+                            ? `<button class="small-btn" data-action="edit-price-brand" data-id="${l.id}">Empresa</button>
+                               <button class="small-btn" data-action="toggle-price-list" data-id="${l.id}">${l.status === 'vigente' ? 'Archivar' : 'Reactivar'}</button>
                                <button class="small-btn danger" data-action="delete-price-list" data-id="${l.id}">Eliminar</button>`
                             : ''
                         }
