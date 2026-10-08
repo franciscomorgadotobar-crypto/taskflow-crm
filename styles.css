@@ -836,3 +836,221 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .auth-brand-mark{margin:0 auto 8px;width:max-content;min-width:92px;height:52px;font-size:20px}
 .nav-brand-mark{min-width:82px;height:42px}
 .qd-brand-mark{min-width:68px;height:38px;font-size:14px;box-shadow:none}
+
+
+/* ---------- Cotizaciones · empresa emisora y previsualización ---------- */
+.price-brand-editor{
+  margin-top:14px;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--panel) 97%,var(--bg));
+}
+.price-brand-editor>summary{
+  padding:12px 14px;
+  cursor:pointer;
+  color:var(--text);
+  font-size:12px;
+  font-weight:800;
+}
+.price-brand-editor[open]>summary{
+  border-bottom:1px solid var(--border);
+}
+.price-brand-grid{
+  padding:14px !important;
+}
+.price-brand-grid textarea{
+  min-height:92px;
+}
+.price-brand-logo-row{
+  display:grid;
+  grid-template-columns:130px minmax(0,1fr);
+  align-items:center;
+  gap:16px;
+  padding:4px 0 16px;
+}
+.price-brand-logo-row label{
+  display:grid;
+  gap:7px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+.price-brand-logo-preview,
+.price-list-brand-logo{
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px dashed var(--border);
+  border-radius:12px;
+  background:var(--bg);
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+}
+.price-brand-logo-preview{
+  width:130px;
+  height:82px;
+}
+.price-brand-logo-preview img,
+.price-list-brand-logo img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+}
+.price-brand-hint{
+  margin:12px 0 0;
+  font-size:11px;
+}
+.price-list-brand-summary{
+  display:grid;
+  grid-template-columns:88px minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  margin-bottom:14px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--panel) 96%,var(--bg));
+}
+.price-list-brand-logo{
+  width:88px;
+  height:58px;
+}
+.price-list-brand-copy{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.price-list-brand-copy strong{
+  color:var(--text);
+  font-size:13px;
+}
+.price-list-brand-copy span,
+.price-list-brand-copy small{
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.35;
+}
+.price-list-company-cell{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:150px;
+}
+.price-list-company-cell img{
+  width:34px;
+  height:24px;
+  object-fit:contain;
+  border-radius:5px;
+  background:#fff;
+}
+.quote-builder-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+.quote-builder-summary>div{
+  min-width:0;
+  display:grid;
+  gap:4px;
+  padding:11px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--bg);
+}
+.quote-builder-summary span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+}
+.quote-builder-summary strong{
+  overflow:hidden;
+  color:var(--text);
+  font-size:13px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.quote-builder-summary-total{
+  border-color:color-mix(in srgb,var(--blue) 35%,var(--border)) !important;
+  background:color-mix(in srgb,var(--blue) 7%,var(--bg)) !important;
+}
+.quote-builder-preview-hint{
+  margin:8px 0 0;
+  font-size:10px;
+}
+.quote-preview-modal{
+  width:min(980px,96vw);
+  max-width:min(980px,96vw);
+}
+.quote-preview-modal .modal-card.wide{
+  max-width:980px;
+}
+.quote-preview-body{
+  min-height:0;
+  overflow:auto;
+  padding:16px 20px;
+  background:#eef2f7;
+}
+.quote-preview-body .quote-doc{
+  min-width:680px;
+  margin:0 auto;
+  box-shadow:0 10px 34px rgba(15,35,65,.12);
+}
+.qd-logo{
+  display:block;
+  max-width:150px;
+  max-height:72px;
+  object-fit:contain;
+  margin:0 auto 5px;
+}
+.qd-commercial{
+  margin:12px 0 4px;
+  padding:10px 12px;
+  border:1px solid #dce6f1;
+  border-radius:8px;
+  background:#f7faff;
+}
+.qd-commercial h4{
+  margin:0 0 6px !important;
+  font-size:12px !important;
+}
+.qd-commercial ul{
+  display:grid;
+  gap:3px;
+  margin:0;
+  padding-left:18px;
+}
+.qd-commercial li{
+  color:#31445f;
+  font-size:11px;
+}
+@media(max-width:760px){
+  .price-brand-logo-row{
+    grid-template-columns:90px minmax(0,1fr);
+    gap:10px;
+  }
+  .price-brand-logo-preview{
+    width:90px;
+    height:64px;
+  }
+  .price-list-brand-summary{
+    grid-template-columns:68px minmax(0,1fr);
+    gap:10px;
+  }
+  .price-list-brand-logo{
+    width:68px;
+    height:48px;
+  }
+  .price-list-brand-summary>.small-btn{
+    grid-column:1/-1;
+    width:100%;
+  }
+  .quote-builder-summary{
+    grid-template-columns:1fr 1fr;
+  }
+  .quote-preview-body{
+    padding:10px;
+  }
+}
+/* ---------- End cotizaciones empresa/previsualización ---------- */
