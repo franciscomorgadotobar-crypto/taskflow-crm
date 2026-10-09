@@ -103,3 +103,53 @@ html[data-theme="dark"] .bonvallet-message__meta span { color: #aab4c5; }
   }
   .bonvallet-message.is-visible { transform: translate3d(0, 0, 0); }
 }
+
+
+/* ---------- Mascota seleccionable ---------- */
+.bonvallet-message[data-character="nicanor"] .bonvallet-message__avatar{
+  object-position:50% 38%;
+  filter:saturate(.92) contrast(1.02);
+}
+.bonvallet-message[data-character="nicanor"][data-mood="serious"] .bonvallet-message__avatar{
+  object-position:50% 40%;
+  filter:grayscale(1) contrast(1.06);
+}
+.bonvallet-message[data-character="nicanor"][data-mood="ironic"] .bonvallet-message__avatar{
+  object-position:50% 34%;
+}
+.v2-mascot-settings-body{
+  display:grid;
+  gap:12px;
+}
+.v2-mascot-character-field{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(180px,240px);
+  gap:16px;
+  align-items:center;
+  padding:12px 14px;
+  border:1px solid var(--v2-line,#dfe6ef);
+  border-radius:12px;
+}
+.v2-mascot-character-field>span{
+  display:grid;
+  gap:3px;
+}
+.v2-mascot-character-field strong{
+  color:var(--v2-text,#172033);
+  font-size:12px;
+}
+.v2-mascot-character-field small{
+  color:var(--v2-muted,#748095);
+  font-size:10px;
+  line-height:1.4;
+}
+.v2-mascot-character-field select{
+  width:100%;
+}
+@media(max-width:640px){
+  .v2-mascot-character-field{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+}
+/* ---------- End mascota seleccionable ---------- */
