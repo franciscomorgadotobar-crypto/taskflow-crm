@@ -1424,7 +1424,7 @@ export function quoteDocHtml(doc) {
           ? rows
               .map(
                 (l) => `<tr>
-                  <td>${e(l.name)}${l.code ? `<div class="qd-code">${e(l.code)}</div>` : ''}</td>
+                  <td>${e(l.name)}</td>
                   <td class="num">${fmtNumber(l.quantity)}</td>
                   <td class="num">${amount(l.unitPrice)}</td>
                   <td class="num">${amount(l.subtotal)}</td>
