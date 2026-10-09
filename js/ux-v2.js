@@ -962,12 +962,29 @@ function injectMascotSettingsCard() {
   const enabled = mascotEnabled();
   const character = mascotCharacter();
   let card = q('.v2-mascot-settings-card', host);
-  const isNewCard = !card;
+
+  // Si la tarjeta ya está completa, no tocar su HTML:
+  // solo sincronizar valores. Esto evita ciclos con el MutationObserver.
+  if (card && q('#v2MascotCharacter', card) && q('#v2MascotToggle', card)) {
+    const status = q('#v2MascotStatus', card);
+    const select = q('#v2MascotCharacter', card);
+    const toggle = q('#v2MascotToggle', card);
+
+    if (status) {
+      const label = enabled ? 'Activada' : 'Desactivada';
+      if (status.textContent !== label) status.textContent = label;
+      status.classList.toggle('success', enabled);
+    }
+    if (select && select.value !== character) select.value = character;
+    if (toggle && toggle.checked !== enabled) toggle.checked = enabled;
+    return;
+  }
 
   if (!card) {
     card = document.createElement('div');
     card.className = 'card v2-mascot-settings-card';
   }
+
   card.innerHTML = `
     <div class="card-head">
       <div>
@@ -999,7 +1016,7 @@ function injectMascotSettingsCard() {
       </label>
     </div>`;
 
-  if (isNewCard) {
+  if (!card.isConnected) {
     const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación CRM');
     if (appCard) appCard.insertAdjacentElement('afterend', card);
     else cards[0].insertAdjacentElement('afterend', card);
@@ -1008,20 +1025,28 @@ function injectMascotSettingsCard() {
   const characterSelect = q('#v2MascotCharacter', card);
   const toggle = q('#v2MascotToggle', card);
 
-  if (characterSelect && characterSelect.dataset.bound !== '1') {
-    characterSelect.dataset.bound = '1';
+  if (characterSelect) {
     characterSelect.addEventListener('change', async (event) => {
-      await setMascotCharacterPreference(event.currentTarget.value);
-    });
+      characterSelect.disabled = true;
+      try {
+        await setMascotCharacterPreference(event.currentTarget.value);
+      } finally {
+        if (characterSelect.isConnected) characterSelect.disabled = false;
+      }
+    }, { once: false });
   }
-  if (toggle && toggle.dataset.bound !== '1') {
-    toggle.dataset.bound = '1';
+
+  if (toggle) {
     toggle.addEventListener('change', async (event) => {
-      await setMascotPreference(event.currentTarget.checked);
-    });
+      toggle.disabled = true;
+      try {
+        await setMascotPreference(event.currentTarget.checked);
+      } finally {
+        if (toggle.isConnected) toggle.disabled = false;
+      }
+    }, { once: false });
   }
 }
-
 function injectSettingsDataCard() {
   const host = $('settingsDataSectionHost');
   if (!host || q('.v2-data-card', host)) return;
