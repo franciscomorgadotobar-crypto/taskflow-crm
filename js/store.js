@@ -186,7 +186,8 @@ const fromDbProfile = (r) => ({
   bottomNav: Array.isArray(r.bottom_nav) && r.bottom_nav.length ? r.bottom_nav : [...DEFAULT_BOTTOM_NAV],
   mobileNavMode: r.mobile_nav_mode === 'bottom' ? 'bottom' : 'drawer',
   mobileMenuPosition: r.mobile_menu_position === 'right' ? 'right' : 'left',
-  mascotEnabled: typeof r.mascot_enabled === 'boolean' ? r.mascot_enabled : null
+  mascotEnabled: typeof r.mascot_enabled === 'boolean' ? r.mascot_enabled : null,
+  mascotCharacter: r.mascot_character === 'nicanor' ? 'nicanor' : 'bonvallet'
 });
 
 /* ---------- Hidratación + Realtime ---------- */
@@ -1008,6 +1009,7 @@ export async function saveProfile(patch) {
   if (patch.mobileNavMode === 'drawer' || patch.mobileNavMode === 'bottom') payload.mobile_nav_mode = patch.mobileNavMode;
   if (patch.mobileMenuPosition === 'left' || patch.mobileMenuPosition === 'right') payload.mobile_menu_position = patch.mobileMenuPosition;
   if (typeof patch.mascotEnabled === 'boolean') payload.mascot_enabled = patch.mascotEnabled;
+  if (patch.mascotCharacter === 'bonvallet' || patch.mascotCharacter === 'nicanor') payload.mascot_character = patch.mascotCharacter;
   const { data, error: updateError } = await supabase
     .from('profiles')
     .update(payload)
