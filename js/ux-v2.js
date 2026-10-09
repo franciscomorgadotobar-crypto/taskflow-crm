@@ -954,15 +954,20 @@ function injectMascotSettingsCard() {
   const root = $('viewRoot');
   const accountHost = $('settingsAccountHost');
   const host = accountHost || ($('viewTitle')?.textContent.trim() === 'Mi cuenta' ? root : null);
-  if (!host || q('.v2-mascot-settings-card', host)) return;
+  if (!host) return;
 
   const cards = qa(':scope > .card', host);
   if (!cards.length) return;
 
   const enabled = mascotEnabled();
   const character = mascotCharacter();
-  const card = document.createElement('div');
-  card.className = 'card v2-mascot-settings-card';
+  let card = q('.v2-mascot-settings-card', host);
+  const isNewCard = !card;
+
+  if (!card) {
+    card = document.createElement('div');
+    card.className = 'card v2-mascot-settings-card';
+  }
   card.innerHTML = `
     <div class="card-head">
       <div>
@@ -994,16 +999,27 @@ function injectMascotSettingsCard() {
       </label>
     </div>`;
 
-  const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación CRM');
-  if (appCard) appCard.insertAdjacentElement('afterend', card);
-  else cards[0].insertAdjacentElement('afterend', card);
+  if (isNewCard) {
+    const appCard = cards.find((node) => q('.card-head h3', node)?.textContent?.trim() === 'Aplicación CRM');
+    if (appCard) appCard.insertAdjacentElement('afterend', card);
+    else cards[0].insertAdjacentElement('afterend', card);
+  }
 
-  $('v2MascotCharacter')?.addEventListener('change', async (event) => {
-    await setMascotCharacterPreference(event.currentTarget.value);
-  });
-  $('v2MascotToggle')?.addEventListener('change', async (event) => {
-    await setMascotPreference(event.currentTarget.checked);
-  });
+  const characterSelect = q('#v2MascotCharacter', card);
+  const toggle = q('#v2MascotToggle', card);
+
+  if (characterSelect && characterSelect.dataset.bound !== '1') {
+    characterSelect.dataset.bound = '1';
+    characterSelect.addEventListener('change', async (event) => {
+      await setMascotCharacterPreference(event.currentTarget.value);
+    });
+  }
+  if (toggle && toggle.dataset.bound !== '1') {
+    toggle.dataset.bound = '1';
+    toggle.addEventListener('change', async (event) => {
+      await setMascotPreference(event.currentTarget.checked);
+    });
+  }
 }
 
 function injectSettingsDataCard() {
