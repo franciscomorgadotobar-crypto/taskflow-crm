@@ -61,6 +61,39 @@ function mascotEnabled() {
   }
 }
 
+const MASCOT_CHARACTER_PREFIX = 'crm.personal.mascot.character';
+
+function mascotCharacterKey() {
+  return `${MASCOT_CHARACTER_PREFIX}:${session.user?.id || 'default'}`;
+}
+
+function mascotCharacter() {
+  if (state.me?.mascotCharacter === 'nicanor') return 'nicanor';
+  if (state.me?.mascotCharacter === 'bonvallet') return 'bonvallet';
+  try {
+    return localStorage.getItem(mascotCharacterKey()) === 'nicanor' ? 'nicanor' : 'bonvallet';
+  } catch {
+    return 'bonvallet';
+  }
+}
+
+async function setMascotCharacterPreference(character) {
+  const next = character === 'nicanor' ? 'nicanor' : 'bonvallet';
+  try {
+    localStorage.setItem(mascotCharacterKey(), next);
+  } catch {}
+
+  document.dispatchEvent(new CustomEvent('crm-personal:mascot-character', {
+    detail: { character: next }
+  }));
+
+  const saved = await saveProfile({ mascotCharacter: next });
+  if (!saved) {
+    const select = $('v2MascotCharacter');
+    if (select) select.value = mascotCharacter();
+  }
+}
+
 async function setMascotPreference(enabled) {
   const next = Boolean(enabled);
   try {
@@ -927,21 +960,32 @@ function injectMascotSettingsCard() {
   if (!cards.length) return;
 
   const enabled = mascotEnabled();
+  const character = mascotCharacter();
   const card = document.createElement('div');
   card.className = 'card v2-mascot-settings-card';
   card.innerHTML = `
     <div class="card-head">
       <div>
         <h3>Mascota</h3>
-        <span class="muted">Preferencia visual</span>
+        <span class="muted">Personaje y frases del CRM</span>
       </div>
       <span id="v2MascotStatus" class="badge ${enabled ? 'success' : ''}">${enabled ? 'Activada' : 'Desactivada'}</span>
     </div>
-    <div class="card-body">
+    <div class="card-body v2-mascot-settings-body">
+      <label class="v2-mascot-character-field">
+        <span>
+          <strong>Personaje</strong>
+          <small>Elige quién aparecerá al iniciar y ante hitos de gestión.</small>
+        </span>
+        <select id="v2MascotCharacter">
+          <option value="bonvallet" ${character === 'bonvallet' ? 'selected' : ''}>Eduardo Bonvallet</option>
+          <option value="nicanor" ${character === 'nicanor' ? 'selected' : ''}>Nicanor Parra</option>
+        </select>
+      </label>
       <label class="v2-setting-toggle" for="v2MascotToggle">
         <span class="v2-setting-toggle__copy">
-          <strong>Activar o desactivar mascota</strong>
-          <small>Muestra u oculta la mascota del CRM.</small>
+          <strong>Mostrar mascota</strong>
+          <small>Activa o desactiva sus apariciones sin cambiar el personaje elegido.</small>
         </span>
         <span class="v2-switch">
           <input id="v2MascotToggle" type="checkbox" ${enabled ? 'checked' : ''} />
@@ -954,6 +998,9 @@ function injectMascotSettingsCard() {
   if (appCard) appCard.insertAdjacentElement('afterend', card);
   else cards[0].insertAdjacentElement('afterend', card);
 
+  $('v2MascotCharacter')?.addEventListener('change', async (event) => {
+    await setMascotCharacterPreference(event.currentTarget.value);
+  });
   $('v2MascotToggle')?.addEventListener('change', async (event) => {
     await setMascotPreference(event.currentTarget.checked);
   });
