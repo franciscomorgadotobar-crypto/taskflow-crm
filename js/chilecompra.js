@@ -40,7 +40,19 @@ export const chilecompraState = {
   cmSelectedCode: '',
   cmDetail: null,
   cmDetailLoading: false,
+  aiResults: [],
+  aiLoading: false,
+  aiProvider: '',
+  aiMessage: '',
+  aiError: '',
   onuQuery: '',
+  onuSegment: '',
+  onuResults: [],
+  onuSegments: [],
+  onuTotalCatalog: 0,
+  onuTotalMatches: 0,
+  onuLoading: false,
+  onuError: '',
   sort: 'recent',
   lastSyncAt: ''
 };
@@ -56,7 +68,9 @@ export function clearChileCompra() {
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
     selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '', detailReturnY: 0,
     cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmCampaignId: '', cmView: 'pulso',
-    cmSelectedCode: '', cmDetail: null, cmDetailLoading: false, onuQuery: '',
+    cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
+    aiResults: [], aiLoading: false, aiProvider: '', aiMessage: '', aiError: '',
+    onuQuery: '', onuSegment: '', onuResults: [], onuSegments: [], onuTotalCatalog: 0, onuTotalMatches: 0, onuLoading: false, onuError: '',
     sort: 'recent', lastSyncAt: ''
   });
   notify();
@@ -277,6 +291,13 @@ export async function hydrateChileCompra() {
 
 async function invokeRadar(body) {
   const { data, error } = await supabase.functions.invoke('chilecompra-radar', { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.message || data.error);
+  return data || {};
+}
+
+async function invokeChileCompraFunction(name, body) {
+  const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) throw error;
   if (data?.error) throw new Error(data.message || data.error);
   return data || {};
@@ -1008,14 +1029,17 @@ function dashboardNav(stats) {
   const marketTabs = new Set(['mercado','compradores','convenio','onu']);
   const activeSection = chilecompraState.tab === 'resumen'
     ? 'resumen'
-    : chilecompraState.tab === 'campanas'
-      ? 'campanas'
-      : opportunityTabs.has(chilecompraState.tab)
-        ? 'oportunidades'
-        : 'mercado';
+    : chilecompraState.tab === 'ia'
+      ? 'ia'
+      : chilecompraState.tab === 'campanas'
+        ? 'campanas'
+        : opportunityTabs.has(chilecompraState.tab)
+          ? 'oportunidades'
+          : 'mercado';
 
   const primary = [
     ['resumen','Resumen','resumen'],
+    ['ia','IA','ia'],
     ['coincidencias','Oportunidades','oportunidades'],
     ['campanas','Seguimientos','campanas'],
     ['mercado','Mercado','mercado']
