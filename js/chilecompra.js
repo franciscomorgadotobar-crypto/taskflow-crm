@@ -1158,7 +1158,9 @@ function aiResultMap() {
 
 async function analyzeChileCompraWithAi({ opportunityId = '' } = {}) {
   const all = aiCandidates();
-  const selected = opportunityId ? all.filter(o=>o.id===opportunityId) : all;
+  const selected = opportunityId
+    ? [...chilecompraState.results, ...chilecompraState.opportunities].filter((o,index,arr)=>o.id===opportunityId && arr.findIndex(x=>x.id===o.id)===index)
+    : all;
   if (!selected.length) return toast('No hay oportunidades cargadas para analizar.', 'error');
 
   chilecompraState.aiLoading = true;
