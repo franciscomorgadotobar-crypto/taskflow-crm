@@ -40,6 +40,7 @@ export const chilecompraState = {
   cmSelectedCode: '',
   cmDetail: null,
   cmDetailLoading: false,
+  onuQuery: '',
   sort: 'recent',
   lastSyncAt: ''
 };
@@ -55,7 +56,7 @@ export function clearChileCompra() {
     hydrated: false, tab: 'resumen', query: '', results: [], sourceCount: 0,
     selectedCampaignId: '', selectedId: '', detailTab: 'resumen', detailLoading: false, detailError: '', detailReturnY: 0,
     cmData: null, cmLoading: false, cmError: '', cmDays: 3, cmQuery: '', cmCampaignId: '', cmView: 'pulso',
-    cmSelectedCode: '', cmDetail: null, cmDetailLoading: false,
+    cmSelectedCode: '', cmDetail: null, cmDetailLoading: false, onuQuery: '',
     sort: 'recent', lastSyncAt: ''
   });
   notify();
@@ -819,7 +820,7 @@ function detailItemsBlock(o) {
           <div><dt>Cantidad</dt><dd>${e(detailText(item.Cantidad))} ${e(item.UnidadMedida || '')}</dd></div>
           <div><dt>Categoría</dt><dd>${e(detailText(item.Categoria))}</dd></div>
           <div><dt>Descripción</dt><dd>${e(detailText(item.Descripcion))}</dd></div>
-          ${item.CodigoProducto ? `<div><dt>Código producto</dt><dd>${e(String(item.CodigoProducto))}</dd></div>` : ''}
+          ${item.CodigoProducto ? `<div><dt>Código ONU</dt><dd><button type="button" class="cc-onu-code-link" data-cc-onu-code="${e(String(item.CodigoProducto))}">${e(String(item.CodigoProducto))}</button></dd></div>` : ''}
         </dl>
       </article>`).join('')}
     </div>
@@ -860,10 +861,10 @@ function detailDocumentsBlock(o) {
           </article>`;
         }).join('')}</div>`
       : `<div class="cc-api-note">
-          <strong>Mercado Público no entregó los archivos adjuntos mediante la API.</strong>
-          <span>Puedes seguir analizando esta licitación dentro del CRM. Para descargar las bases oficiales, abre la fuente en una pestaña nueva.</span>
+          <strong>La API pública no entrega los archivos adjuntos de esta licitación.</strong>
+          <span>La ficha oficial puede mostrar el proceso, pero la descarga de bases y anexos depende del acceso habilitado por Mercado Público. El CRM no debe prometer documentos que la fuente pública no expone.</span>
         </div>`}
-    ${!list.length ? '<button type="button" class="ghost-btn cc-open-public-record" data-cc-market>Abrir bases en Mercado Público ↗</button>' : ''}
+    ${!list.length ? '<button type="button" class="ghost-btn cc-open-public-record" data-cc-market>Abrir ficha oficial ↗</button>' : ''}
   </section>`;
 }
 
@@ -1004,7 +1005,7 @@ function campaignRow(c, stats, { controls = true } = {}) {
 
 function dashboardNav(stats) {
   const opportunityTabs = new Set(['coincidencias','guardadas','crm','buscar']);
-  const marketTabs = new Set(['mercado','compradores','convenio']);
+  const marketTabs = new Set(['mercado','compradores','convenio','onu']);
   const activeSection = chilecompraState.tab === 'resumen'
     ? 'resumen'
     : chilecompraState.tab === 'campanas'
@@ -1031,7 +1032,8 @@ function dashboardNav(stats) {
       ? [
           ['mercado','Mercado Chile',''],
           ['compradores','Compradores',''],
-          ['convenio','Convenio Marco','']
+          ['convenio','Convenio Marco',''],
+          ['onu','Códigos ONU','']
         ]
       : [];
 
@@ -1113,6 +1115,88 @@ function renderMarketDashboard() {
   </section>`;
 }
 
+
+function onuCatalogRows() {
+  const seen = new Map();
+  const sources = [...chilecompraState.opportunities, ...chilecompraState.results];
+  for (const opportunity of sources) {
+    const rawItems = rawValue(opportunity, ['Items']);
+    const items = Array.isArray(rawItems?.Listado) ? rawItems.Listado : [];
+    for (const item of items) {
+      const code = String(item?.CodigoProducto || '').trim();
+      if (!/^\d{6,8}$/.test(code)) continue;
+      const name = detailText(item.NombreProducto || item.Descripcion || '');
+      const category = detailText(item.Categoria || '');
+      const current = seen.get(code) || { code, name:'', category:'', opportunities:0, examples:[] };
+      if (!current.name && name) current.name = name;
+      if (!current.category && category) current.category = category;
+      current.opportunities += 1;
+      if (opportunity.external_code && current.examples.length < 3 && !current.examples.includes(opportunity.external_code)) current.examples.push(opportunity.external_code);
+      seen.set(code,current);
+    }
+  }
+  return [...seen.values()].sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+function onuHierarchy(code='') {
+  const digits=String(code).replace(/\D/g,'');
+  if (digits.length<6) return [];
+  return [
+    ['Segmento',digits.slice(0,2)+'000000'],
+    ['Familia',digits.slice(0,4)+'0000'],
+    ['Clase',digits.slice(0,6)+'00'],
+    ...(digits.length>=8 ? [['Producto / servicio',digits.slice(0,8)]] : [])
+  ];
+}
+
+function renderOnuDashboard() {
+  const q=(chilecompraState.onuQuery || '').trim().toLowerCase();
+  const rows=onuCatalogRows();
+  const filtered=!q ? rows : rows.filter((row)=>
+    row.code.includes(q.replace(/\D/g,'')) ||
+    `${row.name} ${row.category}`.toLowerCase().includes(q)
+  );
+  return `<section class="cc-dashboard">
+    <section class="cc-dashboard-card cc-onu-hero">
+      <div class="cc-section-head">
+        <div>
+          <span class="cc-eyebrow">Clasificación UNSPSC</span>
+          <h3>Códigos ONU</h3>
+          <p>Mercado Público clasifica productos y servicios mediante códigos UNSPSC. Busca por código, producto o rubro y úsalo para mejorar tus seguimientos.</p>
+        </div>
+      </div>
+      <form id="ccOnuSearch" class="cc-onu-search">
+        <input id="ccOnuQuery" type="search" value="${e(chilecompraState.onuQuery)}" placeholder="Ej. 81112010, software, luminaria, HVAC...">
+        <button type="submit" class="primary-btn">Buscar</button>
+      </form>
+      <div class="cc-api-note">
+        <strong>Catálogo oficial</strong>
+        <span>UNSPSC es el estándar internacional utilizado por ChileCompra. El catálogo completo vigente se publica gratuitamente por UNDP; ChileCompra recomienda buscar el código ONU equivalente para los productos y servicios que ofreces.</span>
+      </div>
+      <div class="cc-onu-official-actions">
+        <button type="button" class="ghost-btn" data-cc-external="https://www.undp.org/unspsc">Catálogo oficial UNDP ↗</button>
+        <button type="button" class="ghost-btn" data-cc-external="https://www.ungm.org/Public/UNSPSC">Buscador UNSPSC / UNGM ↗</button>
+      </div>
+    </section>
+    <section class="cc-dashboard-card">
+      <div class="cc-section-head">
+        <div><h3>Códigos detectados en Mercado Público</h3><p>${filtered.length.toLocaleString('es-CL')} código(s) visibles en las licitaciones que el CRM ya ha cargado.</p></div>
+      </div>
+      ${filtered.length ? `<div class="cc-onu-list">${filtered.slice(0,250).map((row)=>`
+        <article class="cc-onu-row">
+          <div class="cc-onu-code">${e(row.code)}</div>
+          <div class="cc-onu-copy">
+            <strong>${e(row.name || 'Producto o servicio')}</strong>
+            <span>${e(row.category || 'Sin rubro informado')}</span>
+            <small>${row.opportunities} publicación(es)${row.examples.length ? ' · Ej.: '+row.examples.map(e).join(', ') : ''}</small>
+          </div>
+          <div class="cc-onu-hierarchy">${onuHierarchy(row.code).map(([label,code])=>`<span><b>${e(label)}</b>${e(code)}</span>`).join('')}</div>
+        </article>`).join('')}</div>`
+        : '<div class="cc-empty"><strong>Sin códigos en esta búsqueda</strong><span>Prueba por número, producto o rubro.</span></div>'}
+      ${filtered.length>250 ? '<p class="muted">Mostrando los primeros 250 resultados. Refina la búsqueda para acotar.</p>' : ''}
+    </section>
+  </section>`;
+}
 
 function cmMetricBars(rows = [], { valueKey = 'total', labelKey = 'name', limit = 7, currency = 'CLP' } = {}) {
   const selected = rows.filter((row) => Number(row?.[valueKey] || 0) > 0).slice(0, limit);
@@ -1446,6 +1530,7 @@ function renderInner() {
     : chilecompraState.tab === 'mercado' ? renderMarketDashboard()
     : chilecompraState.tab === 'compradores' ? renderBuyersDashboard()
     : chilecompraState.tab === 'convenio' ? renderConvenioMarcoDashboard()
+    : chilecompraState.tab === 'onu' ? renderOnuDashboard()
     : renderOpportunityWorkspace(stats);
 
   return `${toolbar}${dashboardNav(stats)}${content}${sharedDialogs()}`;
@@ -1601,6 +1686,11 @@ export function mountChileCompraView() {
     ev.preventDefault();
     try {
       if (ev.target.id === 'ccTraditionalSearch') return await runTraditionalSearch(document.getElementById('ccSearch')?.value || '');
+      if (ev.target.id === 'ccOnuSearch') {
+        chilecompraState.onuQuery = document.getElementById('ccOnuQuery')?.value?.trim() || '';
+        rerender();
+        return;
+      }
       if (ev.target.id === 'ccCmSearch') {
         chilecompraState.cmQuery = document.getElementById('ccCmQuery')?.value?.trim() || '';
         await loadConvenioMarco();
@@ -1631,6 +1721,18 @@ export function mountChileCompraView() {
   });
 
   root.addEventListener('click', async (ev) => {
+    const external = ev.target.closest('[data-cc-external]');
+    if (external) { openExternal(external.dataset.ccExternal); return; }
+
+    const onuCode = ev.target.closest('[data-cc-onu-code]');
+    if (onuCode) {
+      chilecompraState.selectedId = '';
+      chilecompraState.onuQuery = onuCode.dataset.ccOnuCode || '';
+      chilecompraState.tab = 'onu';
+      rerender();
+      return;
+    }
+
     const close = ev.target.closest('[data-cc-dialog-close]');
     if (close) { document.getElementById(close.dataset.ccDialogClose)?.close(); return; }
     if (ev.target.closest('[data-cc-campaign-new]')) {
