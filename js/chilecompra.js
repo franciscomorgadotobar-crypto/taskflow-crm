@@ -1706,6 +1706,7 @@ function renderInner() {
   </section>` : '';
 
   const content = chilecompraState.tab === 'resumen' ? renderSummaryDashboard(stats)
+    : chilecompraState.tab === 'ia' ? renderAiDashboard()
     : chilecompraState.tab === 'campanas' ? renderCampaignsDashboard(stats)
     : chilecompraState.tab === 'mercado' ? renderMarketDashboard()
     : chilecompraState.tab === 'compradores' ? renderBuyersDashboard()
@@ -1868,7 +1869,8 @@ export function mountChileCompraView() {
       if (ev.target.id === 'ccTraditionalSearch') return await runTraditionalSearch(document.getElementById('ccSearch')?.value || '');
       if (ev.target.id === 'ccOnuSearch') {
         chilecompraState.onuQuery = document.getElementById('ccOnuQuery')?.value?.trim() || '';
-        rerender();
+        chilecompraState.onuSegment = '';
+        await loadOnuCatalog();
         return;
       }
       if (ev.target.id === 'ccCmSearch') {
@@ -1904,12 +1906,36 @@ export function mountChileCompraView() {
     const external = ev.target.closest('[data-cc-external]');
     if (external) { openExternal(external.dataset.ccExternal); return; }
 
+    if (ev.target.closest('[data-cc-ai-run]')) {
+      try { await analyzeChileCompraWithAi(); }
+      catch (err) { toast(err.message || 'No se pudo analizar con IA.', 'error'); }
+      return;
+    }
+
+    const aiOne = ev.target.closest('[data-cc-ai-one]');
+    if (aiOne) {
+      try { await analyzeChileCompraWithAi({ opportunityId: aiOne.dataset.ccAiOne || '' }); }
+      catch (err) { toast(err.message || 'No se pudo analizar esta oportunidad.', 'error'); }
+      return;
+    }
+
+    const onuSegment = ev.target.closest('[data-cc-onu-segment]');
+    if (onuSegment) {
+      chilecompraState.onuSegment = onuSegment.dataset.ccOnuSegment || '';
+      chilecompraState.onuQuery = '';
+      try { await loadOnuCatalog(); }
+      catch (err) { toast(err.message || 'No se pudo consultar códigos ONU.', 'error'); }
+      return;
+    }
+
     const onuCode = ev.target.closest('[data-cc-onu-code]');
     if (onuCode) {
       chilecompraState.selectedId = '';
       chilecompraState.onuQuery = onuCode.dataset.ccOnuCode || '';
+      chilecompraState.onuSegment = '';
       chilecompraState.tab = 'onu';
       rerender();
+      try { await loadOnuCatalog(); } catch (err) { toast(err.message || 'No se pudo consultar el código ONU.', 'error'); }
       return;
     }
 
@@ -2083,6 +2109,9 @@ export function mountChileCompraView() {
       if (chilecompraState.tab === 'mercado' && chilecompraState.analyticsUniverse !== 'campaigns' && !chilecompraState.analytics) await refreshAnalyticsFromControls();
       if (chilecompraState.tab === 'convenio' && !chilecompraState.cmData && !chilecompraState.cmLoading) {
         try { await loadConvenioMarco(); } catch (err) { toast(err.message || 'No se pudo cargar Convenio Marco.', 'error'); }
+      }
+      if (chilecompraState.tab === 'onu' && !chilecompraState.onuSegments.length && !chilecompraState.onuLoading) {
+        try { await loadOnuCatalog({ query:'', segment:'' }); } catch (err) { toast(err.message || 'No se pudo cargar el catálogo ONU.', 'error'); }
       }
       rerender();
       return;
