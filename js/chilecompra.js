@@ -1140,28 +1140,6 @@ function renderMarketDashboard() {
 }
 
 
-function onuCatalogRows() {
-  const seen = new Map();
-  const sources = [...chilecompraState.opportunities, ...chilecompraState.results];
-  for (const opportunity of sources) {
-    const rawItems = rawValue(opportunity, ['Items']);
-    const items = Array.isArray(rawItems?.Listado) ? rawItems.Listado : [];
-    for (const item of items) {
-      const code = String(item?.CodigoProducto || '').trim();
-      if (!/^\d{6,8}$/.test(code)) continue;
-      const name = detailText(item.NombreProducto || item.Descripcion || '');
-      const category = detailText(item.Categoria || '');
-      const current = seen.get(code) || { code, name:'', category:'', opportunities:0, examples:[] };
-      if (!current.name && name) current.name = name;
-      if (!current.category && category) current.category = category;
-      current.opportunities += 1;
-      if (opportunity.external_code && current.examples.length < 3 && !current.examples.includes(opportunity.external_code)) current.examples.push(opportunity.external_code);
-      seen.set(code,current);
-    }
-  }
-  return [...seen.values()].sort((a,b)=>a.code.localeCompare(b.code));
-}
-
 function onuHierarchy(code='') {
   const digits=String(code).replace(/\D/g,'');
   if (digits.length<6) return [];
@@ -1173,53 +1151,89 @@ function onuHierarchy(code='') {
   ];
 }
 
+async function loadOnuCatalog({ query = chilecompraState.onuQuery, segment = chilecompraState.onuSegment } = {}) {
+  chilecompraState.onuLoading = true;
+  chilecompraState.onuError = '';
+  rerender();
+  try {
+    const data = await invokeChileCompraFunction('unspsc-search', { query, segment, limit: 250 });
+    chilecompraState.onuResults = data.results || [];
+    chilecompraState.onuSegments = data.segments || [];
+    chilecompraState.onuTotalCatalog = Number(data.totalCatalog || 0);
+    chilecompraState.onuTotalMatches = Number(data.totalMatches || 0);
+    return data;
+  } catch (err) {
+    chilecompraState.onuError = err?.message || 'No se pudo consultar el catálogo UNSPSC.';
+    throw err;
+  } finally {
+    chilecompraState.onuLoading = false;
+    rerender();
+  }
+}
+
 function renderOnuDashboard() {
-  const q=(chilecompraState.onuQuery || '').trim().toLowerCase();
-  const rows=onuCatalogRows();
-  const filtered=!q ? rows : rows.filter((row)=>
-    row.code.includes(q.replace(/\D/g,'')) ||
-    `${row.name} ${row.category}`.toLowerCase().includes(q)
-  );
-  return `<section class="cc-dashboard">
+  const rows = chilecompraState.onuResults || [];
+  const segments = chilecompraState.onuSegments || [];
+  return \`<section class="cc-dashboard">
     <section class="cc-dashboard-card cc-onu-hero">
       <div class="cc-section-head">
         <div>
-          <span class="cc-eyebrow">Clasificación UNSPSC</span>
-          <h3>Códigos ONU</h3>
-          <p>Mercado Público clasifica productos y servicios mediante códigos UNSPSC. Busca por código, producto o rubro y úsalo para mejorar tus seguimientos.</p>
+          <span class="cc-eyebrow">Clasificación UNSPSC · Código ONU</span>
+          <h3>Catálogo ONU completo</h3>
+          <p>Busca por código, producto, clase, familia o segmento. ChileCompra recomienda usar el código ONU/UNSPSC equivalente para tus productos y servicios.</p>
         </div>
+        <span class="cc-onu-total">\${chilecompraState.onuTotalCatalog ? chilecompraState.onuTotalCatalog.toLocaleString('es-CL') + ' códigos' : 'Catálogo completo'}</span>
       </div>
+
       <form id="ccOnuSearch" class="cc-onu-search">
-        <input id="ccOnuQuery" type="search" value="${e(chilecompraState.onuQuery)}" placeholder="Ej. 81112010, software, luminaria, HVAC...">
-        <button type="submit" class="primary-btn">Buscar</button>
+        <input id="ccOnuQuery" type="search" value="\${e(chilecompraState.onuQuery)}" placeholder="Ej. software, telemetría, 8111, luminaria...">
+        <button type="submit" class="primary-btn" \${chilecompraState.onuLoading ? 'disabled' : ''}>\${chilecompraState.onuLoading ? 'Buscando…' : 'Buscar'}</button>
       </form>
+
+      \${segments.length ? \`<div class="cc-onu-segments">
+        <button type="button" data-cc-onu-segment="" class="\${!chilecompraState.onuSegment ? 'active' : ''}">Todos</button>
+        \${segments.map(seg=>\`<button type="button" data-cc-onu-segment="\${e(seg.code)}" class="\${chilecompraState.onuSegment===seg.code?'active':''}" title="\${e(seg.name)}"><b>\${e(seg.code)}</b><span>\${e(seg.name)}</span></button>\`).join('')}
+      </div>\` : ''}
+
       <div class="cc-api-note">
-        <strong>Catálogo oficial</strong>
-        <span>UNSPSC es el estándar internacional utilizado por ChileCompra. El catálogo completo vigente se publica gratuitamente por UNDP; ChileCompra recomienda buscar el código ONU equivalente para los productos y servicios que ofreces.</span>
+        <strong>Fuente y alcance</strong>
+        <span>La referencia consultable en español contiene el catálogo completo disponible en la fuente de datos. Para validar vigencia o un código específico, usa el buscador oficial UNSPSC / UNGM.</span>
       </div>
       <div class="cc-onu-official-actions">
-        <button type="button" class="ghost-btn" data-cc-external="https://www.undp.org/unspsc">Catálogo oficial UNDP ↗</button>
-        <button type="button" class="ghost-btn" data-cc-external="https://www.ungm.org/Public/UNSPSC">Buscador UNSPSC / UNGM ↗</button>
+        <button type="button" class="ghost-btn" data-cc-external="https://www.ungm.org/Public/UNSPSC">Validar en UNSPSC / UNGM ↗</button>
       </div>
     </section>
+
     <section class="cc-dashboard-card">
       <div class="cc-section-head">
-        <div><h3>Códigos detectados en Mercado Público</h3><p>${filtered.length.toLocaleString('es-CL')} código(s) visibles en las licitaciones que el CRM ya ha cargado.</p></div>
+        <div>
+          <h3>\${chilecompraState.onuQuery || chilecompraState.onuSegment ? 'Resultados del catálogo' : 'Explora por segmento'}</h3>
+          <p>\${chilecompraState.onuQuery || chilecompraState.onuSegment
+            ? chilecompraState.onuTotalMatches.toLocaleString('es-CL') + ' coincidencia(s).'
+            : 'Selecciona un segmento o busca por palabra/código para revisar productos y servicios.'}</p>
+        </div>
       </div>
-      ${filtered.length ? `<div class="cc-onu-list">${filtered.slice(0,250).map((row)=>`
-        <article class="cc-onu-row">
-          <div class="cc-onu-code">${e(row.code)}</div>
-          <div class="cc-onu-copy">
-            <strong>${e(row.name || 'Producto o servicio')}</strong>
-            <span>${e(row.category || 'Sin rubro informado')}</span>
-            <small>${row.opportunities} publicación(es)${row.examples.length ? ' · Ej.: '+row.examples.map(e).join(', ') : ''}</small>
-          </div>
-          <div class="cc-onu-hierarchy">${onuHierarchy(row.code).map(([label,code])=>`<span><b>${e(label)}</b>${e(code)}</span>`).join('')}</div>
-        </article>`).join('')}</div>`
-        : '<div class="cc-empty"><strong>Sin códigos en esta búsqueda</strong><span>Prueba por número, producto o rubro.</span></div>'}
-      ${filtered.length>250 ? '<p class="muted">Mostrando los primeros 250 resultados. Refina la búsqueda para acotar.</p>' : ''}
+
+      \${chilecompraState.onuError ? \`<div class="cc-detail-warning"><strong>No se pudo cargar el catálogo</strong><span>\${e(chilecompraState.onuError)}</span></div>\` : ''}
+
+      \${chilecompraState.onuLoading ? '<div class="cc-empty">Consultando códigos ONU…</div>' :
+        rows.length ? \`<div class="cc-onu-list">\${rows.map(row=>\`
+          <article class="cc-onu-row">
+            <div class="cc-onu-code">\${e(row.code)}</div>
+            <div class="cc-onu-copy">
+              <strong>\${e(row.name || 'Producto o servicio')}</strong>
+              <span>\${e(row.className || '')}</span>
+              <small>\${e(row.familyName || '')} · \${e(row.segmentName || '')}</small>
+            </div>
+            <div class="cc-onu-hierarchy">\${onuHierarchy(row.code).map(([label,code])=>\`<span><b>\${e(label)}</b>\${e(code)}</span>\`).join('')}</div>
+          </article>\`).join('')}</div>\`
+        : (chilecompraState.onuQuery || chilecompraState.onuSegment)
+          ? '<div class="cc-empty"><strong>Sin resultados</strong><span>Prueba con un término más amplio o revisa otro segmento.</span></div>'
+          : '<div class="cc-empty"><strong>Catálogo listo</strong><span>Busca un producto, servicio o código ONU.</span></div>'}
+
+      \${rows.length >= 250 ? '<p class="muted">Mostrando los primeros 250 resultados. Refina la búsqueda para ver un conjunto más específico.</p>' : ''}
     </section>
-  </section>`;
+  </section>\`;
 }
 
 function cmMetricBars(rows = [], { valueKey = 'total', labelKey = 'name', limit = 7, currency = 'CLP' } = {}) {
