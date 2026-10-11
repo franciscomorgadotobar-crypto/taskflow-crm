@@ -869,7 +869,7 @@ function detailDocumentsBlock(o) {
   return `<section class="cc-detail-block cc-documents-block">
     <div class="cc-detail-block-title">
       <div><h4>Bases y documentos</h4><span>Archivos oficiales asociados a la licitación.</span></div>
-      <button type="button" class="link-btn" data-cc-market>Fuente oficial ↗</button>
+      <button type="button" class="link-btn" data-cc-market>Intentar abrir ficha oficial ↗</button>
     </div>
     ${list.length
       ? `<div class="cc-document-list">${list.map((doc,index) => {
@@ -885,7 +885,7 @@ function detailDocumentsBlock(o) {
           <strong>La API pública no entrega los archivos adjuntos de esta licitación.</strong>
           <span>La ficha oficial puede mostrar el proceso, pero la descarga de bases y anexos depende del acceso habilitado por Mercado Público. El CRM no debe prometer documentos que la fuente pública no expone.</span>
         </div>`}
-    ${!list.length ? '<p class="muted cc-docs-source-note">En el buscador oficial, pega el ID de la licitación, entra a Revisar detalle y selecciona «Descargar bases en PDF» o «Ver documentos del proceso». <button type="button" class="link-btn" data-cc-market>Ver ficha oficial ↗</button></p>' : ''}
+    ${!list.length ? '<p class="muted cc-docs-source-note">El CRM intentará abrir la ficha oficial usando el ID. Si Mercado Público rechaza el enlace, usa su buscador oficial con el código <strong>${e(o.external_code || '')}</strong>. <button type="button" class="link-btn" data-cc-market>Intentar ficha directa ↗</button> <button type="button" class="link-btn" data-cc-market-search>Buscar por ID ↗</button></p>' : ''}
   </section>`;
 }
 
@@ -953,7 +953,7 @@ function detailPanel(o) {
       ['coincidencias','Coincidencias']
     ].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
     ${detailBody(o)}
-    <div class="cc-detail-actions">${o.radar_state === 'crm' ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>' : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}<button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button><button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button><button type="button" class="link-btn cc-market-link" data-cc-market>Fuente oficial en Mercado Público ↗</button></div>
+    <div class="cc-detail-actions">${o.radar_state === 'crm' ? '<button type="button" class="primary-btn" disabled>✓ Ya está en CRM</button>' : `<button type="button" class="primary-btn" data-cc-crm="${o.id}">▣ Agregar al CRM</button>`}<button type="button" class="ghost-btn" data-cc-save="${o.id}">${o.radar_state === 'guardado' ? '✓ Guardada' : '♡ Guardar'}</button><button type="button" class="ghost-btn" data-cc-discard="${o.id}">⊘ Descartar</button><button type="button" class="link-btn cc-market-link" data-cc-market>Intentar abrir ficha oficial ↗</button></div>
   </aside>`;
 }
 
@@ -2155,16 +2155,22 @@ export function mountChileCompraView() {
     if (discard) { await patchOpportunity(discard.dataset.ccDiscard, { radar_state: 'descartado', updated_at: new Date().toISOString() }); return; }
     const crm = ev.target.closest('[data-cc-crm]');
     if (crm) { await convertToCrm(crm.dataset.ccCrm); rerender(); return; }
+    if (ev.target.closest('[data-cc-market-search]')) {
+      const code = selectedOpportunity()?.external_code || '';
+      if (code && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(code).catch(() => {});
+      }
+      toast('En el buscador oficial, introduce el código: ' + (code || 'no disponible'));
+      openExternal('https://www.mercadopublico.cl/Portal/Modules/Site/Busquedas/BuscadorAvanzado.aspx?qs=1');
+      return;
+    }
     if (ev.target.closest('[data-cc-market]')) {
       const selected = selectedOpportunity();
       const code = selected?.external_code || '';
-      // No inventar una URL de ficha: Mercado Público exige localizar el ID en su buscador.
-      if (code && navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(code).then(() => toast('ID ' + code + ' copiado. Pégalo en el buscador oficial y abre Revisar detalle → Ver documentos del proceso.')).catch(() => toast('Busca el ID ' + code + ' en Mercado Público para ver las bases.'));
-      } else if (code) {
-        toast('Busca el ID ' + code + ' en Mercado Público para ver las bases.');
-      }
-      openExternal('https://www.mercadopublico.cl/Portal/Modules/Site/Busquedas/BuscadorAvanzado.aspx?qs=1');
+      if (!code) { toast('La licitación no tiene código oficial para abrir su ficha.', 'error'); return; }
+      // Mercado Público admite históricamente idlicitacion como parámetro; algunas fichas
+      // pueden rechazarlo o redirigir. Se conserva un enlace alternativo para esos casos.
+      openExternal(`https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?idlicitacion=${encodeURIComponent(code)}`);
     }
   });
 
