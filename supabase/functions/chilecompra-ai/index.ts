@@ -14,6 +14,9 @@ const TF = ["orden de trabajo","ot ","mantenimiento","mantencion","servicio tecn
 const NF = ["telemetria","iot","sensor","monitoreo remoto","monitoreo en tiempo real","gateway","scada","plc","cctv","automatizacion","inmotica","domotica","edificio inteligente","grupo electrogeno","ascensor","hvac","variable operacional","linea de produccion","red lte","conectividad industrial"];
 
 function localOne(o:any){
+  const subject=norm([o.name,o.description,JSON.stringify(o.items || {})].join(" "));
+  const outsideScope=/(remuneracion|nomina de pago|liquidacion de sueldo|gestion de personas|recursos humanos|control de asistencia|gestion de personal)/.test(subject);
+  const closed=o.close_at && !Number.isNaN(Date.parse(o.close_at)) && Date.parse(o.close_at) < Date.now();
   const text=norm([o.name,o.description,o.buyer_name,o.procurement_type,JSON.stringify(o.raw||{})].join(" "));
   let tf=0,nf=0;
   TF.forEach(t=>{if(text.includes(norm(t))) tf += t.includes(" ") ? 3:2;});
@@ -22,7 +25,8 @@ function localOne(o:any){
   if(tf>=4 && nf>=4) recommendation="Ambos";
   else if(tf>=3 && tf>=nf) recommendation="TaskFlow";
   else if(nf>=3) recommendation="Neoff";
-  const confidence=Math.min(92, 35 + score*7);
+  if(outsideScope) recommendation="No recomendar";
+  const confidence=outsideScope ? 0 : Math.min(92, 35 + score*7);
   const why = recommendation==="TaskFlow"
     ? "La necesidad se relaciona con gestión operacional, mantenimiento o trabajo en terreno."
     : recommendation==="Neoff"
@@ -30,7 +34,7 @@ function localOne(o:any){
       : recommendation==="Ambos"
         ? "Combina gestión operacional con monitoreo o integración de dispositivos."
         : "Con la información pública disponible no aparece un encaje comercial suficientemente claro.";
-  return { id:o.id, externalCode:o.external_code, recommendation, confidence, why, risks:["Bases y anexos no verificados; validar antes de decidir."], nextStep: recommendation==="No recomendar" ? "No priorizar salvo que las bases agreguen alcance relevante." : "Revisar alcance, requisitos y condiciones antes de contactar.", source:"local" };
+  return { id:o.id, externalCode:o.external_code, recommendation, confidence, why:outsideScope ? "Solicita gestión de RR.HH. y remuneraciones, capacidades que TaskFlow y Neoff no ofrecen como producto principal." : why, risks:[...(closed ? ["Plazo de ofertas vencido."] : []),"Bases y anexos no verificados; validar antes de decidir."], nextStep: recommendation==="No recomendar" ? "No priorizar salvo que las bases agreguen alcance relevante." : "Revisar alcance, requisitos y condiciones antes de contactar.", source:"local" };
 }
 
 function extractText(payload:any){
@@ -78,7 +82,7 @@ NEOFF: ${NEOFF.summary}
 Reglas:
 - Responde exclusivamente JSON válido, sin markdown.
 - No inventes requisitos ni asumas haber leído bases o adjuntos.
-- Si faltan bases, dilo en riesgos.
+- Si faltan bases, dilo en riesgos.\n- No recomiendes TaskFlow ni Neoff para nómina, remuneraciones, RR.HH., gestión de personal o asistencia solo por mencionar software o gestión.\n- Si el cierre de ofertas ya pasó, adviértelo y no recomiendes postular como si el plazo estuviera abierto.
 - recommendation debe ser: "TaskFlow", "Neoff", "Ambos" o "No recomendar".
 - confidence entero 0-100.
 - why máximo 220 caracteres.
