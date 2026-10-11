@@ -109,6 +109,12 @@ export function currentMascotId(){
 
 function currentMascot(){ return MASCOTS[currentMascotId()] || MASCOTS.bonvallet; }
 
+// La mascota es decorativa: nunca se muestra sobre un arranque incompleto.
+function isCrmReady(){
+  const shell=document.getElementById('appShell');
+  return shell && !shell.hidden && shell.dataset.ready==='true';
+}
+
 function writeEnabled(enabled){
   try { localStorage.setItem(enabledKey(), enabled ? '1' : '0'); } catch {}
 }
@@ -221,7 +227,7 @@ function startupMessage(m){
 }
 
 export function showMascotMessage({ text,mood='neutral',duration=7000,force=false }){
-  if(!text || session.status!=='signed-in' || !isMascotEnabled()) return;
+  if(!text || session.status!=='signed-in' || !isMascotEnabled() || !isCrmReady()) return;
   const now=Date.now();
   if(!force && now-lastShownAt<8000) return;
 
@@ -281,7 +287,7 @@ function startupSessionKey(userId){
 
 function showStartupOnce(){
   const userId=session.user?.id || '';
-  if(!isMascotEnabled() || session.status!=='signed-in' || !userId || startupShownForUser===userId) return;
+  if(!isMascotEnabled() || session.status!=='signed-in' || !isCrmReady() || !userId || startupShownForUser===userId) return;
 
   try{
     if(sessionStorage.getItem(startupSessionKey(userId))==='1'){
@@ -293,7 +299,7 @@ function showStartupOnce(){
 
   startupShownForUser=userId;
   window.setTimeout(()=>{
-    if(session.status!=='signed-in' || session.user?.id!==userId || !isMascotEnabled()) return;
+    if(session.status!=='signed-in' || session.user?.id!==userId || !isMascotEnabled() || !isCrmReady()) return;
     try{ sessionStorage.setItem(startupSessionKey(userId),'1'); }catch{}
     startBonvallet(metrics());
   },3500);
@@ -304,6 +310,8 @@ onChange(()=>{
   if(!startupShownForUser){ showStartupOnce(); return; }
   syncBonvallet(metrics());
 });
+
+document.addEventListener('crm-personal:app-ready', showStartupOnce);
 
 onAuthChange((auth)=>{
   if(auth.status==='signed-in') showStartupOnce();
