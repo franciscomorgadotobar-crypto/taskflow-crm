@@ -906,7 +906,7 @@ function detailDocumentsBlock(o) {
           <strong>La API pública no entrega los archivos adjuntos de esta licitación.</strong>
           <span>La ficha oficial puede mostrar el proceso, pero la descarga de bases y anexos depende del acceso habilitado por Mercado Público. El CRM no debe prometer documentos que la fuente pública no expone.</span>
         </div>`}
-    ${!list.length ? '<p class="muted cc-docs-source-note">El CRM intentará abrir la ficha oficial usando el ID. Si Mercado Público rechaza el enlace, usa su buscador oficial con el código <strong>${e(o.external_code || '')}</strong>. <button type="button" class="link-btn" data-cc-market>Intentar ficha directa ↗</button> <button type="button" class="link-btn" data-cc-market-search>Buscar por ID ↗</button></p>' : ''}
+    ${!list.length ? `<p class="muted cc-docs-source-note">El CRM intentará abrir la ficha oficial usando el ID. Si Mercado Público rechaza el enlace, usa su buscador oficial con el código <strong>${e(o.external_code || '')}</strong>. <button type="button" class="link-btn" data-cc-market>Intentar ficha directa ↗</button> <button type="button" class="link-btn" data-cc-market-search>Buscar por ID ↗</button></p>` : ''}
   </section>`;
 }
 
