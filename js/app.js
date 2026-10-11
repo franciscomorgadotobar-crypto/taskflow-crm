@@ -3961,8 +3961,10 @@ async function start() {
           ['ChileCompra', hydrateChileCompra()],
           ['Tutoriales', hydrateTutorials()]
         ];
-        // Un fallo de ChileCompra o Tutoriales nunca debe bloquear Leads/Resumen.
-        const settled = await Promise.allSettled(loads.map(([, task]) => task));
+        // El núcleo CRM es prioritario: ChileCompra, cotizador y tutoriales
+        // siguen cargando sin bloquear la pantalla principal.
+        const otherModules = Promise.allSettled(loads.slice(1).map(([, task]) => task));
+        const core = await Promise.allSettled([loads[0][1]]);
         if (generation !== authSyncGeneration || session.status !== 'signed-in') {
           stopRealtime();
           quotesStopRealtime();
@@ -3974,12 +3976,10 @@ async function start() {
           clearTutorials();
           return;
         }
+        if (core[0].status === 'rejected') {
+          throw new Error('No se pudieron cargar los datos principales: ' + (core[0].reason?.message || 'error de conexión'));
+        }
 
-        const failures = settled.flatMap((result, index) => {
-          if (result.status !== 'rejected') return [];
-          console.error('Error al cargar ' + loads[index][0], result.reason);
-          return [loads[index][0]];
-        });
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
@@ -3988,18 +3988,30 @@ async function start() {
         refreshNotificationBadge();
         render();
         $('appShell').hidden = false;
-        paintSync({
-          state: failures.length ? 'error' : 'ok',
-          message: failures.length ? 'Carga parcial: ' + failures.join(', ') : 'Conectado'
-        });
+        paintSync({ state: 'syncing', message: 'CRM listo · sincronizando módulos' });
         markCrmReady();
-        if (failures.length) toast('Algunos módulos no cargaron: ' + failures.join(', ') + '. Puedes reintentar actualizando.', 'error');
 
         if (s.recovery && !$('accessPasswordDialog').open) {
           $('accessPasswordDialog').showModal();
-        } else {
-          maybeOfferAssignedTutorial();
         }
+
+        // Si un módulo secundario falla o se demora, el CRM sigue usable.
+        otherModules.then((settled) => {
+          if (generation !== authSyncGeneration || session.status !== 'signed-in') return;
+          const failures = settled.flatMap((result, index) => {
+            if (result.status !== 'rejected') return [];
+            console.error('Error al cargar ' + loads[index + 1][0], result.reason);
+            return [loads[index + 1][0]];
+          });
+          paintSync({
+            state: failures.length ? 'error' : 'ok',
+            message: failures.length ? 'Carga parcial: ' + failures.join(', ') : 'Conectado'
+          });
+          if (failures.length) {
+            toast('No cargaron: ' + failures.join(', ') + '. El resto del CRM sigue disponible.', 'error');
+          }
+          if (!s.recovery) maybeOfferAssignedTutorial();
+        }).catch((err) => console.error('Error al sincronizar módulos secundarios', err));
       } catch (err) {
         if (generation !== authSyncGeneration) return;
         console.error('No se pudo preparar el CRM', err);
