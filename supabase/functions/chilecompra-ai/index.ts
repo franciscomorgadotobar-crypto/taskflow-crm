@@ -30,7 +30,7 @@ function localOne(o:any){
       : recommendation==="Ambos"
         ? "Combina gestión operacional con monitoreo o integración de dispositivos."
         : "Con la información pública disponible no aparece un encaje comercial suficientemente claro.";
-  return { id:o.id, externalCode:o.external_code, recommendation, confidence, why, risks:[], nextStep: recommendation==="No recomendar" ? "No priorizar salvo que las bases agreguen alcance relevante." : "Revisar alcance, requisitos y condiciones antes de contactar.", source:"local" };
+  return { id:o.id, externalCode:o.external_code, recommendation, confidence, why, risks:["Bases y anexos no verificados; validar antes de decidir."], nextStep: recommendation==="No recomendar" ? "No priorizar salvo que las bases agreguen alcance relevante." : "Revisar alcance, requisitos y condiciones antes de contactar.", source:"local" };
 }
 
 function extractText(payload:any){
@@ -46,13 +46,14 @@ Deno.serve(async (req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:{
     "Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"
   }});
-  const headers={"Access-Control-Allow-Origin":"*","Content-Type":"application/json"};
+  const headers={"Access-Control-Allow-Origin":"*","Content-Type":"application/json","Cache-Control":"no-store"};
   try{
     const body=await req.json();
     const opportunities=Array.isArray(body?.opportunities) ? body.opportunities.slice(0,25) : [];
     if(!opportunities.length) return new Response(JSON.stringify({provider:"local",results:[]}),{headers});
 
     const apiKey=Deno.env.get("OPENAI_API_KEY");
+    const model=Deno.env.get("OPENAI_MODEL") || "gpt-5-mini";
     if(!apiKey){
       return new Response(JSON.stringify({
         provider:"local",
@@ -91,7 +92,7 @@ ${JSON.stringify(compact)}`;
     const response=await fetch("https://api.openai.com/v1/responses",{
       method:"POST",
       headers:{"Authorization":`Bearer ${apiKey}`,"Content-Type":"application/json"},
-      body:JSON.stringify({model:"gpt-6-luna",input:[{role:"user",content:input}]})
+      body:JSON.stringify({model,input:[{role:"user",content:input}]})
     });
     if(!response.ok){
       const err=await response.text();
@@ -101,7 +102,7 @@ ${JSON.stringify(compact)}`;
     const raw=extractText(payload).trim().replace(/^\`\`\`json\s*/i,"").replace(/\`\`\`$/,"");
     const parsed=JSON.parse(raw);
     const results=(parsed?.results || []).map((r:any)=>({...r,source:"gpt"}));
-    return new Response(JSON.stringify({provider:"gpt-6-luna",configured:true,results}),{headers});
+    return new Response(JSON.stringify({provider:model,configured:true,results}),{headers});
   }catch(err){
     return new Response(JSON.stringify({error:"ai_analysis_failed",message:err?.message || String(err)}),{status:500,headers});
   }
