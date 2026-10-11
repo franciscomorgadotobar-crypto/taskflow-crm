@@ -3926,23 +3926,31 @@ async function start() {
     if (s.status === 'signed-in') {
       const nextUserId = s.user?.id || '';
       const userChanged = activeDataUserId !== nextUserId;
-      if (userChanged) {
-        stopRealtime();
-        quotesStopRealtime();
-        hyperFocusStopRealtime();
-        clearLocal();
-        quotesClearLocal();
-        hyperFocusClearLocal();
-        clearChileCompra();
-        clearTutorials();
-        activeDataUserId = nextUserId;
-      }
-
-      // La interfaz no puede depender de que TODOS los módulos carguen correctamente.
-      // Si uno falla (o queda esperando), mantener el shell visible con recuperación.
+      // Mostrar el shell ANTES de limpiar datos, pues la limpieza emite eventos
+      // que pueden disparar renders durante el cambio de sesión.
       $('authScreen').hidden = true;
       $('appShell').hidden = false;
       if (userChanged) showStartupScreen('Cargando datos comerciales y módulos…');
+      if (userChanged) {
+        try {
+          stopRealtime();
+          quotesStopRealtime();
+          hyperFocusStopRealtime();
+          clearLocal();
+          quotesClearLocal();
+          hyperFocusClearLocal();
+          clearChileCompra();
+          clearTutorials();
+          activeDataUserId = nextUserId;
+        } catch (err) {
+          console.error('No se pudo preparar el cambio de sesión', err);
+          showStartupScreen('No se pudo preparar la sesión. Pulsa «Reintentar carga».', { retry: true });
+          paintSync({ state: 'error', message: 'Error de sesión' });
+          return;
+        }
+      }
+
+      // Ningún módulo opcional puede impedir mostrar la interfaz principal.
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
 
       startupWatchdog = window.setTimeout(() => {
