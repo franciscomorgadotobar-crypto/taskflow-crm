@@ -885,7 +885,7 @@ function detailDocumentsBlock(o) {
           <strong>La API pública no entrega los archivos adjuntos de esta licitación.</strong>
           <span>La ficha oficial puede mostrar el proceso, pero la descarga de bases y anexos depende del acceso habilitado por Mercado Público. El CRM no debe prometer documentos que la fuente pública no expone.</span>
         </div>`}
-    ${!list.length ? '<p class="muted cc-docs-source-note">La ficha oficial puede servir para validar el proceso, pero no garantiza acceso a los adjuntos. <button type="button" class="link-btn" data-cc-market>Ver ficha oficial ↗</button></p>' : ''}
+    ${!list.length ? '<p class="muted cc-docs-source-note">En el buscador oficial, pega el ID de la licitación, entra a Revisar detalle y selecciona «Descargar bases en PDF» o «Ver documentos del proceso». <button type="button" class="link-btn" data-cc-market>Ver ficha oficial ↗</button></p>' : ''}
   </section>`;
 }
 
@@ -2158,9 +2158,13 @@ export function mountChileCompraView() {
     if (ev.target.closest('[data-cc-market]')) {
       const selected = selectedOpportunity();
       const code = selected?.external_code || '';
-      openExternal(code
-        ? `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(code)}`
-        : 'https://buscador.mercadopublico.cl/');
+      // No inventar una URL de ficha: Mercado Público exige localizar el ID en su buscador.
+      if (code && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(code).then(() => toast('ID ' + code + ' copiado. Pégalo en el buscador oficial y abre Revisar detalle → Ver documentos del proceso.')).catch(() => toast('Busca el ID ' + code + ' en Mercado Público para ver las bases.'));
+      } else if (code) {
+        toast('Busca el ID ' + code + ' en Mercado Público para ver las bases.');
+      }
+      openExternal('https://www.mercadopublico.cl/Portal/Modules/Site/Busquedas/BuscadorAvanzado.aspx?qs=1');
     }
   });
 
