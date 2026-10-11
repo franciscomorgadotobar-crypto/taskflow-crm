@@ -76,6 +76,16 @@ export function clearChileCompra() {
   notify();
 }
 
+// Vigencia comercial: el estado de la API y la fecha límite deben concordar.
+// Fecha sin confirmar = no accionable, aunque puede consultarse en histórico.
+function isActionableOpportunity(o) {
+  const status = normalized(o?.status || '');
+  if (/(cerrad|adjudicad|desiert|revocad|suspendid|anulad|cancelad|finalizad|terminad)/.test(status)) return false;
+  if (status && !/(publicad|activ|abiert|recepcion|oferta)/.test(status)) return false;
+  const closeAt = Date.parse(o?.close_at || '');
+  return Number.isFinite(closeAt) && closeAt > Date.now();
+}
+
 function activeCampaigns() {
   return chilecompraState.campaigns.filter((c) => c.active);
 }
@@ -117,10 +127,11 @@ export function chilecompraDashboardStats() {
   const activeIds = new Set(campaigns.map((c) => c.id));
   const byOpportunity = opportunityMap();
   const matches = chilecompraState.matches.filter((m) => activeIds.has(m.campaign_id));
-  const newMatches = matches.filter((m) => !m.reviewed_at && byOpportunity.get(m.opportunity_id)?.radar_state === 'nuevo');
+  const newMatches = matches.filter((m) => !m.reviewed_at && byOpportunity.get(m.opportunity_id)?.radar_state === 'nuevo' && isActionableOpportunity(byOpportunity.get(m.opportunity_id)));
   const newOpportunityIds = new Set(newMatches.map((m) => m.opportunity_id));
   const matchedOpportunityIds = new Set(matches.map((m) => m.opportunity_id));
-  const matchedOpportunities = [...matchedOpportunityIds].map((id) => byOpportunity.get(id)).filter(Boolean);
+  const matchedOpportunities = [...matchedOpportunityIds].map((id) => byOpportunity.get(id)).filter(isActionableOpportunity);
+  const historicalCount = [...matchedOpportunityIds].map((id) => byOpportunity.get(id)).filter(o => o && !isActionableOpportunity(o)).length;
   const buyers = new Set(matchedOpportunities.map((o) => o.buyer_name).filter(Boolean));
   const amount = matchedOpportunities.reduce((sum, o) => sum + Number(o.amount || 0), 0);
   const newByCampaign = Object.fromEntries(
@@ -131,6 +142,8 @@ export function chilecompraDashboardStats() {
   );
   return {
     total: newOpportunityIds.size,
+    vigente: matchedOpportunities.length,
+    historico: historicalCount,
     activeCampaigns: campaigns.length,
     campaigns,
     newByCampaign,
@@ -685,17 +698,25 @@ function matchedOpportunityIds(campaignId = '') {
 function rowSource() {
   if (chilecompraState.tab === 'coincidencias') {
     const ids = matchedOpportunityIds(chilecompraState.selectedCampaignId);
-    return chilecompraState.opportunities.filter((o) => ids.has(o.id) && o.radar_state !== 'descartado');
+    return chilecompraState.opportunities.filter((o) => ids.has(o.id) && o.radar_state !== 'descartado' && isActionableOpportunity(o));
+  }
+  if (chilecompraState.tab === 'historico') {
+    const ids = matchedOpportunityIds(chilecompraState.selectedCampaignId);
+    return chilecompraState.opportunities.filter(o => ids.has(o.id) && o.radar_state !== 'descartado' && !isActionableOpportunity(o));
   }
   if (chilecompraState.tab === 'guardadas') return chilecompraState.opportunities.filter((o) => o.radar_state === 'guardado');
   if (chilecompraState.tab === 'crm') return chilecompraState.opportunities.filter((o) => o.radar_state === 'crm');
   if (chilecompraState.tab === 'descartadas') return chilecompraState.opportunities.filter((o) => o.radar_state === 'descartado');
-  return chilecompraState.results;
+  return chilecompraState.tab === 'buscar'
+    ? chilecompraState.results.filter(isActionableOpportunity)
+    : chilecompraState.results;
 }
 
 function filteredRows() {
   const rows = [...rowSource()];
-  rows.sort((a, b) => chilecompraState.sort === 'close'
+  rows.sort((a, b) => chilecompraState.tab === 'historico'
+    ? String(b.close_at || '').localeCompare(String(a.close_at || ''))
+    : chilecompraState.sort === 'close'
     ? String(a.close_at || '9999').localeCompare(String(b.close_at || '9999'))
     : String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
   return rows;
@@ -738,7 +759,7 @@ function opportunityCard(o) {
     <div class="cc-opportunity-main">
       <strong class="cc-opportunity-title">${e(o.name)}</strong>
       <span class="cc-buyer">⌂ ${e(o.buyer_name || 'Comprador disponible al abrir el detalle')}</span>
-      <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
+      <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(isActionableOpportunity(o) ? 'Vigente para ofertar' : (o.status || 'Plazo no vigente / por verificar'))}</span></div>
       <div class="cc-tags">${campaignTags(o)}${matchedTerms(o).slice(0, 3).map(tag).join('')}</div>
     </div>
     <div class="cc-opportunity-side"><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div>
@@ -960,9 +981,10 @@ function detailPanel(o) {
 function resultHeading(rows) {
   if (chilecompraState.searching) return 'Buscando licitaciones activas…';
   if (chilecompraState.tab === 'buscar') return chilecompraState.query ? `${rows.length} resultados para “${e(chilecompraState.query)}”` : 'Escribe una búsqueda para comenzar';
+  if (chilecompraState.tab === 'historico') return `${rows.length} licitaciones para análisis histórico`;
   if (chilecompraState.tab === 'coincidencias') {
     const campaign = chilecompraState.campaigns.find((c) => c.id === chilecompraState.selectedCampaignId);
-    return campaign ? `${rows.length} coincidencias · ${e(campaign.name)}` : `${rows.length} coincidencias`;
+    return campaign ? `${rows.length} vigentes · ${e(campaign.name)}` : `${rows.length} licitaciones vigentes`;
   }
   return `${rows.length} oportunidades`;
 }
@@ -1036,7 +1058,7 @@ function campaignRow(c, stats, { controls = true } = {}) {
 }
 
 function dashboardNav(stats) {
-  const opportunityTabs = new Set(['coincidencias','guardadas','crm','buscar']);
+  const opportunityTabs = new Set(['coincidencias','historico','guardadas','crm','buscar']);
   const marketTabs = new Set(['mercado','compradores','convenio','onu']);
   const activeSection = chilecompraState.tab === 'resumen'
     ? 'resumen'
@@ -1058,7 +1080,8 @@ function dashboardNav(stats) {
 
   const secondary = activeSection === 'oportunidades'
     ? [
-        ['coincidencias','Coincidencias',stats.total],
+        ['coincidencias','Vigentes',stats.vigente],
+        ['historico','Histórico',stats.historico],
         ['guardadas','Guardadas',''],
         ['crm','En CRM',''],
         ['buscar','Buscar','']
@@ -1088,7 +1111,7 @@ function sharedDialogs() {
 }
 
 function renderSummaryDashboard(stats) {
-  const hasMatches = stats.total > 0;
+  const hasMatches = stats.vigente > 0;
   const onboarding = !stats.activeCampaigns
     ? `<section class="cc-dashboard-card cc-getting-started">
         <span class="cc-eyebrow">Empieza aquí</span>
@@ -1104,8 +1127,8 @@ function renderSummaryDashboard(stats) {
 
   const radar = stats.activeCampaigns
     ? (hasMatches
-      ? `<div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Coincidencias nuevas</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Seguimientos activos</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>`
-      : `<section class="cc-dashboard-card cc-zero-state"><div><span class="cc-eyebrow">Radar al día</span><h3>No hay coincidencias nuevas</h3><p>Tus ${stats.activeCampaigns} seguimiento${stats.activeCampaigns === 1 ? '' : 's'} están activos. Puedes buscar novedades ahora o revisar sus términos si esperabas más resultados.</p></div><div class="cc-zero-actions"><button type="button" class="primary-btn" data-cc-tab="campanas">Revisar seguimientos</button><button type="button" class="ghost-btn" data-cc-tab="buscar">Hacer búsqueda puntual</button></div></section>`)
+      ? `<div class="cc-kpi-grid"><button type="button" data-cc-tab="coincidencias"><strong>${stats.total}</strong><span>Nuevas vigentes</span></button><button type="button" data-cc-tab="campanas"><strong>${stats.activeCampaigns}</strong><span>Seguimientos activos</span></button><div><strong>${stats.buyers}</strong><span>Compradores detectados</span></div><div><strong>${compactAmount(stats.amount)}</strong><span>Monto observado</span></div></div>`
+      : `<section class="cc-dashboard-card cc-zero-state"><div><span class="cc-eyebrow">Radar al día</span><h3>Sin oportunidades vigentes detectadas</h3><p>Tus ${stats.activeCampaigns} seguimiento${stats.activeCampaigns === 1 ? '' : 's'} están activos. Las licitaciones vencidas quedan en Histórico. Puedes buscar novedades ahora o revisar sus términos.</p></div><div class="cc-zero-actions"><button type="button" class="primary-btn" data-cc-tab="campanas">Revisar seguimientos</button><button type="button" class="ghost-btn" data-cc-tab="buscar">Hacer búsqueda puntual</button></div></section>`)
     : '';
 
   const followups = stats.activeCampaigns
@@ -1118,6 +1141,7 @@ function renderSummaryDashboard(stats) {
   return `<section class="cc-dashboard">
     ${onboarding}
     ${radar}
+    ${stats.activeCampaigns ? `<section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Oportunidades para accionar</h3><p>Primero licitaciones con plazo de recepción vigente. Las cerradas y sin fecha confirmada se consultan aparte.</p></div><button type="button" class="primary-btn" data-cc-tab="coincidencias">Ver ${stats.vigente} vigentes</button></div><div class="cc-zero-actions"><button type="button" class="ghost-btn" data-cc-tab="historico">Histórico (${stats.historico})</button><button type="button" class="ghost-btn" data-cc-tab="ia">¿Qué dice la IA?</button></div></section>` : ''}
     ${followups}
     <section class="cc-dashboard-card cc-market-pulse-card">
       <div class="cc-section-head">
@@ -1141,8 +1165,8 @@ function aiCandidates() {
       .map(m => m.opportunity_id)
   );
   const base = chilecompraState.opportunities
-    .filter(o => o.radar_state !== 'descartado' && (matchedIds.has(o.id) || o.radar_state === 'guardado' || o.radar_state === 'crm'));
-  const rows = base.length ? base : chilecompraState.opportunities.filter(o => o.radar_state !== 'descartado');
+    .filter(o => isActionableOpportunity(o) && o.radar_state !== 'descartado' && (matchedIds.has(o.id) || o.radar_state === 'guardado' || o.radar_state === 'crm'));
+  const rows = base.length ? base : chilecompraState.opportunities.filter(o => isActionableOpportunity(o) && o.radar_state !== 'descartado');
   return [...new Map(rows.map(o => [o.id,o])).values()]
     .sort((a,b)=>{
       const ad=a.close_at ? new Date(a.close_at).getTime() : Number.MAX_SAFE_INTEGER;
@@ -1244,7 +1268,7 @@ function renderAiDashboard() {
       <div class="cc-section-head">
         <div>
           <span class="cc-eyebrow">IA comercial</span>
-          <h3>Qué recomienda la IA</h3>
+          <h3>Qué recomienda la IA para licitaciones vigentes</h3>
           <p>Compara las licitaciones con el alcance real de TaskFlow y Neoff. No supone que leyó bases o adjuntos que Mercado Público no expone.</p>
         </div>
         <button type="button" class="primary-btn" data-cc-ai-run ${chilecompraState.aiLoading || !candidates.length ? 'disabled' : ''}>
@@ -1669,13 +1693,15 @@ function renderOpportunityWorkspace(stats) {
 
   return `<section class="cc-workspace">
     ${searchExperience}
-    ${!isSearch && chilecompraState.tab === 'coincidencias' && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} <b>${stats.newByCampaign[c.id] || 0}</b></button>`).join('')}</div>` : ''}
+    ${!isSearch && ['coincidencias','historico'].includes(chilecompraState.tab) && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} ${chilecompraState.tab === 'historico' ? '' : `<b>${stats.newByCampaign[c.id] || 0}</b>`}</button>`).join('')}</div>` : ''}
+    ${!isSearch && chilecompraState.tab === 'historico' ? '<div class="cc-api-note"><strong>Análisis histórico</strong><span>Licitaciones cerradas, finalizadas o sin plazo verificable. No son oportunidades abiertas para postular. Úsalas para investigar compradores y futuras necesidades.</span></div>' : ''}
     ${isSearch ? searchResults : `<div class="cc-results-toolbar"><strong class="cc-result-title">${resultHeading(rows)}</strong><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div>${chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}<div class="cc-opportunity-list">${rows.length ? rows.map(opportunityCard).join('') : '<div class="cc-empty">No hay resultados para esta vista.</div>'}</div>`}
   </section>`;
 }
 
 function detailReturnLabel() {
   if (chilecompraState.tab === 'buscar') return 'Resultados de búsqueda';
+  if (chilecompraState.tab === 'historico') return 'Histórico';
   if (chilecompraState.tab === 'guardadas') return 'Guardadas';
   if (chilecompraState.tab === 'crm') return 'En CRM';
   if (chilecompraState.tab === 'coincidencias') {
