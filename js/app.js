@@ -4056,4 +4056,21 @@ async function start() {
   }
 }
 
-start();
+start().catch((err) => {
+  // Un fallo anterior a initAuth tampoco debe dejar una pantalla en blanco.
+  console.error('Fallo inesperado al iniciar el CRM', err);
+  clearStartupWatchdog();
+  if (session.status === 'signed-in') {
+    $('authScreen').hidden = true;
+    $('appShell').hidden = false;
+    showStartupScreen('No se pudo iniciar el CRM: ' + (err?.message || 'error inesperado') + '. Pulsa «Reintentar carga».', { retry: true });
+  } else {
+    $('appShell').hidden = true;
+    $('authScreen').hidden = false;
+    const error = $('authError');
+    if (error) {
+      error.textContent = 'No se pudo iniciar el CRM. Actualiza la página e inténtalo nuevamente.';
+      error.hidden = false;
+    }
+  }
+});
