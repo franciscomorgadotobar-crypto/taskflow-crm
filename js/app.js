@@ -3865,9 +3865,31 @@ function bindEvents() {
 
 let authSyncGeneration = 0;
 let activeDataUserId = '';
+let startupWatchdog = null;
+
+function clearStartupWatchdog() {
+  if (startupWatchdog) clearTimeout(startupWatchdog);
+  startupWatchdog = null;
+}
+
+function showStartupScreen(message, { retry = false } = {}) {
+  const root = $('viewRoot');
+  if (!root) return;
+  root.innerHTML = '<section class="empty" style="margin:24px auto;max-width:580px;padding:30px 22px;text-align:center">' +
+    '<h2>CRM TaskFlow</h2><p id="crmStartupMessage"></p>' +
+    (retry ? '<button type="button" class="primary-btn" id="crmRetryStartup">Reintentar carga</button>' : '') +
+    '</section>';
+  $('crmStartupMessage').textContent = message;
+  $('crmRetryStartup')?.addEventListener('click', () => window.location.reload());
+}
+
+function markCrmReady() {
+  $('appShell').dataset.ready = 'true';
+  document.dispatchEvent(new CustomEvent('crm-personal:app-ready'));
+}
 
 async function start() {
-  document.title = `${CFG.appName} · ${CFG.companyName}`;
+  document.title = String(CFG.appName || 'CRM');
   initPwa();
   fillStaticSelects();
   buildTaskTypeGroups();
@@ -3898,6 +3920,9 @@ async function start() {
 
   onAuthChange(async (s) => {
     const generation = ++authSyncGeneration;
+    clearStartupWatchdog();
+    $('appShell').dataset.ready = 'false';
+
     if (s.status === 'signed-in') {
       const nextUserId = s.user?.id || '';
       const userChanged = activeDataUserId !== nextUserId;
@@ -3912,14 +3937,33 @@ async function start() {
         clearTutorials();
         activeDataUserId = nextUserId;
       }
+
+      // La interfaz no puede depender de que TODOS los módulos carguen correctamente.
+      // Si uno falla (o queda esperando), mantener el shell visible con recuperación.
       $('authScreen').hidden = true;
-      $('appShell').hidden = userChanged;
+      $('appShell').hidden = false;
+      if (userChanged) showStartupScreen('Cargando datos comerciales y módulos…');
       paintSync({ state: 'syncing', message: 'Cargando datos…' });
+
+      startupWatchdog = window.setTimeout(() => {
+        if (generation !== authSyncGeneration || session.status !== 'signed-in') return;
+        if ($('appShell').dataset.ready === 'true') return;
+        $('appShell').hidden = false;
+        showStartupScreen('La carga está tardando más de lo esperado. Revisa tu conexión y pulsa «Reintentar carga».', { retry: true });
+        paintSync({ state: 'error', message: 'Carga demorada' });
+      }, 15000);
+
       try {
-        await Promise.all([hydrate(), quotesHydrate(), hyperFocusHydrate(), hydrateChileCompra(), hydrateTutorials()]);
+        const loads = [
+          ['CRM', hydrate()],
+          ['Cotizaciones', quotesHydrate()],
+          ['Híper Foco', hyperFocusHydrate()],
+          ['ChileCompra', hydrateChileCompra()],
+          ['Tutoriales', hydrateTutorials()]
+        ];
+        // Un fallo de ChileCompra o Tutoriales nunca debe bloquear Leads/Resumen.
+        const settled = await Promise.allSettled(loads.map(([, task]) => task));
         if (generation !== authSyncGeneration || session.status !== 'signed-in') {
-          // Una hidratación iniciada por una sesión anterior no puede volver a
-          // poblar el estado local ni reactivar Realtime después de cerrar sesión.
           stopRealtime();
           quotesStopRealtime();
           hyperFocusStopRealtime();
@@ -3930,25 +3974,40 @@ async function start() {
           clearTutorials();
           return;
         }
+
+        const failures = settled.flatMap((result, index) => {
+          if (result.status !== 'rejected') return [];
+          console.error('Error al cargar ' + loads[index][0], result.reason);
+          return [loads[index][0]];
+        });
         startRealtime();
         quotesStartRealtime();
         hyperFocusStartRealtime();
         applyNavigationAccess();
         ensureAccessibleView();
         refreshNotificationBadge();
-        paintSync({ state: 'ok', message: 'Conectado' });
-        $('appShell').hidden = false;
-      } catch (err) {
-        if (generation !== authSyncGeneration) return;
-        paintSync({ state: 'error', message: `Sin conexión: ${err.message}` });
-      }
-      if (generation === authSyncGeneration) {
         render();
+        $('appShell').hidden = false;
+        paintSync({
+          state: failures.length ? 'error' : 'ok',
+          message: failures.length ? 'Carga parcial: ' + failures.join(', ') : 'Conectado'
+        });
+        markCrmReady();
+        if (failures.length) toast('Algunos módulos no cargaron: ' + failures.join(', ') + '. Puedes reintentar actualizando.', 'error');
+
         if (s.recovery && !$('accessPasswordDialog').open) {
           $('accessPasswordDialog').showModal();
         } else {
           maybeOfferAssignedTutorial();
         }
+      } catch (err) {
+        if (generation !== authSyncGeneration) return;
+        console.error('No se pudo preparar el CRM', err);
+        $('appShell').hidden = false;
+        showStartupScreen('No pudimos completar el inicio: ' + (err?.message || 'error inesperado') + '. Pulsa «Reintentar carga».', { retry: true });
+        paintSync({ state: 'error', message: 'Error de inicio' });
+      } finally {
+        if (generation === authSyncGeneration) clearStartupWatchdog();
       }
     } else if (s.status === 'profile-error') {
       activeDataUserId = '';
