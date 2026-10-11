@@ -1122,6 +1122,148 @@ function renderCampaignsDashboard(stats) {
   return `<section class="cc-dashboard"><section class="cc-dashboard-card"><div class="cc-section-head"><div><h3>Seguimientos</h3><p>Cada seguimiento es una búsqueda automática. Puedes activarlo, pausarlo o abrir sus coincidencias.</p></div><button type="button" class="primary-btn" data-cc-campaign-new>+ Crear seguimiento</button></div><div class="cc-user-campaign-list">${chilecompraState.campaigns.length ? chilecompraState.campaigns.map((c) => campaignRow(c, stats, { controls: true })).join('') : '<div class="cc-empty"><strong>Sin seguimientos</strong><span>Crea la primera búsqueda automática para empezar.</span></div>'}</div></section></section>`;
 }
 
+function aiCandidates() {
+  const active = activeCampaignIds();
+  const matchedIds = new Set(
+    chilecompraState.matches
+      .filter(m => active.has(m.campaign_id))
+      .map(m => m.opportunity_id)
+  );
+  const base = chilecompraState.opportunities
+    .filter(o => o.radar_state !== 'descartado' && (matchedIds.has(o.id) || o.radar_state === 'guardado' || o.radar_state === 'crm'));
+  const rows = base.length ? base : chilecompraState.opportunities.filter(o => o.radar_state !== 'descartado');
+  return [...new Map(rows.map(o => [o.id,o])).values()]
+    .sort((a,b)=>{
+      const ad=a.close_at ? new Date(a.close_at).getTime() : Number.MAX_SAFE_INTEGER;
+      const bd=b.close_at ? new Date(b.close_at).getTime() : Number.MAX_SAFE_INTEGER;
+      return ad-bd;
+    })
+    .slice(0,25);
+}
+
+function aiResultMap() {
+  return new Map((chilecompraState.aiResults || []).map(r => [r.id,r]));
+}
+
+async function analyzeChileCompraWithAi({ opportunityId = '' } = {}) {
+  const all = aiCandidates();
+  const selected = opportunityId ? all.filter(o=>o.id===opportunityId) : all;
+  if (!selected.length) return toast('No hay oportunidades cargadas para analizar.', 'error');
+
+  chilecompraState.aiLoading = true;
+  chilecompraState.aiError = '';
+  rerender();
+
+  try {
+    const opportunities = selected.map(o=>({
+      id:o.id,
+      external_code:o.external_code,
+      name:o.name,
+      description:o.description || '',
+      buyer_name:o.buyer_name || '',
+      procurement_type:o.procurement_type || '',
+      amount:o.amount || 0,
+      close_at:o.close_at || '',
+      items: rawValue(o,['Items']) || null
+    }));
+    const data = await invokeChileCompraFunction('chilecompra-ai', { opportunities });
+    const previous = aiResultMap();
+    (data.results || []).forEach(r => previous.set(r.id,r));
+    chilecompraState.aiResults = [...previous.values()];
+    chilecompraState.aiProvider = data.provider || '';
+    chilecompraState.aiMessage = data.message || '';
+    return data;
+  } catch (err) {
+    chilecompraState.aiError = err?.message || 'No se pudo completar el análisis IA.';
+    throw err;
+  } finally {
+    chilecompraState.aiLoading = false;
+    rerender();
+  }
+}
+
+function aiTone(recommendation='') {
+  if (recommendation === 'TaskFlow') return 'taskflow';
+  if (recommendation === 'Neoff') return 'neoff';
+  if (recommendation === 'Ambos') return 'both';
+  return 'none';
+}
+
+function aiRecommendationCard(result, opportunity) {
+  if (!opportunity) return '';
+  const risks = Array.isArray(result?.risks) ? result.risks : [];
+  return \`<article class="cc-ai-opportunity cc-ai-opportunity--\${aiTone(result?.recommendation)}">
+    <div class="cc-ai-opportunity-head">
+      <div>
+        <span class="cc-ai-fit">\${e(result?.recommendation || 'Pendiente')}</span>
+        <strong>\${e(opportunity.name || opportunity.external_code)}</strong>
+        <small>\${e(opportunity.buyer_name || 'Comprador no informado')} · \${e(opportunity.external_code || '')}</small>
+      </div>
+      <div class="cc-ai-confidence"><b>\${Number(result?.confidence || 0)}%</b><span>encaje</span></div>
+    </div>
+    <p>\${e(result?.why || 'Sin análisis todavía.')}</p>
+    \${risks.length ? \`<div class="cc-ai-risks"><b>Atención</b>\${risks.map(r=>\`<span>\${e(r)}</span>\`).join('')}</div>\` : ''}
+    <div class="cc-ai-next"><b>Siguiente paso</b><span>\${e(result?.nextStep || 'Revisar la oportunidad.')}</span></div>
+    <div class="cc-ai-actions">
+      <button type="button" class="ghost-btn" data-cc-select="\${e(opportunity.id)}">Abrir licitación</button>
+      <button type="button" class="link-btn" data-cc-ai-one="\${e(opportunity.id)}">Reanalizar</button>
+    </div>
+  </article>\`;
+}
+
+function renderAiDashboard() {
+  const candidates = aiCandidates();
+  const map = aiResultMap();
+  const analyzed = candidates
+    .map(o=>({opportunity:o,result:map.get(o.id)}))
+    .filter(x=>x.result)
+    .sort((a,b)=>Number(b.result.confidence||0)-Number(a.result.confidence||0));
+
+  const counts = {
+    taskflow: analyzed.filter(x=>x.result.recommendation==='TaskFlow').length,
+    neoff: analyzed.filter(x=>x.result.recommendation==='Neoff').length,
+    both: analyzed.filter(x=>x.result.recommendation==='Ambos').length,
+    no: analyzed.filter(x=>x.result.recommendation==='No recomendar').length
+  };
+
+  return \`<section class="cc-dashboard cc-ai-dashboard">
+    <section class="cc-dashboard-card cc-ai-hero">
+      <div class="cc-section-head">
+        <div>
+          <span class="cc-eyebrow">IA comercial</span>
+          <h3>Qué recomienda la IA</h3>
+          <p>Compara las licitaciones con el alcance real de TaskFlow y Neoff. No supone que leyó bases o adjuntos que Mercado Público no expone.</p>
+        </div>
+        <button type="button" class="primary-btn" data-cc-ai-run \${chilecompraState.aiLoading || !candidates.length ? 'disabled' : ''}>
+          \${chilecompraState.aiLoading ? 'Analizando…' : (analyzed.length ? 'Actualizar análisis' : 'Analizar con GPT')}
+        </button>
+      </div>
+
+      \${chilecompraState.aiProvider ? \`<div class="cc-ai-provider"><span class="cc-ai-dot"></span><strong>\${chilecompraState.aiProvider.startsWith('gpt') ? 'GPT conectado' : 'Motor comercial local'}</strong><span>\${e(chilecompraState.aiProvider)}</span></div>\` : ''}
+      \${chilecompraState.aiMessage ? \`<div class="cc-api-note"><strong>Configuración IA</strong><span>\${e(chilecompraState.aiMessage)}</span></div>\` : ''}
+      \${chilecompraState.aiError ? \`<div class="cc-detail-warning"><strong>Error de análisis</strong><span>\${e(chilecompraState.aiError)}</span></div>\` : ''}
+
+      <div class="cc-ai-businesses">
+        <div><b>TaskFlow</b><span>OT digitales · terreno · mantenimiento · activos · inventario · trazabilidad · reportes.</span></div>
+        <div><b>Neoff</b><span>IoT · sensores · telemetría · monitoreo en tiempo real · integración de dispositivos.</span></div>
+      </div>
+    </section>
+
+    <section class="cc-dashboard-card">
+      <div class="cc-kpi-grid cc-ai-kpis">
+        <div><strong>\${counts.taskflow}</strong><span>TaskFlow</span></div>
+        <div><strong>\${counts.neoff}</strong><span>Neoff</span></div>
+        <div><strong>\${counts.both}</strong><span>Ambos</span></div>
+        <div><strong>\${counts.no}</strong><span>No priorizar</span></div>
+      </div>
+      <div class="cc-section-head"><div><h3>Recomendaciones</h3><p>\${analyzed.length ? analyzed.length + ' oportunidades analizadas.' : candidates.length + ' oportunidades listas para analizar.'}</p></div></div>
+      \${chilecompraState.aiLoading ? '<div class="cc-empty">La IA está comparando las oportunidades con TaskFlow y Neoff…</div>' :
+        analyzed.length ? \`<div class="cc-ai-list">\${analyzed.map(x=>aiRecommendationCard(x.result,x.opportunity)).join('')}</div>\`
+        : \`<div class="cc-empty"><strong>Aún no hay análisis</strong><span>Presiona “Analizar con GPT” para priorizar las oportunidades cargadas.</span></div>\`}
+    </section>
+  </section>\`;
+}
+
 function renderMarketDashboard() {
   const data = chilecompraState.analyticsUniverse === 'campaigns' && !chilecompraState.analytics
     ? chilecompraLocalBreakdown({ metric: chilecompraState.analyticsMetric })
