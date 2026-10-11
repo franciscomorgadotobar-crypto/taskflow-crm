@@ -467,7 +467,7 @@
 .cc-section-head h3 { margin:0; color:#132a4d; font-size:18px; }
 .cc-section-head p { margin:4px 0 0; color:#6b788d; font-size:12px; line-height:1.35; }
 .cc-kpi-grid {
-  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px;
+  display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px;
 }
 .cc-kpi-grid > * {
   min-width:0; min-height:96px; padding:14px; border:1px solid #e0e7f1;
@@ -1243,7 +1243,7 @@
   }
   .cc-dashboard-tabs{
     display:grid!important;
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-columns:repeat(5,minmax(0,1fr));
     gap:0!important;
     padding:0!important;
     overflow:visible!important;
@@ -2322,7 +2322,7 @@
 }
 .cc-cm-detail-kpis{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:8px;
   margin-top:16px;
 }
@@ -2511,7 +2511,7 @@
 }
 .cc-dashboard-tabs--primary{
   display:grid !important;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:0 !important;
   padding:0 !important;
   overflow:visible !important;
@@ -2775,3 +2775,56 @@
 :root[data-theme="dark"] .cc-onu-row{background:var(--v2-panel,#17243a);border-color:var(--v2-line,#2d3b52)}
 :root[data-theme="dark"] .cc-onu-copy strong{color:#eef5ff}
 /* ---------- End Códigos ONU ---------- */
+
+
+/* ---------- IA comercial ChileCompra ---------- */
+.cc-ai-dashboard{display:grid;gap:14px}
+.cc-ai-hero .cc-section-head{align-items:flex-start}
+.cc-ai-provider{display:flex;align-items:center;gap:7px;margin:10px 0;padding:8px 10px;border:1px solid var(--cc-border);border-radius:10px;background:#f8fbff;font-size:9px;color:var(--cc-muted)}
+.cc-ai-provider strong{color:#183455}
+.cc-ai-dot{width:8px;height:8px;border-radius:50%;background:#22a06b}
+.cc-ai-businesses{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.cc-ai-businesses>div{display:grid;gap:4px;padding:12px;border:1px solid var(--cc-border);border-radius:11px;background:#fff}
+.cc-ai-businesses b{font-size:12px;color:#183455}
+.cc-ai-businesses span{font-size:9px;color:var(--cc-muted);line-height:1.5}
+.cc-ai-list{display:grid;gap:10px}
+.cc-ai-opportunity{display:grid;gap:10px;padding:14px;border:1px solid var(--cc-border);border-left:4px solid #9fb2c6;border-radius:12px;background:#fff}
+.cc-ai-opportunity--taskflow{border-left-color:#1d71b8}
+.cc-ai-opportunity--neoff{border-left-color:#1b7533}
+.cc-ai-opportunity--both{border-left-color:#7553c7}
+.cc-ai-opportunity--none{border-left-color:#9aa6b4}
+.cc-ai-opportunity-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+.cc-ai-opportunity-head>div:first-child{display:grid;gap:3px}
+.cc-ai-opportunity-head strong{font-size:12px;color:#183455}
+.cc-ai-opportunity-head small{font-size:9px;color:var(--cc-muted)}
+.cc-ai-fit{width:max-content;padding:4px 7px;border-radius:999px;background:#eef5fc;color:#1a5f99;font-size:8px;font-weight:900;text-transform:uppercase}
+.cc-ai-confidence{display:grid;text-align:right}
+.cc-ai-confidence b{font-size:18px;color:#183455}
+.cc-ai-confidence span{font-size:8px;color:var(--cc-muted)}
+.cc-ai-opportunity>p{margin:0;color:#43556d;font-size:10px;line-height:1.55}
+.cc-ai-risks,.cc-ai-next{display:grid;gap:3px;padding:9px 10px;border-radius:9px;background:#f7f9fc}
+.cc-ai-risks b,.cc-ai-next b{font-size:8px;text-transform:uppercase;color:#718096}
+.cc-ai-risks span,.cc-ai-next span{font-size:9px;color:#43556d}
+.cc-ai-actions{display:flex;gap:8px;flex-wrap:wrap}
+.cc-ai-kpis{margin-bottom:14px}
+.cc-docs-source-note{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.cc-onu-total{padding:6px 9px;border-radius:999px;background:#eef6ff;color:#176fbe;font-size:9px;font-weight:800;white-space:nowrap}
+.cc-onu-segments{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+.cc-onu-segments::-webkit-scrollbar{display:none}
+.cc-onu-segments button{flex:0 0 auto;display:grid;gap:2px;max-width:190px;padding:7px 9px;border:1px solid var(--cc-border);border-radius:9px;background:#fff;color:#50657d;text-align:left;cursor:pointer}
+.cc-onu-segments button.active{border-color:#6fb3ed;background:#eef7ff;color:#0b70c6}
+.cc-onu-segments b{font-size:9px}
+.cc-onu-segments span{overflow:hidden;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){
+  .cc-dashboard-tabs--primary button{font-size:9px;padding:0 2px}
+  .cc-ai-businesses{grid-template-columns:1fr}
+  .cc-ai-opportunity-head{grid-template-columns:1fr}
+  .cc-ai-confidence{text-align:left;display:flex;gap:4px;align-items:baseline}
+}
+:root[data-theme="dark"] .cc-ai-businesses>div,
+:root[data-theme="dark"] .cc-ai-opportunity,
+:root[data-theme="dark"] .cc-onu-segments button{background:var(--v2-panel,#17243a);border-color:var(--v2-line,#2d3b52)}
+:root[data-theme="dark"] .cc-ai-businesses b,
+:root[data-theme="dark"] .cc-ai-opportunity-head strong,
+:root[data-theme="dark"] .cc-ai-confidence b{color:#eef5ff}
+/* ---------- End IA comercial ChileCompra ---------- */
