@@ -885,11 +885,21 @@ function detailDocumentsBlock(o) {
           <strong>La API pública no entrega los archivos adjuntos de esta licitación.</strong>
           <span>La ficha oficial puede mostrar el proceso, pero la descarga de bases y anexos depende del acceso habilitado por Mercado Público. El CRM no debe prometer documentos que la fuente pública no expone.</span>
         </div>`}
-    ${!list.length ? '<button type="button" class="ghost-btn cc-open-public-record" data-cc-market>Abrir ficha oficial ↗</button>' : ''}
+    ${!list.length ? '<p class="muted cc-docs-source-note">La ficha oficial puede servir para validar el proceso, pero no garantiza acceso a los adjuntos. <button type="button" class="link-btn" data-cc-market>Ver ficha oficial ↗</button></p>' : ''}
   </section>`;
 }
 
 function detailBody(o) {
+  if (chilecompraState.detailTab === 'ia') {
+    const result = aiResultMap().get(o.id);
+    return `<section class="cc-detail-section cc-detail-ai">
+      <div class="cc-section-head">
+        <div><h4>IA comercial</h4><p>Encaje con TaskFlow y Neoff usando la información pública disponible.</p></div>
+        <button type="button" class="primary-btn" data-cc-ai-one="${e(o.id)}" ${chilecompraState.aiLoading ? 'disabled' : ''}>${result ? 'Reanalizar' : 'Analizar'}</button>
+      </div>
+      ${result ? aiRecommendationCard(result,o) : '<div class="cc-api-note"><strong>Sin análisis todavía</strong><span>La IA no asumirá que leyó documentos que Mercado Público no haya expuesto; evaluará título, descripción, comprador, ítems, códigos ONU y condiciones disponibles.</span></div>'}
+    </section>`;
+  }
   if (chilecompraState.detailTab === 'coincidencias') {
     const campaigns = campaignsForOpportunity(o.id);
     const terms = matchedTerms(o);
@@ -939,6 +949,7 @@ function detailPanel(o) {
       ['requisitos','Condiciones'],
       ['items','Ítems'],
       ['fechas','Fechas'],
+      ['ia','IA'],
       ['coincidencias','Coincidencias']
     ].map(([id,label]) => `<button type="button" data-cc-detail-tab="${id}" class="${chilecompraState.detailTab === id ? 'active' : ''}">${label}</button>`).join('')}</div>
     ${detailBody(o)}
