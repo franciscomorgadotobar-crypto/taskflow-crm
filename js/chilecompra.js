@@ -1203,23 +1203,23 @@ function aiTone(recommendation='') {
 function aiRecommendationCard(result, opportunity) {
   if (!opportunity) return '';
   const risks = Array.isArray(result?.risks) ? result.risks : [];
-  return \`<article class="cc-ai-opportunity cc-ai-opportunity--\${aiTone(result?.recommendation)}">
+  return `<article class="cc-ai-opportunity cc-ai-opportunity--${aiTone(result?.recommendation)}">
     <div class="cc-ai-opportunity-head">
       <div>
-        <span class="cc-ai-fit">\${e(result?.recommendation || 'Pendiente')}</span>
-        <strong>\${e(opportunity.name || opportunity.external_code)}</strong>
-        <small>\${e(opportunity.buyer_name || 'Comprador no informado')} · \${e(opportunity.external_code || '')}</small>
+        <span class="cc-ai-fit">${e(result?.recommendation || 'Pendiente')}</span>
+        <strong>${e(opportunity.name || opportunity.external_code)}</strong>
+        <small>${e(opportunity.buyer_name || 'Comprador no informado')} · ${e(opportunity.external_code || '')}</small>
       </div>
-      <div class="cc-ai-confidence"><b>\${Number(result?.confidence || 0)}%</b><span>encaje</span></div>
+      <div class="cc-ai-confidence"><b>${Number(result?.confidence || 0)}%</b><span>encaje</span></div>
     </div>
-    <p>\${e(result?.why || 'Sin análisis todavía.')}</p>
-    \${risks.length ? \`<div class="cc-ai-risks"><b>Atención</b>\${risks.map(r=>\`<span>\${e(r)}</span>\`).join('')}</div>\` : ''}
-    <div class="cc-ai-next"><b>Siguiente paso</b><span>\${e(result?.nextStep || 'Revisar la oportunidad.')}</span></div>
+    <p>${e(result?.why || 'Sin análisis todavía.')}</p>
+    ${risks.length ? `<div class="cc-ai-risks"><b>Atención</b>${risks.map(r=>`<span>${e(r)}</span>`).join('')}</div>` : ''}
+    <div class="cc-ai-next"><b>Siguiente paso</b><span>${e(result?.nextStep || 'Revisar la oportunidad.')}</span></div>
     <div class="cc-ai-actions">
-      <button type="button" class="ghost-btn" data-cc-select="\${e(opportunity.id)}">Abrir licitación</button>
-      <button type="button" class="link-btn" data-cc-ai-one="\${e(opportunity.id)}">Reanalizar</button>
+      <button type="button" class="ghost-btn" data-cc-select="${e(opportunity.id)}">Abrir licitación</button>
+      <button type="button" class="link-btn" data-cc-ai-one="${e(opportunity.id)}">Reanalizar</button>
     </div>
-  </article>\`;
+  </article>`;
 }
 
 function renderAiDashboard() {
@@ -1237,7 +1237,7 @@ function renderAiDashboard() {
     no: analyzed.filter(x=>x.result.recommendation==='No recomendar').length
   };
 
-  return \`<section class="cc-dashboard cc-ai-dashboard">
+  return `<section class="cc-dashboard cc-ai-dashboard">
     <section class="cc-dashboard-card cc-ai-hero">
       <div class="cc-section-head">
         <div>
@@ -1245,14 +1245,14 @@ function renderAiDashboard() {
           <h3>Qué recomienda la IA</h3>
           <p>Compara las licitaciones con el alcance real de TaskFlow y Neoff. No supone que leyó bases o adjuntos que Mercado Público no expone.</p>
         </div>
-        <button type="button" class="primary-btn" data-cc-ai-run \${chilecompraState.aiLoading || !candidates.length ? 'disabled' : ''}>
-          \${chilecompraState.aiLoading ? 'Analizando…' : (analyzed.length ? 'Actualizar análisis' : 'Analizar con GPT')}
+        <button type="button" class="primary-btn" data-cc-ai-run ${chilecompraState.aiLoading || !candidates.length ? 'disabled' : ''}>
+          ${chilecompraState.aiLoading ? 'Analizando…' : (analyzed.length ? 'Actualizar análisis' : 'Analizar con GPT')}
         </button>
       </div>
 
-      \${chilecompraState.aiProvider ? \`<div class="cc-ai-provider"><span class="cc-ai-dot"></span><strong>\${chilecompraState.aiProvider.startsWith('gpt') ? 'GPT conectado' : 'Motor comercial local'}</strong><span>\${e(chilecompraState.aiProvider)}</span></div>\` : ''}
-      \${chilecompraState.aiMessage ? \`<div class="cc-api-note"><strong>Configuración IA</strong><span>\${e(chilecompraState.aiMessage)}</span></div>\` : ''}
-      \${chilecompraState.aiError ? \`<div class="cc-detail-warning"><strong>Error de análisis</strong><span>\${e(chilecompraState.aiError)}</span></div>\` : ''}
+      ${chilecompraState.aiProvider ? `<div class="cc-ai-provider"><span class="cc-ai-dot"></span><strong>${chilecompraState.aiProvider.startsWith('gpt') ? 'GPT conectado' : 'Motor comercial local'}</strong><span>${e(chilecompraState.aiProvider)}</span></div>` : ''}
+      ${chilecompraState.aiMessage ? `<div class="cc-api-note"><strong>Configuración IA</strong><span>${e(chilecompraState.aiMessage)}</span></div>` : ''}
+      ${chilecompraState.aiError ? `<div class="cc-detail-warning"><strong>Error de análisis</strong><span>${e(chilecompraState.aiError)}</span></div>` : ''}
 
       <div class="cc-ai-businesses">
         <div><b>TaskFlow</b><span>OT digitales · terreno · mantenimiento · activos · inventario · trazabilidad · reportes.</span></div>
@@ -1262,17 +1262,17 @@ function renderAiDashboard() {
 
     <section class="cc-dashboard-card">
       <div class="cc-kpi-grid cc-ai-kpis">
-        <div><strong>\${counts.taskflow}</strong><span>TaskFlow</span></div>
-        <div><strong>\${counts.neoff}</strong><span>Neoff</span></div>
-        <div><strong>\${counts.both}</strong><span>Ambos</span></div>
-        <div><strong>\${counts.no}</strong><span>No priorizar</span></div>
+        <div><strong>${counts.taskflow}</strong><span>TaskFlow</span></div>
+        <div><strong>${counts.neoff}</strong><span>Neoff</span></div>
+        <div><strong>${counts.both}</strong><span>Ambos</span></div>
+        <div><strong>${counts.no}</strong><span>No priorizar</span></div>
       </div>
-      <div class="cc-section-head"><div><h3>Recomendaciones</h3><p>\${analyzed.length ? analyzed.length + ' oportunidades analizadas.' : candidates.length + ' oportunidades listas para analizar.'}</p></div></div>
-      \${chilecompraState.aiLoading ? '<div class="cc-empty">La IA está comparando las oportunidades con TaskFlow y Neoff…</div>' :
-        analyzed.length ? \`<div class="cc-ai-list">\${analyzed.map(x=>aiRecommendationCard(x.result,x.opportunity)).join('')}</div>\`
-        : \`<div class="cc-empty"><strong>Aún no hay análisis</strong><span>Presiona “Analizar con GPT” para priorizar las oportunidades cargadas.</span></div>\`}
+      <div class="cc-section-head"><div><h3>Recomendaciones</h3><p>${analyzed.length ? analyzed.length + ' oportunidades analizadas.' : candidates.length + ' oportunidades listas para analizar.'}</p></div></div>
+      ${chilecompraState.aiLoading ? '<div class="cc-empty">La IA está comparando las oportunidades con TaskFlow y Neoff…</div>' :
+        analyzed.length ? `<div class="cc-ai-list">${analyzed.map(x=>aiRecommendationCard(x.result,x.opportunity)).join('')}</div>`
+        : `<div class="cc-empty"><strong>Aún no hay análisis</strong><span>Presiona “Analizar con GPT” para priorizar las oportunidades cargadas.</span></div>`}
     </section>
-  </section>\`;
+  </section>`;
 }
 
 function renderMarketDashboard() {
@@ -1327,7 +1327,7 @@ async function loadOnuCatalog({ query = chilecompraState.onuQuery, segment = chi
 function renderOnuDashboard() {
   const rows = chilecompraState.onuResults || [];
   const segments = chilecompraState.onuSegments || [];
-  return \`<section class="cc-dashboard">
+  return `<section class="cc-dashboard">
     <section class="cc-dashboard-card cc-onu-hero">
       <div class="cc-section-head">
         <div>
@@ -1335,18 +1335,18 @@ function renderOnuDashboard() {
           <h3>Catálogo ONU completo</h3>
           <p>Busca por código, producto, clase, familia o segmento. ChileCompra recomienda usar el código ONU/UNSPSC equivalente para tus productos y servicios.</p>
         </div>
-        <span class="cc-onu-total">\${chilecompraState.onuTotalCatalog ? chilecompraState.onuTotalCatalog.toLocaleString('es-CL') + ' códigos' : 'Catálogo completo'}</span>
+        <span class="cc-onu-total">${chilecompraState.onuTotalCatalog ? chilecompraState.onuTotalCatalog.toLocaleString('es-CL') + ' códigos' : 'Catálogo completo'}</span>
       </div>
 
       <form id="ccOnuSearch" class="cc-onu-search">
-        <input id="ccOnuQuery" type="search" value="\${e(chilecompraState.onuQuery)}" placeholder="Ej. software, telemetría, 8111, luminaria...">
-        <button type="submit" class="primary-btn" \${chilecompraState.onuLoading ? 'disabled' : ''}>\${chilecompraState.onuLoading ? 'Buscando…' : 'Buscar'}</button>
+        <input id="ccOnuQuery" type="search" value="${e(chilecompraState.onuQuery)}" placeholder="Ej. software, telemetría, 8111, luminaria...">
+        <button type="submit" class="primary-btn" ${chilecompraState.onuLoading ? 'disabled' : ''}>${chilecompraState.onuLoading ? 'Buscando…' : 'Buscar'}</button>
       </form>
 
-      \${segments.length ? \`<div class="cc-onu-segments">
-        <button type="button" data-cc-onu-segment="" class="\${!chilecompraState.onuSegment ? 'active' : ''}">Todos</button>
-        \${segments.map(seg=>\`<button type="button" data-cc-onu-segment="\${e(seg.code)}" class="\${chilecompraState.onuSegment===seg.code?'active':''}" title="\${e(seg.name)}"><b>\${e(seg.code)}</b><span>\${e(seg.name)}</span></button>\`).join('')}
-      </div>\` : ''}
+      ${segments.length ? `<div class="cc-onu-segments">
+        <button type="button" data-cc-onu-segment="" class="${!chilecompraState.onuSegment ? 'active' : ''}">Todos</button>
+        ${segments.map(seg=>`<button type="button" data-cc-onu-segment="${e(seg.code)}" class="${chilecompraState.onuSegment===seg.code?'active':''}" title="${e(seg.name)}"><b>${e(seg.code)}</b><span>${e(seg.name)}</span></button>`).join('')}
+      </div>` : ''}
 
       <div class="cc-api-note">
         <strong>Fuente y alcance</strong>
@@ -1360,33 +1360,33 @@ function renderOnuDashboard() {
     <section class="cc-dashboard-card">
       <div class="cc-section-head">
         <div>
-          <h3>\${chilecompraState.onuQuery || chilecompraState.onuSegment ? 'Resultados del catálogo' : 'Explora por segmento'}</h3>
-          <p>\${chilecompraState.onuQuery || chilecompraState.onuSegment
+          <h3>${chilecompraState.onuQuery || chilecompraState.onuSegment ? 'Resultados del catálogo' : 'Explora por segmento'}</h3>
+          <p>${chilecompraState.onuQuery || chilecompraState.onuSegment
             ? chilecompraState.onuTotalMatches.toLocaleString('es-CL') + ' coincidencia(s).'
             : 'Selecciona un segmento o busca por palabra/código para revisar productos y servicios.'}</p>
         </div>
       </div>
 
-      \${chilecompraState.onuError ? \`<div class="cc-detail-warning"><strong>No se pudo cargar el catálogo</strong><span>\${e(chilecompraState.onuError)}</span></div>\` : ''}
+      ${chilecompraState.onuError ? `<div class="cc-detail-warning"><strong>No se pudo cargar el catálogo</strong><span>${e(chilecompraState.onuError)}</span></div>` : ''}
 
-      \${chilecompraState.onuLoading ? '<div class="cc-empty">Consultando códigos ONU…</div>' :
-        rows.length ? \`<div class="cc-onu-list">\${rows.map(row=>\`
+      ${chilecompraState.onuLoading ? '<div class="cc-empty">Consultando códigos ONU…</div>' :
+        rows.length ? `<div class="cc-onu-list">${rows.map(row=>`
           <article class="cc-onu-row">
-            <div class="cc-onu-code">\${e(row.code)}</div>
+            <div class="cc-onu-code">${e(row.code)}</div>
             <div class="cc-onu-copy">
-              <strong>\${e(row.name || 'Producto o servicio')}</strong>
-              <span>\${e(row.className || '')}</span>
-              <small>\${e(row.familyName || '')} · \${e(row.segmentName || '')}</small>
+              <strong>${e(row.name || 'Producto o servicio')}</strong>
+              <span>${e(row.className || '')}</span>
+              <small>${e(row.familyName || '')} · ${e(row.segmentName || '')}</small>
             </div>
-            <div class="cc-onu-hierarchy">\${onuHierarchy(row.code).map(([label,code])=>\`<span><b>\${e(label)}</b>\${e(code)}</span>\`).join('')}</div>
-          </article>\`).join('')}</div>\`
+            <div class="cc-onu-hierarchy">${onuHierarchy(row.code).map(([label,code])=>`<span><b>${e(label)}</b>${e(code)}</span>`).join('')}</div>
+          </article>`).join('')}</div>`
         : (chilecompraState.onuQuery || chilecompraState.onuSegment)
           ? '<div class="cc-empty"><strong>Sin resultados</strong><span>Prueba con un término más amplio o revisa otro segmento.</span></div>'
           : '<div class="cc-empty"><strong>Catálogo listo</strong><span>Busca un producto, servicio o código ONU.</span></div>'}
 
-      \${rows.length >= 250 ? '<p class="muted">Mostrando los primeros 250 resultados. Refina la búsqueda para ver un conjunto más específico.</p>' : ''}
+      ${rows.length >= 250 ? '<p class="muted">Mostrando los primeros 250 resultados. Refina la búsqueda para ver un conjunto más específico.</p>' : ''}
     </section>
-  </section>\`;
+  </section>`;
 }
 
 function cmMetricBars(rows = [], { valueKey = 'total', labelKey = 'name', limit = 7, currency = 'CLP' } = {}) {
