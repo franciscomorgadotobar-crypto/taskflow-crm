@@ -1059,11 +1059,12 @@ function campaignRow(c, stats, { controls = true } = {}) {
 
 function dashboardNav(stats) {
   const opportunityTabs = new Set(['coincidencias','historico','guardadas','crm','buscar']);
-  const marketTabs = new Set(['mercado','compradores','convenio','onu']);
   const activeSection = chilecompraState.tab === 'resumen'
     ? 'resumen'
-    : chilecompraState.tab === 'ia'
-      ? 'ia'
+    : chilecompraState.tab === 'onu'
+      ? 'onu'
+      : chilecompraState.tab === 'ia'
+        ? 'ia'
       : chilecompraState.tab === 'campanas'
         ? 'campanas'
         : opportunityTabs.has(chilecompraState.tab)
@@ -1075,7 +1076,8 @@ function dashboardNav(stats) {
     ['ia','IA','ia'],
     ['coincidencias','Oportunidades','oportunidades'],
     ['campanas','Seguimientos','campanas'],
-    ['mercado','Mercado','mercado']
+    ['mercado','Mercado','mercado'],
+    ['onu','Códigos ONU','onu']
   ];
 
   const secondary = activeSection === 'oportunidades'
@@ -1090,8 +1092,7 @@ function dashboardNav(stats) {
       ? [
           ['mercado','Mercado Chile',''],
           ['compradores','Compradores',''],
-          ['convenio','Convenio Marco',''],
-          ['onu','Códigos ONU','']
+          ['convenio','Convenio Marco','']
         ]
       : [];
 
@@ -1736,7 +1737,7 @@ function renderInner() {
     ? 'Última revisión ' + new Date(chilecompraState.lastSyncAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
     : stats.activeCampaigns ? 'Listo para buscar novedades' : 'Sin revisión reciente';
 
-  const showToolbar = !isCm && !isSearch && stats.activeCampaigns > 0 && chilecompraState.tab !== 'campanas';
+  const showToolbar = !isCm && !isSearch && stats.activeCampaigns > 0 && !['campanas','onu'].includes(chilecompraState.tab);
   const toolbar = showToolbar ? `<section class="cc-module-toolbar">
     <span class="cc-updated"><i></i>${updated}</span>
     <div class="cc-module-actions">
