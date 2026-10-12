@@ -2511,7 +2511,7 @@
 }
 .cc-dashboard-tabs--primary{
   display:grid !important;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(6,minmax(0,1fr));
   gap:0 !important;
   padding:0 !important;
   overflow:visible !important;
@@ -2591,6 +2591,16 @@
 @media(max-width:700px){
   .cc-dashboard-nav--grouped{
     border-radius:12px;
+  }
+  /* Seis destinos visibles sin navegación horizontal escondida en móviles. */
+  .cc-dashboard-tabs--primary{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .cc-dashboard-tabs--primary button{
+    min-width:0;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    padding:8px 3px;
   }
   .cc-dashboard-tabs--primary button{
     min-height:48px;
