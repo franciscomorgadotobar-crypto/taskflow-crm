@@ -100,6 +100,7 @@ let realtimeTimer = null;
 let hydrateGeneration = 0;
 let discardedGeneration = 0;
 let uiBound = false;
+let renameCampaignSaving = false;
 
 const importDraft = {
   file: null,
@@ -373,6 +374,7 @@ function renderCampaignCard(c) {
       <div><strong>${e(availableLabel)}</strong><span>${done} cerrados · ${s.touched} tocados</span></div>
       <div class="button-row">
         ${writable && (s.pending + s.retry) ? `<button class="primary-btn" data-hf-action="start-session" data-id="${e(c.id)}">${s.touched ? 'Continuar' : 'Iniciar'} Híper Foco</button>` : ''}
+        ${writable && canDeleteCampaign(c) ? `<button type="button" class="small-btn hf-rename-btn" data-hf-action="rename-campaign" data-id="${e(c.id)}" aria-label="Renombrar campaña ${e(c.name)}">✎ Renombrar</button>` : ''}
         ${canDeleteCampaign(c) ? `<button class="small-btn danger" data-hf-action="delete-campaign" data-id="${e(c.id)}">Eliminar</button>` : ''}
       </div>
     </div>
@@ -1399,6 +1401,69 @@ function renderDiscarded() {
           ${puede ? `<button type="button" class="small-btn" data-hf-action="restore-discarded" data-id="${e(r.id)}">Devolver a la cola</button>` : ''}
         </div>`).join('')}
     </div>`;
+}
+
+function openRenameCampaignDialog(id) {
+  const campaign = campaignOf(id);
+  if (!campaign || isReadOnly() || !canDeleteCampaign(campaign)) {
+    return toast('No tienes permiso para renombrar esta campaña.', 'error');
+  }
+  const dialog = byId('hfRenameCampaignDialog');
+  const input = byId('hfRenameCampaignName');
+  if (!dialog || !input || renameCampaignSaving) return;
+  dialog.dataset.campaignId = campaign.id;
+  input.value = campaign.name;
+  dialog.showModal();
+  input.focus();
+  input.select();
+}
+
+async function saveRenamedCampaign(event) {
+  event.preventDefault();
+  if (renameCampaignSaving) return;
+  const dialog = byId('hfRenameCampaignDialog');
+  const input = byId('hfRenameCampaignName');
+  const campaign = campaignOf(dialog?.dataset.campaignId);
+  if (!dialog?.open || !input || !campaign || isReadOnly() || !canDeleteCampaign(campaign)) {
+    return toast('No tienes permiso para renombrar esta campaña.', 'error');
+  }
+  const name = clean(input.value);
+  if (!name) return toast('Escribe un nombre para la campaña.', 'error');
+  if (name.length > 120) return toast('El nombre no puede superar los 120 caracteres.', 'error');
+  if (name === campaign.name) {
+    dialog.close();
+    return;
+  }
+
+  const save = byId('hfSaveCampaignName');
+  const cancel = byId('hfCancelCampaignName');
+  const close = dialog.querySelector('[data-close-hf="hfRenameCampaignDialog"]');
+  renameCampaignSaving = true;
+  for (const el of [save, cancel, close]) if (el) el.disabled = true;
+  if (save) save.textContent = 'Guardando…';
+  try {
+    // Solo actualizamos el nombre: ID, contactos, registros, estados e historial permanecen intactos.
+    const { data, error } = await supabase.from('hyperfocus_campaigns')
+      .update({ name, updated_at: nowISO() })
+      .eq('id', campaign.id)
+      .select('id,name,updated_at')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.id) throw new Error('No se confirmó el cambio de nombre. Revisa los permisos o vuelve a intentarlo.');
+    campaign.name = data.name;
+    campaign.updatedAt = data.updated_at;
+    state.campaigns.sort((a,b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    dialog.close();
+    notify();
+    toast('Nombre de la campaña actualizado.');
+  } catch (err) {
+    console.error('No se pudo renombrar la campaña Híper Foco', err);
+    toast(err.message || 'No se pudo cambiar el nombre de la campaña.', 'error');
+  } finally {
+    renameCampaignSaving = false;
+    for (const el of [save, cancel, close]) if (el) el.disabled = false;
+    if (save) save.textContent = 'Guardar nombre';
+  }
 }
 
 async function deleteCampaign(id) {
@@ -2574,6 +2639,7 @@ async function handleHyperFocusClick(ev) {
 
   if (action === 'new-campaign') return openImportDialog();
   if (action === 'new-crm-campaign') return openCrmCampaignDialog();
+  if (action === 'rename-campaign') return openRenameCampaignDialog(btn.dataset.id);
   if (action === 'start-session') return openSession(btn.dataset.id);
   if (action === 'delete-campaign') return deleteCampaign(btn.dataset.id);
   if (action === 'open-discarded') return openDiscarded(btn.dataset.id);
@@ -2880,6 +2946,23 @@ function dialogsMarkup() {
     </form>
   </dialog>
 
+  <dialog id="hfRenameCampaignDialog" class="modal hf-rename-campaign-dialog" data-keep-open="true">
+    <form id="hfRenameCampaignForm" class="modal-card" novalidate>
+      <div class="modal-head">
+        <div><h2>Renombrar campaña</h2><p>Solo cambiará el nombre. Las empresas, actividades y estadísticas se conservan.</p></div>
+        <button type="button" class="icon-btn" data-close-hf="hfRenameCampaignDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="hf-rename-campaign-body">
+        <label for="hfRenameCampaignName">Nombre de la campaña</label>
+        <input id="hfRenameCampaignName" type="text" maxlength="120" autocomplete="off" required placeholder="Ej. Telecomunicaciones · Región Metropolitana">
+      </div>
+      <div class="modal-actions">
+        <button id="hfCancelCampaignName" type="button" class="ghost-btn" data-close-hf="hfRenameCampaignDialog">Cancelar</button>
+        <button id="hfSaveCampaignName" type="submit" class="primary-btn">Guardar nombre</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="hfDiscardedDialog" class="modal hf-discarded-dialog">
     <div class="modal-card">
       <div class="modal-head">
@@ -2929,6 +3012,7 @@ export function initUI() {
   });
   document.addEventListener('keydown', handleHyperFocusKeydown);
   qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
+    if (btn.dataset.closeHf === 'hfRenameCampaignDialog' && renameCampaignSaving) return;
     if (btn.dataset.closeHf === 'hfImportDialog' && !confirmDiscardImport()) return;
     byId(btn.dataset.closeHf)?.close();
   }));
@@ -2937,6 +3021,9 @@ export function initUI() {
   // cierra sin preguntar mientras haya una base cargada.
   byId('hfImportDialog')?.addEventListener('cancel', (ev) => {
     if (!confirmDiscardImport()) ev.preventDefault();
+  });
+  byId('hfRenameCampaignDialog')?.addEventListener('cancel', (ev) => {
+    if (renameCampaignSaving) ev.preventDefault();
   });
   byId('hfSessionDialog')?.addEventListener('cancel', async (ev) => {
     // Escape no puede cerrar primero y liberar después: si la liberación falla,
@@ -2953,6 +3040,7 @@ export function initUI() {
   });
   bindImportControls();
 
+  byId('hfRenameCampaignForm')?.addEventListener('submit', saveRenamedCampaign);
   byId('hfCrmCampaignForm')?.addEventListener('submit', createCampaignFromCrm);
   ['hfCrmStage', 'hfCrmOwner', 'hfCrmIndustry', 'hfCrmSource', 'hfCrmWithChannel'].forEach((id) => {
     byId(id)?.addEventListener('change', () => {
