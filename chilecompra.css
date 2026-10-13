@@ -2838,3 +2838,51 @@
 :root[data-theme="dark"] .cc-ai-opportunity-head strong,
 :root[data-theme="dark"] .cc-ai-confidence b{color:#eef5ff}
 /* ---------- End IA comercial ChileCompra ---------- */
+
+
+/* Licitación · datos para decidir a primera vista */
+.cc-detail-page-shell .cc-detail-head { margin-bottom:2px; }
+.cc-detail-page-shell .cc-detail-campaign-summary {
+  display:inline-flex; justify-content:center; align-items:center; gap:8px;
+  min-height:40px; padding:6px 11px; border-radius:11px;
+  max-width:max-content;
+}
+.cc-detail-page-shell .cc-detail-campaign-summary strong { font-size:19px; }
+.cc-detail-page-shell .cc-detail-campaign-summary span { font-size:10px; }
+.cc-tender-key-chips {
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+  margin:10px 0 4px; max-width:100%; min-width:0;
+}
+.cc-tender-chip {
+  display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px;
+  min-height:27px; box-sizing:border-box; padding:5px 9px;
+  border-radius:7px; border:1px solid #e4ebf4;
+  background:#f2f6fa; color:#4d637d;
+  font-size:10.5px; font-weight:500; line-height:1.25;
+  overflow-wrap:anywhere; max-width:100%;
+}
+.cc-tender-chip strong { font-weight:750; color:#1a365b; }
+.cc-tender-chip--open { background:#e8f7ef; color:#167950; border-color:#d0eadc; font-weight:700; }
+.cc-tender-chip--warning { background:#fff4e3; color:#8c5a10; border-color:#fae4bb; font-weight:700; }
+.cc-tender-chip--ended { background:#fff0e9; color:#9a4a27; border-color:#f6dace; font-weight:700; }
+.cc-tender-chip--stage { background:#edf5ff; color:#38689d; border-color:#d8e8f9; }
+.cc-tender-chip--stage strong { color:#174e86; }
+.cc-tender-chip--active { background:#e9f8f0; color:#16784e; border-color:#ccecd9; font-weight:700; }
+.cc-tender-chip--urgent { background:#fff1e5; color:#a15412; border-color:#ffd8b4; font-weight:800; }
+.cc-detail-page-shell .cc-detail-buyer { margin-bottom:5px; }
+.cc-detail-page-shell .cc-detail-tabs { margin-top:13px; }
+@media(max-width:680px) {
+  .cc-tender-key-chips { gap:5px; margin:9px 0 4px; }
+  .cc-tender-chip { font-size:10px; padding:5px 7px; min-height:28px; }
+  .cc-detail-page-shell .cc-detail-campaign-summary { min-height:37px; }
+}
+:root[data-theme="dark"] .cc-tender-chip {
+  background:#1a2b42; color:#d1dff1; border-color:#324861;
+}
+:root[data-theme="dark"] .cc-tender-chip strong { color:#edf5ff; }
+:root[data-theme="dark"] .cc-tender-chip--open,
+:root[data-theme="dark"] .cc-tender-chip--active { background:#133d32; color:#a5f3ce; border-color:#235a49; }
+:root[data-theme="dark"] .cc-tender-chip--warning,
+:root[data-theme="dark"] .cc-tender-chip--urgent { background:#4a351c; color:#ffe0a9; border-color:#76532a; }
+:root[data-theme="dark"] .cc-tender-chip--ended { background:#4a2924; color:#ffcdba; border-color:#704038; }
+:root[data-theme="dark"] .cc-tender-chip--stage { background:#163759; color:#b4d7ff; border-color:#315d88; }
