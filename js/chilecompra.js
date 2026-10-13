@@ -783,6 +783,80 @@ function detailDate(value) {
   return date.toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+
+/** Datos clave: fechas de la API original antes de timestamps normalizados sin zona. */
+function tenderKeyDates(o) {
+  const dates = rawValue(o, ['Fechas']) || {};
+  return {
+    published: dates.FechaPublicacion || rawValue(o, ['FechaPublicacion']) || o.published_at || '',
+    close: dates.FechaCierre || rawValue(o, ['FechaCierre']) || o.close_at || ''
+  };
+}
+
+function formatTenderChipDate(value, { includeTime = false } = {}) {
+  if (value == null || String(value).trim() === '') return 'No informada';
+  const raw = String(value).trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/);
+  if (iso) {
+    const [, year, month, day, hour, minute] = iso;
+    const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+    if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() + 1 !== Number(month) || date.getUTCDate() !== Number(day)) return 'No informada';
+    return day+'/'+month+'/'+year+(includeTime && hour != null ? ' · '+hour+':'+minute : '');
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return 'No informada';
+  return parsed.toLocaleString('es-CL', includeTime
+    ? { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+    : { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function tenderStage(o, dates) {
+  const explicit = [rawValue(o, ['EtapaActual']), rawValue(o, ['Etapa']), rawValue(o, ['Fase'])]
+    .find(value => typeof value === 'string' && value.trim() && !/^\d+$/.test(value.trim()));
+  if (explicit) return { label: explicit.trim(), estimated: false };
+  const status = normalized(o.status || '');
+  if (/(anulad|revocad|desiert|adjudicad|finalizad|terminad)/.test(status)) return { label: 'Proceso finalizado', estimated: true };
+  if (/(suspendid)/.test(status)) return { label: 'Proceso suspendido', estimated: true };
+  if (/(cerrad)/.test(status)) return { label: 'Ofertas cerradas', estimated: true };
+  const closeValue = o.close_at || dates.close;
+  const closeAt = closeValue ? Date.parse(closeValue) : NaN;
+  if (/(publicad|activ|abiert|recepcion|oferta)/.test(status) && Number.isFinite(closeAt)) {
+    return { label: closeAt > Date.now() ? 'Recepción de ofertas' : 'Plazo de ofertas vencido', estimated: true };
+  }
+  return { label: 'Por verificar', estimated: true };
+}
+
+function tenderRemainingChip(o, dates) {
+  if (!isActionableOpportunity(o)) return '';
+  const close = o.close_at || dates.close;
+  const remainingMs = close ? Date.parse(close) - Date.now() : NaN;
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return '';
+  const hours = remainingMs / 3600000;
+  const label = hours < 24 ? 'Cierra en menos de 24 h' : 'Quedan ' + Math.ceil(hours / 24) + ' días';
+  const urgency = hours <= 48 ? 'urgent' : 'active';
+  return '`<span class="cc-tender-chip cc-tender-chip--${urgency}" title="Tiempo aproximado hasta el cierre">${e(label)}</span>`';
+}
+
+function tenderKeyChips(o) {
+  const dates = tenderKeyDates(o);
+  const stage = tenderStage(o, dates);
+  const status = String(o.status || '').trim();
+  const end = o.close_at || dates.close;
+  const deadlineExpired = end && Number.isFinite(Date.parse(end)) && Date.parse(end) <= Date.now();
+  const stateClass = deadlineExpired ? 'ended'
+    : /(publicad|activ|abiert)/.test(normalized(status)) ? 'open'
+    : /(suspendid|cerrad)/.test(normalized(status)) ? 'warning' : 'neutral';
+  return `<div class="cc-tender-key-chips" aria-label="Datos principales de la licitación">
+    <span class="cc-tender-chip">ID ${e(o.external_code || 'No informado')}</span>
+    <span class="cc-tender-chip">${e(o.procurement_type || 'Tipo no informado')}</span>
+    <span class="cc-tender-chip cc-tender-chip--${stateClass}">● ${e(status || 'No informado')}</span>
+    <span class="cc-tender-chip">Publicada: <strong>${e(formatTenderChipDate(dates.published))}</strong></span>
+    <span class="cc-tender-chip cc-tender-chip--date">Cierre: <strong>${e(formatTenderChipDate(dates.close, { includeTime: true }))}</strong></span>
+    <span class="cc-tender-chip cc-tender-chip--stage" title="${stage.estimated ? 'Estimación según el estado y la fecha de cierre, no una fase confirmada por ChileCompra' : 'Etapa informada por Mercado Público'}">${stage.estimated ? 'Etapa estimada' : 'Etapa'}: <strong>${e(stage.label)}</strong></span>
+    ${tenderRemainingChip(o, dates)}
+  </div>`;
+}
+
 function detailText(value, fallback = 'No informado') {
   if (value == null || value === '') return fallback;
   return String(value);
@@ -890,7 +964,7 @@ function detailDocumentsBlock(o) {
   return `<section class="cc-detail-block cc-documents-block">
     <div class="cc-detail-block-title">
       <div><h4>Bases y documentos</h4><span>Archivos oficiales asociados a la licitación.</span></div>
-      <button type="button" class="link-btn" data-cc-market>Intentar abrir ficha oficial ↗</button>
+
     </div>
     ${list.length
       ? `<div class="cc-document-list">${list.map((doc,index) => {
@@ -906,7 +980,7 @@ function detailDocumentsBlock(o) {
           <strong>La API pública no entrega los archivos adjuntos de esta licitación.</strong>
           <span>La ficha oficial puede mostrar el proceso, pero la descarga de bases y anexos depende del acceso habilitado por Mercado Público. El CRM no debe prometer documentos que la fuente pública no expone.</span>
         </div>`}
-    ${!list.length ? `<p class="muted cc-docs-source-note">El CRM intentará abrir la ficha oficial usando el ID. Si Mercado Público rechaza el enlace, usa su buscador oficial con el código <strong>${e(o.external_code || '')}</strong>. <button type="button" class="link-btn" data-cc-market>Intentar ficha directa ↗</button> <button type="button" class="link-btn" data-cc-market-search>Buscar por ID ↗</button></p>` : ''}
+    ${!list.length ? `<p class="muted cc-docs-source-note">Si el enlace a la ficha oficial no funciona, busca en Mercado Público usando el código <strong>${e(o.external_code || '')}</strong>. <button type="button" class="link-btn" data-cc-market-search>Buscar por ID ↗</button></p>` : ''}
   </section>`;
 }
 
@@ -944,13 +1018,10 @@ function detailBody(o) {
       : chilecompraState.detailError
         ? 'No pudimos completar la ficha desde Mercado Público.'
         : 'Mercado Público no informó una descripción para esta licitación.');
-  const published = o.published_at
-    ? fmtDate(o.published_at.slice(0, 10))
-    : (chilecompraState.detailLoading ? 'Cargando…' : 'No informada');
   return `<section class="cc-detail-section">
     ${chilecompraState.detailLoading ? '<div class="cc-detail-loading"><span class="cc-search-spinner"></span><span>Cargando ficha completa…</span></div>' : ''}
     ${chilecompraState.detailError ? `<div class="cc-detail-warning"><strong>No se pudo completar la ficha</strong><span>${e(chilecompraState.detailError)}</span><button type="button" class="ghost-btn" data-cc-detail-retry>Reintentar</button></div>` : ''}
-    <div class="cc-detail-facts"><div><small>Cierre</small><strong>${o.close_at ? fmtDate(o.close_at.slice(0, 10)) : 'Sin fecha'}</strong></div><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div><div><small>Publicación</small><strong>${published}</strong></div></div>
+    <div class="cc-detail-facts"><div><small>Monto estimado</small><strong>${e(amountLabel(o))}</strong></div></div>
     <h4>Descripción</h4><p class="cc-description">${e(description)}</p>
     ${detailBuyerBlock(o)}
     <h4>Seguimientos relacionados</h4><div class="cc-tags">${campaignTags(o) || '<span class="muted">Búsqueda manual.</span>'}</div>
@@ -963,7 +1034,7 @@ function detailPanel(o) {
   return `<aside class="cc-detail">
     <div class="cc-detail-head"><div class="cc-detail-campaign-summary"><strong>${campaigns.length}</strong><span>${campaigns.length === 1 ? 'seguimiento coincide' : 'seguimientos coinciden'}</span></div><button type="button" class="icon-btn" data-cc-save="${o.id}" aria-label="Guardar oportunidad">♡</button></div>
     <h2>${e(o.name)}</h2><p class="cc-detail-buyer">⌂ ${e(o.buyer_name || (chilecompraState.detailLoading ? 'Cargando comprador…' : 'Comprador no informado'))}</p>
-    <div class="cc-meta-row"><span>ID ${e(o.external_code)}</span><span>${e(o.procurement_type || 'Licitación pública')}</span><span class="cc-open-dot">● ${e(o.status || 'Publicada')}</span></div>
+    ${tenderKeyChips(o)}
     <div class="cc-detail-tabs">${[
       ['resumen','Resumen'],
       ['documentos','Bases y documentos'],
