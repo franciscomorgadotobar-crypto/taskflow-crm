@@ -834,7 +834,7 @@ function tenderRemainingChip(o, dates) {
   const hours = remainingMs / 3600000;
   const label = hours < 24 ? 'Cierra en menos de 24 h' : 'Quedan ' + Math.ceil(hours / 24) + ' días';
   const urgency = hours <= 48 ? 'urgent' : 'active';
-  return '`<span class="cc-tender-chip cc-tender-chip--${urgency}" title="Tiempo aproximado hasta el cierre">${e(label)}</span>`';
+  return `<span class="cc-tender-chip cc-tender-chip--${urgency}" title="Tiempo aproximado hasta el cierre">${e(label)}</span>`;
 }
 
 function tenderKeyChips(o) {
