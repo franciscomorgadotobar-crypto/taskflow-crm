@@ -133,7 +133,7 @@ begin
   where c.id = p_campaign_id and c.organization_id = v_org
   for update;
 
-  if not found or not (internal.can_manage_all() or v_owner = auth.uid()) then
+  if not found or not (coalesce(internal.can_manage_all(),false) or coalesce(v_owner = auth.uid(),false)) then
     raise exception 'Solo el creador o administrador puede distribuir esta campaña';
   end if;
 
@@ -221,9 +221,9 @@ begin
     from public.hyperfocus_campaigns c
    where c.id = p_campaign_id and c.organization_id = internal.my_org();
   if not found or not (
-    internal.can_manage_all()
-    or v_owner = auth.uid()
-    or internal.hyperfocus_assigned_to_me(p_campaign_id)
+    coalesce(internal.can_manage_all(),false)
+    or coalesce(v_owner = auth.uid(),false)
+    or coalesce(internal.hyperfocus_assigned_to_me(p_campaign_id),false)
   ) then
     raise exception 'Campaña no disponible';
   end if;
@@ -267,8 +267,11 @@ begin
   end if;
   select c.created_by into v_owner from public.hyperfocus_campaigns c
   where c.id = p_campaign_id and c.organization_id = internal.my_org();
-  v_manage := internal.can_manage_all() or v_owner = auth.uid();
-  if not found or not (v_manage or internal.hyperfocus_assigned_to_me(p_campaign_id)) then
+  if not found then
+    raise exception 'Campaña no disponible';
+  end if;
+  v_manage := coalesce(internal.can_manage_all(),false) or coalesce(v_owner = auth.uid(),false);
+  if not (v_manage or coalesce(internal.hyperfocus_assigned_to_me(p_campaign_id),false)) then
     raise exception 'Campaña no disponible';
   end if;
 
