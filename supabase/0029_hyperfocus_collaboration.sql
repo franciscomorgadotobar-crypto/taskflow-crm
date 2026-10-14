@@ -15,8 +15,10 @@ begin
     if tg_op = 'INSERT' and new.assigned_to is not null then
       raise exception 'Usa la distribución de campaña para asignar registros';
     end if;
-    if tg_op = 'UPDATE' and old.assigned_to is distinct from new.assigned_to then
-      raise exception 'La asignación solo puede cambiarse desde el módulo de colaboración';
+    if tg_op = 'UPDATE' then
+      if old.assigned_to is distinct from new.assigned_to then
+        raise exception 'La asignación solo puede cambiarse desde el módulo de colaboración';
+      end if;
     end if;
   end if;
   return new;
