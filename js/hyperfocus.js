@@ -88,7 +88,8 @@ const state = {
   campaigns: [],
   stats: {},
   hydrated: false,
-  schemaReady: true
+  schemaReady: true,
+  teamMembers: []
 };
 
 const listeners = new Set();
@@ -101,6 +102,9 @@ let hydrateGeneration = 0;
 let discardedGeneration = 0;
 let uiBound = false;
 let renameCampaignSaving = false;
+let teamRequest = null;
+let teamRequestGeneration = 0;
+let distributionBusy = false;
 
 const importDraft = {
   file: null,
@@ -183,6 +187,7 @@ function fromDbRecord(r) {
     city: r.city || '',
     address: r.address || '',
     website: r.website || '',
+    assignedTo: r.assigned_to || '',
     contacts: Array.isArray(r.contacts) ? r.contacts : [],
     rawData: r.raw_data || {},
     existingLeadId: r.existing_lead_id || '',
@@ -279,6 +284,9 @@ export function clearLocal() {
   discardedGeneration += 1;
   state.campaigns = [];
   state.stats = {};
+  state.teamMembers = [];
+  teamRequest = null;
+  teamRequestGeneration += 1;
   state.hydrated = false;
   focus.campaignId = '';
   focus.queue = [];
@@ -297,6 +305,136 @@ function progressPct(stats) {
 
 function canDeleteCampaign(c) {
   return isAdmin() || c.createdBy === session.user?.id;
+}
+
+
+/* Una campaña, varios responsables; "assigned_to" persiste y "claimed_by" es temporal. */
+async function fetchTeamMembers() {
+  if (state.teamMembers.length) return state.teamMembers;
+  const generation = teamRequestGeneration;
+  const userId = session.user?.id;
+  if (teamRequest) return teamRequest;
+  teamRequest = (async () => {
+    const { data, error } = await supabase.rpc('hyperfocus_team_members');
+    if (error) throw error;
+    if (generation !== teamRequestGeneration || userId !== session.user?.id) return [];
+    state.teamMembers = (data || []).map(m => ({
+      id: m.user_id, name: m.display_name || 'Usuario CRM', role: m.user_role || 'comercial'
+    }));
+    return state.teamMembers;
+  })();
+  try { return await teamRequest; }
+  finally { teamRequest = null; }
+}
+
+function teamCheckboxes(containerId, initial = []) {
+  const root = byId(containerId);
+  if (!root) return;
+  if (!state.teamMembers.length) {
+    root.innerHTML = '<p class="muted">Equipo no disponible. Puedes crear una campaña individual.</p>';
+    return;
+  }
+  const selected = new Set(initial);
+  root.innerHTML = '<div class="hf-team-picker">' + state.teamMembers.map(member =>
+    '<label class="hf-team-option"><input type="checkbox" value="' + e(member.id) + '" ' +
+    (selected.has(member.id) ? 'checked' : '') + '><span><strong>' + e(member.name) +
+    '</strong><small>' + e(member.role) + '</small></span></label>'
+  ).join('') + '</div>';
+}
+
+function selectedTeamIds(containerId) {
+  return qa('input[type="checkbox"]:checked', byId(containerId))
+    .map(el => el.value).filter(id => state.teamMembers.some(m => m.id === id));
+}
+
+async function loadCreationTeamPicker(containerId, dialogId) {
+  const dialog = byId(dialogId), root = byId(containerId);
+  if (!root || !dialog) return;
+  root.innerHTML = '<p class="muted">Buscando usuarios del CRM…</p>';
+  try {
+    await fetchTeamMembers();
+    if (dialog.open) teamCheckboxes(containerId);
+  } catch (err) {
+    console.error('Equipo Híper Foco no disponible', err);
+    if (dialog.open) root.innerHTML = '<p class="muted">Equipo no disponible. Guarda la campaña y repártela más adelante.</p>';
+  }
+}
+
+async function distributeCampaign(campaignId, users) {
+  if (!users.length) return null;
+  const { data, error } = await supabase.rpc('hyperfocus_distribute_campaign', {
+    p_campaign_id: campaignId, p_assignees: users
+  });
+  if (error) throw error;
+  return data;
+}
+
+function renderDistributionOverview(overview) {
+  const root = byId('hfTeamOverview');
+  if (!root) return;
+  const members = overview?.members || [];
+  root.innerHTML = members.length ? '<div class="hf-team-stats">' + members.map(m => {
+    const done = Number(m.converted || 0) + Number(m.remarketing || 0) + Number(m.discarded || 0);
+    const total = Number(m.total || 0);
+    const pct = total ? Math.round(100 * done / total) : 0;
+    return '<article class="hf-team-stat"><div><strong>' + e(m.display_name || 'Sin asignar') +
+      '</strong><b>' + pct + '%</b></div><div class="hf-progress"><span style="width:' + pct +
+      '%"></span></div><small>' + done + ' gestionados / ' + total + ' asignados · ' +
+      Number(m.pending || 0) + ' pendientes · ' + Number(m.retry || 0) + ' reintentos</small></article>';
+  }).join('') + '</div>' : '<p class="muted">Esta campaña no tiene registros para repartir.</p>';
+}
+
+async function openTeamCampaignDialog(id) {
+  const campaign = campaignOf(id), dialog = byId('hfTeamCampaignDialog');
+  if (!campaign || !dialog || distributionBusy) return;
+  dialog.dataset.campaignId = id;
+  const manager = !isReadOnly() && canDeleteCampaign(campaign);
+  byId('hfTeamCampaignTitle').textContent = campaign.name;
+  byId('hfTeamFormControls').hidden = !manager;
+  byId('hfTeamOverview').innerHTML = '<p class="muted">Cargando avance por usuario…</p>';
+  dialog.showModal();
+  try {
+    const [overview] = await Promise.all([
+      supabase.rpc('hyperfocus_assignment_overview', { p_campaign_id: id }),
+      manager ? fetchTeamMembers() : Promise.resolve([])
+    ]);
+    if (!dialog.open || dialog.dataset.campaignId !== id) return;
+    if (overview.error) throw overview.error;
+    renderDistributionOverview(overview.data);
+    if (manager) teamCheckboxes('hfTeamRepartitionUsers',
+      (overview.data?.members || []).map(m => m.user_id).filter(Boolean));
+  } catch (err) {
+    console.error('Error al cargar el avance Híper Foco', err);
+    if (dialog.open) byId('hfTeamOverview').innerHTML = '<p class="muted">No se pudo consultar el equipo. Intenta nuevamente.</p>';
+  }
+}
+
+async function saveTeamDistribution(ev) {
+  ev.preventDefault();
+  if (distributionBusy) return;
+  const dialog = byId('hfTeamCampaignDialog');
+  const campaign = campaignOf(dialog?.dataset.campaignId);
+  if (!dialog?.open || !campaign || isReadOnly() || !canDeleteCampaign(campaign)) return;
+  const users = selectedTeamIds('hfTeamRepartitionUsers');
+  if (!users.length) return toast('Selecciona al menos un usuario.', 'error');
+  const button = byId('hfConfirmTeamDistribution');
+  distributionBusy = true;
+  if (button) { button.disabled = true; button.textContent = 'Repartiendo…'; }
+  try {
+    const distribution = await distributeCampaign(campaign.id, users);
+    const overview = await supabase.rpc('hyperfocus_assignment_overview', { p_campaign_id: campaign.id });
+    if (overview.error) throw overview.error;
+    if (dialog.open) renderDistributionOverview(overview.data);
+    await hydrate();
+    toast('Campaña compartida: ' + Number(distribution?.distributed || 0) +
+      ' registros distribuidos. Se conservaron las gestiones y reservas activas.');
+  } catch (err) {
+    console.error('No se pudo repartir Híper Foco', err);
+    toast(err.message || 'No se pudo distribuir la campaña.', 'error');
+  } finally {
+    distributionBusy = false;
+    if (button) { button.disabled = false; button.textContent = 'Repartir pendientes'; }
+  }
 }
 
 export function renderHyperFocus() {
@@ -347,12 +485,14 @@ function renderCampaignCard(c) {
   const done = s.converted + s.remarketing + s.discarded;
   const pct = progressPct(s);
   const writable = !isReadOnly();
+  const isMemberView = c.options?.collaborative && !canDeleteCampaign(c);
   const availableLabel = s.availableNow ? `${s.availableNow} disponibles ahora` : s.retry ? `${s.retry} reintentos programados` : 'Sin pendientes disponibles';
 
   return `<article class="card hf-campaign-card">
     <div class="hf-campaign-top">
       <div>
         <span class="badge">${e(HF_TYPE_LABEL[c.type] || c.type)}</span>
+        ${c.options?.collaborative ? '<span class="badge hf-team-badge">Compartida</span>' : ''}
         <h3>${breakable(c.name)}</h3>
         <p>${breakable(c.filename || 'Base importada')}${c.sheet ? ` · ${e(c.sheet)}` : ''}</p>
       </div>
@@ -360,7 +500,7 @@ function renderCampaignCard(c) {
     </div>
     <div class="hf-progress"><span style="width:${pct}%"></span></div>
     <div class="hf-card-stats">
-      <div><strong>${s.total}</strong><span>Total</span></div>
+      <div><strong>${s.total}</strong><span>${isMemberView ? 'Mis registros' : 'Total'}</span></div>
       <div><strong>${s.pending + s.retry}</strong><span>Por gestionar</span></div>
       <div><strong>${s.converted}</strong><span>Prospectos</span></div>
       <div><strong>${s.remarketing}</strong><span>Remarketing</span></div>
@@ -373,7 +513,8 @@ function renderCampaignCard(c) {
     <div class="hf-campaign-foot">
       <div><strong>${e(availableLabel)}</strong><span>${done} cerrados · ${s.touched} tocados</span></div>
       <div class="button-row">
-        ${writable && (s.pending + s.retry) ? `<button class="primary-btn" data-hf-action="start-session" data-id="${e(c.id)}">${s.touched ? 'Continuar' : 'Iniciar'} Híper Foco</button>` : ''}
+        ${writable && s.availableNow ? `<button class="primary-btn" data-hf-action="start-session" data-id="${e(c.id)}">${s.touched ? 'Continuar' : 'Iniciar'} Híper Foco</button>` : ''}
+        ${(canDeleteCampaign(c) || c.options?.collaborative) ? `<button type="button" class="small-btn hf-team-btn" data-hf-action="team-campaign" data-id="${e(c.id)}">${canDeleteCampaign(c) ? '♧ Repartir equipo' : '♧ Avance del equipo'}</button>` : ''}
         ${writable && canDeleteCampaign(c) ? `<button type="button" class="small-btn hf-rename-btn" data-hf-action="rename-campaign" data-id="${e(c.id)}" aria-label="Renombrar campaña ${e(c.name)}">✎ Renombrar</button>` : ''}
         ${canDeleteCampaign(c) ? `<button class="small-btn danger" data-hf-action="delete-campaign" data-id="${e(c.id)}">Eliminar</button>` : ''}
       </div>
@@ -468,6 +609,7 @@ function openCrmCampaignDialog() {
   byId('hfCrmWithChannel').checked = true;
   renderCrmCampaignPreview();
   byId('hfCrmCampaignDialog')?.showModal();
+  loadCreationTeamPicker('hfCrmCampaignTeam', 'hfCrmCampaignDialog');
 }
 
 function crmLeadContacts(lead) {
@@ -521,6 +663,7 @@ async function createCampaignFromCrm(event) {
   const name = byId('hfCrmCampaignName')?.value.trim() || '';
   if (!name) return toast('Ponle un nombre a la campaña.', 'error');
   const selected = filteredCrmLeads();
+  const team = selectedTeamIds('hfCrmCampaignTeam');
   if (!selected.length) return toast('No hay oportunidades para crear esta campaña.', 'error');
   btn.disabled = true;
   let campaign = null;
@@ -549,6 +692,7 @@ async function createCampaignFromCrm(event) {
       const error = batchError || (insertedRows?.length !== batch.length ? new Error('El servidor no confirmó todos los registros del lote.') : null);
       if (error) throw error;
     }
+    if (team.length) await distributeCampaign(campaign.id, team);
     byId('hfCrmCampaignDialog')?.close();
     await hydrate();
     const skipped = selected.length - leads.length;
@@ -660,6 +804,7 @@ function openImportDialog() {
   resetImportDraft();
   applyCampaignTypeDefaults();
   byId('hfImportDialog')?.showModal();
+  loadCreationTeamPicker('hfImportCampaignTeam', 'hfImportDialog');
 }
 
 async function ensureXlsx() {
@@ -1252,6 +1397,7 @@ async function createCampaignFromImport(event) {
   if (!records.length) return toast('No quedaron registros para importar con estos filtros.', 'error');
 
   const campaign = campaignPayload();
+  const team = selectedTeamIds('hfImportCampaignTeam');
   campaign.source_meta = {
     headers: importDraft.headers,
     source_rows: summary.sourceRows,
@@ -1289,6 +1435,7 @@ async function createCampaignFromImport(event) {
       progressFill.style.width = `${pct}%`;
     }
 
+    if (team.length) await distributeCampaign(campaign.id, team);
     progressText.textContent = 'Campaña lista.';
     progressFill.style.width = '100%';
     byId('hfImportDialog').close();
@@ -2640,6 +2787,7 @@ async function handleHyperFocusClick(ev) {
   if (action === 'new-campaign') return openImportDialog();
   if (action === 'new-crm-campaign') return openCrmCampaignDialog();
   if (action === 'rename-campaign') return openRenameCampaignDialog(btn.dataset.id);
+  if (action === 'team-campaign') return openTeamCampaignDialog(btn.dataset.id);
   if (action === 'start-session') return openSession(btn.dataset.id);
   if (action === 'delete-campaign') return deleteCampaign(btn.dataset.id);
   if (action === 'open-discarded') return openDiscarded(btn.dataset.id);
@@ -2885,6 +3033,7 @@ function dialogsMarkup() {
         <label>Nombre de la campaña<input id="hfCampaignName" placeholder="Ej. HVAC RM · septiembre" /></label>
         <label>Tipo<select id="hfCampaignType">${HF_TYPES.map((x) => `<option value="${e(x.id)}">${e(x.label)}</option>`).join('')}</select></label>
         <label>Rubro por defecto<select id="hfDefaultIndustry"><option value="">Usar la base / sin definir</option>${INDUSTRIES.map((x) => `<option>${e(x)}</option>`).join('')}</select></label>
+        <div class="hf-team-create-select"><strong>Equipo de trabajo (opcional)</strong><p>Selecciona usuarios para repartirles los registros al crear la campaña. Si no seleccionas ninguno, será individual.</p><div id="hfImportCampaignTeam"></div></div>
         <label class="hf-file-drop">Base CSV / Excel
           <input id="hfImportFile" type="file" accept=".csv,.txt,.xlsx,.xls" />
           <span id="hfImportHint">CSV o Excel (.xlsx/.xls). La base no entra al CRM al importarla.</span>
@@ -2934,6 +3083,7 @@ function dialogsMarkup() {
           <label>Responsable<select id="hfCrmOwner"></select></label>
           <label>Rubro<select id="hfCrmIndustry"></select></label>
           <label>Origen<select id="hfCrmSource"></select></label>
+          <div class="hf-team-create-select span-2"><strong>Colaboración (opcional)</strong><p>Reparte automáticamente las empresas entre los usuarios seleccionados.</p><div id="hfCrmCampaignTeam"></div></div>
           <label class="inline-check span-2"><input id="hfCrmWithChannel" type="checkbox" checked /> Solo incluir oportunidades con teléfono o correo</label>
         </div>
         <div class="hf-import-section-head"><div><h3>Vista previa del segmento</h3><p>Híper Foco quedará enlazado al mismo registro del CRM.</p></div></div>
@@ -2944,6 +3094,29 @@ function dialogsMarkup() {
         <button id="hfCreateCrmCampaignBtn" type="submit" class="primary-btn">Crear campaña</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="hfTeamCampaignDialog" class="modal hf-team-campaign-dialog" data-keep-open="true">
+    <div class="modal-card">
+      <div class="modal-head"><div><h2>Equipo de campaña</h2><p id="hfTeamCampaignTitle"></p></div>
+        <button type="button" class="icon-btn" data-close-hf="hfTeamCampaignDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="hf-team-body">
+        <h3>Avance individual y total</h3>
+        <div id="hfTeamOverview"></div>
+        <form id="hfTeamDistributionForm">
+          <div id="hfTeamFormControls" class="hf-team-repartition">
+            <h3>Distribuir pendientes</h3>
+            <p class="muted">Selecciona integrantes. Se reparten equitativamente los registros sin gestionar. Los trabajados o reservados no cambian de responsable.</p>
+            <div id="hfTeamRepartitionUsers"></div>
+            <button type="submit" class="primary-btn" id="hfConfirmTeamDistribution">Repartir pendientes</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-hf="hfTeamCampaignDialog">Cerrar</button>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="hfRenameCampaignDialog" class="modal hf-rename-campaign-dialog" data-keep-open="true">
@@ -3013,6 +3186,7 @@ export function initUI() {
   document.addEventListener('keydown', handleHyperFocusKeydown);
   qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
     if (btn.dataset.closeHf === 'hfRenameCampaignDialog' && renameCampaignSaving) return;
+    if (btn.dataset.closeHf === 'hfTeamCampaignDialog' && distributionBusy) return;
     if (btn.dataset.closeHf === 'hfImportDialog' && !confirmDiscardImport()) return;
     byId(btn.dataset.closeHf)?.close();
   }));
@@ -3022,6 +3196,7 @@ export function initUI() {
   byId('hfImportDialog')?.addEventListener('cancel', (ev) => {
     if (!confirmDiscardImport()) ev.preventDefault();
   });
+  byId('hfTeamCampaignDialog')?.addEventListener('cancel', ev => { if (distributionBusy) ev.preventDefault(); });
   byId('hfRenameCampaignDialog')?.addEventListener('cancel', (ev) => {
     if (renameCampaignSaving) ev.preventDefault();
   });
@@ -3040,6 +3215,7 @@ export function initUI() {
   });
   bindImportControls();
 
+  byId('hfTeamDistributionForm')?.addEventListener('submit', saveTeamDistribution);
   byId('hfRenameCampaignForm')?.addEventListener('submit', saveRenamedCampaign);
   byId('hfCrmCampaignForm')?.addEventListener('submit', createCampaignFromCrm);
   ['hfCrmStage', 'hfCrmOwner', 'hfCrmIndustry', 'hfCrmSource', 'hfCrmWithChannel'].forEach((id) => {
