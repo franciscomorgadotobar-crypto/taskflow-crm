@@ -88,7 +88,8 @@ const state = {
   campaigns: [],
   stats: {},
   hydrated: false,
-  schemaReady: true
+  schemaReady: true,
+  teamMembers: []
 };
 
 const listeners = new Set();
@@ -101,6 +102,8 @@ let hydrateGeneration = 0;
 let discardedGeneration = 0;
 let uiBound = false;
 let renameCampaignSaving = false;
+let teamRequest = null;
+let distributionBusy = false;
 
 const importDraft = {
   file: null,
@@ -183,6 +186,7 @@ function fromDbRecord(r) {
     city: r.city || '',
     address: r.address || '',
     website: r.website || '',
+    assignedTo: r.assigned_to || '',
     contacts: Array.isArray(r.contacts) ? r.contacts : [],
     rawData: r.raw_data || {},
     existingLeadId: r.existing_lead_id || '',
@@ -279,6 +283,8 @@ export function clearLocal() {
   discardedGeneration += 1;
   state.campaigns = [];
   state.stats = {};
+  state.teamMembers = [];
+  teamRequest = null;
   state.hydrated = false;
   focus.campaignId = '';
   focus.queue = [];
@@ -297,6 +303,133 @@ function progressPct(stats) {
 
 function canDeleteCampaign(c) {
   return isAdmin() || c.createdBy === session.user?.id;
+}
+
+
+/* Una campaña, varios responsables; "assigned_to" persiste y "claimed_by" es temporal. */
+async function fetchTeamMembers() {
+  if (state.teamMembers.length) return state.teamMembers;
+  if (teamRequest) return teamRequest;
+  teamRequest = (async () => {
+    const { data, error } = await supabase.rpc('hyperfocus_team_members');
+    if (error) throw error;
+    state.teamMembers = (data || []).map(m => ({
+      id: m.user_id, name: m.display_name || 'Usuario CRM', role: m.user_role || 'comercial'
+    }));
+    return state.teamMembers;
+  })();
+  try { return await teamRequest; }
+  finally { teamRequest = null; }
+}
+
+function teamCheckboxes(containerId, initial = []) {
+  const root = byId(containerId);
+  if (!root) return;
+  if (!state.teamMembers.length) {
+    root.innerHTML = '<p class="muted">Equipo no disponible. Puedes crear una campaña individual.</p>';
+    return;
+  }
+  const selected = new Set(initial);
+  root.innerHTML = '<div class="hf-team-picker">' + state.teamMembers.map(member =>
+    '<label class="hf-team-option"><input type="checkbox" value="' + e(member.id) + '" ' +
+    (selected.has(member.id) ? 'checked' : '') + '><span><strong>' + e(member.name) +
+    '</strong><small>' + e(member.role) + '</small></span></label>'
+  ).join('') + '</div>';
+}
+
+function selectedTeamIds(containerId) {
+  return qa('input[type="checkbox"]:checked', byId(containerId))
+    .map(el => el.value).filter(id => state.teamMembers.some(m => m.id === id));
+}
+
+async function loadCreationTeamPicker(containerId, dialogId) {
+  const dialog = byId(dialogId), root = byId(containerId);
+  if (!root || !dialog) return;
+  root.innerHTML = '<p class="muted">Buscando usuarios del CRM…</p>';
+  try {
+    await fetchTeamMembers();
+    if (dialog.open) teamCheckboxes(containerId);
+  } catch (err) {
+    console.error('Equipo Híper Foco no disponible', err);
+    if (dialog.open) root.innerHTML = '<p class="muted">Equipo no disponible. Guarda la campaña y repártela más adelante.</p>';
+  }
+}
+
+async function distributeCampaign(campaignId, users) {
+  if (!users.length) return null;
+  const { data, error } = await supabase.rpc('hyperfocus_distribute_campaign', {
+    p_campaign_id: campaignId, p_assignees: users
+  });
+  if (error) throw error;
+  return data;
+}
+
+function renderDistributionOverview(overview) {
+  const root = byId('hfTeamOverview');
+  if (!root) return;
+  const members = overview?.members || [];
+  root.innerHTML = members.length ? '<div class="hf-team-stats">' + members.map(m => {
+    const done = Number(m.converted || 0) + Number(m.remarketing || 0) + Number(m.discarded || 0);
+    const total = Number(m.total || 0);
+    const pct = total ? Math.round(100 * done / total) : 0;
+    return '<article class="hf-team-stat"><div><strong>' + e(m.display_name || 'Sin asignar') +
+      '</strong><b>' + pct + '%</b></div><div class="hf-progress"><span style="width:' + pct +
+      '%"></span></div><small>' + done + ' gestionados / ' + total + ' asignados · ' +
+      Number(m.pending || 0) + ' pendientes · ' + Number(m.retry || 0) + ' reintentos</small></article>';
+  }).join('') + '</div>' : '<p class="muted">Esta campaña no tiene registros para repartir.</p>';
+}
+
+async function openTeamCampaignDialog(id) {
+  const campaign = campaignOf(id), dialog = byId('hfTeamCampaignDialog');
+  if (!campaign || !dialog || distributionBusy) return;
+  dialog.dataset.campaignId = id;
+  const manager = !isReadOnly() && canDeleteCampaign(campaign);
+  byId('hfTeamCampaignTitle').textContent = campaign.name;
+  byId('hfTeamFormControls').hidden = !manager;
+  byId('hfTeamOverview').innerHTML = '<p class="muted">Cargando avance por usuario…</p>';
+  dialog.showModal();
+  try {
+    const [overview] = await Promise.all([
+      supabase.rpc('hyperfocus_assignment_overview', { p_campaign_id: id }),
+      manager ? fetchTeamMembers() : Promise.resolve([])
+    ]);
+    if (!dialog.open || dialog.dataset.campaignId !== id) return;
+    if (overview.error) throw overview.error;
+    renderDistributionOverview(overview.data);
+    if (manager) teamCheckboxes('hfTeamRepartitionUsers',
+      (overview.data?.members || []).map(m => m.user_id).filter(Boolean));
+  } catch (err) {
+    console.error('Error al cargar el avance Híper Foco', err);
+    if (dialog.open) byId('hfTeamOverview').innerHTML = '<p class="muted">No se pudo consultar el equipo. Intenta nuevamente.</p>';
+  }
+}
+
+async function saveTeamDistribution(ev) {
+  ev.preventDefault();
+  if (distributionBusy) return;
+  const dialog = byId('hfTeamCampaignDialog');
+  const campaign = campaignOf(dialog?.dataset.campaignId);
+  if (!dialog?.open || !campaign || isReadOnly() || !canDeleteCampaign(campaign)) return;
+  const users = selectedTeamIds('hfTeamRepartitionUsers');
+  if (!users.length) return toast('Selecciona al menos un usuario.', 'error');
+  const button = byId('hfConfirmTeamDistribution');
+  distributionBusy = true;
+  if (button) { button.disabled = true; button.textContent = 'Repartiendo…'; }
+  try {
+    const distribution = await distributeCampaign(campaign.id, users);
+    const overview = await supabase.rpc('hyperfocus_assignment_overview', { p_campaign_id: campaign.id });
+    if (overview.error) throw overview.error;
+    if (dialog.open) renderDistributionOverview(overview.data);
+    await hydrate();
+    toast('Campaña compartida: ' + Number(distribution?.distributed || 0) +
+      ' registros distribuidos. Se conservaron las gestiones y reservas activas.');
+  } catch (err) {
+    console.error('No se pudo repartir Híper Foco', err);
+    toast(err.message || 'No se pudo distribuir la campaña.', 'error');
+  } finally {
+    distributionBusy = false;
+    if (button) { button.disabled = false; button.textContent = 'Repartir pendientes'; }
+  }
 }
 
 export function renderHyperFocus() {
@@ -353,6 +486,7 @@ function renderCampaignCard(c) {
     <div class="hf-campaign-top">
       <div>
         <span class="badge">${e(HF_TYPE_LABEL[c.type] || c.type)}</span>
+        ${c.options?.collaborative ? '<span class="badge hf-team-badge">Compartida</span>' : ''}
         <h3>${breakable(c.name)}</h3>
         <p>${breakable(c.filename || 'Base importada')}${c.sheet ? ` · ${e(c.sheet)}` : ''}</p>
       </div>
@@ -373,7 +507,8 @@ function renderCampaignCard(c) {
     <div class="hf-campaign-foot">
       <div><strong>${e(availableLabel)}</strong><span>${done} cerrados · ${s.touched} tocados</span></div>
       <div class="button-row">
-        ${writable && (s.pending + s.retry) ? `<button class="primary-btn" data-hf-action="start-session" data-id="${e(c.id)}">${s.touched ? 'Continuar' : 'Iniciar'} Híper Foco</button>` : ''}
+        ${writable && s.availableNow ? `<button class="primary-btn" data-hf-action="start-session" data-id="${e(c.id)}">${s.touched ? 'Continuar' : 'Iniciar'} Híper Foco</button>` : ''}
+        ${(canDeleteCampaign(c) || c.options?.collaborative) ? `<button type="button" class="small-btn hf-team-btn" data-hf-action="team-campaign" data-id="${e(c.id)}">${canDeleteCampaign(c) ? '♧ Repartir equipo' : '♧ Avance del equipo'}</button>` : ''}
         ${writable && canDeleteCampaign(c) ? `<button type="button" class="small-btn hf-rename-btn" data-hf-action="rename-campaign" data-id="${e(c.id)}" aria-label="Renombrar campaña ${e(c.name)}">✎ Renombrar</button>` : ''}
         ${canDeleteCampaign(c) ? `<button class="small-btn danger" data-hf-action="delete-campaign" data-id="${e(c.id)}">Eliminar</button>` : ''}
       </div>
@@ -2640,6 +2775,7 @@ async function handleHyperFocusClick(ev) {
   if (action === 'new-campaign') return openImportDialog();
   if (action === 'new-crm-campaign') return openCrmCampaignDialog();
   if (action === 'rename-campaign') return openRenameCampaignDialog(btn.dataset.id);
+  if (action === 'team-campaign') return openTeamCampaignDialog(btn.dataset.id);
   if (action === 'start-session') return openSession(btn.dataset.id);
   if (action === 'delete-campaign') return deleteCampaign(btn.dataset.id);
   if (action === 'open-discarded') return openDiscarded(btn.dataset.id);
