@@ -103,6 +103,7 @@ let discardedGeneration = 0;
 let uiBound = false;
 let renameCampaignSaving = false;
 let teamRequest = null;
+let teamRequestGeneration = 0;
 let distributionBusy = false;
 
 const importDraft = {
@@ -285,6 +286,7 @@ export function clearLocal() {
   state.stats = {};
   state.teamMembers = [];
   teamRequest = null;
+  teamRequestGeneration += 1;
   state.hydrated = false;
   focus.campaignId = '';
   focus.queue = [];
@@ -309,10 +311,13 @@ function canDeleteCampaign(c) {
 /* Una campaña, varios responsables; "assigned_to" persiste y "claimed_by" es temporal. */
 async function fetchTeamMembers() {
   if (state.teamMembers.length) return state.teamMembers;
+  const generation = teamRequestGeneration;
+  const userId = session.user?.id;
   if (teamRequest) return teamRequest;
   teamRequest = (async () => {
     const { data, error } = await supabase.rpc('hyperfocus_team_members');
     if (error) throw error;
+    if (generation !== teamRequestGeneration || userId !== session.user?.id) return [];
     state.teamMembers = (data || []).map(m => ({
       id: m.user_id, name: m.display_name || 'Usuario CRM', role: m.user_role || 'comercial'
     }));
@@ -480,6 +485,7 @@ function renderCampaignCard(c) {
   const done = s.converted + s.remarketing + s.discarded;
   const pct = progressPct(s);
   const writable = !isReadOnly();
+  const isMemberView = c.options?.collaborative && !canDeleteCampaign(c);
   const availableLabel = s.availableNow ? `${s.availableNow} disponibles ahora` : s.retry ? `${s.retry} reintentos programados` : 'Sin pendientes disponibles';
 
   return `<article class="card hf-campaign-card">
@@ -494,7 +500,7 @@ function renderCampaignCard(c) {
     </div>
     <div class="hf-progress"><span style="width:${pct}%"></span></div>
     <div class="hf-card-stats">
-      <div><strong>${s.total}</strong><span>Total</span></div>
+      <div><strong>${s.total}</strong><span>${isMemberView ? 'Mis registros' : 'Total'}</span></div>
       <div><strong>${s.pending + s.retry}</strong><span>Por gestionar</span></div>
       <div><strong>${s.converted}</strong><span>Prospectos</span></div>
       <div><strong>${s.remarketing}</strong><span>Remarketing</span></div>
