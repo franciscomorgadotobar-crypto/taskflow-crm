@@ -603,6 +603,7 @@ function openCrmCampaignDialog() {
   byId('hfCrmWithChannel').checked = true;
   renderCrmCampaignPreview();
   byId('hfCrmCampaignDialog')?.showModal();
+  loadCreationTeamPicker('hfCrmCampaignTeam', 'hfCrmCampaignDialog');
 }
 
 function crmLeadContacts(lead) {
@@ -656,6 +657,7 @@ async function createCampaignFromCrm(event) {
   const name = byId('hfCrmCampaignName')?.value.trim() || '';
   if (!name) return toast('Ponle un nombre a la campaña.', 'error');
   const selected = filteredCrmLeads();
+  const team = selectedTeamIds('hfCrmCampaignTeam');
   if (!selected.length) return toast('No hay oportunidades para crear esta campaña.', 'error');
   btn.disabled = true;
   let campaign = null;
@@ -684,6 +686,7 @@ async function createCampaignFromCrm(event) {
       const error = batchError || (insertedRows?.length !== batch.length ? new Error('El servidor no confirmó todos los registros del lote.') : null);
       if (error) throw error;
     }
+    if (team.length) await distributeCampaign(campaign.id, team);
     byId('hfCrmCampaignDialog')?.close();
     await hydrate();
     const skipped = selected.length - leads.length;
@@ -795,6 +798,7 @@ function openImportDialog() {
   resetImportDraft();
   applyCampaignTypeDefaults();
   byId('hfImportDialog')?.showModal();
+  loadCreationTeamPicker('hfImportCampaignTeam', 'hfImportDialog');
 }
 
 async function ensureXlsx() {
@@ -1387,6 +1391,7 @@ async function createCampaignFromImport(event) {
   if (!records.length) return toast('No quedaron registros para importar con estos filtros.', 'error');
 
   const campaign = campaignPayload();
+  const team = selectedTeamIds('hfImportCampaignTeam');
   campaign.source_meta = {
     headers: importDraft.headers,
     source_rows: summary.sourceRows,
@@ -1424,6 +1429,7 @@ async function createCampaignFromImport(event) {
       progressFill.style.width = `${pct}%`;
     }
 
+    if (team.length) await distributeCampaign(campaign.id, team);
     progressText.textContent = 'Campaña lista.';
     progressFill.style.width = '100%';
     byId('hfImportDialog').close();
@@ -3021,6 +3027,7 @@ function dialogsMarkup() {
         <label>Nombre de la campaña<input id="hfCampaignName" placeholder="Ej. HVAC RM · septiembre" /></label>
         <label>Tipo<select id="hfCampaignType">${HF_TYPES.map((x) => `<option value="${e(x.id)}">${e(x.label)}</option>`).join('')}</select></label>
         <label>Rubro por defecto<select id="hfDefaultIndustry"><option value="">Usar la base / sin definir</option>${INDUSTRIES.map((x) => `<option>${e(x)}</option>`).join('')}</select></label>
+        <div class="hf-team-create-select"><strong>Equipo de trabajo (opcional)</strong><p>Selecciona usuarios para repartirles los registros al crear la campaña. Si no seleccionas ninguno, será individual.</p><div id="hfImportCampaignTeam"></div></div>
         <label class="hf-file-drop">Base CSV / Excel
           <input id="hfImportFile" type="file" accept=".csv,.txt,.xlsx,.xls" />
           <span id="hfImportHint">CSV o Excel (.xlsx/.xls). La base no entra al CRM al importarla.</span>
@@ -3070,6 +3077,7 @@ function dialogsMarkup() {
           <label>Responsable<select id="hfCrmOwner"></select></label>
           <label>Rubro<select id="hfCrmIndustry"></select></label>
           <label>Origen<select id="hfCrmSource"></select></label>
+          <div class="hf-team-create-select span-2"><strong>Colaboración (opcional)</strong><p>Reparte automáticamente las empresas entre los usuarios seleccionados.</p><div id="hfCrmCampaignTeam"></div></div>
           <label class="inline-check span-2"><input id="hfCrmWithChannel" type="checkbox" checked /> Solo incluir oportunidades con teléfono o correo</label>
         </div>
         <div class="hf-import-section-head"><div><h3>Vista previa del segmento</h3><p>Híper Foco quedará enlazado al mismo registro del CRM.</p></div></div>
@@ -3080,6 +3088,29 @@ function dialogsMarkup() {
         <button id="hfCreateCrmCampaignBtn" type="submit" class="primary-btn">Crear campaña</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="hfTeamCampaignDialog" class="modal hf-team-campaign-dialog" data-keep-open="true">
+    <div class="modal-card">
+      <div class="modal-head"><div><h2>Equipo de campaña</h2><p id="hfTeamCampaignTitle"></p></div>
+        <button type="button" class="icon-btn" data-close-hf="hfTeamCampaignDialog" aria-label="Cerrar">×</button>
+      </div>
+      <div class="hf-team-body">
+        <h3>Avance individual y total</h3>
+        <div id="hfTeamOverview"></div>
+        <form id="hfTeamDistributionForm">
+          <div id="hfTeamFormControls" class="hf-team-repartition">
+            <h3>Distribuir pendientes</h3>
+            <p class="muted">Selecciona integrantes. Se reparten equitativamente los registros sin gestionar. Los trabajados o reservados no cambian de responsable.</p>
+            <div id="hfTeamRepartitionUsers"></div>
+            <button type="submit" class="primary-btn" id="hfConfirmTeamDistribution">Repartir pendientes</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-hf="hfTeamCampaignDialog">Cerrar</button>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="hfRenameCampaignDialog" class="modal hf-rename-campaign-dialog" data-keep-open="true">
@@ -3149,6 +3180,7 @@ export function initUI() {
   document.addEventListener('keydown', handleHyperFocusKeydown);
   qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
     if (btn.dataset.closeHf === 'hfRenameCampaignDialog' && renameCampaignSaving) return;
+    if (btn.dataset.closeHf === 'hfTeamCampaignDialog' && distributionBusy) return;
     if (btn.dataset.closeHf === 'hfImportDialog' && !confirmDiscardImport()) return;
     byId(btn.dataset.closeHf)?.close();
   }));
@@ -3158,6 +3190,7 @@ export function initUI() {
   byId('hfImportDialog')?.addEventListener('cancel', (ev) => {
     if (!confirmDiscardImport()) ev.preventDefault();
   });
+  byId('hfTeamCampaignDialog')?.addEventListener('cancel', ev => { if (distributionBusy) ev.preventDefault(); });
   byId('hfRenameCampaignDialog')?.addEventListener('cancel', (ev) => {
     if (renameCampaignSaving) ev.preventDefault();
   });
@@ -3176,6 +3209,7 @@ export function initUI() {
   });
   bindImportControls();
 
+  byId('hfTeamDistributionForm')?.addEventListener('submit', saveTeamDistribution);
   byId('hfRenameCampaignForm')?.addEventListener('submit', saveRenamedCampaign);
   byId('hfCrmCampaignForm')?.addEventListener('submit', createCampaignFromCrm);
   ['hfCrmStage', 'hfCrmOwner', 'hfCrmIndustry', 'hfCrmSource', 'hfCrmWithChannel'].forEach((id) => {
