@@ -99,8 +99,10 @@ import {
   stopRealtime as hyperFocusStopRealtime
 } from './hyperfocus.js';
 import {
+  chilecompraState,
   clearChileCompra,
   hydrateChileCompra,
+  restoreChileCompraLocation,
   mountChileCompraView,
   onChileCompraChange,
   renderChileCompra
@@ -232,6 +234,151 @@ const ui = {
   settingsSection: 'home',
   quoteBuilder: null
 };
+
+
+/* ---------- Restaurar la ubicación tras recargar (por usuario y pestaña) ---------- */
+const NAVIGATION_STORAGE_KEY = 'taskflow-crm-location-v1';
+let navigationRestoreActive = false;
+let navigationInteractionVersion = 0;
+let navigationSaveTimer = null;
+
+function navigationSnapshot() {
+  return {
+    version: 1,
+    userId: session.user?.id || '',
+    savedAt: Date.now(),
+    view: ui.view,
+    scrollY: Math.max(0, window.scrollY || document.scrollingElement?.scrollTop || 0),
+    viewScroll: Math.max(0, $('viewRoot')?.scrollTop || 0),
+    mainScroll: Math.max(0, document.querySelector('.main')?.scrollTop || 0),
+    ui: {
+      taskTab: ui.taskTab, pipelineView: ui.pipelineView,
+      pipelineSort: ui.pipelineSort, pipelineFilters: ui.pipelineFilters,
+      leadFilters: ui.leadFilters, quotesView: ui.quotesView,
+      quoteFilters: ui.quoteFilters, settingsSection: ui.settingsSection,
+      templateChannel: ui.templateChannel, templateOpen: ui.templateOpen,
+      templateLead: ui.templateLead
+    },
+    chilecompra: ui.view === 'chilecompra' ? {
+      tab: chilecompraState.tab,
+      query: chilecompraState.query,
+      sort: chilecompraState.sort,
+      selectedCampaignId: chilecompraState.selectedCampaignId,
+      selectedId: chilecompraState.selectedId,
+      selectedCode: [...chilecompraState.results, ...chilecompraState.opportunities]
+        .find(o => o.id === chilecompraState.selectedId)?.external_code || '',
+      detailTab: chilecompraState.detailTab,
+      cmSelectedCode: chilecompraState.cmSelectedCode,
+      cmView: chilecompraState.cmView,
+      cmDays: chilecompraState.cmDays,
+      cmQuery: chilecompraState.cmQuery,
+      cmCampaignId: chilecompraState.cmCampaignId,
+      onuQuery: chilecompraState.onuQuery,
+      onuSegment: chilecompraState.onuSegment,
+      analyticsUniverse: chilecompraState.analyticsUniverse,
+      analyticsMetric: chilecompraState.analyticsMetric,
+      analyticsGroupBy: chilecompraState.analyticsGroupBy
+    } : null,
+    detailLeadId: $('detailDialog')?.open && detailLeadId ? detailLeadId : ''
+  };
+}
+
+function saveNavigationLocation() {
+  if (navigationRestoreActive || session.status !== 'signed-in' || !activeDataUserId || !session.user?.id) return;
+  try { sessionStorage.setItem(NAVIGATION_STORAGE_KEY, JSON.stringify(navigationSnapshot())); }
+  catch (err) { console.warn('No se pudo guardar la posición del CRM', err); }
+}
+
+function readNavigationLocation(userId) {
+  if (!userId) return null;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(NAVIGATION_STORAGE_KEY) || 'null');
+    if (!saved || saved.version !== 1 || saved.userId !== userId ||
+        Date.now() - Number(saved.savedAt || 0) > 7 * 86400000 ||
+        !Object.prototype.hasOwnProperty.call(VIEWS, saved.view)) return null;
+    return saved;
+  } catch { return null; }
+}
+
+function applySavedNavigation(saved) {
+  if (!saved) return;
+  if (canAccessView(saved.view)) ui.view = saved.view;
+  const savedUi = saved.ui && typeof saved.ui === 'object' ? saved.ui : {};
+  for (const key of ['taskTab','pipelineView','pipelineSort','pipelineFilters','leadFilters',
+    'quotesView','quoteFilters','settingsSection','templateChannel','templateOpen','templateLead']) {
+    if (savedUi[key] !== undefined && savedUi[key] !== null &&
+        typeof savedUi[key] === typeof ui[key]) ui[key] = savedUi[key];
+  }
+  document.querySelectorAll('.nav-item').forEach(button =>
+    button.classList.toggle('active', button.dataset.view === ui.view));
+}
+
+// Se espera a que el módulo recupere su contenido, nunca se intenta
+// desplazar la pantalla de inicio mientras los resultados todavía no existen.
+async function restoreSavedLocation(saved, chilecompraLoad, generation, navigationVersion) {
+  const stillCurrent = () => generation === authSyncGeneration &&
+    navigationInteractionVersion === navigationVersion &&
+    session.status === 'signed-in' && session.user?.id === saved.userId && ui.view === saved.view;
+  try {
+    if (saved.view === 'chilecompra') {
+      try { await chilecompraLoad; }
+      catch (err) { console.warn('ChileCompra no completó la carga antes de restaurar', err); }
+      if (!stillCurrent()) return;
+      await restoreChileCompraLocation(saved.chilecompra);
+    }
+    if (!stillCurrent()) return;
+    if (saved.detailLeadId && getLead(saved.detailLeadId) && !$('detailDialog')?.open) {
+      openDetail(saved.detailLeadId);
+    }
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (!stillCurrent()) return;
+    const scrollY = Math.max(0, Math.min(Number(saved.scrollY) || 0, 1000000));
+    const viewScroll = Math.max(0, Number(saved.viewScroll) || 0);
+    const mainScroll = Math.max(0, Number(saved.mainScroll) || 0);
+    // Algunos módulos se terminan de dibujar tras la primera hidratación.
+    for (let attempt = 0; attempt < 20 && stillCurrent(); attempt++) {
+      const root = $('viewRoot');
+      const main = document.querySelector('.main');
+      if (root && viewScroll) root.scrollTop = viewScroll;
+      if (main && mainScroll) main.scrollTop = mainScroll;
+      window.scrollTo(0, scrollY);
+      const atPosition = Math.abs((window.scrollY || 0) - Math.min(scrollY,
+        Math.max(0, document.documentElement.scrollHeight - window.innerHeight))) < 3;
+      if (atPosition && attempt > 2) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  } catch (err) {
+    console.warn('No se pudo restaurar toda la ubicación anterior', err);
+  } finally {
+    navigationRestoreActive = false;
+    saveNavigationLocation();
+  }
+}
+
+function bindNavigationMemory() {
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; }
+  catch { /* El navegador sigue con su comportamiento predeterminado. */ }
+  window.addEventListener('pagehide', saveNavigationLocation);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveNavigationLocation();
+  });
+  window.addEventListener('scroll', () => {
+    if (navigationRestoreActive) return;
+    if (navigationSaveTimer) return;
+    navigationSaveTimer = window.setTimeout(() => {
+      navigationSaveTimer = null;
+      saveNavigationLocation();
+    }, 160);
+  }, { passive: true });
+  document.addEventListener('click', () => {
+    if (navigationRestoreActive) return;
+    // Los manejadores de navegación internos ejecutan cambios sincrónicos.
+    queueMicrotask(saveNavigationLocation);
+  });
+  document.addEventListener('change', () => {
+    if (!navigationRestoreActive) queueMicrotask(saveNavigationLocation);
+  });
+}
 
 const VIEWS = {
   dashboard: ['Resumen', 'Gestión comercial y seguimiento de oportunidades.', renderDashboard],
@@ -2507,6 +2654,7 @@ const ACTIONS = {
     chilecompraState.selectedId = '';
     chilecompraState.selectedCampaignId = btn?.dataset.campaign || '';
     chilecompraState.tab = btn?.dataset.campaign ? 'coincidencias' : (query ? 'buscar' : (btn?.dataset.ccTab || 'resumen'));
+    navigationInteractionVersion++;
     render();
     document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x.dataset.view === 'chilecompra'));
     if (query) await mod.runTraditionalSearch(query);
@@ -3754,6 +3902,7 @@ function bindEvents() {
     btn.addEventListener('click', () => {
       const nextView = btn.dataset.view;
       if (!canAccessView(nextView)) return toast('Este módulo no está habilitado para tu perfil.', 'error');
+      navigationInteractionVersion++;
       ui.view = nextView;
       if (nextView === 'settings') ui.settingsSection = 'home';
       document.querySelectorAll('.nav-item').forEach((x) => x.classList.toggle('active', x === btn));
@@ -3896,6 +4045,7 @@ async function start() {
   initHyperFocusUI();
   initTutorialRuntime();
   bindEvents();
+  bindNavigationMemory();
   renderAuthMode();
 
   onChange(() => {
@@ -3926,6 +4076,7 @@ async function start() {
     if (s.status === 'signed-in') {
       const nextUserId = s.user?.id || '';
       const userChanged = activeDataUserId !== nextUserId;
+      const savedLocation = userChanged ? readNavigationLocation(nextUserId) : null;
       // Mostrar el shell ANTES de limpiar datos, pues la limpieza emite eventos
       // que pueden disparar renders durante el cambio de sesión.
       $('authScreen').hidden = true;
@@ -3992,12 +4143,22 @@ async function start() {
         quotesStartRealtime();
         hyperFocusStartRealtime();
         applyNavigationAccess();
+        if (userChanged) {
+          navigationRestoreActive = Boolean(savedLocation);
+          applySavedNavigation(savedLocation);
+        }
         ensureAccessibleView();
         refreshNotificationBadge();
         render();
         $('appShell').hidden = false;
         paintSync({ state: 'syncing', message: 'CRM listo · sincronizando módulos' });
         markCrmReady();
+        if (savedLocation && ui.view === savedLocation.view) {
+          void restoreSavedLocation(savedLocation, loads[3][1], generation, navigationInteractionVersion);
+        } else {
+          navigationRestoreActive = false;
+          saveNavigationLocation();
+        }
 
         if (s.recovery && !$('accessPasswordDialog').open) {
           $('accessPasswordDialog').showModal();
