@@ -156,13 +156,16 @@ function traditionalMatches(listings,query) {
 
     const code=normalize(f.code);
     const name=normalize(f.name);
-    const hay=normalize([f.code,f.name,f.description,f.buyerName,f.procurementType].filter(Boolean).join(" "));
+    const buyer=get(item,"Comprador","comprador")||{};
+    const buyerText=normalize([f.buyerName,f.buyerCode,get(buyer,"NombreUnidad","RazonSocial","RutUnidad")].filter(Boolean).join(" "));
+    const hay=normalize([f.code,f.name,f.description,buyerText,f.procurementType].filter(Boolean).join(" "));
     if(!hay) continue;
 
     let score=0;
     if(code===q) score+=400;
     if(name===q) score+=260;
     if(hay.includes(q)) score+=180;
+    if(buyerText.includes(q)) score+=110;
 
     let hits=0;
     for (const token of tokens) {
@@ -171,6 +174,7 @@ function traditionalMatches(listings,query) {
       score+=35;
       if(name.includes(token)) score+=24;
       if(code.includes(token)) score+=30;
+      if(buyerText.includes(token)) score+=20;
     }
 
     const minimumHits=tokens.length<=1 ? 1 : Math.max(1,Math.ceil(tokens.length*0.6));
@@ -220,13 +224,21 @@ async function upsertRows(admin,rows) {
   return data||[];
 }
 async function searchTraditional(admin,ticket,org,query) {
+  // La consulta por código es directa y permite licitaciones cerradas o adjudicadas.
+  if(/^\d{1,12}-\d{1,10}-[a-z0-9]+$/i.test(query)) {
+    const payload=await mercado("licitaciones.json",ticket,{codigo:query.toUpperCase()});
+    const items=listFrom(payload).filter(item=>normalize(listingFields(item).code)===normalize(query));
+    const rows=items.map(item=>({...rowFromItem(item,org),detail_loaded:hasDetailedFields(item)}));
+    const saved=await upsertRows(admin,rows);
+    return {sourceCount:items.length,results:saved,scope:"code"};
+  }
   const listings=await activeListings(ticket);
   let rows=traditionalMatches(listings,query).map(item=>rowFromItem(item,org));
   rows=await enrichRows(rows,ticket,8);
   const saved=await upsertRows(admin,rows);
   const order=new Map(rows.map((r,i)=>[r.external_code,i]));
   saved.sort((a,b)=>(order.get(a.external_code)??999)-(order.get(b.external_code)??999));
-  return {sourceCount:listings.length,results:saved.slice(0,120)};
+  return {sourceCount:listings.length,results:saved.slice(0,120),scope:"active"};
 }
 async function upsertCampaignMatches(admin,campaignId,items,opportunityByCode) {
   const now=new Date().toISOString();
