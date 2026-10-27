@@ -217,29 +217,24 @@ async function enrichRows(rows,ticket,limit=8) {
 }
 async function upsertRows(admin,rows) {
   if(!rows.length) return [];
-  const clean=rows.map(row=>({...row,detail_loaded:Boolean(row.detail_loaded)}));
+  const codes=rows.map(row=>row.external_code).filter(Boolean);
+  const {data:previous,error:lookupError}=await admin.from("chilecompra_opportunities")
+    .select("external_code,published_at,close_at").eq("organization_id",rows[0].organization_id).in("external_code",codes);
+  if(lookupError) throw lookupError;
+  const byCode=new Map((previous||[]).map(row=>[row.external_code,row]));
+  const clean=rows.map(row=>{
+    const old=byCode.get(row.external_code);
+    return {
+      ...row,
+      published_at:row.published_at||old?.published_at||null,
+      close_at:row.close_at||old?.close_at||null,
+      detail_loaded:Boolean(row.detail_loaded)
+    };
+  });
   const {data,error}=await admin.from("chilecompra_opportunities")
     .upsert(clean,{onConflict:"organization_id,external_code"}).select("*");
   if(error) throw error;
   return data||[];
-}
-// Las búsquedas por listado no entregan FechaPublicacion: se conserva
-// la fecha oficial ya consultada al sincronizar la lista nuevamente.
-async function preservePublicationDates(admin,org,rows) {
-  if (!rows.length) return rows;
-  const codes = rows.map(row=>row.external_code).filter(Boolean);
-  const {data:cached,error} = await admin.from("chilecompra_opportunities")
-    .select("external_code,published_at,close_at").eq("organization_id",org).in("external_code",codes);
-  if (error) throw error;
-  const byCode=new Map((cached||[]).map(row=>[row.external_code,row]));
-  return rows.map(row=>{
-    const previous=byCode.get(row.external_code);
-    return {
-      ...row,
-      published_at:row.published_at||previous?.published_at||null,
-      close_at:row.close_at||previous?.close_at||null
-    };
-  });
 }
 async function searchTraditional(admin,ticket,org,query) {
   // La consulta por código es directa y permite licitaciones cerradas o adjudicadas.
@@ -253,7 +248,6 @@ async function searchTraditional(admin,ticket,org,query) {
   const listings=await activeListings(ticket);
   let rows=traditionalMatches(listings,query).map(item=>rowFromItem(item,org));
   rows=await enrichRows(rows,ticket,8);
-  rows=await preservePublicationDates(admin,org,rows);
   const saved=await upsertRows(admin,rows);
   const order=new Map(rows.map((r,i)=>[r.external_code,i]));
   saved.sort((a,b)=>(order.get(a.external_code)??999)-(order.get(b.external_code)??999));
