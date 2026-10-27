@@ -2886,3 +2886,89 @@
 :root[data-theme="dark"] .cc-tender-chip--urgent { background:#4a351c; color:#ffe0a9; border-color:#76532a; }
 :root[data-theme="dark"] .cc-tender-chip--ended { background:#4a2924; color:#ffcdba; border-color:#704038; }
 :root[data-theme="dark"] .cc-tender-chip--stage { background:#163759; color:#b4d7ff; border-color:#315d88; }
+
+/* Buscador principal visible en todas las secciones de ChileCompra */
+.cc-main-search{
+  display:grid;
+  gap:14px;
+  margin:0 0 16px;
+  padding:22px 24px;
+  border:1px solid #cbdff3;
+  border-radius:18px;
+  background:linear-gradient(115deg,#fff 58%,#eff7ff 100%);
+  box-shadow:0 8px 24px rgba(20,65,118,.055);
+}
+.cc-main-search-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.cc-main-search-head h2{
+  margin:3px 0 5px;
+  font-size:24px;
+  line-height:1.2;
+  color:var(--cc-text);
+}
+.cc-main-search-head p{
+  margin:0;
+  color:var(--cc-muted);
+  font-size:13px;
+}
+.cc-main-search-note{
+  flex:none;
+  padding:7px 11px;
+  border:1px solid #d5e9fd;
+  border-radius:30px;
+  color:#215c94;
+  background:#f4faff;
+  font-size:11px;
+  font-weight:600;
+}
+.cc-main-search-form .cc-search-field{
+  min-height:56px;
+  border:1px solid #a9cbe9;
+  box-shadow:0 1px 2px rgba(26,61,103,.04);
+}
+.cc-main-search-form .cc-search-field input{
+  height:54px;
+  font-size:16px;
+}
+.cc-main-search-form>.primary-btn{
+  min-width:170px;
+  font-weight:700;
+}
+.cc-main-search-suggestions button{
+  max-width:100%;
+}
+.cc-main-search-footnote{
+  margin:0;
+  color:var(--cc-muted);
+  font-size:11px;
+  line-height:1.5;
+}
+:root[data-theme="dark"] .cc-main-search{
+  background:linear-gradient(115deg,#142338 58%,#1c3757 100%);
+  border-color:#385571;
+}
+:root[data-theme="dark"] .cc-main-search-note{
+  color:#b8ddff;
+  border-color:#315678;
+  background:#203c5a;
+}
+:root[data-theme="dark"] .cc-main-search-form .cc-search-field{
+  background:#16283f;
+  border-color:#416487;
+}
+:root[data-theme="dark"] .cc-main-search-form .cc-search-field input{
+  color:#eef6ff;
+}
+@media(max-width:680px){
+  .cc-main-search{padding:16px;margin:0 0 12px;gap:12px;border-radius:15px}
+  .cc-main-search-head{display:block}
+  .cc-main-search-head h2{font-size:21px}
+  .cc-main-search-head p{font-size:12px;line-height:1.4}
+  .cc-main-search-note{display:inline-block;margin-top:9px;font-size:10px}
+  .cc-main-search-form>.primary-btn{min-height:46px}
+  .cc-main-search-footnote{font-size:10px}
+}
