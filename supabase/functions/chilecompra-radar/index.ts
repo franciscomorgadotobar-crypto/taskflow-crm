@@ -111,7 +111,7 @@ function listingFields(item) {
     buyerName:String(get(buyer,"NombreOrganismo","NombreUnidad","RazonSocial","Nombre")||get(item,"NombreOrganismo","Organismo")||"").trim(),
     buyerCode:String(get(buyer,"CodigoOrganismo","CodigoUnidad","Codigo")||"").trim(),
     status:statusFrom(item),
-    closeAt:isoDate(get(item,"FechaCierre","fechaCierre","FechaCierreRecepcionOferta")),
+    closeAt:isoDate(get(fechas,"FechaCierre","fechaCierre")||get(item,"FechaCierre","fechaCierre","FechaCierreRecepcionOferta")),
     publishedAt:isoDate(get(fechas,"FechaPublicacion")||get(item,"FechaPublicacion","fechaPublicacion")),
     amount:money(get(item,"MontoEstimado","Monto","Presupuesto")),
     currency:String(get(item,"Moneda","moneda")||"CLP").trim()||"CLP",
@@ -223,6 +223,24 @@ async function upsertRows(admin,rows) {
   if(error) throw error;
   return data||[];
 }
+// Las búsquedas por listado no entregan FechaPublicacion: se conserva
+// la fecha oficial ya consultada al sincronizar la lista nuevamente.
+async function preservePublicationDates(admin,org,rows) {
+  if (!rows.length) return rows;
+  const codes = rows.map(row=>row.external_code).filter(Boolean);
+  const {data:cached,error} = await admin.from("chilecompra_opportunities")
+    .select("external_code,published_at,close_at").eq("organization_id",org).in("external_code",codes);
+  if (error) throw error;
+  const byCode=new Map((cached||[]).map(row=>[row.external_code,row]));
+  return rows.map(row=>{
+    const previous=byCode.get(row.external_code);
+    return {
+      ...row,
+      published_at:row.published_at||previous?.published_at||null,
+      close_at:row.close_at||previous?.close_at||null
+    };
+  });
+}
 async function searchTraditional(admin,ticket,org,query) {
   // La consulta por código es directa y permite licitaciones cerradas o adjudicadas.
   if(/^\d{1,12}-\d{1,10}-[a-z0-9]+$/i.test(query)) {
@@ -235,11 +253,48 @@ async function searchTraditional(admin,ticket,org,query) {
   const listings=await activeListings(ticket);
   let rows=traditionalMatches(listings,query).map(item=>rowFromItem(item,org));
   rows=await enrichRows(rows,ticket,8);
+  rows=await preservePublicationDates(admin,org,rows);
   const saved=await upsertRows(admin,rows);
   const order=new Map(rows.map((r,i)=>[r.external_code,i]));
   saved.sort((a,b)=>(order.get(a.external_code)??999)-(order.get(b.external_code)??999));
   return {sourceCount:listings.length,results:saved.slice(0,120),scope:"active"};
 }
+
+async function fetchPublicationDates(admin,ticket,org,codes) {
+  const requested=[...new Set((Array.isArray(codes)?codes:[])
+    .map(code=>String(code||"").trim().toUpperCase())
+    .filter(code=>/^\\d{1,12}-\\d{1,10}-[A-Z0-9]+$/.test(code)))].slice(0,5);
+  if (!requested.length) return {results:[],rateLimited:false};
+  const {data:cached,error}=await admin.from("chilecompra_opportunities")
+    .select("external_code,published_at,close_at").eq("organization_id",org).in("external_code",requested);
+  if (error) throw error;
+  const byCode=new Map((cached||[]).map(x=>[x.external_code,x]));
+  const results=[];
+  let rateLimited=false;
+  for(const code of requested) {
+    const existing=byCode.get(code);
+    if (!existing) continue; // No permitir consultas que no pertenezcan a la organización.
+    if(existing.published_at) {results.push(existing);continue;}
+    try {
+      const payload=await mercado("licitaciones.json",ticket,{codigo:code});
+      const item=listFrom(payload).find(x=>listingFields(x).code.toUpperCase()===code);
+      if(!item) continue;
+      const fields=listingFields(item);
+      if(!fields.publishedAt) continue;
+      const patch={published_at:fields.publishedAt};
+      if(fields.closeAt) patch.close_at=fields.closeAt;
+      const {error:updateError}=await admin.from("chilecompra_opportunities")
+        .update(patch).eq("organization_id",org).eq("external_code",code);
+      if(updateError) throw updateError;
+      results.push({external_code:code,published_at:fields.publishedAt,close_at:fields.closeAt||existing.close_at});
+    } catch (error) {
+      if(String(error?.message||error).includes("429")) {rateLimited=true;break;}
+      console.warn("No se recuperó fecha oficial",code,error?.message||error);
+    }
+  }
+  return {results,rateLimited};
+}
+
 async function upsertCampaignMatches(admin,campaignId,items,opportunityByCode) {
   const now=new Date().toISOString();
   const rows=[];
@@ -1234,6 +1289,10 @@ Deno.serve(async req=>{
       const query=String(body?.query||"").trim();
       if(query.length<2) return json({error:"query_too_short",message:"Escribe al menos 2 caracteres."},400);
       return json({ok:true,query,...await searchTraditional(admin,ticket,org,query)});
+    }
+    if(action==="publication_dates") {
+      if(cron) return json({error:"search_requires_user"},403);
+      return json({ok:true,...await fetchPublicationDates(admin,ticket,org,body?.codes)});
     }
 
     if(action==="campaign") {
