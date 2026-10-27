@@ -1849,6 +1849,57 @@ function renderInner() {
   return `${renderPrimarySearch()}${toolbar}${dashboardNav(stats)}${content}${sharedDialogs()}`;
 }
 
+
+/**
+ * Recupera la subpantalla de ChileCompra tras una recarga del CRM.
+ * Restaura las búsquedas consultando nuevamente la API, sin almacenar resultados
+ * ni fichas de terceros en el navegador.
+ */
+export async function restoreChileCompraLocation(saved) {
+  if (!saved || typeof saved !== 'object') return;
+  const validTabs = new Set(['resumen','ia','coincidencias','historico','guardadas','crm',
+    'descartadas','buscar','campanas','mercado','compradores','convenio','onu']);
+  chilecompraState.tab = validTabs.has(saved.tab) ? saved.tab : 'resumen';
+  chilecompraState.query = String(saved.query || '').slice(0,250);
+  chilecompraState.sort = saved.sort === 'close' ? 'close' : 'recent';
+  chilecompraState.selectedCampaignId = String(saved.selectedCampaignId || '');
+  chilecompraState.detailTab = String(saved.detailTab || 'resumen');
+  chilecompraState.selectedId = '';
+  chilecompraState.cmView = String(saved.cmView || 'pulso');
+  chilecompraState.cmDays = [3,7,14,30,60,90].includes(Number(saved.cmDays)) ? Number(saved.cmDays) : 3;
+  chilecompraState.cmQuery = String(saved.cmQuery || '').slice(0,250);
+  chilecompraState.cmCampaignId = String(saved.cmCampaignId || '');
+  chilecompraState.cmSelectedCode = '';
+  chilecompraState.onuQuery = String(saved.onuQuery || '').slice(0,150);
+  chilecompraState.onuSegment = String(saved.onuSegment || '').slice(0,50);
+  chilecompraState.analyticsUniverse = String(saved.analyticsUniverse || 'general');
+  chilecompraState.analyticsMetric = String(saved.analyticsMetric || 'publications');
+  chilecompraState.analyticsGroupBy = String(saved.analyticsGroupBy || 'industry');
+
+  if (chilecompraState.tab === 'buscar' && chilecompraState.query.trim().length >= 2) {
+    try { await runTraditionalSearch(chilecompraState.query); }
+    catch (err) { console.warn('No se pudo recuperar la búsqueda anterior', err); }
+  } else if (chilecompraState.tab === 'convenio') {
+    try {
+      await loadConvenioMarco();
+      if (saved.cmSelectedCode) await loadCmOrderDetail(String(saved.cmSelectedCode));
+    } catch (err) { console.warn('No se pudo recuperar la orden de Convenio Marco', err); }
+  } else if (chilecompraState.tab === 'onu') {
+    try { await loadOnuCatalog({query:chilecompraState.onuQuery,segment:chilecompraState.onuSegment}); }
+    catch (err) { console.warn('No se pudo recuperar el catálogo ONU', err); }
+  }
+
+  const opportunity = [...chilecompraState.results, ...chilecompraState.opportunities]
+    .find(row => row.id === saved.selectedId || (saved.selectedCode && row.external_code === saved.selectedCode));
+  if (opportunity) {
+    chilecompraState.selectedId = opportunity.id;
+    chilecompraState.detailTab = String(saved.detailTab || 'resumen');
+    rerender();
+    try { await loadDetail(opportunity.id); }
+    catch (err) { console.warn('No se pudo recuperar la ficha seleccionada', err); }
+  } else rerender();
+}
+
 export function renderChileCompra() {
   return '<div id="chilecompraRoot" class="cc-root"></div>';
 }
