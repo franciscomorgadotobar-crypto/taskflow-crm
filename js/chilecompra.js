@@ -65,6 +65,8 @@ export const onChileCompraChange = (fn) => (listeners.add(fn), () => listeners.d
 const notify = () => listeners.forEach((fn) => fn(chilecompraState));
 
 export function clearChileCompra() {
+  publicationDateRun++;
+  publicationDateAttempted.clear();
   Object.assign(chilecompraState, {
     opportunities: [], campaigns: [], matches: [], userStates: [], marketProfile: null, analytics: null,
     analyticsLoading: false, marketPulse: null, marketPulseLoading: false, loading: false, syncing: false, searching: false,
@@ -1783,7 +1785,7 @@ function renderOpportunityWorkspace(stats) {
     : '';
 
   return `<section class="cc-workspace">
-    ${!isSearch && chilecompraState.publicationDatesLoading ? '<div class="cc-api-note">Ordenando según la fecha oficial de publicación. Consultando datos faltantes…</div>' : ''}
+    ${!isSearch && chilecompraState.sort === 'recent' && rows.length ? `<p class="cc-result-count">Más recientes = fecha de publicación · ${rows.filter(o=>officialDateMs(o.published_at)!==null).length} de ${rows.length} con fecha oficial${chilecompraState.publicationDatesLoading ? ' · Consultando las faltantes…' : ' · Sin fecha al final'}</p>` : ''}
     ${!isSearch && ['coincidencias','historico'].includes(chilecompraState.tab) && stats.campaigns.length ? `<div class="cc-campaign-filter"><button type="button" data-cc-campaign-filter="" class="${!chilecompraState.selectedCampaignId ? 'active' : ''}">Todas</button>${stats.campaigns.map((c) => `<button type="button" data-cc-campaign-filter="${c.id}" class="${chilecompraState.selectedCampaignId === c.id ? 'active' : ''}">${e(c.name)} ${chilecompraState.tab === 'historico' ? '' : `<b>${stats.newByCampaign[c.id] || 0}</b>`}</button>`).join('')}</div>` : ''}
     ${!isSearch && chilecompraState.tab === 'historico' ? '<div class="cc-api-note"><strong>Análisis histórico</strong><span>Licitaciones cerradas, finalizadas o sin plazo verificable. No son oportunidades abiertas para postular. Úsalas para investigar compradores y futuras necesidades.</span></div>' : ''}
     ${isSearch ? searchResults : `<div class="cc-results-toolbar"><strong class="cc-result-title">${resultHeading(rows)}</strong><select id="ccSort" aria-label="Ordenar oportunidades"><option value="recent" ${chilecompraState.sort === 'recent' ? 'selected' : ''}>Más recientes</option><option value="close" ${chilecompraState.sort === 'close' ? 'selected' : ''}>Cierre más próximo</option></select></div>${chilecompraState.tab === 'buscar' && chilecompraState.sourceCount ? `<p class="cc-result-count">Consulta sobre ${chilecompraState.sourceCount.toLocaleString('es-CL')} licitaciones activas.</p>` : ''}<div class="cc-opportunity-list">${rows.length ? rows.map(opportunityCard).join('') : '<div class="cc-empty">No hay resultados para esta vista.</div>'}</div>`}
@@ -1878,9 +1880,10 @@ function startPublicationDateEnrichment() {
       for (let offset = 0; offset < pending.length; offset += 5) {
         if (run !== publicationDateRun) return;
         const batch = pending.slice(offset, offset + 5);
-        batch.forEach(code => publicationDateAttempted.add(code));
         const data = await invokeRadar({ action: 'publication_dates', codes: batch });
         if (run !== publicationDateRun) return;
+        if (!data.rateLimited) batch.forEach(code => publicationDateAttempted.add(code));
+        else (data.results || []).forEach(row => publicationDateAttempted.add(row.external_code));
         const map = new Map((data.results || []).filter(x => x.external_code && x.published_at).map(x => [x.external_code, x]));
         if (map.size) {
           const mergeDate = (o) => {
@@ -1914,6 +1917,8 @@ export async function runTraditionalSearch(query) {
   if (chilecompraState.searching) return;
   if (clean.length < 2) return toast('Escribe al menos 2 caracteres para buscar.', 'error');
   publicationDateRun++;
+  publicationDateAttempted.clear();
+  chilecompraState.publicationDatesLoading = false;
   chilecompraState.query = clean;
   chilecompraState.tab = 'buscar';
   chilecompraState.searching = true;
@@ -2252,6 +2257,8 @@ export function mountChileCompraView() {
     }
     const select = ev.target.closest('[data-cc-select]');
     if (select) {
+      publicationDateRun++;
+      chilecompraState.publicationDatesLoading = false;
       chilecompraState.detailReturnY = window.scrollY || 0;
       chilecompraState.selectedId = select.dataset.ccSelect;
       chilecompraState.detailTab = 'resumen';
@@ -2284,6 +2291,7 @@ export function mountChileCompraView() {
       chilecompraState.detailLoading = false;
       chilecompraState.detailError = '';
       rerender();
+      startPublicationDateEnrichment();
       requestAnimationFrame(() => window.scrollTo({ top: returnY, behavior: 'instant' }));
       return;
     }
