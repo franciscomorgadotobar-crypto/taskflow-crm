@@ -239,6 +239,7 @@ const ui = {
 /* ---------- Restaurar la ubicación tras recargar (por usuario y pestaña) ---------- */
 const NAVIGATION_STORAGE_KEY = 'taskflow-crm-location-v1';
 let navigationRestoreActive = false;
+let pendingSavedNavigation = null;
 let navigationInteractionVersion = 0;
 let navigationSaveTimer = null;
 
@@ -350,6 +351,7 @@ async function restoreSavedLocation(saved, chilecompraLoad, generation, navigati
   } catch (err) {
     console.warn('No se pudo restaurar toda la ubicación anterior', err);
   } finally {
+    if (pendingSavedNavigation === saved) pendingSavedNavigation = null;
     navigationRestoreActive = false;
     saveNavigationLocation();
   }
@@ -359,6 +361,13 @@ function bindNavigationMemory() {
   try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; }
   catch { /* El navegador sigue con su comportamiento predeterminado. */ }
   window.addEventListener('pagehide', saveNavigationLocation);
+  document.addEventListener('pointerdown', () => {
+    if (!navigationRestoreActive) return;
+    // La interacción del usuario siempre gana frente a una restauración tardía.
+    navigationInteractionVersion++;
+    navigationRestoreActive = false;
+    pendingSavedNavigation = null;
+  }, { capture: true });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') saveNavigationLocation();
   });
@@ -2854,6 +2863,8 @@ const ACTIONS = {
   'sign-out': async () => {
     try {
       await signOut();
+      try { sessionStorage.removeItem(NAVIGATION_STORAGE_KEY); } catch { /* sin almacenamiento */ }
+      pendingSavedNavigation = null;
     } catch (err) {
       toast(`No se pudo cerrar la sesión: ${err.message}`, 'error');
     }
@@ -4076,7 +4087,11 @@ async function start() {
     if (s.status === 'signed-in') {
       const nextUserId = s.user?.id || '';
       const userChanged = activeDataUserId !== nextUserId;
-      const savedLocation = userChanged ? readNavigationLocation(nextUserId) : null;
+      if (userChanged) {
+        pendingSavedNavigation = readNavigationLocation(nextUserId);
+        navigationRestoreActive = Boolean(pendingSavedNavigation);
+      }
+      const savedLocation = pendingSavedNavigation?.userId === nextUserId ? pendingSavedNavigation : null;
       // Mostrar el shell ANTES de limpiar datos, pues la limpieza emite eventos
       // que pueden disparar renders durante el cambio de sesión.
       $('authScreen').hidden = true;
@@ -4143,8 +4158,8 @@ async function start() {
         quotesStartRealtime();
         hyperFocusStartRealtime();
         applyNavigationAccess();
-        if (userChanged) {
-          navigationRestoreActive = Boolean(savedLocation);
+        if (savedLocation) {
+          navigationRestoreActive = true;
           applySavedNavigation(savedLocation);
         }
         ensureAccessibleView();
@@ -4157,6 +4172,7 @@ async function start() {
           void restoreSavedLocation(savedLocation, loads[3][1], generation, navigationInteractionVersion);
         } else {
           navigationRestoreActive = false;
+          pendingSavedNavigation = null;
           saveNavigationLocation();
         }
 
@@ -4191,6 +4207,8 @@ async function start() {
         if (generation === authSyncGeneration) clearStartupWatchdog();
       }
     } else if (s.status === 'profile-error') {
+      navigationRestoreActive = false;
+      pendingSavedNavigation = null;
       activeDataUserId = '';
       stopRealtime();
       quotesStopRealtime();
@@ -4207,6 +4225,8 @@ async function start() {
       $('authError').textContent = s.error?.message || 'No se pudo cargar tu perfil. Revisa la conexión e intenta entrar nuevamente.';
       $('authError').hidden = false;
     } else if (s.status === 'signed-out') {
+      navigationRestoreActive = false;
+      pendingSavedNavigation = null;
       activeDataUserId = '';
       stopRealtime();
       quotesStopRealtime();
