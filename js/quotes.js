@@ -76,7 +76,7 @@ function fromDbQuote(r, items = [], discounts = []) {
     rootId: r.root_id || r.id,
     version: r.version,
     isCurrent: r.is_current,
-    leadId: r.lead_id,
+    leadId: r.lead_id || '',
     ownerId: r.owner_id || '',
     owner: r.owner_name || '',
     status: r.status,
