@@ -1,5 +1,5 @@
 import { INDUSTRIES, DEFAULT_PROBABILITY } from './catalog.js';
-import { isAdmin, isReadOnly, session } from './auth.js';
+import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import {
   getLead,
   state as crmState
@@ -105,6 +105,12 @@ let renameCampaignSaving = false;
 let teamRequest = null;
 let teamRequestGeneration = 0;
 let distributionBusy = false;
+
+// Consulta transversal de campañas: solo superadmin y sin alterar asignaciones.
+// El servidor filtra; nunca descargamos toda la base al dispositivo.
+const globalLookup = { query: '', rows: [], loading: false, searched: false, hasMore: false, error: '' };
+let globalLookupTimer = null;
+let globalLookupGeneration = 0;
 
 const importDraft = {
   file: null,
@@ -282,6 +288,9 @@ export function stopRealtime() {
 export function clearLocal() {
   hydrateGeneration += 1;
   discardedGeneration += 1;
+  globalLookupGeneration += 1;
+  clearTimeout(globalLookupTimer);
+  Object.assign(globalLookup, { query: '', rows: [], loading: false, searched: false, hasMore: false, error: '' });
   state.campaigns = [];
   state.stats = {};
   state.teamMembers = [];
@@ -437,6 +446,112 @@ async function saveTeamDistribution(ev) {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Búsqueda global (solo superadmin)                                           */
+/* -------------------------------------------------------------------------- */
+
+function lookupResultsHtml() {
+  if (!isSuper()) return '';
+  if (globalLookup.loading) return '<p class="muted" role="status">Buscando en todas las campañas…</p>';
+  if (globalLookup.error) return `<p class="import-error" role="alert">${e(globalLookup.error)}</p>`;
+  if (!globalLookup.searched) return '<p class="muted">Escribe al menos dos caracteres. Se revisan todas las campañas, incluso registros asignados a otros usuarios, sin asignar o ya gestionados.</p>';
+  if (!globalLookup.rows.length) return '<p class="muted" role="status">No se encontraron coincidencias en las bases de Híper Foco.</p>';
+
+  const rows = globalLookup.rows.map((record) => {
+    const status = STATUS_LABEL[record.record_status] || record.record_status || 'Sin estado';
+    const assigned = Boolean(record.assigned_to);
+    const meta = [
+      record.rut ? `RUT ${record.rut}` : '',
+      `Campaña: ${record.campaign_name || 'Sin nombre'}`,
+      record.row_number ? `Fila ${record.row_number}` : ''
+    ].filter(Boolean).map(e).join(' · ');
+    return `<div class="hf-lookup-result">
+      <div class="hf-lookup-details">
+        <strong>${e(record.company || 'Empresa sin nombre')}</strong>
+        <small>${meta}</small>
+      </div>
+      <div class="hf-lookup-tags">
+        <span class="badge">${e(status)}</span>
+        <span class="hf-lookup-assigned ${assigned ? 'is-assigned' : 'is-unassigned'}">${assigned ? 'Asignada: ' + e(record.assigned_name || 'Usuario') : 'Sin asignar'}</span>
+        ${record.is_in_crm ? '<span class="badge">Vinculada al CRM</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="hf-lookup-count" role="status">${globalLookup.rows.length} coincidencia(s)${globalLookup.hasMore ? ' de más de 50. Especifica mejor la búsqueda para ver las restantes.' : ' en Híper Foco'}.</div>
+    <div class="hf-lookup-results">${rows}</div>`;
+}
+
+function renderLookupResults() {
+  const root = byId('hfSuperLookupResults');
+  if (root && isSuper()) root.innerHTML = lookupResultsHtml();
+}
+
+function globalLookupHtml() {
+  if (!isSuper()) return '';
+  return `<section class="card hf-super-lookup" aria-label="Buscador global Híper Foco">
+    <div class="hf-super-lookup-heading">
+      <div>
+        <h3>Buscar empresas en Híper Foco</h3>
+        <p>Consulta global exclusiva para superadmin · Solo lectura</p>
+      </div>
+    </div>
+    <form id="hfSuperLookupForm" class="hf-super-lookup-form" role="search">
+      <label for="hfSuperLookupInput">Empresa o RUT</label>
+      <div class="hf-super-lookup-controls">
+        <input id="hfSuperLookupInput" type="search" placeholder="Nombre de empresa o RUT" autocomplete="off"
+          maxlength="100" value="${e(globalLookup.query)}" aria-controls="hfSuperLookupResults">
+        <button class="primary-btn" type="submit">Buscar</button>
+        <button id="hfSuperLookupClear" class="ghost-btn" type="button">Limpiar</button>
+      </div>
+    </form>
+    <div id="hfSuperLookupResults" class="hf-super-lookup-body" aria-live="polite">
+      ${lookupResultsHtml()}
+    </div>
+  </section>`;
+}
+
+async function runGlobalLookup() {
+  if (!isSuper()) return;
+  clearTimeout(globalLookupTimer);
+  const query = clean(globalLookup.query);
+  const generation = ++globalLookupGeneration;
+  if (query.length < 2) {
+    Object.assign(globalLookup, { rows: [], loading: false, searched: false, hasMore: false, error: '' });
+    renderLookupResults();
+    return;
+  }
+  globalLookup.loading = true;
+  globalLookup.error = '';
+  renderLookupResults();
+  try {
+    const { data, error } = await supabase.rpc('hyperfocus_super_search', { p_query: query });
+    if (generation !== globalLookupGeneration || !isSuper()) return;
+    if (error) throw error;
+    const rows = Array.isArray(data) ? data : [];
+    Object.assign(globalLookup, {
+      rows: rows.slice(0, 50), hasMore: rows.length > 50,
+      searched: true, loading: false, error: ''
+    });
+  } catch (err) {
+    if (generation !== globalLookupGeneration || !isSuper()) return;
+    console.error('Error buscando empresas en Híper Foco', err);
+    Object.assign(globalLookup, {
+      rows: [], hasMore: false, searched: false, loading: false,
+      error: 'No se pudo realizar la búsqueda. Vuelve a intentarlo.'
+    });
+  }
+  renderLookupResults();
+}
+
+function clearGlobalLookup() {
+  globalLookupGeneration += 1;
+  clearTimeout(globalLookupTimer);
+  Object.assign(globalLookup, { query: '', rows: [], loading: false, searched: false, hasMore: false, error: '' });
+  const input = byId('hfSuperLookupInput');
+  if (input) { input.value = ''; input.focus(); }
+  renderLookupResults();
+}
+
 export function renderHyperFocus() {
   if (!state.schemaReady) {
     return `
@@ -459,6 +574,8 @@ export function renderHyperFocus() {
       </div>
       ${writable ? `<div class="button-row"><button class="ghost-btn" data-hf-action="new-crm-campaign">+ Desde CRM</button><button class="primary-btn" data-hf-action="new-campaign">+ Importar base</button></div>` : ''}
     </section>
+
+    ${globalLookupHtml()}
 
     ${
       campaigns.length
@@ -3180,10 +3297,31 @@ export function initUI() {
   // La sesión se repinta en cada paso, así que lo escrito en la caja de
   // observaciones se guarda en memoria para no perderlo al cambiar de pantalla.
   document.addEventListener('input', (ev) => {
+    if (ev.target?.id === 'hfSuperLookupInput' && isSuper()) {
+      globalLookup.query = ev.target.value;
+      clearTimeout(globalLookupTimer);
+      globalLookupGeneration += 1; // invalida respuestas de términos anteriores
+      if (clean(globalLookup.query).length < 2) {
+        Object.assign(globalLookup, { rows: [], loading: false, searched: false, hasMore: false, error: '' });
+        renderLookupResults();
+      } else {
+        globalLookupTimer = setTimeout(runGlobalLookup, 450);
+      }
+    }
     if (ev.target?.id === 'hfRecordNote') focus.noteDraft = ev.target.value;
     if (ev.target?.id === 'hfCompanyNameInput') focus.companyDraft = ev.target.value;
   });
   document.addEventListener('keydown', handleHyperFocusKeydown);
+  document.addEventListener('submit', (ev) => {
+    if (ev.target?.id !== 'hfSuperLookupForm') return;
+    ev.preventDefault();
+    if (!isSuper()) return;
+    globalLookup.query = byId('hfSuperLookupInput')?.value || '';
+    runGlobalLookup();
+  });
+  document.addEventListener('click', (ev) => {
+    if (ev.target?.closest?.('#hfSuperLookupClear') && isSuper()) clearGlobalLookup();
+  });
   qa('[data-close-hf]').forEach((btn) => btn.addEventListener('click', () => {
     if (btn.dataset.closeHf === 'hfRenameCampaignDialog' && renameCampaignSaving) return;
     if (btn.dataset.closeHf === 'hfTeamCampaignDialog' && distributionBusy) return;
