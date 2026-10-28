@@ -1214,6 +1214,7 @@ function quoteRow(q, { showCompany = false } = {}) {
     <div>
       <strong>${showCompany ? e(lead?.company || q.client?.company || 'Empresa eliminada') + ' · ' : ''}${e(q.number || 'Sin número')} · v${q.version}</strong>
       ${quoteStatusBadge(q.status)}
+      ${!q.leadId ? '<span class="muted"> · Sin ficha en el CRM</span>' : ''}
       ${versions.length > 1 ? `<span class="muted"> · ${versions.length} versiones</span>` : ''}
       <div class="muted">${e(q.owner || 'Sin responsable')} · ${e(fmtDateTime(q.updatedAt))}</div>
     </div>
