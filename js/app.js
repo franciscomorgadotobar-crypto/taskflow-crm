@@ -1476,7 +1476,7 @@ function readQuoteHeader() {
   const b = ui.quoteBuilder;
   const lead = getLead($('quoteLeadId').value);
   Object.assign(b, {
-    leadId: $('quoteLeadId').value,
+    leadId: lead?.id || '',
     priceListId: $('quotePriceList').value,
     currency: $('quoteCurrency').value,
     ufValue: $('quoteUfValue').value === '' ? null : Number($('quoteUfValue').value),
@@ -1488,8 +1488,8 @@ function readQuoteHeader() {
     paymentTerms: $('quotePaymentTerms').value,
     notes: $('quoteNotes').value.trim(),
     client: {
-      company: lead?.company || b.client?.company || '',
-      rut: lead?.rut || b.client?.rut || '',
+      company: lead?.company || $('quoteClientCompany').value.trim(),
+      rut: lead?.rut || $('quoteClientRut').value.trim(),
       contact: $('quoteContactName').value.trim(),
       role: $('quoteContactRole').value.trim(),
       phone: $('quoteContactPhone').value.trim(),
@@ -1498,13 +1498,16 @@ function readQuoteHeader() {
   });
 }
 
-function fillQuoteLeadFields(lead, withContact) {
-  $('quoteClientRut').value = lead?.rut || '';
+function fillQuoteLeadFields(lead, withContact, client = {}) {
+  $('quoteClientCompanyField').hidden = Boolean(lead);
+  $('quoteClientCompany').value = lead?.company || client.company || '';
+  $('quoteClientRut').readOnly = Boolean(lead);
+  $('quoteClientRut').value = lead?.rut || client.rut || '';
   if (!withContact) return;
-  $('quoteContactName').value = lead?.contact || '';
-  $('quoteContactRole').value = lead?.role || '';
-  $('quoteContactPhone').value = lead?.phone || '';
-  $('quoteContactEmail').value = lead?.email || '';
+  $('quoteContactName').value = lead?.contact || client.contact || '';
+  $('quoteContactRole').value = lead?.role || client.role || '';
+  $('quoteContactPhone').value = lead?.phone || client.phone || '';
+  $('quoteContactEmail').value = lead?.email || client.email || '';
 }
 
 function fillQuoteServiceOptions() {
@@ -1736,12 +1739,14 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   $('quoteDialogTitle').textContent = base ? `Editar cotización ${base.number || ''}` : 'Nueva cotización';
   $('quoteDialogSubtitle').textContent = base
     ? `Guardar crea la versión ${b.version}; la anterior queda en el historial.`
-    : 'Elige la empresa y la lista de precios, agrega servicios y descuentos.';
+    : 'Elige una empresa del CRM o ingresa una nueva, agrega servicios y descuentos.';
   $('quoteNumberBadge').textContent = base?.number || 'N° al guardar';
-  $('quoteLeadId').innerHTML = leadOptions(b.leadId);
+  $('quoteLeadId').innerHTML = leadOptions(b.leadId) +
+    '<option value="__external__">+ Cotizar a empresa no registrada en el CRM</option>';
+  $('quoteLeadId').value = b.leadId || '__external__';
   $('quoteLeadId').disabled = Boolean(base || leadId);
   $('quoteOwner').value = b.owner;
-  fillQuoteLeadFields(lead, !base);
+  fillQuoteLeadFields(lead, !base, b.client);
   if (base) {
     $('quoteContactName').value = base.client?.contact || '';
     $('quoteContactRole').value = base.client?.role || '';
@@ -1785,7 +1790,10 @@ function handleQuoteFormChange(ev) {
   }
   switch (el.id) {
     case 'quoteLeadId':
-      if (ev.type === 'change') fillQuoteLeadFields(getLead(el.value), true);
+      if (ev.type === 'change') {
+        b.client = {};
+        fillQuoteLeadFields(getLead(el.value), true);
+      }
       return scheduleQuotePreview();
     case 'quotePriceList': {
       if (ev.type !== 'change') return;
@@ -1860,8 +1868,9 @@ async function submitQuoteBuilder(e) {
   if (!b) return;
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   readQuoteHeader();
-  if (!b.leadId) return toast('Selecciona una empresa.', 'error');
-  if (!canEditLeadLocally(b.leadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
+  if (!b.leadId && $('quoteLeadId').value !== '__external__') return toast('Selecciona una empresa o elige cotizar sin registrarla.', 'error');
+  if (!b.leadId && !b.client.company) return toast('Ingresa el nombre o razón social de la empresa.', 'error');
+  if (b.leadId && !canEditLeadLocally(b.leadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
   if (!b.client.contact) return toast('Ingresa el nombre del contacto.', 'error');
   if (!b.client.email) return toast('Ingresa el correo del contacto.', 'error');
   if (!b.paymentMethod) return toast('Selecciona la forma de pago.', 'error');
@@ -1945,13 +1954,15 @@ function openQuoteView(id) {
 function openQuoteSend(id) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   const q = getQuote(id);
-  if (q && !canEditLeadLocally(q.leadId)) return toast('Solo puedes preparar cotizaciones de oportunidades asignadas a ti.', 'error');
   if (!q) return;
+  if (q.leadId && !canEditLeadLocally(q.leadId)) return toast('Solo puedes preparar cotizaciones de oportunidades asignadas a ti.', 'error');
+  if (!q.leadId && !isAdmin() && q.ownerId !== session.user?.id) return toast('No tienes permiso para enviar esta cotización.', 'error');
   const lead = getLead(q.leadId);
-  if (!lead?.email) return toast('Esa empresa no tiene un correo de contacto. Agrégalo en su ficha.', 'error');
+  const email = lead?.email || q.client?.email;
+  if (!email) return toast('La cotización no tiene correo de contacto. Edítala para agregarlo.', 'error');
   const { subject, body } = buildQuoteEmail(q, lead);
   $('quoteSendId').value = id;
-  $('quoteSendSubtitle').textContent = `Para ${lead.contact || lead.company} · ${lead.email}`;
+  $('quoteSendSubtitle').textContent = `Para ${lead?.contact || q.client?.contact || lead?.company || q.client?.company} · ${email}`;
   $('quoteSendSubject').value = subject;
   $('quoteSendBody').value = body;
   $('quoteSendDialog').showModal();
@@ -1963,19 +1974,22 @@ async function submitQuoteSend(e) {
   const id = $('quoteSendId').value;
   const q = getQuote(id);
   const lead = getLead(q?.leadId);
-  if (!q || !lead) return;
-  if (!canEditLeadLocally(lead)) return toast('Solo puedes preparar cotizaciones de oportunidades asignadas a ti.', 'error');
-  if (!(await addActivityConfirmed({
+  if (!q) return;
+  if (q.leadId && !canEditLeadLocally(q.leadId)) return toast('Solo puedes preparar cotizaciones de oportunidades asignadas a ti.', 'error');
+  if (!q.leadId && !isAdmin() && q.ownerId !== session.user?.id) return toast('No tienes permiso para enviar esta cotización.', 'error');
+  const email = lead?.email || q.client?.email;
+  if (!email) return toast('La cotización no tiene correo de contacto.', 'error');
+  if (lead && !(await addActivityConfirmed({
     leadId: lead.id,
     type: 'Correo',
     date: localDateTimeInput(),
     owner: lead.owner || session.profile?.name || '',
-    detail: `Correo preparado con cotización v${q.version} para ${lead.contact || lead.email}.`
+    detail: `Correo preparado con cotización v${q.version} para ${lead.contact || email}.`
   }))) return;
-  openExternal(`mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent($('quoteSendSubject').value)}&body=${encodeURIComponent($('quoteSendBody').value)}`);
+  openExternal(`mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent($('quoteSendSubject').value)}&body=${encodeURIComponent($('quoteSendBody').value)}`);
   $('quoteSendDialog').close();
   if ($('quoteViewDialog').open) $('quoteViewDialog').close();
-  toast('Correo abierto.');
+  toast(lead ? 'Correo abierto.' : 'Correo abierto. Cotización independiente, sin actividad en el CRM.');
 }
 
 /* ---------- Listas de precios ---------- */
@@ -2935,7 +2949,7 @@ const ACTIONS = {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
     const quote = getQuote(id);
     if (!quote) return;
-    if (!canEditLeadLocally(quote.leadId) || (!isAdmin() && quote.ownerId !== session.user?.id)) {
+    if ((quote.leadId && !canEditLeadLocally(quote.leadId)) || (!isAdmin() && quote.ownerId !== session.user?.id)) {
       return toast('No tienes permiso para eliminar esta versión de la cotización.', 'error');
     }
     if (!confirm('¿Eliminar esta versión de la cotización?')) return;
