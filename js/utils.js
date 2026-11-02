@@ -9,14 +9,18 @@ export const fmtMoney = (n) =>
 
 export const fmtNumber = (n) => new Intl.NumberFormat('es-CL').format(Number(n || 0));
 
-/** Montos del cotizador: UF con 2 decimales (hasta 4 si el precio los trae) o CLP sin decimales. */
+/** CLP sin decimales; USD con dos; UF con hasta cuatro decimales. */
 export const fmtAmount = (n, currency = 'UF') =>
   currency === 'CLP'
     ? fmtMoney(n)
-    : new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(Number(n || 0));
+    : new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: currency === 'USD' ? 2 : 4
+      }).format(Number(n || 0));
 
-/** Monto con su moneda: "UF 2,03" o "$27.650". */
-export const fmtCurrency = (n, currency = 'UF') => (currency === 'CLP' ? fmtMoney(n) : `UF ${fmtAmount(n, 'UF')}`);
+/** Monto etiquetado en su moneda; no confundir US$ con CLP $. */
+export const fmtCurrency = (n, currency = 'UF') =>
+  currency === 'CLP' ? fmtMoney(n) : `${currency === 'USD' ? 'US$' : 'UF'} ${fmtAmount(n, currency)}`;
 
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 

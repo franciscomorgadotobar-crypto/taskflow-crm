@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { fmtAmount, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
+import { fmtAmount, fmtCurrency, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
 
 /**
  * Cotizador. Vive separado de store.js por prolijidad: `state` en memoria y
@@ -84,7 +84,9 @@ function fromDbQuote(r, items = [], discounts = []) {
     priceListId: r.price_list_id || '',
     currency: r.currency || 'UF',
     ufValue: r.uf_value == null ? null : Number(r.uf_value),
+    usdValue: r.usd_value == null ? null : Number(r.usd_value),
     ufDate: r.uf_date || '',
+    usdDate: r.usd_date || '',
     quoteDate: r.quote_date || '',
     contractMonths: Number(r.contract_months || 12),
     paymentMethod: r.payment_method || '',
@@ -339,7 +341,9 @@ function toRpcPayload(draft) {
       price_list_id: draft.priceListId,
       currency: draft.currency,
       uf_value: draft.ufValue ?? '',
+      usd_value: draft.usdValue ?? '',
       uf_date: draft.ufDate || '',
+      usd_date: draft.usdDate || '',
       quote_date: draft.quoteDate || '',
       valid_until: draft.validUntil || '',
       contract_months: draft.contractMonths,
@@ -399,6 +403,21 @@ export async function fetchUfValue(dateISO) {
   }
 }
 
+/** Dólar observado de la fecha seleccionada (CLP por USD); admite valor manual cuando no se publica. */
+export async function fetchUsdValue(dateISO) {
+  const [y, m, d] = String(dateISO || '').split('-');
+  if (!y || !m || !d) return null;
+  try {
+    const res = await fetch(`https://mindicador.cl/api/dolar/${d}-${m}-${y}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const value = Number(json?.serie?.[0]?.valor);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function setQuoteStatus(id, status) {
   const q = getQuote(id);
   if (!q) return null;
@@ -446,7 +465,7 @@ const firstName = (full) => String(full || '').trim().split(/\s+/)[0] || '';
 export function buildQuoteEmail(quote, lead) {
   const name = firstName(quote.client?.contact || lead?.contact) || 'equipo';
   const cur = quote.currency;
-  const money = (n) => (cur === 'CLP' ? fmtAmount(n, cur) : `UF ${fmtAmount(n, cur)}`);
+  const money = (n) => fmtCurrency(n, cur);
   const line = (it) =>
     `- ${it.name} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (dscto ${money(it.discount)})` : ''} = ${money(it.total)}`;
   const setup = quote.items.filter((it) => it.periodicity === 'unico');

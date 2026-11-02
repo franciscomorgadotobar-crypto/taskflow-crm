@@ -1364,7 +1364,7 @@ function renderQuotesList(ui) {
   const rows = quoteState.quotes.filter((q) => q.isCurrent);
   const status = ui.quoteFilters?.status || '';
   const filtered = status ? rows.filter((q) => q.status === status) : rows;
-  // Los totales se suman por moneda: UF y CLP no se mezclan.
+  // Los totales se suman por moneda: UF, CLP y USD no se mezclan.
   const sums = {};
   filtered.forEach((q) => (sums[q.currency] = (sums[q.currency] || 0) + q.total));
   const totalLabel = Object.entries(sums)
@@ -1486,7 +1486,7 @@ export function quoteDocHtml(doc) {
           <div>Meses contrato: ${e(doc.contractMonths)}</div>
           <div>Forma de pago: ${e(optionLabel(PAYMENT_METHODS, doc.paymentMethod))}</div>
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
-          <div>Moneda: ${e(cur)}${doc.ufValue ? ` · UF $${e(fmtAmount(doc.ufValue, 'UF'))}${doc.ufDate ? ` (${e(fmtDate(doc.ufDate))})` : ''}` : ''}</div>
+          <div>Moneda: ${e(cur)}${doc.ufValue ? ` · UF ${e(fmtCurrency(doc.ufValue, 'CLP'))}${doc.ufDate ? ` (${e(fmtDate(doc.ufDate))})` : ''}` : ''}${doc.usdValue ? ` · USD 1 = ${e(fmtCurrency(doc.usdValue, 'CLP'))}${doc.usdDate ? ` (${e(fmtDate(doc.usdDate))})` : ''}` : ''}</div>
           <div>Estado: ${e(QUOTE_STATUS_LABEL[doc.status] || doc.status || '—')}</div>
         </div>
       </div>
@@ -1531,6 +1531,8 @@ export function quoteDocFromSaved(q) {
     currency: q.currency,
     ufValue: q.ufValue,
     ufDate: q.ufDate,
+    usdValue: q.usdValue,
+    usdDate: q.usdDate,
     quoteDate: q.quoteDate,
     validUntil: q.validUntil,
     contractMonths: q.contractMonths,
@@ -1632,7 +1634,7 @@ export function quoteDiscountsHtml(builder) {
         ${lineOptions}
       </select></label>
       <label>Tipo<select id="quoteDiscKind">${DISCOUNT_KINDS.map((k) => `<option value="${k.id}">${e(k.label)}</option>`).join('')}</select></label>
-      <label>Valor<input id="quoteDiscValue" type="number" min="0" step="any" inputmode="decimal" placeholder="${cur === 'CLP' ? '$' : 'UF'} o %" /></label>
+      <label>Valor<input id="quoteDiscValue" type="number" min="0" step="any" inputmode="decimal" placeholder="${cur === 'CLP' ? '$' : cur === 'USD' ? 'US$' : 'UF'} o %" /></label>
       <label>Meses<input id="quoteDiscMonths" type="number" min="1" step="1" placeholder="Todos" /></label>
       <button type="button" class="ghost-btn" data-action="add-quote-discount">Agregar descuento</button>
     </div>`;

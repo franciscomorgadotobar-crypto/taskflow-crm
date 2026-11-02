@@ -753,6 +753,7 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .quote-section .form-grid .span-2 { grid-column: span 2; }
 .quote-section .form-grid textarea { min-height: 60px; }
 .quote-uf-field { display: flex; flex-direction: column; gap: 6px; }
+.quote-uf-field[hidden] { display: none; }
 .quote-uf-field > label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .input-with-btn { display: flex; gap: 6px; }
 .input-with-btn input { flex: 1; min-width: 0; }

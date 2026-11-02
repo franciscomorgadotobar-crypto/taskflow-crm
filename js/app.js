@@ -68,6 +68,7 @@ import {
   deletePriceListItem,
   deleteQuote,
   fetchUfValue,
+  fetchUsdValue,
   getPriceList,
   getPriceListItem,
   getQuote,
@@ -1482,6 +1483,7 @@ function readQuoteHeader() {
     priceListId: $('quotePriceList').value,
     currency: $('quoteCurrency').value,
     ufValue: $('quoteUfValue').value === '' ? null : Number($('quoteUfValue').value),
+    usdValue: $('quoteUsdValue').value === '' ? null : Number($('quoteUsdValue').value),
     quoteDate: $('quoteDate').value,
     validUntil: $('quoteValidUntil').value,
     contractMonths: Number($('quoteContractMonths').value || 0),
@@ -1557,6 +1559,8 @@ function builderDoc() {
     currency: b.currency,
     ufValue: b.ufValue,
     ufDate: b.ufDate,
+    usdValue: b.usdValue,
+    usdDate: b.usdDate,
     quoteDate: b.quoteDate,
     validUntil: b.validUntil,
     contractMonths: b.contractMonths,
@@ -1614,7 +1618,7 @@ function syncQuoteDiscountInputs() {
   if (isSetup) $('quoteDiscMonths').value = '';
   $('quoteDiscValue').disabled = kind === 'free';
   if (kind === 'free') $('quoteDiscValue').value = '';
-  $('quoteDiscValue').placeholder = kind === 'percent' ? '%' : kind === 'free' ? '—' : b.currency === 'CLP' ? '$' : 'UF';
+  $('quoteDiscValue').placeholder = kind === 'percent' ? '%' : kind === 'free' ? '—' : b.currency === 'CLP' ? '$' : b.currency === 'USD' ? 'US$' : 'UF';
 }
 
 function scheduleQuotePreview() {
@@ -1644,16 +1648,59 @@ async function runQuotePreview() {
   renderQuoteSummary();
 }
 
+/** Solo exigir los indicadores que se necesitan para convertir entre las dos monedas. */
+function quoteRatesNeeded() {
+  const b = ui.quoteBuilder;
+  const source = getPriceList(b?.priceListId)?.currency;
+  const target = b?.currency;
+  const conversion = Boolean(source && target && source !== target);
+  return {
+    uf: conversion && (source === 'UF' || target === 'UF'),
+    usd: conversion && (source === 'USD' || target === 'USD')
+  };
+}
+
+function syncQuoteRateFields() {
+  const needed = quoteRatesNeeded();
+  $('quoteUfField').hidden = !needed.uf;
+  $('quoteUsdField').hidden = !needed.usd;
+  return needed;
+}
+
+async function loadQuoteUsd({ force = false } = {}) {
+  const b = ui.quoteBuilder;
+  if (!b || !quoteRatesNeeded().usd || (b.usdManual && !force)) return;
+  const date = $('quoteDate').value || todayISO();
+  $('quoteUsdHint').textContent = '· consultando…';
+  const value = await fetchUsdValue(date);
+  if (ui.quoteBuilder !== b || $('quoteDate').value !== date) return;
+  if (value) {
+    $('quoteUsdValue').value = value;
+    Object.assign(b, { usdValue: value, usdDate: date, usdManual: false });
+    $('quoteUsdHint').textContent = `· dólar observado, mindicador.cl ${fmtDate(date)}`;
+  } else {
+    $('quoteUsdHint').textContent = '· no disponible: ingrésalo manualmente';
+  }
+  scheduleQuotePreview();
+}
+
+function loadQuoteRates() {
+  const needed = syncQuoteRateFields();
+  if (needed.uf) loadQuoteUf();
+  if (needed.usd) loadQuoteUsd();
+  scheduleQuotePreview();
+}
+
 async function loadQuoteUf({ force = false } = {}) {
   const b = ui.quoteBuilder;
-  if (!b || (b.ufManual && !force)) return scheduleQuotePreview();
+  if (!b || !quoteRatesNeeded().uf || (b.ufManual && !force)) return;
   const date = $('quoteDate').value || todayISO();
   $('quoteUfHint').textContent = '· consultando…';
   const value = await fetchUfValue(date);
-  if (ui.quoteBuilder !== b) return;
+  if (ui.quoteBuilder !== b || $('quoteDate').value !== date) return;
   if (value) {
     $('quoteUfValue').value = value;
-    Object.assign(b, { ufDate: date, ufManual: false });
+    Object.assign(b, { ufValue: value, ufDate: date, ufManual: false });
     $('quoteUfHint').textContent = `· mindicador.cl ${fmtDate(date)}`;
   } else {
     $('quoteUfHint').textContent = '· sin dato: ingrésalo a mano';
@@ -1713,6 +1760,9 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     ufValue: null,
     ufDate: '',
     ufManual: false,
+    usdValue: null,
+    usdDate: '',
+    usdManual: false,
     quoteDate: todayISO(),
     validUntil: addDaysISO(todayISO(), 7),
     contractMonths: base?.contractMonths || 12,
@@ -1763,6 +1813,9 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   $('quotePriceList').value = b.priceListId;
   $('quoteCurrency').value = b.currency;
   $('quoteUfValue').value = '';
+  $('quoteUsdValue').value = '';
+  $('quoteUsdHint').textContent = '';
+  $('quoteUfHint').textContent = '';
   $('quoteDate').value = b.quoteDate;
   $('quoteValidUntil').value = b.validUntil;
   $('quoteContractMonths').value = b.contractMonths;
@@ -1775,7 +1828,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   renderQuoteDiscounts();
   renderQuoteSummary();
   $('quoteDialog').showModal();
-  loadQuoteUf();
+  loadQuoteRates();
 }
 
 function handleQuoteFormChange(ev) {
@@ -1804,19 +1857,23 @@ function handleQuoteFormChange(ev) {
       if (dropped) toast(`${dropped} línea(s) no existen en la nueva lista y se quitaron.`, 'error');
       fillQuoteServiceOptions();
       renderQuoteDiscounts();
-      return scheduleQuotePreview();
+      return loadQuoteRates();
     }
     case 'quoteUfValue':
       Object.assign(b, { ufManual: true, ufDate: $('quoteDate').value });
       $('quoteUfHint').textContent = '· ingresado a mano';
       return scheduleQuotePreview();
+    case 'quoteUsdValue':
+      Object.assign(b, { usdManual: true, usdDate: $('quoteDate').value });
+      $('quoteUsdHint').textContent = '· ingresado manualmente';
+      return scheduleQuotePreview();
     case 'quoteDate':
-      if (ev.type === 'change') loadQuoteUf();
+      if (ev.type === 'change') loadQuoteRates();
       return;
     case 'quoteCurrency':
       b.currency = el.value;
       renderQuoteDiscounts();
-      return scheduleQuotePreview();
+      return loadQuoteRates();
     case 'quoteDiscTarget':
     case 'quoteDiscKind':
       return syncQuoteDiscountInputs();
@@ -2088,6 +2145,7 @@ function detectPriceColumns(headers) {
 
 function detectPriceCurrency(headers, mapping) {
   const header = normalizeHeader(headers[mapping.price]);
+  if (/\busd\b|\bdolar(es)?\b|\bus\b/.test(header)) return 'USD';
   if (/\bclp\b|\$|peso/.test(header)) return 'CLP';
   if (/\buf\b/.test(header)) return 'UF';
   return '';
@@ -2095,7 +2153,7 @@ function detectPriceCurrency(headers, mapping) {
 
 /** Devuelve el precio como texto decimal con punto ("0.70") o null si no es válido. */
 function parseImportPrice(raw, currency) {
-  let s = String(raw ?? '').replace(/uf|clp|\$|\s/gi, '');
+  let s = String(raw ?? '').replace(/usd|us\$|d[oó]lares?|uf|clp|\$|\s/gi, '');
   if (!s) return null;
   if (s.includes('.') && s.includes(',')) {
     s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
@@ -3022,6 +3080,7 @@ const ACTIONS = {
     scheduleQuotePreview();
   },
   'refresh-uf': () => loadQuoteUf({ force: true }),
+  'refresh-usd': () => loadQuoteUsd({ force: true }),
   'quote-builder-preview': async () => {
     const b = ui.quoteBuilder;
     if (!b) return;

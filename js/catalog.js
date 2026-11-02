@@ -356,7 +356,7 @@ export const TEMPLATE_VARIABLES = ['{{nombre}}', '{{nombreCompleto}}', '{{empres
 // Emisor que aparece en el encabezado de la cotización y del PDF.
 export const QUOTE_ISSUER = { name: '', rut: '' };
 
-export const CURRENCIES = ['UF', 'CLP'];
+export const CURRENCIES = ['UF', 'CLP', 'USD'];
 
 // Los id deben coincidir con los check de quotes.payment_method / payment_terms (0029).
 export const PAYMENT_METHODS = [
