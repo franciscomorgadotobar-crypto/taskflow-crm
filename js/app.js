@@ -1670,11 +1670,12 @@ async function loadQuoteUsd({ force = false } = {}) {
   const b = ui.quoteBuilder;
   if (!b || !quoteRatesNeeded().usd || (b.usdManual && !force)) return;
   const date = $('quoteDate').value || todayISO();
+  const inputBefore = $('quoteUsdValue').value;
   $('quoteUsdHint').textContent = '· consultando fuentes…';
   const rate = await fetchQuoteRate('dolar', date);
   // Nunca sobrescribir lo que escribió la persona mientras se consultaban los valores.
-  if (ui.quoteBuilder !== b || $('quoteDate').value !== date || (b.usdManual && !force)) return;
-  if (rate && !b.usdManual) {
+  if (ui.quoteBuilder !== b || $('quoteDate').value !== date || $('quoteUsdValue').value !== inputBefore || (b.usdManual && !force)) return;
+  if (rate) {
     $('quoteUsdValue').value = formatQuoteRate(rate.value);
     Object.assign(b, { usdValue: rate.value, usdDate: rate.date, usdManual: false });
     $('quoteUsdHint').textContent = `· ${rate.source} · ${fmtDate(rate.date)}${rate.date !== date ? ' (último día publicado)' : ''}`;
@@ -1695,10 +1696,11 @@ async function loadQuoteUf({ force = false } = {}) {
   const b = ui.quoteBuilder;
   if (!b || !quoteRatesNeeded().uf || (b.ufManual && !force)) return;
   const date = $('quoteDate').value || todayISO();
+  const inputBefore = $('quoteUfValue').value;
   $('quoteUfHint').textContent = '· consultando fuentes…';
   const rate = await fetchQuoteRate('uf', date);
-  if (ui.quoteBuilder !== b || $('quoteDate').value !== date || (b.ufManual && !force)) return;
-  if (rate && !b.ufManual) {
+  if (ui.quoteBuilder !== b || $('quoteDate').value !== date || $('quoteUfValue').value !== inputBefore || (b.ufManual && !force)) return;
+  if (rate) {
     $('quoteUfValue').value = formatQuoteRate(rate.value);
     Object.assign(b, { ufValue: rate.value, ufDate: rate.date, ufManual: false });
     $('quoteUfHint').textContent = `· ${rate.source} · ${fmtDate(rate.date)}${rate.date !== date ? ' (último día publicado)' : ''}`;
