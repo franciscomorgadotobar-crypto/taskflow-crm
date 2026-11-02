@@ -27,3 +27,5 @@ jobs:
           done < <(find js -type f -name '*.js' -print0)
           node --check service-worker.js
           node --check config.js
+      - name: Probar exportación de listas de precios
+        run: node .github/price-list-export.test.mjs

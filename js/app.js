@@ -85,6 +85,7 @@ import {
   uploadPriceListLogo,
   versionsOf
 } from './quotes.js';
+import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
 import { supabase } from './supabase.js';
@@ -92,6 +93,7 @@ import {
   clearLocal as hyperFocusClearLocal,
   hydrate as hyperFocusHydrate,
   initUI as initHyperFocusUI,
+  ensureXlsx,
   onChange as onHyperFocusChange,
   parseUploadedFile,
   renderHyperFocus,
@@ -1948,6 +1950,11 @@ function openQuoteView(id) {
   $('quoteViewEditBtn').dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
   $('quoteViewSendBtn').dataset.id = q.id;
   $('quoteViewPdfBtn').dataset.id = q.id;
+  const listDownloadButton = $('quoteViewPriceListBtn');
+  const linkedPriceList = getPriceList(q.priceListId);
+  listDownloadButton.hidden = !linkedPriceList;
+  if (linkedPriceList) listDownloadButton.dataset.id = linkedPriceList.id;
+  else delete listDownloadButton.dataset.id;
   $('quoteViewDialog').showModal();
 }
 
@@ -2006,6 +2013,47 @@ const normalizeHeader = (value) =>
     .trim();
 
 // Encabezados aceptados por columna (ya normalizados: sin tildes y en minúscula).
+/**
+ * Descarga datos frescos desde Supabase, con paginación explícita.
+ * No exportar solo el estado local: hydrate puede estar limitado a 1000 filas.
+ * La RLS existente determina qué listas y servicios puede leer cada usuario.
+ */
+async function getExportPriceListItems(listId) {
+  const all = [];
+  const pageSize = 500;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase.from('price_list_items')
+      .select('code,name,price,periodicity,category,active,position')
+      .eq('price_list_id', listId)
+      .order('position', { ascending: true })
+      .order('code', { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    const page = data || [];
+    all.push(...page);
+    if (page.length < pageSize) return all;
+  }
+}
+
+async function exportSinglePriceList(id, format) {
+  const list = getPriceList(id);
+  if (!list) throw new Error('La lista de precios ya no está disponible.');
+  const items = await getExportPriceListItems(list.id);
+  if (format === 'csv') downloadPriceListCsv(list, items);
+  else await downloadPriceListXlsx(list, items, ensureXlsx);
+  toast('Descarga de la lista de precios iniciada.');
+}
+
+async function exportAllPriceLists() {
+  const lists = quoteState.priceLists;
+  if (!lists.length) return toast('No hay listas de precios disponibles.', 'error');
+  const collection = [];
+  // Procesar secuencialmente para no saturar Supabase con exportaciones grandes.
+  for (const list of lists) collection.push({ list, items: await getExportPriceListItems(list.id) });
+  await downloadAllPriceListsXlsx(collection, ensureXlsx);
+  toast('Descarga de todas las listas de precios iniciada.');
+}
+
 const PRICE_IMPORT_COLUMNS = {
   code: ['codigo', 'cod', 'code', 'sku'],
   name: ['nombre', 'servicio', 'nombre servicio', 'descripcion', 'name', 'item'],
@@ -2907,6 +2955,9 @@ const ACTIONS = {
     render();
   },
   'import-price-list': () => openPriceImport(),
+  'download-price-list-xlsx': (id) => exportSinglePriceList(id, 'xlsx'),
+  'download-price-list-csv': (id) => exportSinglePriceList(id, 'csv'),
+  'download-all-price-lists': () => exportAllPriceLists(),
   'edit-price-brand': (id) => openPriceBrand(id),
   'toggle-price-list': async (id) => {
     if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');

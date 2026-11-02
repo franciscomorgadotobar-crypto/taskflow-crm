@@ -1250,7 +1250,11 @@ function renderPriceListItems(list) {
           <h3>${e(list.name)} <span class="badge">${e(list.currency)}</span> ${list.status === 'archivada' ? '<span class="badge warning">Archivada</span>' : ''}</h3>
           <p class="muted">${items.length} servicio(s) registrado(s).</p>
         </div>
-        ${admin ? `<button class="primary-btn" data-action="new-price-item" data-id="${list.id}">+ Agregar servicio</button>` : ''}
+        <div class="actions">
+          <button class="small-btn" data-action="download-price-list-xlsx" data-id="${list.id}">Descargar Excel</button>
+          <button class="small-btn" data-action="download-price-list-csv" data-id="${list.id}">Descargar CSV</button>
+          ${admin ? `<button class="primary-btn" data-action="new-price-item" data-id="${list.id}">+ Agregar servicio</button>` : ''}
+        </div>
       </div>
       <div class="card-body">
         <div class="price-list-brand-summary">
@@ -1309,7 +1313,10 @@ function renderPriceLists(ui) {
           <h3>Listas de precios</h3>
           <p class="muted">Cada archivo importado crea una lista nueva. Al cotizar se elige la lista a usar.</p>
         </div>
-        ${admin ? '<button class="primary-btn" data-action="import-price-list">Importar lista</button>' : ''}
+        <div class="actions">
+          ${lists.length ? '<button class="small-btn" data-action="download-all-price-lists">Descargar todas (Excel)</button>' : ''}
+          ${admin ? '<button class="primary-btn" data-action="import-price-list">Importar lista</button>' : ''}
+        </div>
       </div>
       <div class="card-body">
         ${
@@ -1332,6 +1339,8 @@ function renderPriceLists(ui) {
                       <td>${fmtDate(l.createdAt)}</td>
                       <td><div class="actions">
                         <button class="small-btn" data-action="view-price-list" data-id="${l.id}">Ver</button>
+                        <button class="small-btn" data-action="download-price-list-xlsx" data-id="${l.id}" title="Descargar la lista actual completa en Excel">Excel</button>
+                        <button class="small-btn" data-action="download-price-list-csv" data-id="${l.id}" title="Descargar la lista actual completa en CSV">CSV</button>
                         ${
                           admin
                             ? `<button class="small-btn" data-action="edit-price-brand" data-id="${l.id}">Empresa</button>

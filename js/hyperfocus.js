@@ -924,7 +924,7 @@ function openImportDialog() {
   loadCreationTeamPicker('hfImportCampaignTeam', 'hfImportDialog');
 }
 
-async function ensureXlsx() {
+export async function ensureXlsx() {
   if (window.XLSX) return window.XLSX;
   const sources = [
     'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
