@@ -388,36 +388,6 @@ export async function saveQuote(draft, baseId = '') {
   return data;
 }
 
-/** Valor UF del día desde mindicador.cl. Devuelve null si no hay conexión o dato. */
-export async function fetchUfValue(dateISO) {
-  const [y, m, d] = String(dateISO || '').split('-');
-  if (!y || !m || !d) return null;
-  try {
-    const res = await fetch(`https://mindicador.cl/api/uf/${d}-${m}-${y}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const value = Number(json?.serie?.[0]?.valor);
-    return value > 0 ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Dólar observado de la fecha seleccionada (CLP por USD); admite valor manual cuando no se publica. */
-export async function fetchUsdValue(dateISO) {
-  const [y, m, d] = String(dateISO || '').split('-');
-  if (!y || !m || !d) return null;
-  try {
-    const res = await fetch(`https://mindicador.cl/api/dolar/${d}-${m}-${y}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    const value = Number(json?.serie?.[0]?.valor);
-    return Number.isFinite(value) && value > 0 ? value : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function setQuoteStatus(id, status) {
   const q = getQuote(id);
   if (!q) return null;
