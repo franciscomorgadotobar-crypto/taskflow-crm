@@ -67,8 +67,6 @@ import {
   deletePriceList,
   deletePriceListItem,
   deleteQuote,
-  fetchUfValue,
-  fetchUsdValue,
   getPriceList,
   getPriceListItem,
   getQuote,
@@ -86,6 +84,7 @@ import {
   uploadPriceListLogo,
   versionsOf
 } from './quotes.js';
+import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
@@ -1482,8 +1481,8 @@ function readQuoteHeader() {
     leadId: lead?.id || '',
     priceListId: $('quotePriceList').value,
     currency: $('quoteCurrency').value,
-    ufValue: $('quoteUfValue').value === '' ? null : Number($('quoteUfValue').value),
-    usdValue: $('quoteUsdValue').value === '' ? null : Number($('quoteUsdValue').value),
+    ufValue: parseQuoteRate($('quoteUfValue').value),
+    usdValue: parseQuoteRate($('quoteUsdValue').value),
     quoteDate: $('quoteDate').value,
     validUntil: $('quoteValidUntil').value,
     contractMonths: Number($('quoteContractMonths').value || 0),
@@ -1671,15 +1670,16 @@ async function loadQuoteUsd({ force = false } = {}) {
   const b = ui.quoteBuilder;
   if (!b || !quoteRatesNeeded().usd || (b.usdManual && !force)) return;
   const date = $('quoteDate').value || todayISO();
-  $('quoteUsdHint').textContent = '· consultando…';
-  const value = await fetchUsdValue(date);
-  if (ui.quoteBuilder !== b || $('quoteDate').value !== date) return;
-  if (value) {
-    $('quoteUsdValue').value = value;
-    Object.assign(b, { usdValue: value, usdDate: date, usdManual: false });
-    $('quoteUsdHint').textContent = `· dólar observado, mindicador.cl ${fmtDate(date)}`;
-  } else {
-    $('quoteUsdHint').textContent = '· no disponible: ingrésalo manualmente';
+  $('quoteUsdHint').textContent = '· consultando fuentes…';
+  const rate = await fetchQuoteRate('dolar', date);
+  // Nunca sobrescribir lo que escribió la persona mientras se consultaban los valores.
+  if (ui.quoteBuilder !== b || $('quoteDate').value !== date || (b.usdManual && !force)) return;
+  if (rate && !b.usdManual) {
+    $('quoteUsdValue').value = formatQuoteRate(rate.value);
+    Object.assign(b, { usdValue: rate.value, usdDate: rate.date, usdManual: false });
+    $('quoteUsdHint').textContent = `· ${rate.source} · ${fmtDate(rate.date)}${rate.date !== date ? ' (último día publicado)' : ''}`;
+  } else if (!b.usdManual) {
+    $('quoteUsdHint').textContent = '· sin respuesta: ingresa el valor manualmente';
   }
   scheduleQuotePreview();
 }
@@ -1695,15 +1695,15 @@ async function loadQuoteUf({ force = false } = {}) {
   const b = ui.quoteBuilder;
   if (!b || !quoteRatesNeeded().uf || (b.ufManual && !force)) return;
   const date = $('quoteDate').value || todayISO();
-  $('quoteUfHint').textContent = '· consultando…';
-  const value = await fetchUfValue(date);
-  if (ui.quoteBuilder !== b || $('quoteDate').value !== date) return;
-  if (value) {
-    $('quoteUfValue').value = value;
-    Object.assign(b, { ufValue: value, ufDate: date, ufManual: false });
-    $('quoteUfHint').textContent = `· mindicador.cl ${fmtDate(date)}`;
-  } else {
-    $('quoteUfHint').textContent = '· sin dato: ingrésalo a mano';
+  $('quoteUfHint').textContent = '· consultando fuentes…';
+  const rate = await fetchQuoteRate('uf', date);
+  if (ui.quoteBuilder !== b || $('quoteDate').value !== date || (b.ufManual && !force)) return;
+  if (rate && !b.ufManual) {
+    $('quoteUfValue').value = formatQuoteRate(rate.value);
+    Object.assign(b, { ufValue: rate.value, ufDate: rate.date, ufManual: false });
+    $('quoteUfHint').textContent = `· ${rate.source} · ${fmtDate(rate.date)}${rate.date !== date ? ' (último día publicado)' : ''}`;
+  } else if (!b.ufManual) {
+    $('quoteUfHint').textContent = '· sin respuesta: ingresa el valor manualmente';
   }
   scheduleQuotePreview();
 }
@@ -1861,14 +1861,30 @@ function handleQuoteFormChange(ev) {
     }
     case 'quoteUfValue':
       Object.assign(b, { ufManual: true, ufDate: $('quoteDate').value });
-      $('quoteUfHint').textContent = '· ingresado a mano';
+      $('quoteUfHint').textContent = '· valor manual';
+      if (ev.type === 'change') {
+        const value = parseQuoteRate(el.value);
+        if (value !== null) el.value = formatQuoteRate(value);
+      }
       return scheduleQuotePreview();
     case 'quoteUsdValue':
       Object.assign(b, { usdManual: true, usdDate: $('quoteDate').value });
-      $('quoteUsdHint').textContent = '· ingresado manualmente';
+      $('quoteUsdHint').textContent = '· valor manual';
+      if (ev.type === 'change') {
+        const value = parseQuoteRate(el.value);
+        if (value !== null) el.value = formatQuoteRate(value);
+      }
       return scheduleQuotePreview();
     case 'quoteDate':
-      if (ev.type === 'change') loadQuoteRates();
+      if (ev.type === 'change') {
+        b.ufManual = false;
+        b.usdManual = false;
+        $('quoteUfValue').value = '';
+        $('quoteUsdValue').value = '';
+        $('quoteUfHint').textContent = '';
+        $('quoteUsdHint').textContent = '';
+        loadQuoteRates();
+      }
       return;
     case 'quoteCurrency':
       b.currency = el.value;
@@ -1935,6 +1951,20 @@ async function submitQuoteBuilder(e) {
   if (!b.paymentMethod) return toast('Selecciona la forma de pago.', 'error');
   if (!b.paymentTerms) return toast('Selecciona la condición de pago.', 'error');
   if (!b.items.length) return toast('Agrega al menos una línea de servicio.', 'error');
+  const ratesNeeded = quoteRatesNeeded();
+  if (ratesNeeded.uf && !(b.ufValue > 0)) {
+    $('quoteUfValue').focus();
+    return toast('Ingresa el valor UF en pesos. Ejemplo: 41.258,26.', 'error');
+  }
+  if (ratesNeeded.usd && !(b.usdValue > 0)) {
+    $('quoteUsdValue').focus();
+    return toast('Ingresa el dólar observado en pesos. Puedes escribir 992,66 o 992.66.', 'error');
+  }
+  // Impide guardar valores UF truncados por escribir puntos como separadores.
+  if (ratesNeeded.uf && b.ufValue < 1000) {
+    $('quoteUfValue').focus();
+    return toast('Revisa el valor UF: debe expresarse en pesos, no en unidades ni decimales.', 'error');
+  }
 
   const saved = await saveQuote(b, b.baseId);
   if (!saved) return;
