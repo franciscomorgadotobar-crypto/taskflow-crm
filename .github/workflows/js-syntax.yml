@@ -29,3 +29,5 @@ jobs:
           node --check config.js
       - name: Probar exportación de listas de precios
         run: node .github/price-list-export.test.mjs
+      - name: Probar tasa UF y USD, fuentes y formato chileno
+        run: node .github/quote-rates.test.mjs
