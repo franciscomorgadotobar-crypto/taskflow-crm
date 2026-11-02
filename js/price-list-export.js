@@ -64,7 +64,7 @@ function createWorksheet(XLSX, list, items) {
 }
 
 function sheetName(name, taken) {
-  const base = String(name || 'Lista').replace(/[\[\]:*?/\\]/g, ' ').trim() || 'Lista';
+  const base = String(name || 'Lista').replace(/[\[\]:*?\/\\]/g, ' ').trim() || 'Lista';
   let number = 1;
   let value = base.slice(0, 31);
   while (taken.has(value.toLocaleLowerCase('es'))) {
