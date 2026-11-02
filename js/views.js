@@ -1364,7 +1364,7 @@ function renderQuotesList(ui) {
   const rows = quoteState.quotes.filter((q) => q.isCurrent);
   const status = ui.quoteFilters?.status || '';
   const filtered = status ? rows.filter((q) => q.status === status) : rows;
-  // Los totales se suman por moneda: UF y CLP no se mezclan.
+  // Los totales se suman por moneda: UF, CLP y USD no se mezclan.
   const sums = {};
   filtered.forEach((q) => (sums[q.currency] = (sums[q.currency] || 0) + q.total));
   const totalLabel = Object.entries(sums)
@@ -1486,7 +1486,7 @@ export function quoteDocHtml(doc) {
           <div>Meses contrato: ${e(doc.contractMonths)}</div>
           <div>Forma de pago: ${e(optionLabel(PAYMENT_METHODS, doc.paymentMethod))}</div>
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
-          <div>Moneda: ${e(cur)}${doc.ufValue ? ` · UF $${e(fmtAmount(doc.ufValue, 'UF'))}${doc.ufDate ? ` (${e(fmtDate(doc.ufDate))})` : ''}` : ''}</div>
+          <div>Moneda: ${e(cur)}${doc.ufValue ? ` · UF ${e(fmtCurrency(doc.ufValue, 'CLP'))}${doc.ufDate ? ` (${e(fmtDate(doc.ufDate))})` : ''}` : ''}${doc.usdValue ? ` · USD 1 = ${e(fmtCurrency(doc.usdValue, 'CLP'))}${doc.usdDate ? ` (${e(fmtDate(doc.usdDate))})` : ''}` : ''}</div>
           <div>Estado: ${e(QUOTE_STATUS_LABEL[doc.status] || doc.status || '—')}</div>
         </div>
       </div>
@@ -1531,6 +1531,8 @@ export function quoteDocFromSaved(q) {
     currency: q.currency,
     ufValue: q.ufValue,
     ufDate: q.ufDate,
+    usdValue: q.usdValue,
+    usdDate: q.usdDate,
     quoteDate: q.quoteDate,
     validUntil: q.validUntil,
     contractMonths: q.contractMonths,
@@ -1632,7 +1634,729 @@ export function quoteDiscountsHtml(builder) {
         ${lineOptions}
       </select></label>
       <label>Tipo<select id="quoteDiscKind">${DISCOUNT_KINDS.map((k) => `<option value="${k.id}">${e(k.label)}</option>`).join('')}</select></label>
-      <label>Valor<input id="quoteDiscValue" type="number" min="0" step="any" inputmode="decimal" placeholder="${cur === 'CLP' ? '$' : 'UF'} o %" /></label>
+      <label>Valor<input id="quoteDiscValue" type="number" min="0" step="any" inputmode="decimal" placeholder="${cur === 'CLP' ? ' /></label>
+      <label>Meses<input id="quoteDiscMonths" type="number" min="1" step="1" placeholder="Todos" /></label>
+      <button type="button" class="ghost-btn" data-action="add-quote-discount">Agregar descuento</button>
+    </div>`;
+}
+
+/* ---------------- Ficha de la oportunidad ---------------- */
+
+/** Sección plegable de la ficha. `count` se muestra como badge en el encabezado. */
+const section = (title, body, { open = false, count = null, tone = '' } = {}) => `
+  <details class="detail-section" ${open ? 'open' : ''}>
+    <summary>
+      <span class="detail-section-title">${e(title)}</span>
+      ${count == null ? '' : `<span class="badge ${tone}">${count}</span>`}
+    </summary>
+    <div class="detail-section-body">${body}</div>
+  </details>`;
+
+const detailRow = (label, value) =>
+  value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '';
+
+/** Actividad del historial: se expande para ver todo y editarla sin salir de la ficha. */
+function timelineDateBadge(at) {
+  return `<span class="badge timeline-date">${e(fmtDateTime(at))}</span>`;
+}
+
+function activityTimelineItem(a, lead) {
+  const contactName = a.contactId ? findContact(lead, a.contactId)?.name : '';
+  const title = a.task ? `${a.type} · tarea cerrada` : a.type;
+  const summary = a.task ? `Cerró: ${a.task}` : a.detail;
+
+  return `
+    <div class="timeline-entry timeline-activity">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <details class="timeline-card activity-item">
+        <summary>
+          <span class="timeline-kind">Actividad</span>
+          <span class="activity-type">${e(title)}</span>
+          <span class="activity-peek">${e(summary)}</span>
+          ${timelineDateBadge(a.date)}
+        </summary>
+        <div class="activity-body">
+          ${detailRow('Fecha', fmtDateTime(a.date))}
+          ${detailRow('Contacto', contactName)}
+          ${detailRow('Responsable', a.owner)}
+          ${detailRow('Tarea cerrada', a.task)}
+          ${detailRow(a.task ? 'Resultado' : 'Detalle', a.detail)}
+          ${editableActivity(a)
+            ? `<div class="actions">
+                <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+                <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+              </div>`
+            : '<p class="muted">Este movimiento es parte del historial y no se modifica.</p>'}
+        </div>
+      </details>
+    </div>`;
+}
+
+function stageTimelineItem(h) {
+  return `
+    <div class="timeline-entry timeline-stage">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Etapa</span>
+          <strong>Pasó a ${e(h.stage)}</strong>
+        </div>
+        ${timelineDateBadge(h.at)}
+      </div>
+    </div>`;
+}
+
+function quoteTimelineItem(q, kind = 'created') {
+  const sent = kind === 'sent';
+  const status = QUOTE_STATUS_LABEL[q.status] || q.status || 'Sin estado';
+  const title = sent ? `Cotización ${q.number || ''} v${q.version} enviada` : `Cotización ${q.number || ''} v${q.version}`;
+  const detail = sent
+    ? `${fmtCurrency(q.total, q.currency)} · enviada al cliente`
+    : `${fmtCurrency(q.total, q.currency)} · estado actual: ${status}`;
+
+  return `
+    <div class="timeline-entry timeline-quote">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Cotización</span>
+          <strong>${e(title)}</strong>
+          <div class="muted">${e(detail)}</div>
+          <div class="actions timeline-actions">
+            <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver cotización</button>
+          </div>
+        </div>
+        ${timelineDateBadge(sent ? q.sentAt : q.createdAt)}
+      </div>
+    </div>`;
+}
+
+function discoveryTimelineItem(discovery) {
+  return `
+    <div class="timeline-entry timeline-discovery">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Levantamiento</span>
+          <strong>Levantamiento comercial actualizado</strong>
+          ${discovery.pain ? `<div class="muted">${e(discovery.pain)}</div>` : ''}
+        </div>
+        ${timelineDateBadge(discovery.updatedAt)}
+      </div>
+    </div>`;
+}
+
+function createdTimelineItem(lead) {
+  const detail = [
+    lead.source ? `Origen: ${lead.source}` : '',
+    lead.owner ? `Responsable: ${lead.owner}` : ''
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <div class="timeline-entry timeline-created">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">CRM</span>
+          <strong>Oportunidad creada</strong>
+          ${detail ? `<div class="muted">${e(detail)}</div>` : ''}
+        </div>
+        ${timelineDateBadge(lead.createdAt)}
+      </div>
+    </div>`;
+}
+
+function sameTimelineMoment(a, b, toleranceMs = 5000) {
+  const ta = new Date(a).getTime();
+  const tb = new Date(b).getTime();
+  return Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= toleranceMs;
+}
+
+function buildTimelineEntries(lead, acts, discovery, quotes) {
+  const stageHistory = [...(lead.stageHistory || [])];
+  const firstStageIndex = stageHistory.findIndex((h) => sameTimelineMoment(h.at, lead.createdAt));
+  if (firstStageIndex >= 0) stageHistory.splice(firstStageIndex, 1);
+
+  const entries = [
+    ...acts.map((activity) => ({
+      at: activity.date,
+      type: 'activity',
+      html: activityTimelineItem(activity, lead)
+    })),
+    ...stageHistory.map((history) => ({
+      at: history.at,
+      type: 'stage',
+      html: stageTimelineItem(history)
+    })),
+    ...quotes.flatMap((quote) => {
+      const quoteEntries = [];
+      if (quote.createdAt) {
+        quoteEntries.push({ at: quote.createdAt, type: 'quote', html: quoteTimelineItem(quote, 'created') });
+      }
+      if (quote.sentAt && !sameTimelineMoment(quote.sentAt, quote.createdAt)) {
+        quoteEntries.push({ at: quote.sentAt, type: 'quote', html: quoteTimelineItem(quote, 'sent') });
+      }
+      return quoteEntries;
+    }),
+    ...(discovery?.updatedAt
+      ? [{ at: discovery.updatedAt, type: 'discovery', html: discoveryTimelineItem(discovery) }]
+      : []),
+    ...(lead.createdAt
+      ? [{ at: lead.createdAt, type: 'created', html: createdTimelineItem(lead) }]
+      : [])
+  ];
+
+  return entries
+    .filter((entry) => entry.at)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+
+function renderHistory(lead, acts, discovery = {}, quotes = []) {
+  const entries = buildTimelineEntries(lead, acts, discovery, quotes);
+  return entries.length
+    ? `<div class="timeline-360">${entries.map((entry) => entry.html).join('')}</div>`
+    : '<p class="muted">Sin movimientos registrados.</p>';
+}
+
+export function renderLeadDetail(id) {
+  const l = getLead(id);
+  if (!l) return empty('Oportunidad no encontrada', 'Puede haber sido eliminada.');
+  const d = getDiscovery(id) || {};
+  const acts = activitiesOf(id);
+  const leadQuotes = quotesOf(id);
+  const timelineEntries = buildTimelineEntries(l, acts, d, leadQuotes);
+  const contacts = contactsOf(l);
+  const sendable = contacts.filter((c) => c.email || c.phone);
+  const today = todayISO();
+
+  const row = detailRow;
+
+  // Una única tarea abierta por prospecto. Si pasó su fecha se marca vencida, sin salir de acá.
+  const task = taskOf(l);
+  const taskOverdue = Boolean(task && (!task.date || task.date < today));
+
+  const primary = contacts[0] || null;
+  const nextTaskBody = task
+    ? `<div class="task-flow task-flow--ficha" data-task-flow="ficha">
+        <div class="task-flow-progress" aria-label="Flujo de gestión">
+          <span class="is-active" data-flow-indicator="1"><b>1</b> Gestión</span>
+          <i></i>
+          <span data-flow-indicator="2"><b>2</b> Siguiente acción</span>
+        </div>
+
+        <section class="task-flow-step is-active" data-flow-step="1">
+          <div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
+            <div>
+              <span class="task-flow-eyebrow">Gestión pendiente</span>
+              <strong>${e(task.title)}</strong>
+            </div>
+            <div class="task-flow-status">
+              <span class="badge ${taskOverdue ? 'danger' : ''}">${e(task.date ? fmtDate(task.date) : 'Sin fecha')}</span>
+              ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
+            </div>
+          </div>
+          <div class="actions task-flow-channels" aria-label="Canales para realizar la gestión">
+            <button class="small-btn task-flow-channel-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>Llamar</button>
+            <button class="small-btn task-flow-channel-btn task-flow-channel-btn--whatsapp" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>WhatsApp</button>
+            <button class="small-btn task-flow-channel-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.email ? '' : 'disabled title="Sin correo registrado"'}>Correo</button>
+          </div>
+          <div class="task-form task-flow-current-form">
+            <label class="span-2">¿Cómo resultó?
+              <textarea id="fichaResult" rows="4" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
+            </label>
+          </div>
+          <p class="muted form-note task-flow-note">Si no pudiste realizarla, reagéndala sin cerrarla.</p>
+          <div class="actions task-form-actions task-flow-footer">
+            <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
+            <button class="primary-btn" data-action="ficha-task-continue" data-id="${l.id}">Continuar →</button>
+          </div>
+        </section>
+
+        <section class="task-flow-step" data-flow-step="2" hidden>
+          <div class="task-flow-completed-summary">
+            <span class="task-flow-check">✓</span>
+            <div><strong>Resultado listo</strong><span>Ahora define qué debe ocurrir después.</span></div>
+          </div>
+          <div class="task-form">
+            <div class="span-2 task-type-row" data-task-type-group="ficha">
+              <span class="task-type-label">Siguiente acción</span>
+              <input type="hidden" id="fichaNextType" />
+            </div>
+            <label class="span-2">Objetivo de la siguiente acción
+              <textarea id="fichaNextAction" rows="3" placeholder="Ej. Confirmar reunión con jefe de operaciones"></textarea>
+            </label>
+            <label class="span-2">Fecha de la siguiente acción<input id="fichaNextDate" type="date" /></label>
+          </div>
+          <div class="actions task-form-actions task-flow-footer task-flow-footer--stack">
+            <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Guardar y agendar</button>
+            <button class="ghost-btn" data-action="ficha-task-close-no-next" data-id="${l.id}">Cerrar sin próxima acción</button>
+            <button class="link-btn task-flow-back" data-action="ficha-task-back" data-id="${l.id}">← Volver al resultado</button>
+          </div>
+        </section>
+      </div>`
+    : `<p class="muted">Sin gestión pendiente para este prospecto.</p>
+       <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
+
+  return `
+    <div class="detail-grid">
+      ${section('Gestión pendiente', nextTaskBody, { open: true })}
+
+      ${section(
+        'Datos comerciales',
+        `
+        <div class="detail-row">
+          <span>Etapa</span>
+          <strong class="stage-cell">${stageBadge(l.stage)}<button class="small-btn" data-action="move-stage" data-id="${l.id}">Cambiar etapa</button></strong>
+        </div>
+        <div class="detail-row"><span>Visibilidad</span><strong>${l.isPrivate ? '<span class="badge warning">Privada · solo tú</span>' : 'Compartida con el equipo'}</strong></div>
+        ${row('Motivo de pérdida', l.lossReason)}
+        ${row('Valor', fmtMoney(l.value))}
+        ${row('Probabilidad', `${l.probability || 0}%`)}
+        ${row('Cierre estimado', fmtDate(l.expectedCloseDate))}
+        ${row('Contacto', [l.contact, l.role].filter(Boolean).join(' · '))}
+        ${row('Email', l.email)}
+        ${row('Teléfono', l.phone)}
+        ${row('Rubro', l.industry)}
+        ${row('Origen', l.source)}
+        ${row('Responsable', l.owner)}
+        ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}
+        <button class="small-btn" data-action="edit-lead" data-id="${l.id}">Editar datos de la empresa</button>`,
+        { open: true }
+      )}
+
+      ${section(
+        'Contactos',
+        `${
+          contacts.length
+            ? `<div class="list">${contacts
+                .map(
+                  (c) => `<div class="list-item">
+                    <div>
+                      <strong>${e(c.name || 'Sin nombre')}</strong>${c.role ? `<span class="muted"> · ${e(c.role)}</span>` : ''}
+                      <div class="muted">${e(c.email || '—')}${c.phone ? ` · ${e(c.phone)}` : ''}</div>
+                    </div>
+                    <div class="list-side">
+                      <div class="actions">
+                        ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
+                        ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
+                        ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
+                        <button class="small-btn" data-action="edit-contact" data-id="${l.id}" data-contact="${c.key}">Editar</button>
+                        ${c.primary ? '' : `<button class="small-btn danger" data-action="delete-contact" data-id="${l.id}" data-contact="${c.key}">Eliminar</button>`}
+                      </div>
+                    </div>
+                  </div>`
+                )
+                .join('')}</div>`
+            : '<p class="muted">Sin contactos registrados.</p>'
+        }
+        ${sendable.length ? '' : '<p class="muted">Agrega un email o teléfono a algún contacto para poder escribirle o llamarlo.</p>'}
+        <button class="small-btn" data-action="add-contact" data-id="${l.id}">+ Agregar contacto</button>`,
+        { open: true, count: contacts.length }
+      )}
+
+      ${section(
+        'Levantamiento',
+        `${
+          d.pain
+            ? `${row('Dolor principal', d.pain)}
+               ${row('Gestión actual', d.currentManagement)}
+               ${row('Técnicos', d.technicians)}
+               ${row('Sucursales', d.locations)}
+               ${row('Gatillo', d.buyTrigger)}
+               ${row('Módulos', (d.modules || []).join(', '))}
+               ${row('Integraciones', d.integrations)}
+               ${row('Criterio de éxito', d.successCriteria)}`
+            : '<p class="muted">Sin levantamiento registrado.</p>'
+        }
+        <button class="small-btn" data-action="open-discovery" data-id="${l.id}">${d.pain ? 'Editar levantamiento' : 'Completar levantamiento'}</button>`
+      )}
+
+      ${section(
+        'Cotizaciones',
+        `${renderQuotesSection(l.id)}
+        <button class="small-btn" data-action="new-quote" data-id="${l.id}">+ Nueva cotización</button>`,
+        { count: leadQuotes.filter((q) => q.isCurrent).length }
+      )}
+
+      ${section(
+        'Timeline 360',
+        `<div class="timeline-toolbar">
+           <div class="muted">Historia comercial completa de esta empresa, ordenada desde lo más reciente.</div>
+           <button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Registrar actividad</button>
+         </div>
+         ${renderHistory(l, acts, d, leadQuotes)}`,
+        { open: true, count: timelineEntries.length }
+      )}
+
+      ${section(
+        'Administración',
+        `<p class="muted">Eliminar borra la empresa con su levantamiento y todo su historial. No se puede deshacer.</p>
+         <button class="small-btn danger" data-action="delete-lead" data-id="${l.id}">Eliminar oportunidad</button>`
+      )}
+    </div>`;
+}
+ : cur === 'USD' ? 'US /></label>
+      <label>Meses<input id="quoteDiscMonths" type="number" min="1" step="1" placeholder="Todos" /></label>
+      <button type="button" class="ghost-btn" data-action="add-quote-discount">Agregar descuento</button>
+    </div>`;
+}
+
+/* ---------------- Ficha de la oportunidad ---------------- */
+
+/** Sección plegable de la ficha. `count` se muestra como badge en el encabezado. */
+const section = (title, body, { open = false, count = null, tone = '' } = {}) => `
+  <details class="detail-section" ${open ? 'open' : ''}>
+    <summary>
+      <span class="detail-section-title">${e(title)}</span>
+      ${count == null ? '' : `<span class="badge ${tone}">${count}</span>`}
+    </summary>
+    <div class="detail-section-body">${body}</div>
+  </details>`;
+
+const detailRow = (label, value) =>
+  value ? `<div class="detail-row"><span>${e(label)}</span><strong>${e(value)}</strong></div>` : '';
+
+/** Actividad del historial: se expande para ver todo y editarla sin salir de la ficha. */
+function timelineDateBadge(at) {
+  return `<span class="badge timeline-date">${e(fmtDateTime(at))}</span>`;
+}
+
+function activityTimelineItem(a, lead) {
+  const contactName = a.contactId ? findContact(lead, a.contactId)?.name : '';
+  const title = a.task ? `${a.type} · tarea cerrada` : a.type;
+  const summary = a.task ? `Cerró: ${a.task}` : a.detail;
+
+  return `
+    <div class="timeline-entry timeline-activity">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <details class="timeline-card activity-item">
+        <summary>
+          <span class="timeline-kind">Actividad</span>
+          <span class="activity-type">${e(title)}</span>
+          <span class="activity-peek">${e(summary)}</span>
+          ${timelineDateBadge(a.date)}
+        </summary>
+        <div class="activity-body">
+          ${detailRow('Fecha', fmtDateTime(a.date))}
+          ${detailRow('Contacto', contactName)}
+          ${detailRow('Responsable', a.owner)}
+          ${detailRow('Tarea cerrada', a.task)}
+          ${detailRow(a.task ? 'Resultado' : 'Detalle', a.detail)}
+          ${editableActivity(a)
+            ? `<div class="actions">
+                <button class="small-btn" data-action="edit-activity" data-id="${a.id}">Editar</button>
+                <button class="small-btn danger" data-action="delete-activity" data-id="${a.id}">Eliminar</button>
+              </div>`
+            : '<p class="muted">Este movimiento es parte del historial y no se modifica.</p>'}
+        </div>
+      </details>
+    </div>`;
+}
+
+function stageTimelineItem(h) {
+  return `
+    <div class="timeline-entry timeline-stage">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Etapa</span>
+          <strong>Pasó a ${e(h.stage)}</strong>
+        </div>
+        ${timelineDateBadge(h.at)}
+      </div>
+    </div>`;
+}
+
+function quoteTimelineItem(q, kind = 'created') {
+  const sent = kind === 'sent';
+  const status = QUOTE_STATUS_LABEL[q.status] || q.status || 'Sin estado';
+  const title = sent ? `Cotización ${q.number || ''} v${q.version} enviada` : `Cotización ${q.number || ''} v${q.version}`;
+  const detail = sent
+    ? `${fmtCurrency(q.total, q.currency)} · enviada al cliente`
+    : `${fmtCurrency(q.total, q.currency)} · estado actual: ${status}`;
+
+  return `
+    <div class="timeline-entry timeline-quote">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Cotización</span>
+          <strong>${e(title)}</strong>
+          <div class="muted">${e(detail)}</div>
+          <div class="actions timeline-actions">
+            <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver cotización</button>
+          </div>
+        </div>
+        ${timelineDateBadge(sent ? q.sentAt : q.createdAt)}
+      </div>
+    </div>`;
+}
+
+function discoveryTimelineItem(discovery) {
+  return `
+    <div class="timeline-entry timeline-discovery">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">Levantamiento</span>
+          <strong>Levantamiento comercial actualizado</strong>
+          ${discovery.pain ? `<div class="muted">${e(discovery.pain)}</div>` : ''}
+        </div>
+        ${timelineDateBadge(discovery.updatedAt)}
+      </div>
+    </div>`;
+}
+
+function createdTimelineItem(lead) {
+  const detail = [
+    lead.source ? `Origen: ${lead.source}` : '',
+    lead.owner ? `Responsable: ${lead.owner}` : ''
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <div class="timeline-entry timeline-created">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-card timeline-simple">
+        <div>
+          <span class="timeline-kind">CRM</span>
+          <strong>Oportunidad creada</strong>
+          ${detail ? `<div class="muted">${e(detail)}</div>` : ''}
+        </div>
+        ${timelineDateBadge(lead.createdAt)}
+      </div>
+    </div>`;
+}
+
+function sameTimelineMoment(a, b, toleranceMs = 5000) {
+  const ta = new Date(a).getTime();
+  const tb = new Date(b).getTime();
+  return Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= toleranceMs;
+}
+
+function buildTimelineEntries(lead, acts, discovery, quotes) {
+  const stageHistory = [...(lead.stageHistory || [])];
+  const firstStageIndex = stageHistory.findIndex((h) => sameTimelineMoment(h.at, lead.createdAt));
+  if (firstStageIndex >= 0) stageHistory.splice(firstStageIndex, 1);
+
+  const entries = [
+    ...acts.map((activity) => ({
+      at: activity.date,
+      type: 'activity',
+      html: activityTimelineItem(activity, lead)
+    })),
+    ...stageHistory.map((history) => ({
+      at: history.at,
+      type: 'stage',
+      html: stageTimelineItem(history)
+    })),
+    ...quotes.flatMap((quote) => {
+      const quoteEntries = [];
+      if (quote.createdAt) {
+        quoteEntries.push({ at: quote.createdAt, type: 'quote', html: quoteTimelineItem(quote, 'created') });
+      }
+      if (quote.sentAt && !sameTimelineMoment(quote.sentAt, quote.createdAt)) {
+        quoteEntries.push({ at: quote.sentAt, type: 'quote', html: quoteTimelineItem(quote, 'sent') });
+      }
+      return quoteEntries;
+    }),
+    ...(discovery?.updatedAt
+      ? [{ at: discovery.updatedAt, type: 'discovery', html: discoveryTimelineItem(discovery) }]
+      : []),
+    ...(lead.createdAt
+      ? [{ at: lead.createdAt, type: 'created', html: createdTimelineItem(lead) }]
+      : [])
+  ];
+
+  return entries
+    .filter((entry) => entry.at)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+
+function renderHistory(lead, acts, discovery = {}, quotes = []) {
+  const entries = buildTimelineEntries(lead, acts, discovery, quotes);
+  return entries.length
+    ? `<div class="timeline-360">${entries.map((entry) => entry.html).join('')}</div>`
+    : '<p class="muted">Sin movimientos registrados.</p>';
+}
+
+export function renderLeadDetail(id) {
+  const l = getLead(id);
+  if (!l) return empty('Oportunidad no encontrada', 'Puede haber sido eliminada.');
+  const d = getDiscovery(id) || {};
+  const acts = activitiesOf(id);
+  const leadQuotes = quotesOf(id);
+  const timelineEntries = buildTimelineEntries(l, acts, d, leadQuotes);
+  const contacts = contactsOf(l);
+  const sendable = contacts.filter((c) => c.email || c.phone);
+  const today = todayISO();
+
+  const row = detailRow;
+
+  // Una única tarea abierta por prospecto. Si pasó su fecha se marca vencida, sin salir de acá.
+  const task = taskOf(l);
+  const taskOverdue = Boolean(task && (!task.date || task.date < today));
+
+  const primary = contacts[0] || null;
+  const nextTaskBody = task
+    ? `<div class="task-flow task-flow--ficha" data-task-flow="ficha">
+        <div class="task-flow-progress" aria-label="Flujo de gestión">
+          <span class="is-active" data-flow-indicator="1"><b>1</b> Gestión</span>
+          <i></i>
+          <span data-flow-indicator="2"><b>2</b> Siguiente acción</span>
+        </div>
+
+        <section class="task-flow-step is-active" data-flow-step="1">
+          <div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
+            <div>
+              <span class="task-flow-eyebrow">Gestión pendiente</span>
+              <strong>${e(task.title)}</strong>
+            </div>
+            <div class="task-flow-status">
+              <span class="badge ${taskOverdue ? 'danger' : ''}">${e(task.date ? fmtDate(task.date) : 'Sin fecha')}</span>
+              ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
+            </div>
+          </div>
+          <div class="actions task-flow-channels" aria-label="Canales para realizar la gestión">
+            <button class="small-btn task-flow-channel-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>Llamar</button>
+            <button class="small-btn task-flow-channel-btn task-flow-channel-btn--whatsapp" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>WhatsApp</button>
+            <button class="small-btn task-flow-channel-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.email ? '' : 'disabled title="Sin correo registrado"'}>Correo</button>
+          </div>
+          <div class="task-form task-flow-current-form">
+            <label class="span-2">¿Cómo resultó?
+              <textarea id="fichaResult" rows="4" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
+            </label>
+          </div>
+          <p class="muted form-note task-flow-note">Si no pudiste realizarla, reagéndala sin cerrarla.</p>
+          <div class="actions task-form-actions task-flow-footer">
+            <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
+            <button class="primary-btn" data-action="ficha-task-continue" data-id="${l.id}">Continuar →</button>
+          </div>
+        </section>
+
+        <section class="task-flow-step" data-flow-step="2" hidden>
+          <div class="task-flow-completed-summary">
+            <span class="task-flow-check">✓</span>
+            <div><strong>Resultado listo</strong><span>Ahora define qué debe ocurrir después.</span></div>
+          </div>
+          <div class="task-form">
+            <div class="span-2 task-type-row" data-task-type-group="ficha">
+              <span class="task-type-label">Siguiente acción</span>
+              <input type="hidden" id="fichaNextType" />
+            </div>
+            <label class="span-2">Objetivo de la siguiente acción
+              <textarea id="fichaNextAction" rows="3" placeholder="Ej. Confirmar reunión con jefe de operaciones"></textarea>
+            </label>
+            <label class="span-2">Fecha de la siguiente acción<input id="fichaNextDate" type="date" /></label>
+          </div>
+          <div class="actions task-form-actions task-flow-footer task-flow-footer--stack">
+            <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Guardar y agendar</button>
+            <button class="ghost-btn" data-action="ficha-task-close-no-next" data-id="${l.id}">Cerrar sin próxima acción</button>
+            <button class="link-btn task-flow-back" data-action="ficha-task-back" data-id="${l.id}">← Volver al resultado</button>
+          </div>
+        </section>
+      </div>`
+    : `<p class="muted">Sin gestión pendiente para este prospecto.</p>
+       <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
+
+  return `
+    <div class="detail-grid">
+      ${section('Gestión pendiente', nextTaskBody, { open: true })}
+
+      ${section(
+        'Datos comerciales',
+        `
+        <div class="detail-row">
+          <span>Etapa</span>
+          <strong class="stage-cell">${stageBadge(l.stage)}<button class="small-btn" data-action="move-stage" data-id="${l.id}">Cambiar etapa</button></strong>
+        </div>
+        <div class="detail-row"><span>Visibilidad</span><strong>${l.isPrivate ? '<span class="badge warning">Privada · solo tú</span>' : 'Compartida con el equipo'}</strong></div>
+        ${row('Motivo de pérdida', l.lossReason)}
+        ${row('Valor', fmtMoney(l.value))}
+        ${row('Probabilidad', `${l.probability || 0}%`)}
+        ${row('Cierre estimado', fmtDate(l.expectedCloseDate))}
+        ${row('Contacto', [l.contact, l.role].filter(Boolean).join(' · '))}
+        ${row('Email', l.email)}
+        ${row('Teléfono', l.phone)}
+        ${row('Rubro', l.industry)}
+        ${row('Origen', l.source)}
+        ${row('Responsable', l.owner)}
+        ${l.notes ? `<p class="detail-notes">${e(l.notes)}</p>` : ''}
+        <button class="small-btn" data-action="edit-lead" data-id="${l.id}">Editar datos de la empresa</button>`,
+        { open: true }
+      )}
+
+      ${section(
+        'Contactos',
+        `${
+          contacts.length
+            ? `<div class="list">${contacts
+                .map(
+                  (c) => `<div class="list-item">
+                    <div>
+                      <strong>${e(c.name || 'Sin nombre')}</strong>${c.role ? `<span class="muted"> · ${e(c.role)}</span>` : ''}
+                      <div class="muted">${e(c.email || '—')}${c.phone ? ` · ${e(c.phone)}` : ''}</div>
+                    </div>
+                    <div class="list-side">
+                      <div class="actions">
+                        ${c.phone ? `<button class="small-btn" data-action="call-contact" data-id="${l.id}" data-contact="${c.key}">Llamar</button>` : ''}
+                        ${c.phone ? `<button class="small-btn" data-action="open-whatsapp" data-id="${l.id}" data-contact="${c.key}">WhatsApp</button>` : ''}
+                        ${c.email ? `<button class="small-btn" data-action="open-email" data-id="${l.id}" data-contact="${c.key}">Correo</button>` : ''}
+                        <button class="small-btn" data-action="edit-contact" data-id="${l.id}" data-contact="${c.key}">Editar</button>
+                        ${c.primary ? '' : `<button class="small-btn danger" data-action="delete-contact" data-id="${l.id}" data-contact="${c.key}">Eliminar</button>`}
+                      </div>
+                    </div>
+                  </div>`
+                )
+                .join('')}</div>`
+            : '<p class="muted">Sin contactos registrados.</p>'
+        }
+        ${sendable.length ? '' : '<p class="muted">Agrega un email o teléfono a algún contacto para poder escribirle o llamarlo.</p>'}
+        <button class="small-btn" data-action="add-contact" data-id="${l.id}">+ Agregar contacto</button>`,
+        { open: true, count: contacts.length }
+      )}
+
+      ${section(
+        'Levantamiento',
+        `${
+          d.pain
+            ? `${row('Dolor principal', d.pain)}
+               ${row('Gestión actual', d.currentManagement)}
+               ${row('Técnicos', d.technicians)}
+               ${row('Sucursales', d.locations)}
+               ${row('Gatillo', d.buyTrigger)}
+               ${row('Módulos', (d.modules || []).join(', '))}
+               ${row('Integraciones', d.integrations)}
+               ${row('Criterio de éxito', d.successCriteria)}`
+            : '<p class="muted">Sin levantamiento registrado.</p>'
+        }
+        <button class="small-btn" data-action="open-discovery" data-id="${l.id}">${d.pain ? 'Editar levantamiento' : 'Completar levantamiento'}</button>`
+      )}
+
+      ${section(
+        'Cotizaciones',
+        `${renderQuotesSection(l.id)}
+        <button class="small-btn" data-action="new-quote" data-id="${l.id}">+ Nueva cotización</button>`,
+        { count: leadQuotes.filter((q) => q.isCurrent).length }
+      )}
+
+      ${section(
+        'Timeline 360',
+        `<div class="timeline-toolbar">
+           <div class="muted">Historia comercial completa de esta empresa, ordenada desde lo más reciente.</div>
+           <button class="small-btn" data-action="new-activity" data-id="${l.id}">+ Registrar actividad</button>
+         </div>
+         ${renderHistory(l, acts, d, leadQuotes)}`,
+        { open: true, count: timelineEntries.length }
+      )}
+
+      ${section(
+        'Administración',
+        `<p class="muted">Eliminar borra la empresa con su levantamiento y todo su historial. No se puede deshacer.</p>
+         <button class="small-btn danger" data-action="delete-lead" data-id="${l.id}">Eliminar oportunidad</button>`
+      )}
+    </div>`;
+}
+ : 'UF'} o %" /></label>
       <label>Meses<input id="quoteDiscMonths" type="number" min="1" step="1" placeholder="Todos" /></label>
       <button type="button" class="ghost-btn" data-action="add-quote-discount">Agregar descuento</button>
     </div>`;
