@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION internal.quote_compute(p_currency text, p_iva_rate nu
  LANGUAGE plpgsql
  IMMUTABLE
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_prec integer := case when p_currency = 'CLP' then 0 else 2 end;
   v_n integer;
@@ -319,7 +319,7 @@ CREATE OR REPLACE FUNCTION public.quote_preview(p_quote jsonb, p_items jsonb DEF
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_currency text := nullif(p_quote->>'currency', '');
   v_lines jsonb;
@@ -349,7 +349,7 @@ CREATE OR REPLACE FUNCTION public.save_quote(p_quote jsonb, p_items jsonb DEFAUL
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_uid uuid := auth.uid();
   v_org uuid := internal.my_org();
@@ -513,7 +513,7 @@ CREATE OR REPLACE FUNCTION public.import_price_list(p_name text, p_currency text
  RETURNS uuid
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$;
+AS $function$
 declare
   v_id uuid := gen_random_uuid();
   v_x jsonb;
