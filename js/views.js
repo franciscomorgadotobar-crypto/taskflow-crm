@@ -1393,6 +1393,65 @@ function renderQuotesList(ui) {
     </div>`;
 }
 
+
+// Cotizador comercial V2: vista independiente, solo lectura del catálogo vigente.
+const COMMERCIAL_NAMES = {
+  GE_BASE: 'Operaciones en Terreno · Plan Esencial',
+  GE_APP: 'Acceso móvil para equipos en terreno',
+  GI_BASE: 'Gestión de Equipos · Plan Esencial',
+  GI_WEB: 'Acceso web para técnicos y colaboradores',
+  INV_ENTRADA: 'Inventario Inteligente · Inicio',
+  INV_BASICO: 'Inventario Inteligente · Crecimiento',
+  INV_MEDIO: 'Inventario Inteligente · Profesional',
+  INV_AVANZADO: 'Inventario Inteligente · Empresa',
+  INV_FULL: 'Inventario Inteligente · Corporativo',
+  INV_APP: 'Acceso móvil a inventario',
+  INV_USER_ADD: 'Colaborador adicional de inventario',
+  INV_ALMACEN_ADD: 'Nueva bodega o ubicación',
+  INV_DEP: 'Control de valorización de activos',
+  STORAGE_1GB: 'Espacio adicional para documentos (1 GB)',
+  SETUP: 'Puesta en marcha asistida (hora)',
+  CFG_ADV: 'Personalización avanzada (hora)',
+  TRAIN_REM: 'Capacitación en línea (hora)',
+  TRAIN_PRE_RM: 'Capacitación presencial en Santiago',
+};
+function commercialName(item) {
+  if (COMMERCIAL_NAMES[item.code]) return COMMERCIAL_NAMES[item.code];
+  if (item.code.startsWith('PACK_INV_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' artículos';
+  if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' equipos identificados';
+  return item.name;
+}
+function renderCommercialQuoteV2() {
+  const list = quoteState.priceLists.find(x => x.status === 'vigente') || quoteState.priceLists[0];
+  const items = list ? itemsOfPriceList(list.id).filter(x => x.active) : [];
+  return `
+    <section class="card" style="padding:24px">
+      <p class="muted">TaskFlow · 4R Labs · Propuesta comercial V2</p>
+      <h2>Una solución que crece con tu operación</h2>
+      <p>Elige las capacidades que necesita tu empresa. Los precios se obtienen de la lista vigente, sin modificar sus nombres ni valores originales.</p>
+      <p><strong>Esta es una versión comercial independiente.</strong> No reemplaza el cotizador tradicional ni modifica las listas de precios.</p>
+      <div class="form-grid">
+        <label>Empresa<input id="v2Company" placeholder="Nombre de la empresa"></label>
+        <label>Contacto<input id="v2Contact" placeholder="Nombre del contacto"></label>
+      </div>
+      <div class="list" style="margin-top:18px">
+      ${items.map(item => `<label style="display:flex;align-items:center;gap:14px;padding:12px;border-bottom:1px solid #8883">
+        <input type="checkbox" class="v2-select" data-code="${e(item.code)}" data-price="${item.price}" data-period="${e(item.periodicity)}">
+        <span style="flex:1"><strong>${e(commercialName(item))}</strong><small style="display:block">${e(item.category)} · ${e(item.periodicity === 'unico' ? 'Una vez' : 'Mensual')}</small></span>
+        <span>${fmtAmount(item.price, list.currency)} ${e(list.currency)}</span>
+        <input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad">
+      </label>`).join('')}
+      </div>
+      <div id="v2Summary" class="card" style="margin-top:18px;padding:18px">
+        Selecciona las capacidades que deseas incluir en tu propuesta.
+      </div>
+      <div class="button-row" style="margin-top:16px">
+        <button type="button" class="primary-btn" data-action="v2-print">Imprimir / Guardar PDF</button>
+      </div>
+      <p class="muted">Valores referenciales de catálogo en ${e(list?.currency || 'UF')}; impuestos, condiciones y vigencia sujetos a confirmación comercial. Esta vista no guarda cotizaciones en el historial.</p>
+    </section>`;
+}
+
 export function renderQuotes(ui) {
   const view = ui.quotesView || 'list';
   return `
@@ -1400,9 +1459,10 @@ export function renderQuotes(ui) {
       <div class="button-row">
         <button class="small-btn ${view === 'list' ? 'active-view' : ''}" data-action="quotes-view-list">Cotizaciones</button>
         <button class="small-btn ${view === 'lists' ? 'active-view' : ''}" data-action="quotes-view-lists">Listas de precios</button>
+        <button class="small-btn ${view === 'v2' ? 'active-view' : ''}" data-action="quotes-view-v2">Cotizador comercial V2</button>
       </div>
     </div>
-    ${view === 'lists' ? renderPriceLists(ui) : renderQuotesList(ui)}`;
+    ${view === 'v2' ? renderCommercialQuoteV2() : view === 'lists' ? renderPriceLists(ui) : renderQuotesList(ui)}`;
 }
 
 /* ---------- Documento de cotización (vista previa, "Ver" y PDF) ---------- */
