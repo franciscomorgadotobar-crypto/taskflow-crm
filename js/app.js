@@ -1481,6 +1481,7 @@ function readQuoteHeader() {
     leadId: lead?.id || '',
     priceListId: $('quotePriceList').value,
     currency: $('quoteCurrency').value,
+    absorbIva: $('quoteCurrency').value === 'USD' && $('quoteAbsorbIva').checked,
     sellerName: $('quoteSellerName').value.trim(),
     ufValue: parseQuoteRate($('quoteUfValue').value),
     usdValue: parseQuoteRate($('quoteUsdValue').value),
@@ -1557,6 +1558,7 @@ function builderDoc() {
     status: b.status,
     owner: b.sellerName || b.owner,
     currency: b.currency,
+    absorbIva: b.absorbIva === true,
     ufValue: b.ufValue,
     ufDate: b.ufDate,
     usdValue: b.usdValue,
@@ -1660,6 +1662,16 @@ function quoteRatesNeeded() {
   };
 }
 
+function syncQuoteAbsorbIvaField() {
+  const b = ui.quoteBuilder;
+  const usd = b?.currency === 'USD';
+  $('quoteAbsorbIvaField').hidden = !usd;
+  if (!usd) {
+    $('quoteAbsorbIva').checked = false;
+    if (b) b.absorbIva = false;
+  }
+}
+
 function syncQuoteRateFields() {
   const needed = quoteRatesNeeded();
   $('quoteUfField').hidden = !needed.uf;
@@ -1761,6 +1773,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     leadId: lead?.id || '',
     priceListId: base?.priceListId || lists[0].id,
     currency: base?.currency || 'UF',
+    absorbIva: base?.absorbIva === true && base?.currency === 'USD',
     ufValue: null,
     ufDate: '',
     ufManual: false,
@@ -1823,6 +1836,8 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   }).join('');
   $('quotePriceList').value = b.priceListId;
   $('quoteCurrency').value = b.currency;
+  $('quoteAbsorbIva').checked = b.absorbIva;
+  syncQuoteAbsorbIvaField();
   $('quoteUfValue').value = '';
   $('quoteUsdValue').value = '';
   $('quoteUsdHint').textContent = '';
@@ -1900,8 +1915,12 @@ function handleQuoteFormChange(ev) {
         loadQuoteRates();
       }
       return;
+    case 'quoteAbsorbIva':
+      b.absorbIva = b.currency === 'USD' && el.checked;
+      return scheduleQuotePreview();
     case 'quoteCurrency':
       b.currency = el.value;
+      syncQuoteAbsorbIvaField();
       renderQuoteDiscounts();
       return loadQuoteRates();
     case 'quoteDiscTarget':
