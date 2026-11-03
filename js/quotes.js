@@ -84,6 +84,7 @@ function fromDbQuote(r, items = [], discounts = []) {
     number: r.number || '',
     priceListId: r.price_list_id || '',
     currency: r.currency || 'UF',
+    absorbIva: r.absorb_iva === true,
     ufValue: r.uf_value == null ? null : Number(r.uf_value),
     usdValue: r.usd_value == null ? null : Number(r.usd_value),
     ufDate: r.uf_date || '',
@@ -342,6 +343,7 @@ function toRpcPayload(draft) {
       seller_name: draft.sellerName || draft.owner || '',
       price_list_id: draft.priceListId,
       currency: draft.currency,
+      absorb_iva: draft.currency === 'USD' && draft.absorbIva === true,
       uf_value: draft.ufValue ?? '',
       usd_value: draft.usdValue ?? '',
       uf_date: draft.ufDate || '',
@@ -437,6 +439,7 @@ const firstName = (full) => String(full || '').trim().split(/\s+/)[0] || '';
 export function buildQuoteEmail(quote, lead) {
   const name = firstName(quote.client?.contact || lead?.contact) || 'equipo';
   const cur = quote.currency;
+  const absorb = quote.absorbIva === true;
   const money = (n) => fmtCurrency(n, cur);
   const line = (it) =>
     `- ${it.name} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (dscto ${money(it.discount)})` : ''} = ${money(it.total)}`;
@@ -448,12 +451,12 @@ export function buildQuoteEmail(quote, lead) {
     '',
     `Te comparto la cotización ${quote.number || ''} de servicios para ${lead?.company || quote.client?.company || 'tu empresa'}:`,
     '',
-    ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
-    ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
+    ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), absorb ? `Total habilitación: ${money(t.setup?.total)}` : `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
+    ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), absorb ? `Total mensual: ${money(t.monthly?.total)}` : `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
     ...(Array.isArray(quote.commercialInfo) && quote.commercialInfo.length
       ? ['Beneficios y acompañamiento:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
       : []),
-    `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total ${money(quote.total)}`,
+    absorb ? `Contrato ${quote.contractMonths} meses: Total ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total ${money(quote.total)}`,
     quote.validUntil ? `` : '',
     quote.validUntil ? `Válida hasta ${fmtDate(quote.validUntil)}.` : '',
     quote.notes ? '' : '',
