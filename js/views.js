@@ -1416,6 +1416,10 @@ const optionLabel = (list, id) => list.find((x) => x.id === id)?.label || '—';
  * Usa colores fijos (papel blanco) para verse igual en tema oscuro y en el PDF.
  */
 export function quoteDocHtml(doc) {
+  const match = (doc.notes || '').match(/\[\[TF_EARLY:(.*?)\]\]/);
+  let early = doc.early || null;
+  try { if (!early && match) early = JSON.parse(decodeURIComponent(match[1])); } catch {}
+  const cleanNotes = match ? (doc.notes || '').replace(match[0], '').trim() : doc.notes;
   const cur = doc.currency || 'UF';
   const absorbed = doc.absorbIva === true;
   const t = doc.totals || {};
@@ -1489,7 +1493,8 @@ export function quoteDocHtml(doc) {
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
         </div>
       </div>
-      ${doc.notes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(doc.notes)}</p>` : ''}
+      ${early ? `<section class="qd-commercial"><h3>Acceso Anticipado TaskFlow</h3><p>Piloto: ${e(early.days)} días. Precio piloto: ${amount(early.pilotPrice)}.</p><p>Alcance: ${e(early.scope)}</p><p>Condiciones: ${e(early.conditions)}</p><p>Beneficio posterior: ${e(early.benefit === '40x6' ? '40 % por seis meses' : early.benefit === 'preferential12' ? 'Tarifa preferencial por doce meses' : 'Sin descuento')}</p><p>Los precios siguientes corresponden a contratación posterior opcional.</p></section>` : ''}
+      ${cleanNotes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(cleanNotes)}</p>` : ''}
       ${commercialInfo.length ? `
         <section class="qd-commercial">
           <h4>Beneficios y acompañamiento</h4>
