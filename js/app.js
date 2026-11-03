@@ -1481,6 +1481,7 @@ function readQuoteHeader() {
     leadId: lead?.id || '',
     priceListId: $('quotePriceList').value,
     currency: $('quoteCurrency').value,
+    sellerName: $('quoteSellerName').value.trim(),
     ufValue: parseQuoteRate($('quoteUfValue').value),
     usdValue: parseQuoteRate($('quoteUsdValue').value),
     quoteDate: $('quoteDate').value,
@@ -1554,7 +1555,7 @@ function builderDoc() {
     number: b.number,
     version: b.version,
     status: b.status,
-    owner: b.owner,
+    owner: b.sellerName || b.owner,
     currency: b.currency,
     ufValue: b.ufValue,
     ufDate: b.ufDate,
@@ -1756,6 +1757,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     number: base?.number || '',
     version: base ? Math.max(...versionsOf(base.rootId).map((q) => q.version)) + 1 : 1,
     owner: base?.owner || session.profile?.name || '',
+    sellerName: base?.sellerName || base?.owner || session.profile?.name || '',
     leadId: lead?.id || '',
     priceListId: base?.priceListId || lists[0].id,
     currency: base?.currency || 'UF',
@@ -1799,7 +1801,14 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     '<option value="__external__">+ Cotizar a empresa no registrada en el CRM</option>';
   $('quoteLeadId').value = b.leadId || '__external__';
   $('quoteLeadId').disabled = Boolean(base || leadId);
-  $('quoteOwner').value = b.owner;
+  // Lista de sugerencias: también se admiten nombres no registrados en el CRM.
+  const sellers = [...new Set(
+    state.team.filter((member) => member.active && member.name?.trim()).map((member) => member.name.trim())
+  )].sort((a, b) => a.localeCompare(b, 'es'));
+  $('quoteSellerOptions').innerHTML = sellers
+    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+    .join('');
+  $('quoteSellerName').value = b.sellerName;
   fillQuoteLeadFields(lead, !base, b.client);
   if (base) {
     $('quoteContactName').value = base.client?.contact || '';
@@ -1846,6 +1855,9 @@ function handleQuoteFormChange(ev) {
     return scheduleQuotePreview();
   }
   switch (el.id) {
+    case 'quoteSellerName':
+      b.sellerName = el.value.trim();
+      return;
     case 'quoteLeadId':
       if (ev.type === 'change') {
         b.client = {};
@@ -1948,6 +1960,10 @@ async function submitQuoteBuilder(e) {
   if (!b.leadId && $('quoteLeadId').value !== '__external__') return toast('Selecciona una empresa o elige cotizar sin registrarla.', 'error');
   if (!b.leadId && !b.client.company) return toast('Ingresa el nombre o razón social de la empresa.', 'error');
   if (b.leadId && !canEditLeadLocally(b.leadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
+  if (!b.sellerName || b.sellerName.length > 120) {
+    $('quoteSellerName').focus();
+    return toast('Selecciona o escribe un vendedor de hasta 120 caracteres.', 'error');
+  }
   if (!b.client.contact) return toast('Ingresa el nombre del contacto.', 'error');
   if (!b.client.email) return toast('Ingresa el correo del contacto.', 'error');
   if (!b.paymentMethod) return toast('Selecciona la forma de pago.', 'error');
