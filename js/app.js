@@ -131,6 +131,7 @@ import {
   renderPipeline,
   renderProfile,
   renderQuotes,
+  commercialV2DocHtml,
   renderRemarketing,
   renderSettings,
   renderTemplates,
@@ -1435,19 +1436,38 @@ async function submitTemplatePack(ev) {
   }
 }
 
+function commercialV2Draft() {
+  const list = quoteState.priceLists.find(l => l.status === 'vigente') || quoteState.priceLists[0];
+  const rows = [...document.querySelectorAll('.v2-select:checked')].map(el => {
+    const qty = Math.max(1, Math.floor(Number(el.closest('label').querySelector('.v2-qty')?.value || 1)));
+    const unitPrice = Number(el.dataset.price || 0);
+    return { name: el.closest('label').querySelector('strong')?.textContent || '', description: '', qty, unitPrice, amount: qty * unitPrice, period: el.dataset.period };
+  });
+  return { company: $('v2Company')?.value.trim() || '', contact: $('v2Contact')?.value.trim() || '', currency: list?.currency || 'UF', rows, early: $('v2Mode')?.value === 'early' };
+}
 function refreshCommercialV2() {
   const root = $('v2Summary');
   if (!root) return;
-  let monthly = 0, once = 0;
-  const rows = [...document.querySelectorAll('.v2-select:checked')].map(el => {
-    const qty = Math.max(1, Number(el.closest('label').querySelector('.v2-qty')?.value || 1));
-    const amount = qty * Number(el.dataset.price || 0);
-    if (el.dataset.period === 'unico') once += amount; else monthly += amount;
-    return { name: el.closest('label').querySelector('strong')?.textContent || '', qty, amount, period: el.dataset.period };
-  });
-  const cur = quoteState.priceLists.find(l => l.status === 'vigente')?.currency || 'UF';
-  root.innerHTML = '<h3>Tu propuesta TaskFlow</h3>' + rows.map(x => '<p>' + escapeHtml(x.name) + ' × ' + x.qty + ': ' + fmtAmount(x.amount, cur) + ' ' + cur + '</p>').join('') +
-    '<hr><p><strong>Inversión mensual: ' + fmtAmount(monthly, cur) + ' ' + cur + '</strong></p><p>Implementación y servicios únicos: ' + fmtAmount(once, cur) + ' ' + cur + '</p><small>Valores de catálogo antes de impuestos; no incluye contratación automática.</small>';
+  const d = commercialV2Draft();
+  const sum = period => d.rows.filter(x => period === 'unico' ? x.period === 'unico' : x.period !== 'unico').reduce((n,x)=>n+x.amount,0);
+  root.innerHTML = '<h3>Resumen de tu propuesta</h3>' + d.rows.map(x => '<p>' + escapeHtml(x.name) + ' × ' + x.qty + ': ' + fmtAmount(x.amount,d.currency) + ' ' + escapeHtml(d.currency) + '</p>').join('') +
+    '<hr><p><strong>Mensual: ' + fmtAmount(sum('mensual'),d.currency) + ' ' + escapeHtml(d.currency) + '</strong></p><p>Pago único: ' + fmtAmount(sum('unico'),d.currency) + ' ' + escapeHtml(d.currency) + '</p><small>Valores de catálogo sin impuestos ni descuentos.</small>';
+}
+async function exportCommercialV2Pdf() {
+  const d = commercialV2Draft();
+  if (!d.rows.length) return toast('Selecciona al menos un servicio para generar la propuesta.', 'error');
+  if (typeof html2pdf !== 'function') return toast('El generador PDF no está disponible.', 'error');
+  const holder = document.createElement('div');
+  holder.className = 'quote-pdf-holder';
+  holder.innerHTML = commercialV2DocHtml(d);
+  document.body.appendChild(holder);
+  const safe = (d.company || 'empresa').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9-]/g,'-').slice(0,60);
+  try {
+    await html2pdf().set({ margin:[9,9,11,9], filename:'TaskFlow-Propuesta-Comercial-V2-'+safe+'.pdf',
+      image:{type:'jpeg',quality:0.96}, html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'],avoid:['tr','.commercial-v2-document header']} }).from(holder.firstElementChild).save();
+  } finally { holder.remove(); }
 }
 
 /* ---------- Cotizador ---------- */
@@ -3113,7 +3133,7 @@ const ACTIONS = {
     render();
   },
   'quotes-view-v2': () => { ui.quotesView = 'v2'; render(); },
-  'v2-print': () => { refreshCommercialV2(); window.print(); },
+  'v2-print': () => exportCommercialV2Pdf(),
   'quotes-view-lists': () => {
     ui.quotesView = 'lists';
     render();
@@ -4252,7 +4272,7 @@ function bindEvents() {
   document.addEventListener('keydown', handleKeydown);
   $('viewRoot').addEventListener('input', handleViewInput);
   $('viewRoot').addEventListener('change', handleViewInput);
-  $('viewRoot').addEventListener('change', (ev) => { if (ev.target.closest('.v2-select, .v2-qty')) refreshCommercialV2(); });
+  $('viewRoot').addEventListener('change', (ev) => { if (ev.target.closest('.v2-select, .v2-qty, #v2Mode')) refreshCommercialV2(); });
   $('viewRoot').addEventListener('input', (ev) => { if (ev.target.closest('.v2-qty')) refreshCommercialV2(); });
   $('viewRoot').addEventListener('focusin', (ev) => {
     if (ev.target.matches('[data-template-body], [data-template-subject]')) lastTemplateField = ev.target;
