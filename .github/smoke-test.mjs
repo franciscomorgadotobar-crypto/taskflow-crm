@@ -98,6 +98,38 @@ try {
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));
 
+
+    // Reproducir el error real: JS nuevo ejecutándose con campos ausentes
+    // del HTML cacheado. La recuperación no debe perder selecciones.
+    const oldShell = await page.evaluate(async () => {
+      document.getElementById('quoteAbsorbIvaField')?.remove();
+      document.getElementById('quoteMode')?.closest('label')?.remove();
+      document.getElementById('quoteEarlyFields')?.remove();
+      const { ensureQuoteFormControls } = await import('./js/quote-form-compat.js');
+      const recovered = ensureQuoteFormControls();
+      recovered.absorbInput.checked = true;
+      recovered.mode.value = 'early';
+      document.getElementById('quoteEarlyDays').value = '45';
+      const second = ensureQuoteFormControls();
+      const ids = [
+        'quoteAbsorbIvaField','quoteAbsorbIva','quoteMode','quoteEarlyFields',
+        'quoteEarlyDays','quoteEarlyPilotPrice','quoteEarlyBenefit',
+        'quoteEarlyScope','quoteEarlyConditions'
+      ];
+      return {
+        unique: ids.every((id) => document.querySelectorAll('#' + id).length === 1),
+        absorbSelected: second.absorbInput.checked,
+        modeSelected: second.mode.value,
+        daysPreserved: document.getElementById('quoteEarlyDays').value,
+        controlsInsideForm: ids.every((id) => Boolean(document.getElementById('quoteForm')?.contains(document.getElementById(id))))
+      };
+    });
+    if (!oldShell.unique || !oldShell.absorbSelected || oldShell.modeSelected !== 'early' ||
+        oldShell.daysPreserved !== '45' || !oldShell.controlsInsideForm) {
+      throw new Error('Fallo al recuperar formulario HTML anterior: ' + JSON.stringify(oldShell));
+    }
+    console.log('QUOTE OLD SHELL PASS', testCase.name, JSON.stringify(oldShell));
+
     console.log(`SMOKE PASS ${testCase.name}`, JSON.stringify(state));
     if (consoleErrors.length) {
       console.log(`Console errors no bloqueantes [${testCase.name}]:`, consoleErrors.join('\n'));
