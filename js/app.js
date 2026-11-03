@@ -1474,6 +1474,21 @@ function issuerProfileFromFields(prefix) {
 const activePriceLists = () => quoteState.priceLists.filter((l) => l.status === 'vigente');
 const listItemOf = (id) => getPriceListItem(id);
 
+function earlyDataFromNotes(notes = '') {
+  const match = notes.match(/\[\[TF_EARLY:(.*?)\]\]/);
+  if (!match) return { notes, early: null };
+  try { return { notes: notes.replace(match[0], '').trim(), early: JSON.parse(decodeURIComponent(match[1])) }; }
+  catch { return { notes, early: null }; }
+}
+function earlyDataFromForm() {
+  if ($('quoteMode').value !== 'early') return null;
+  return { days: Math.max(0, Number($('quoteEarlyDays').value || 0)), pilotPrice: Math.max(0, Number($('quoteEarlyPilotPrice').value || 0)), benefit: $('quoteEarlyBenefit').value, scope: $('quoteEarlyScope').value.trim(), conditions: $('quoteEarlyConditions').value.trim() };
+}
+function syncEarlyFields() {
+  const el = $('quoteEarlyFields');
+  el.hidden = $('quoteMode').value !== 'early';
+  el.style.display = el.hidden ? 'none' : 'block';
+}
 function readQuoteHeader() {
   const b = ui.quoteBuilder;
   const lead = getLead($('quoteLeadId').value);
@@ -1492,6 +1507,7 @@ function readQuoteHeader() {
     paymentMethod: $('quotePaymentMethod').value,
     paymentTerms: $('quotePaymentTerms').value,
     notes: $('quoteNotes').value.trim(),
+    early: earlyDataFromForm(),
     client: {
       company: lead?.company || $('quoteClientCompany').value.trim(),
       rut: lead?.rut || $('quoteClientRut').value.trim(),
@@ -1569,6 +1585,7 @@ function builderDoc() {
     paymentMethod: b.paymentMethod,
     paymentTerms: b.paymentTerms,
     notes: b.notes,
+    early: b.early,
     client: b.client,
     issuer: list?.issuerProfile || {},
     commercialInfo: list?.commercialInfo || [],
@@ -1786,7 +1803,8 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     status: base?.status || 'borrador',
     paymentMethod: base?.paymentMethod || '',
     paymentTerms: base?.paymentTerms || '',
-    notes: base?.notes || '',
+    notes: earlyDataFromNotes(base?.notes || '').notes,
+    early: earlyDataFromNotes(base?.notes || '').early,
     client: base?.client || {},
     items,
     discounts,
@@ -1849,6 +1867,13 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   $('quotePaymentMethod').value = b.paymentMethod;
   $('quotePaymentTerms').value = b.paymentTerms;
   $('quoteNotes').value = b.notes;
+  $('quoteMode').value = b.early ? 'early' : 'standard';
+  $('quoteEarlyDays').value = b.early?.days ?? 60;
+  $('quoteEarlyPilotPrice').value = b.early?.pilotPrice ?? 0;
+  $('quoteEarlyBenefit').value = b.early?.benefit || '40x6';
+  $('quoteEarlyScope').value = b.early?.scope || 'Funcionalidades habilitadas; mantenimiento en desarrollo.';
+  $('quoteEarlyConditions').value = b.early?.conditions || 'Implementación, capacitación, soporte preferencial y retroalimentación.';
+  syncEarlyFields();
   $('quoteAddQty').value = 1;
   fillQuoteServiceOptions();
   renderQuoteDiscounts();
@@ -1858,6 +1883,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
 }
 
 function handleQuoteFormChange(ev) {
+  if (ev.target?.id === 'quoteMode') syncEarlyFields();
   const b = ui.quoteBuilder;
   const el = ev.target;
   if (!b || !el) return;
@@ -2003,7 +2029,7 @@ async function submitQuoteBuilder(e) {
     return toast('Revisa el valor UF: debe expresarse en pesos, no en unidades ni decimales.', 'error');
   }
 
-  const saved = await saveQuote(b, b.baseId);
+  const saved = await saveQuote({ ...b, notes: b.early ? `${b.notes}\n[[TF_EARLY:${encodeURIComponent(JSON.stringify(b.early))}]]` : b.notes }, b.baseId);
   if (!saved) return;
   $('quoteDialog').close();
   ui.quoteBuilder = null;
