@@ -85,7 +85,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
-import { ensureQuoteFormControls } from './quote-form-compat.js';
+import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
@@ -2529,6 +2529,7 @@ function handlePriceBrandLogoChange() {
 
 function openPriceItem(listId, itemId = '') {
   if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  ensurePriceItemDescription();
   const item = itemId ? getPriceListItem(itemId) : null;
   const list = getPriceList(item?.priceListId || listId);
   if (!list) return;
@@ -2550,6 +2551,7 @@ function openPriceItem(listId, itemId = '') {
 async function submitPriceItem(e) {
   e.preventDefault();
   if (!isAdmin()) return toast(ADMIN_ONLY_LISTS, 'error');
+  ensurePriceItemDescription();
   const code = $('priceItemCode').value.trim();
   const name = $('priceItemName').value.trim();
   const price = $('priceItemPrice').value;

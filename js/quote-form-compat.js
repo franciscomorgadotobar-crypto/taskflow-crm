@@ -66,3 +66,17 @@ export function ensureQuoteFormControls(root = document) {
 
   return { absorbField, absorbInput: byId('quoteAbsorbIva'), mode, earlyFields };
 }
+
+
+/** Recupera el campo de alcance comercial de listas de precios con HTML anterior. */
+export function ensurePriceItemDescription(root = document) {
+  const input = root.getElementById('priceItemDescription');
+  if (input) return input;
+  const name = root.getElementById('priceItemName')?.closest('label');
+  if (!name) throw new Error('Formulario de lista de precios no disponible. Recarga con Ctrl + F5.');
+  const label = root.createElement('label');
+  label.className = 'span-2';
+  label.innerHTML = 'Capacidades y alcance comercial<textarea id="priceItemDescription" rows="5" maxlength="1500" placeholder="Una capacidad por línea"></textarea>';
+  name.insertAdjacentElement('afterend', label);
+  return root.getElementById('priceItemDescription');
+}

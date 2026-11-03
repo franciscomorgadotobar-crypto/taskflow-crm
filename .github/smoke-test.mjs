@@ -140,6 +140,25 @@ try {
     }
     console.log('QUOTE OLD SHELL PASS', testCase.name, JSON.stringify(oldShell));
 
+    const itemScopeRecovered = await page.evaluate(async () => {
+      document.getElementById('priceItemDescription')?.closest('label')?.remove();
+      const { ensurePriceItemDescription } = await import('./js/quote-form-compat.js');
+      const input = ensurePriceItemDescription();
+      input.value = 'Ítems ilimitados desde 10.000';
+      const again = ensurePriceItemDescription();
+      return {
+        unique: document.querySelectorAll('#priceItemDescription').length === 1,
+        kept: again.value === 'Ítems ilimitados desde 10.000',
+        inForm: document.getElementById('priceItemForm')?.contains(again)
+      };
+    });
+    if (!itemScopeRecovered.unique || !itemScopeRecovered.kept || !itemScopeRecovered.inForm) {
+      throw new Error('No se recuperó el campo de capacidades del catálogo: ' + JSON.stringify(itemScopeRecovered));
+    }
+    console.log('CATALOG OLD SHELL PASS', testCase.name);
+
+
+
     console.log(`SMOKE PASS ${testCase.name}`, JSON.stringify(state));
     if (consoleErrors.length) {
       console.log(`Console errors no bloqueantes [${testCase.name}]:`, consoleErrors.join('\n'));
