@@ -85,6 +85,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
+import { ensureQuoteFormControls } from './quote-form-compat.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
@@ -1525,6 +1526,7 @@ function syncEarlyFields() {
   el.style.display = el.hidden ? 'none' : 'block';
 }
 function readQuoteHeader() {
+  ensureQuoteFormControls();
   const b = ui.quoteBuilder;
   const lead = getLead($('quoteLeadId').value);
   Object.assign(b, {
@@ -1715,6 +1717,7 @@ function quoteRatesNeeded() {
 }
 
 function syncQuoteAbsorbIvaField() {
+  ensureQuoteFormControls();
   const b = ui.quoteBuilder;
   const usd = b?.currency === 'USD';
   $('quoteAbsorbIvaField').hidden = !usd;
@@ -1793,6 +1796,8 @@ function remapQuoteItems(newListId) {
 
 function openQuoteBuilder(leadId = '', baseId = '') {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  // La PWA puede cargar JS nuevo sobre HTML anterior: reponer campos antes de usarlos.
+  ensureQuoteFormControls();
   const base = baseId ? getQuote(baseId) : null;
   const targetLeadId = base?.leadId || leadId;
   if (targetLeadId && !canEditLeadLocally(targetLeadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
