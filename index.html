@@ -660,7 +660,7 @@
             <label>Estado<select id="quoteStatusField"></select></label>
             <label>Forma de pago *<select id="quotePaymentMethod"></select></label>
             <label>Condición de pago *<select id="quotePaymentTerms"></select></label>
-            <label class="span-2">Observaciones<textarea id="quoteNotes" rows="2"></textarea></label>
+            <label>Modalidad<select id="quoteMode"><option value="standard">Estándar</option><option value="early">Acceso anticipado</option></select></label><div id="quoteEarlyFields" class="span-2" hidden><label>Días gratuitos<input id="quoteEarlyDays" type="number" value="60" min="0"></label><label>Precio piloto<input id="quoteEarlyPilotPrice" type="number" value="0" min="0"></label><label>Beneficio posterior<select id="quoteEarlyBenefit"><option value="40x6">40% por seis meses</option><option value="preferential12">Tarifa preferencial por doce meses</option><option value="none">Sin descuento</option></select></label><label>Alcance<textarea id="quoteEarlyScope">Funcionalidades habilitadas; mantenimiento en desarrollo.</textarea></label><label>Condiciones<textarea id="quoteEarlyConditions">Implementación, capacitación, soporte preferencial y retroalimentación.</textarea></label></div><label class="span-2">Observaciones<textarea id="quoteNotes" rows="2"></textarea></label>
           </div>
         </section>
         <section class="quote-section">
