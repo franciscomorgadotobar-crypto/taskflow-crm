@@ -1486,7 +1486,6 @@ export function quoteDocHtml(doc) {
           <div>Meses contrato: ${e(doc.contractMonths)}</div>
           <div>Forma de pago: ${e(optionLabel(PAYMENT_METHODS, doc.paymentMethod))}</div>
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
-          <div>Estado: ${e(QUOTE_STATUS_LABEL[doc.status] || doc.status || '—')}</div>
         </div>
       </div>
       ${doc.notes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(doc.notes)}</p>` : ''}
