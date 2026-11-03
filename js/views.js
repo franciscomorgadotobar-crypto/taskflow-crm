@@ -1486,7 +1486,6 @@ export function quoteDocHtml(doc) {
           <div>Meses contrato: ${e(doc.contractMonths)}</div>
           <div>Forma de pago: ${e(optionLabel(PAYMENT_METHODS, doc.paymentMethod))}</div>
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
-          <div>Moneda: ${e(cur)}${doc.ufValue ? ` · UF ${e(fmtCurrency(doc.ufValue, 'CLP'))}${doc.ufDate ? ` (${e(fmtDate(doc.ufDate))})` : ''}` : ''}${doc.usdValue ? ` · USD 1 = ${e(fmtCurrency(doc.usdValue, 'CLP'))}${doc.usdDate ? ` (${e(fmtDate(doc.usdDate))})` : ''}` : ''}</div>
           <div>Estado: ${e(QUOTE_STATUS_LABEL[doc.status] || doc.status || '—')}</div>
         </div>
       </div>
