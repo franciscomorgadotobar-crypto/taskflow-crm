@@ -79,6 +79,7 @@ function fromDbQuote(r, items = [], discounts = []) {
     leadId: r.lead_id || '',
     ownerId: r.owner_id || '',
     owner: r.owner_name || '',
+    sellerName: r.seller_name || r.owner_name || '',
     status: r.status,
     number: r.number || '',
     priceListId: r.price_list_id || '',
@@ -338,6 +339,7 @@ function toRpcPayload(draft) {
   return {
     p_quote: {
       lead_id: draft.leadId,
+      seller_name: draft.sellerName || draft.owner || '',
       price_list_id: draft.priceListId,
       currency: draft.currency,
       uf_value: draft.ufValue ?? '',
