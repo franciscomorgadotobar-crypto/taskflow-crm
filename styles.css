@@ -781,6 +781,26 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-issuer img { max-width: 150px; height: auto; margin-bottom: 4px; }
 .qd-issuer span, .qd-muted, .qd-code { color: #697586; font-size: 11px; font-weight: 400; }
 .qd-notes { margin: 10px 0 0; }
+/* Alcance comercial en listas, editor y PDF; una capacidad por línea. */
+.price-item-scope {
+  color: #53657c; font-size: 11px; line-height: 1.5;
+  white-space: pre-line; max-width: 440px;
+}
+.qd-service-highlight { color: #46617c; font-size: 10px; font-weight: 400; margin-top: 3px; }
+.qd-proposal-intro {
+  margin: 13px 0 5px; padding: 11px 14px;
+  border-left: 3px solid #1D71B8; background: #f3f8ff;
+  color: #1b3257;
+}
+.qd-proposal-intro strong { display: block; font-size: 15px; }
+.qd-proposal-intro p { margin: 4px 0 0; font-size: 11px; }
+.qd-included-capacities { margin-top: 14px; }
+.qd-plan-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.qd-plan-card { border: 1px solid #d7e3f2; border-radius: 7px; padding: 11px 13px; break-inside: avoid; }
+.qd-plan-card > strong { display: block; color: #1b3257; margin-bottom: 6px; }
+.qd-plan-card ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
+.qd-plan-card li { color: #41546b; font-size: 10.5px; }
+
 .qd-table { width: 100%; border-collapse: collapse; }
 .qd-table th, .qd-table td { border: 1px solid #dde4ee; padding: 6px 8px; text-align: left; vertical-align: top; }
 .qd-table th { background: #f3f6fa; font-size: 11px; }
