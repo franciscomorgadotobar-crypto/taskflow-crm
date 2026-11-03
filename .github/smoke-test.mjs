@@ -52,6 +52,52 @@ try {
     if (!state.authVisible && !state.appVisible) throw new Error(`[${testCase.name}] Pantalla blanca: authScreen y appShell siguen ocultos.`);
     if (state.horizontalOverflow) throw new Error(`[${testCase.name}] Hay overflow horizontal global (${state.width}x${state.height}).`);
 
+    // El documento externo no debe revelar la absorción ni desglosar IVA.
+    const rendered = await page.evaluate(async () => {
+      const { quoteDocHtml } = await import('./js/views.js');
+      const { buildQuoteEmail } = await import('./js/quotes.js');
+      const base = {
+        number: 'P-PRUEBA', version: 1, currency: 'USD', status: 'borrador',
+        quoteDate: '2026-11-03', validUntil: '2026-11-10',
+        contractMonths: 2, owner: 'Equipo de ventas',
+        client: { company: 'Cliente extranjero', contact: 'Prueba' },
+        issuer: { commercialName: 'TaskFlow' },
+        commercialInfo: [],
+        lines: [{
+          name: 'Servicio', code: 'TEST', periodicity: 'mensual',
+          quantity: 1, unitPrice: 119, subtotal: 119, discount: 0,
+          total: 119, discountMonths: 0
+        }],
+        totals: {
+          setup: { subtotal: 0, discount: 0, net: 0, iva: 0, total: 0 },
+          monthly: { subtotal: 119, discount: 0, net: 119, iva: 0, total: 119 },
+          projection: [{ month: 1, net: 119, total: 119 }, { month: 2, net: 119, total: 119 }],
+          contract: { net: 238, iva: 0, total: 238 }
+        }
+      };
+      const absorbed = quoteDocHtml({ ...base, absorbIva: true });
+      const normal = quoteDocHtml({ ...base, absorbIva: false });
+      const email = buildQuoteEmail({
+        ...base, absorbIva: true, items: base.lines,
+        total: 238, subtotalNeto: 238, iva: 0
+      }, null).body;
+      return {
+        checkboxPresent: Boolean(document.getElementById('quoteAbsorbIva')),
+        hideByDefault: document.getElementById('quoteAbsorbIvaField')?.hidden,
+        absorbedHasIva: /IVA/i.test(absorbed),
+        normalHasIva: /IVA/i.test(normal),
+        absorbedHasFinalTotal: absorbed.includes('238,00'),
+        absorbedEmailHasIva: /IVA/i.test(email),
+        absorbedEmailHasFinalTotal: email.includes('238,00')
+      };
+    });
+    if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
+        !rendered.normalHasIva || !rendered.absorbedHasFinalTotal ||
+        rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal) {
+      throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
+    }
+    console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));
+
     console.log(`SMOKE PASS ${testCase.name}`, JSON.stringify(state));
     if (consoleErrors.length) {
       console.log(`Console errors no bloqueantes [${testCase.name}]:`, consoleErrors.join('\n'));
