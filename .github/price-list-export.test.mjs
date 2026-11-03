@@ -8,18 +8,19 @@ const { priceListMatrix, priceListCsv, downloadAllPriceListsXlsx } = await impor
 
 const list = { id: '12345678-0000-0000-0000-000000000000', name: 'Servicios: / Norte', currency: 'UF' };
 const items = [
-  { code: 'SERV-02', name: 'Servicio; visita', price: 1.25, periodicity: 'mensual', category: 'Terreno', active: false, position: 1 },
-  { code: 'SERV-01', name: 'Instalación', price: 0.75, periodicity: 'unico', category: 'Inicial', active: true, position: 0 }
+  { code: 'SERV-02', name: 'Servicio; visita', description: 'Hasta 500 ítems de inventario\n2 almacenes', price: 1.25, periodicity: 'mensual', category: 'Terreno', active: false, position: 1 },
+  { code: 'SERV-01', name: 'Instalación', description: '', price: 0.75, periodicity: 'unico', category: 'Inicial', active: true, position: 0 }
 ];
 
 const matrix = priceListMatrix(list, items);
-assert.deepEqual(matrix[0], ['Código', 'Nombre', 'Precio UF', 'Periodicidad', 'Categoría', 'Activo']);
-assert.deepEqual(matrix[1], ['SERV-01', 'Instalación', 0.75, 'Único', 'Inicial', 'Sí']);
-assert.deepEqual(matrix[2], ['SERV-02', 'Servicio; visita', 1.25, 'Mensual', 'Terreno', 'No']);
+assert.deepEqual(matrix[0], ['Código', 'Nombre', 'Alcance comercial', 'Precio UF', 'Periodicidad', 'Categoría', 'Activo']);
+assert.deepEqual(matrix[1], ['SERV-01', 'Instalación', '', 0.75, 'Único', 'Inicial', 'Sí']);
+assert.deepEqual(matrix[2], ['SERV-02', 'Servicio; visita', 'Hasta 500 ítems de inventario\n2 almacenes', 1.25, 'Mensual', 'Terreno', 'No']);
 
 const csv = priceListCsv(list, items);
 assert.ok(csv.startsWith('\uFEFF"Código";'));
 assert.ok(csv.includes('"Servicio; visita"'));
+assert.ok(csv.includes('"Hasta 500 ítems de inventario\n2 almacenes"'));
 assert.ok(csv.includes('"0.75"'));
 assert.ok(csv.includes('"No"'));
 
