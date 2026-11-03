@@ -1496,17 +1496,18 @@ export function quoteDocHtml(doc) {
   const issuerName = issuer.commercialName || issuer.legalName || QUOTE_ISSUER.name || '';
   const setup = doc.lines.filter((l) => l.periodicity === 'unico');
   const monthly = doc.lines.filter((l) => l.periodicity !== 'unico');
+  const plans = doc.lines.filter((l) => /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(l.code || '') && l.description?.trim());
   const amount = (n) => fmtAmount(n, cur);
 
   const table = (rows, withMonths) => `
     <table class="qd-table">
-      <thead><tr><th>Servicio</th><th class="num">Cant.</th><th class="num">P. unit. ${cur}</th><th class="num">Subtotal ${cur}</th><th class="num">Dscto ${cur}</th>${withMonths ? '<th class="num">Meses dscto</th>' : ''}<th class="num">Total ${cur}</th></tr></thead>
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th>${withMonths ? '<th class="num">Meses con beneficio</th>' : ''}<th class="num">Inversión ${cur}</th></tr></thead>
       <tbody>${
         rows.length
           ? rows
               .map(
                 (l) => `<tr>
-                  <td>${e(l.name)}</td>
+                  <td><strong>${e(commercialName(l))}</strong>${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}</td>
                   <td class="num">${fmtNumber(l.quantity)}</td>
                   <td class="num">${amount(l.unitPrice)}</td>
                   <td class="num">${amount(l.subtotal)}</td>
@@ -1522,8 +1523,8 @@ export function quoteDocHtml(doc) {
 
   const totalsBox = (b, finalLabel) => `
     <div class="qd-totals">
-      <div><span>Subtotal ${cur}</span><span>${amount(b?.subtotal)}</span></div>
-      <div class="qd-disc"><span>Descuentos ${cur}</span><span>${amount(b?.discount)}</span></div>
+      <div><span>Valor de lista ${cur}</span><span>${amount(b?.subtotal)}</span></div>
+      <div class="qd-disc"><span>Beneficios comerciales ${cur}</span><span>${amount(b?.discount)}</span></div>
       ${absorbed ? '' : `<div><span>Neto ${cur}</span><span>${amount(b?.net)}</span></div>
       <div><span>IVA 19%</span><span>${amount(b?.iva)}</span></div>`}
       <div class="qd-final"><span>${finalLabel}</span><span>${amount(b?.total)}</span></div>
@@ -1560,6 +1561,10 @@ export function quoteDocHtml(doc) {
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
         </div>
       </div>
+      <section class="qd-proposal-intro">
+        <strong>Propuesta de soluciones TaskFlow</strong>
+        <p>Las capacidades y condiciones que se presentan a continuación corresponden a los servicios seleccionados para su operación.</p>
+      </section>
       ${early ? `<section class="qd-commercial"><h3>Acceso Anticipado TaskFlow</h3><p>Piloto: ${e(early.days)} días. Precio piloto: ${amount(early.pilotPrice)}.</p><p>Alcance: ${e(early.scope)}</p><p>Condiciones: ${e(early.conditions)}</p><p>Beneficio posterior: ${e(early.benefit === '40x6' ? '40 % por seis meses' : early.benefit === 'preferential12' ? 'Tarifa preferencial por doce meses' : 'Sin descuento')}</p><p>Los precios siguientes corresponden a contratación posterior opcional.</p></section>` : ''}
       ${cleanNotes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(cleanNotes)}</p>` : ''}
       ${commercialInfo.length ? `
@@ -1568,15 +1573,21 @@ export function quoteDocHtml(doc) {
           <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
         </section>` : ''}
 
-      <h4>Habilitación inicial (pago único)</h4>
-      ${table(setup, false)}
-      ${totalsBox(t.setup, `Total habilitación ${cur}`)}
+      ${setup.length ? `<h4>Puesta en marcha y servicios de pago único</h4>${table(setup, false)}${totalsBox(t.setup, `Inversión inicial ${cur}`)}` : ''}
 
-      <h4>Servicios mensuales</h4>
+      ${plans.length ? `<section class="qd-included-capacities">
+        <h4>Capacidades incluidas en su plan de Inventario</h4>
+        <div class="qd-plan-grid">${plans.map((plan) => `
+          <div class="qd-plan-card">
+            <strong>${e(commercialName(plan))}</strong>
+            <ul>${plan.description.split(/\r?\n/).filter(Boolean).map((feature) => `<li>${e(feature)}</li>`).join('')}</ul>
+          </div>`).join('')}</div>
+      </section>` : ''}
+      <h4>Suscripción y servicios mensuales</h4>
       ${table(monthly, true)}
-      ${totalsBox(t.monthly, `Total mes 1 ${cur}`)}
+      ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
 
-      <h4>Proyección mensual del contrato ${absorbed ? '' : '<span class="qd-muted">(neto, más IVA)</span>'}</h4>
+      <h4>Proyección de inversión mensual ${absorbed ? '' : '<span class="qd-muted">(valores netos, más IVA)</span>'}</h4>
       <div class="qd-months">${(t.projection || [])
         .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.net)}</strong></div>`)
         .join('')}</div>
@@ -1584,7 +1595,7 @@ export function quoteDocHtml(doc) {
       <div class="qd-totals qd-contract">
         ${absorbed ? '' : `<div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
         <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
-        <div class="qd-final"><span>Total contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
+        <div class="qd-final"><span>Inversión total del período ${cur}</span><span>${amount(t.contract?.total)}</span></div>
       </div>
     </div>`;
 }
