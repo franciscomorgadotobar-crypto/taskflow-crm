@@ -77,6 +77,13 @@ try {
       };
       const absorbed = quoteDocHtml({ ...base, absorbIva: true });
       const normal = quoteDocHtml({ ...base, absorbIva: false });
+      const full = quoteDocHtml({
+        ...base, currency: 'UF', absorbIva: false,
+        lines: [{
+          ...base.lines[0], code: 'INV_FULL', name: 'Inventario Plan Full',
+          description: 'Ítems de inventario ilimitados desde 10.000\nHasta 9.999 usuarios\n15 almacenes\nHasta 20.000 equipos seriados'
+        }]
+      });
       const email = buildQuoteEmail({
         ...base, absorbIva: true, items: base.lines,
         total: 238, subtotalNeto: 238, iva: 0
@@ -88,12 +95,15 @@ try {
         normalHasIva: /IVA/i.test(normal),
         absorbedHasFinalTotal: absorbed.includes('238,00'),
         absorbedEmailHasIva: /IVA/i.test(email),
-        absorbedEmailHasFinalTotal: email.includes('238,00')
+        absorbedEmailHasFinalTotal: email.includes('238,00'),
+        fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Capacidades incluidas en su plan de Inventario'),
+        commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Inversión total del período')
       };
     });
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal ||
-        rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal) {
+        rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
+        !rendered.fullCapacityIncluded || !rendered.commercialLanguage) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));

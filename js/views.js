@@ -1274,12 +1274,13 @@ function renderPriceListItems(list) {
         ${
           items.length
             ? `<div class="table-wrap"><table class="data-table price-items-table">
-                <thead><tr><th>Código</th><th>Nombre</th><th class="num">Precio ${e(list.currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th>${admin ? '<th>Acciones</th>' : ''}</tr></thead>
+                <thead><tr><th>Código</th><th>Nombre</th><th>Capacidades y alcance</th><th class="num">Precio ${e(list.currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th>${admin ? '<th>Acciones</th>' : ''}</tr></thead>
                 <tbody>${items
                   .map(
                     (it) => `<tr>
                       <td><strong>${e(it.code)}</strong></td>
                       <td>${e(it.name)}</td>
+                      <td class="price-item-scope">${it.description ? e(it.description) : '—'}</td>
                       <td class="num">${fmtAmount(it.price, list.currency)}</td>
                       <td>${e(PERIODICITY_LABEL[it.periodicity] || it.periodicity)}</td>
                       <td>${e(it.category || '—')}</td>
@@ -1417,8 +1418,8 @@ const COMMERCIAL_NAMES = {
 };
 function commercialName(item) {
   if (COMMERCIAL_NAMES[item.code]) return COMMERCIAL_NAMES[item.code];
-  if (item.code.startsWith('PACK_INV_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' artículos';
-  if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' equipos identificados';
+  if (item.code.startsWith('PACK_INV_')) return 'Capacidad adicional para ' + fmtNumber(Number(item.code.slice(9))) + ' ítems de inventario';
+  if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + fmtNumber(Number(item.code.slice(9))) + ' equipos seriados';
   return item.name;
 }
 // Diseño V2 independiente del documento oficial y de sus cálculos.
@@ -1441,7 +1442,7 @@ export function commercialV2DocHtml({ company = '', contact = '', rows = [], cur
     '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">¿Qué permite organizar la solución?</h2>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + V2_BENEFITS.map(([title,desc])=>'<div style="border:1px solid #dce6f2;border-radius:9px;padding:12px"><strong>'+e(title)+'</strong><p style="margin:7px 0 0">'+e(desc)+'</p></div>').join('') + '</div>' +
     '<p style="font-size:12px;color:#4b617a;margin:14px 0">La disponibilidad de cada funcionalidad se confirma en el alcance contratado. Las automatizaciones, mediciones por uso y funciones predictivas mencionadas en la hoja de ruta no se incluyen por defecto.</p>' +
-    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Soluciones propuestas</h2><h3>Servicios mensuales</h3>' + table(monthly) +
+    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Soluciones seleccionadas para su operación</h2><h3>Servicios mensuales</h3>' + table(monthly) +
     '<div style="background:#e7f2ff;border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:center"><strong>Inversión mensual de catálogo</strong><strong style="font-size:23px;color:#1D71B8">' + money(sum(monthly)) + '</strong></div>' +
     '<h3>Implementación y servicios de pago único</h3>' + table(once) +
     '<p><strong>Total de pago único:</strong> ' + money(sum(once)) + '</p>' +
@@ -1452,9 +1453,9 @@ export function commercialV2DocHtml({ company = '', contact = '', rows = [], cur
 function renderCommercialQuoteV2() {
   const list = quoteState.priceLists.find(x => x.status === 'vigente') || quoteState.priceLists[0];
   const items = list ? itemsOfPriceList(list.id).filter(x => x.active) : [];
-  return '<section class="card" style="padding:24px"><h2>Cotizador Comercial V2 · Mantenimiento</h2><p>Propuesta enfocada en las capacidades descritas en la presentación del módulo. Catálogo y cotizador oficial sin cambios.</p>' +
+  return '<section class="card" style="padding:24px"><h2>Propuesta comercial · TaskFlow</h2><p>Seleccione las soluciones, revise las capacidades incluidas y prepare una propuesta clara para su cliente.</p>' +
     '<div class="form-grid"><label>Empresa<input id="v2Company" placeholder="Nombre de la empresa"></label><label>Contacto<input id="v2Contact" placeholder="Nombre del contacto"></label><label>Modalidad<select id="v2Mode"><option value="standard">Comercial estándar</option><option value="early">Acceso anticipado</option></select></label></div>' +
-    '<h3>Selecciona las soluciones</h3><div class="list">' + items.map(item=>'<label style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #8883"><input type="checkbox" class="v2-select" data-code="'+e(item.code)+'" data-price="'+item.price+'" data-period="'+e(item.periodicity)+'"><span style="flex:1"><strong>'+e(commercialName(item))+'</strong><small style="display:block">'+e(item.category)+' · '+e(item.periodicity === 'unico' ? 'Pago único' : 'Mensual')+'</small></span><span>'+fmtAmount(item.price,list.currency)+' '+e(list.currency)+'</span><input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad"></label>').join('') +
+    '<h3>Selecciona las soluciones</h3><div class="list">' + items.map(item=>'<label style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #8883"><input type="checkbox" class="v2-select" data-code="'+e(item.code)+'" data-price="'+item.price+'" data-id="'+e(item.id)+'" data-period="'+e(item.periodicity)+'"><span style="flex:1"><strong>'+e(commercialName(item))+'</strong><small style="display:block">'+e(item.category)+' · '+e(item.periodicity === 'unico' ? 'Pago único' : 'Mensual')+'</small>'+(item.description ? '<small class="price-item-scope" style="display:block">'+e(item.description)+'</small>' : '')+'</span><span>'+fmtAmount(item.price,list.currency)+' '+e(list.currency)+'</span><input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad"></label>').join('') +
     '</div><div id="v2Summary" class="card" style="margin-top:18px;padding:18px">Selecciona los servicios para preparar tu propuesta.</div><div class="button-row" style="margin-top:16px"><button type="button" class="primary-btn" data-action="v2-print">Descargar propuesta PDF V2</button></div><p class="muted">Los importes se calculan en '+e(list?.currency || 'UF')+' con la lista vigente, sin alterar la cotización tradicional.</p></section>';
 }
 
@@ -1495,17 +1496,18 @@ export function quoteDocHtml(doc) {
   const issuerName = issuer.commercialName || issuer.legalName || QUOTE_ISSUER.name || '';
   const setup = doc.lines.filter((l) => l.periodicity === 'unico');
   const monthly = doc.lines.filter((l) => l.periodicity !== 'unico');
+  const plans = doc.lines.filter((l) => /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(l.code || '') && l.description?.trim());
   const amount = (n) => fmtAmount(n, cur);
 
   const table = (rows, withMonths) => `
     <table class="qd-table">
-      <thead><tr><th>Servicio</th><th class="num">Cant.</th><th class="num">P. unit. ${cur}</th><th class="num">Subtotal ${cur}</th><th class="num">Dscto ${cur}</th>${withMonths ? '<th class="num">Meses dscto</th>' : ''}<th class="num">Total ${cur}</th></tr></thead>
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th>${withMonths ? '<th class="num">Meses con beneficio</th>' : ''}<th class="num">Inversión ${cur}</th></tr></thead>
       <tbody>${
         rows.length
           ? rows
               .map(
                 (l) => `<tr>
-                  <td>${e(l.name)}</td>
+                  <td><strong>${e(commercialName(l))}</strong>${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}</td>
                   <td class="num">${fmtNumber(l.quantity)}</td>
                   <td class="num">${amount(l.unitPrice)}</td>
                   <td class="num">${amount(l.subtotal)}</td>
@@ -1521,8 +1523,8 @@ export function quoteDocHtml(doc) {
 
   const totalsBox = (b, finalLabel) => `
     <div class="qd-totals">
-      <div><span>Subtotal ${cur}</span><span>${amount(b?.subtotal)}</span></div>
-      <div class="qd-disc"><span>Descuentos ${cur}</span><span>${amount(b?.discount)}</span></div>
+      <div><span>Valor de lista ${cur}</span><span>${amount(b?.subtotal)}</span></div>
+      <div class="qd-disc"><span>Beneficios comerciales ${cur}</span><span>${amount(b?.discount)}</span></div>
       ${absorbed ? '' : `<div><span>Neto ${cur}</span><span>${amount(b?.net)}</span></div>
       <div><span>IVA 19%</span><span>${amount(b?.iva)}</span></div>`}
       <div class="qd-final"><span>${finalLabel}</span><span>${amount(b?.total)}</span></div>
@@ -1559,6 +1561,10 @@ export function quoteDocHtml(doc) {
           <div>Condición: ${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</div>
         </div>
       </div>
+      <section class="qd-proposal-intro">
+        <strong>Propuesta de soluciones TaskFlow</strong>
+        <p>Las capacidades y condiciones que se presentan a continuación corresponden a los servicios seleccionados para su operación.</p>
+      </section>
       ${early ? `<section class="qd-commercial"><h3>Acceso Anticipado TaskFlow</h3><p>Piloto: ${e(early.days)} días. Precio piloto: ${amount(early.pilotPrice)}.</p><p>Alcance: ${e(early.scope)}</p><p>Condiciones: ${e(early.conditions)}</p><p>Beneficio posterior: ${e(early.benefit === '40x6' ? '40 % por seis meses' : early.benefit === 'preferential12' ? 'Tarifa preferencial por doce meses' : 'Sin descuento')}</p><p>Los precios siguientes corresponden a contratación posterior opcional.</p></section>` : ''}
       ${cleanNotes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(cleanNotes)}</p>` : ''}
       ${commercialInfo.length ? `
@@ -1567,15 +1573,21 @@ export function quoteDocHtml(doc) {
           <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
         </section>` : ''}
 
-      <h4>Habilitación inicial (pago único)</h4>
-      ${table(setup, false)}
-      ${totalsBox(t.setup, `Total habilitación ${cur}`)}
+      ${setup.length ? `<h4>Puesta en marcha y servicios de pago único</h4>${table(setup, false)}${totalsBox(t.setup, `Inversión inicial ${cur}`)}` : ''}
 
-      <h4>Servicios mensuales</h4>
+      ${plans.length ? `<section class="qd-included-capacities">
+        <h4>Capacidades incluidas en su plan de Inventario</h4>
+        <div class="qd-plan-grid">${plans.map((plan) => `
+          <div class="qd-plan-card">
+            <strong>${e(commercialName(plan))}</strong>
+            <ul>${plan.description.split(/\r?\n/).filter(Boolean).map((feature) => `<li>${e(feature)}</li>`).join('')}</ul>
+          </div>`).join('')}</div>
+      </section>` : ''}
+      <h4>Suscripción y servicios mensuales</h4>
       ${table(monthly, true)}
-      ${totalsBox(t.monthly, `Total mes 1 ${cur}`)}
+      ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
 
-      <h4>Proyección mensual del contrato ${absorbed ? '' : '<span class="qd-muted">(neto, más IVA)</span>'}</h4>
+      <h4>Proyección de inversión mensual ${absorbed ? '' : '<span class="qd-muted">(valores netos, más IVA)</span>'}</h4>
       <div class="qd-months">${(t.projection || [])
         .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.net)}</strong></div>`)
         .join('')}</div>
@@ -1583,7 +1595,7 @@ export function quoteDocHtml(doc) {
       <div class="qd-totals qd-contract">
         ${absorbed ? '' : `<div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
         <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
-        <div class="qd-final"><span>Total contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
+        <div class="qd-final"><span>Inversión total del período ${cur}</span><span>${amount(t.contract?.total)}</span></div>
       </div>
     </div>`;
 }
@@ -1637,7 +1649,7 @@ export function quoteLinesHtml(builder) {
         const ci = calcItem(it.ref);
         const cl = calcLine(it.ref);
         return `<tr>
-          <td>${e(li?.name || 'Servicio no disponible')} ${PERIODICITY_BADGE(li?.periodicity)}<div class="qd-code">${e(li?.code || '')}</div></td>
+          <td>${e(commercialName(li || { code: "", name: "Servicio no disponible" }))} ${PERIODICITY_BADGE(li?.periodicity)}<div class="qd-code">${e(li?.code || '')}</div>${li?.description ? `<div class="qd-service-highlight">${e(li.description.split(/\r?\n/)[0])}</div>` : ''}</td>
           <td class="num"><input class="cell-input qty" type="number" min="1" step="1" data-quote-line-qty="${e(it.ref)}" value="${e(it.quantity)}" /></td>
           <td class="num">${ci ? fmtAmount(ci.unit_price, cur) : dash}</td>
           <td class="num">${cl ? fmtAmount(cl.subtotal, cur) : dash}</td>

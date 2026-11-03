@@ -1442,7 +1442,7 @@ function commercialV2Draft() {
   const rows = [...document.querySelectorAll('.v2-select:checked')].map(el => {
     const qty = Math.max(1, Math.floor(Number(el.closest('label').querySelector('.v2-qty')?.value || 1)));
     const unitPrice = Number(el.dataset.price || 0);
-    return { name: el.closest('label').querySelector('strong')?.textContent || '', description: '', qty, unitPrice, amount: qty * unitPrice, period: el.dataset.period };
+    return { name: el.closest('label').querySelector('strong')?.textContent || '', description: getPriceListItem(el.dataset.id)?.description || '', qty, unitPrice, amount: qty * unitPrice, period: el.dataset.period };
   });
   return { company: $('v2Company')?.value.trim() || '', contact: $('v2Contact')?.value.trim() || '', currency: list?.currency || 'UF', rows, early: $('v2Mode')?.value === 'early' };
 }
@@ -1596,6 +1596,7 @@ function builderDoc() {
     return {
       code: ci.code,
       name: ci.name,
+      description: getPriceListItem(ci.price_list_item_id)?.description || '',
       periodicity: ci.periodicity,
       quantity: ci.quantity,
       unitPrice: ci.unit_price,
@@ -2247,6 +2248,7 @@ async function exportAllPriceLists() {
 const PRICE_IMPORT_COLUMNS = {
   code: ['codigo', 'cod', 'code', 'sku'],
   name: ['nombre', 'servicio', 'nombre servicio', 'descripcion', 'name', 'item'],
+  description: ['alcance comercial', 'capacidades', 'detalle comercial', 'descripcion del servicio', 'detalles incluidos', 'description'], 
   price: ['precio', 'valor', 'precio neto', 'price'],
   periodicity: ['periodicidad', 'periodo', 'frecuencia', 'cobro', 'tipo de cobro'],
   category: ['categoria', 'category', 'familia', 'grupo'],
@@ -2256,6 +2258,7 @@ const PRICE_IMPORT_COLUMNS = {
 const PRICE_IMPORT_LABEL = {
   code: 'Código',
   name: 'Nombre',
+  description: 'Alcance comercial',
   price: 'Precio',
   periodicity: 'Periodicidad',
   category: 'Categoría',
@@ -2333,7 +2336,7 @@ function buildPriceImportItems() {
     if (!periodicity) problems.push('periodicidad debe ser Único o Mensual');
     if (active == null) problems.push('activo debe ser Sí o No');
     if (problems.length) priceImport.errors.push({ row: i + 1, problems });
-    return { code, name, price, periodicity, category: cell(row, 'category'), active, problems };
+    return { code, name, description: cell(row, 'description'), price, periodicity, category: cell(row, 'category'), active, problems };
   });
 }
 
@@ -2363,13 +2366,14 @@ function renderPriceImportPreview() {
       errors ? `<span class="badge danger">${errors} fila(s) con error</span>` : '<span class="badge success">Sin errores</span>'
     }</p>
     <div class="table-wrap price-import-table"><table class="data-table">
-      <thead><tr><th>#</th><th>Código</th><th>Nombre</th><th class="num">Precio ${escapeHtml(currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th></tr></thead>
+      <thead><tr><th>#</th><th>Código</th><th>Nombre</th><th>Alcance comercial</th><th class="num">Precio ${escapeHtml(currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th></tr></thead>
       <tbody>${items
         .map(
           (it, i) => `<tr class="${it.problems.length ? 'import-row-error' : ''}">
             <td>${i + 1}</td>
             <td>${escapeHtml(it.code)}</td>
             <td>${escapeHtml(it.name)}${it.problems.length ? `<div class="import-error">${escapeHtml(it.problems.join('; '))}</div>` : ''}</td>
+            <td>${escapeHtml(it.description || '—')}</td>
             <td class="num">${it.price == null ? '—' : fmtAmount(it.price, currency)}</td>
             <td>${it.periodicity === 'unico' ? 'Único' : it.periodicity === 'mensual' ? 'Mensual' : '—'}</td>
             <td>${escapeHtml(it.category || '—')}</td>
@@ -2535,6 +2539,7 @@ function openPriceItem(listId, itemId = '') {
   $('priceItemListId').value = list.id;
   $('priceItemCode').value = item?.code || '';
   $('priceItemName').value = item?.name || '';
+  $('priceItemDescription').value = item?.description || '';
   $('priceItemPrice').value = item ? item.price : '';
   $('priceItemPeriodicity').value = item?.periodicity || 'mensual';
   $('priceItemCategory').value = item?.category || '';
@@ -2555,6 +2560,7 @@ async function submitPriceItem(e) {
     priceListId: $('priceItemListId').value,
     code,
     name,
+    description: $('priceItemDescription').value.trim(),
     price: Number(price),
     periodicity: $('priceItemPeriodicity').value,
     category: $('priceItemCategory').value.trim(),

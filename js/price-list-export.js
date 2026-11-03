@@ -3,7 +3,7 @@
  * Se exportan todos los servicios, también los inactivos, sin modificar datos.
  * Los encabezados y valores son compatibles con la importación del CRM.
  */
-const columns = (list) => ['Código', 'Nombre', 'Precio ' + (list.currency || 'UF'), 'Periodicidad', 'Categoría', 'Activo'];
+const columns = (list) => ['Código', 'Nombre', 'Alcance comercial', 'Precio ' + (list.currency || 'UF'), 'Periodicidad', 'Categoría', 'Activo'];
 
 export function priceListMatrix(list, items) {
   if (!list?.id) throw new Error('Lista de precios no disponible.');
@@ -16,6 +16,7 @@ export function priceListMatrix(list, items) {
     return [
       String(item.code || ''),
       String(item.name || ''),
+      String(item.description || ''),
       price,
       item.periodicity === 'unico' ? 'Único' : 'Mensual',
       String(item.category || ''),
@@ -59,7 +60,7 @@ export function downloadPriceListCsv(list, items) {
 
 function createWorksheet(XLSX, list, items) {
   const sheet = XLSX.utils.aoa_to_sheet(priceListMatrix(list, items));
-  sheet['!cols'] = [{ wch: 20 }, { wch: 50 }, { wch: 20 }, { wch: 18 }, { wch: 26 }, { wch: 10 }];
+  sheet['!cols'] = [{ wch: 20 }, { wch: 48 }, { wch: 70 }, { wch: 20 }, { wch: 18 }, { wch: 26 }, { wch: 10 }];
   return sheet;
 }
 

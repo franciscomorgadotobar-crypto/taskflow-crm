@@ -36,6 +36,7 @@ const fromDbPriceListItem = (r) => ({
   priceListId: r.price_list_id,
   code: r.code,
   name: r.name,
+  description: r.description || '',
   price: Number(r.price || 0),
   periodicity: r.periodicity,
   category: r.category || '',
@@ -48,6 +49,7 @@ const fromDbItem = (r) => ({
   priceListItemId: r.price_list_item_id || '',
   code: r.code || '',
   name: r.name,
+  description: r.description || '',
   periodicity: r.periodicity || 'mensual',
   quantity: Number(r.quantity || 0),
   unitPrice: Number(r.unit_price || 0),
@@ -210,7 +212,7 @@ function friendlyListError(err) {
   return err;
 }
 
-/** Crea una lista nueva desde un archivo ya validado. `items` usa code/name/price/periodicity/category/active. */
+/** Crea una lista nueva; cada ítem conserva su alcance comercial para futuras cotizaciones. */
 export async function importPriceList({ name, currency, items, sourceFile = '' }) {
   const { data, error } = await supabase.rpc('import_price_list', {
     p_name: name,
@@ -284,6 +286,7 @@ export async function savePriceListItem(input) {
   const row = {
     code: input.code,
     name: input.name,
+    description: String(input.description || '').trim().slice(0, 1500),
     price: input.price,
     periodicity: input.periodicity,
     category: input.category || '',
@@ -442,14 +445,14 @@ export function buildQuoteEmail(quote, lead) {
   const absorb = quote.absorbIva === true;
   const money = (n) => fmtCurrency(n, cur);
   const line = (it) =>
-    `- ${it.name} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (dscto ${money(it.discount)})` : ''} = ${money(it.total)}`;
+    `- ${it.name} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (descuento ${money(it.discount)})` : ''} = ${money(it.total)}${it.description ? '\n  Incluye: ' + it.description.split('\n').filter(Boolean).join(' · ') : ''}`;
   const setup = quote.items.filter((it) => it.periodicity === 'unico');
   const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
   const t = quote.totals || {};
   const body = [
     `Hola ${name},`,
     '',
-    `Te comparto la cotización ${quote.number || ''} de servicios para ${lead?.company || quote.client?.company || 'tu empresa'}:`,
+    `Te comparto nuestra propuesta comercial TaskFlow ${quote.number || ''} para ${lead?.company || quote.client?.company || 'tu empresa'}. Incluye los servicios, las capacidades consideradas y la inversión correspondiente:`, 
     '',
     ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), absorb ? `Total habilitación: ${money(t.setup?.total)}` : `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
     ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), absorb ? `Total mensual: ${money(t.monthly?.total)}` : `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
@@ -462,7 +465,7 @@ export function buildQuoteEmail(quote, lead) {
     quote.notes ? '' : '',
     quote.notes || '',
     '',
-    'Quedo atento/a a tus comentarios.'
+    'Quedo disponible para revisar el alcance, resolver tus consultas y coordinar los próximos pasos.'
   ]
     .filter((l, i, arr) => !(l === '' && arr[i - 1] === ''))
     .join('\n');
