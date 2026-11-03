@@ -1274,12 +1274,13 @@ function renderPriceListItems(list) {
         ${
           items.length
             ? `<div class="table-wrap"><table class="data-table price-items-table">
-                <thead><tr><th>Código</th><th>Nombre</th><th class="num">Precio ${e(list.currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th>${admin ? '<th>Acciones</th>' : ''}</tr></thead>
+                <thead><tr><th>Código</th><th>Nombre</th><th>Capacidades y alcance</th><th class="num">Precio ${e(list.currency)}</th><th>Periodicidad</th><th>Categoría</th><th>Activo</th>${admin ? '<th>Acciones</th>' : ''}</tr></thead>
                 <tbody>${items
                   .map(
                     (it) => `<tr>
                       <td><strong>${e(it.code)}</strong></td>
                       <td>${e(it.name)}</td>
+                      <td class="price-item-scope">${it.description ? e(it.description) : '—'}</td>
                       <td class="num">${fmtAmount(it.price, list.currency)}</td>
                       <td>${e(PERIODICITY_LABEL[it.periodicity] || it.periodicity)}</td>
                       <td>${e(it.category || '—')}</td>
@@ -1417,8 +1418,8 @@ const COMMERCIAL_NAMES = {
 };
 function commercialName(item) {
   if (COMMERCIAL_NAMES[item.code]) return COMMERCIAL_NAMES[item.code];
-  if (item.code.startsWith('PACK_INV_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' artículos';
-  if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' equipos identificados';
+  if (item.code.startsWith('PACK_INV_')) return 'Capacidad adicional para ' + fmtNumber(Number(item.code.slice(9))) + ' ítems de inventario';
+  if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + fmtNumber(Number(item.code.slice(9))) + ' equipos seriados';
   return item.name;
 }
 // Diseño V2 independiente del documento oficial y de sus cálculos.
@@ -1441,7 +1442,7 @@ export function commercialV2DocHtml({ company = '', contact = '', rows = [], cur
     '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">¿Qué permite organizar la solución?</h2>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + V2_BENEFITS.map(([title,desc])=>'<div style="border:1px solid #dce6f2;border-radius:9px;padding:12px"><strong>'+e(title)+'</strong><p style="margin:7px 0 0">'+e(desc)+'</p></div>').join('') + '</div>' +
     '<p style="font-size:12px;color:#4b617a;margin:14px 0">La disponibilidad de cada funcionalidad se confirma en el alcance contratado. Las automatizaciones, mediciones por uso y funciones predictivas mencionadas en la hoja de ruta no se incluyen por defecto.</p>' +
-    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Soluciones propuestas</h2><h3>Servicios mensuales</h3>' + table(monthly) +
+    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Soluciones seleccionadas para su operación</h2><h3>Servicios mensuales</h3>' + table(monthly) +
     '<div style="background:#e7f2ff;border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:center"><strong>Inversión mensual de catálogo</strong><strong style="font-size:23px;color:#1D71B8">' + money(sum(monthly)) + '</strong></div>' +
     '<h3>Implementación y servicios de pago único</h3>' + table(once) +
     '<p><strong>Total de pago único:</strong> ' + money(sum(once)) + '</p>' +
@@ -1452,9 +1453,9 @@ export function commercialV2DocHtml({ company = '', contact = '', rows = [], cur
 function renderCommercialQuoteV2() {
   const list = quoteState.priceLists.find(x => x.status === 'vigente') || quoteState.priceLists[0];
   const items = list ? itemsOfPriceList(list.id).filter(x => x.active) : [];
-  return '<section class="card" style="padding:24px"><h2>Cotizador Comercial V2 · Mantenimiento</h2><p>Propuesta enfocada en las capacidades descritas en la presentación del módulo. Catálogo y cotizador oficial sin cambios.</p>' +
+  return '<section class="card" style="padding:24px"><h2>Propuesta comercial · TaskFlow</h2><p>Seleccione las soluciones, revise las capacidades incluidas y prepare una propuesta clara para su cliente.</p>' +
     '<div class="form-grid"><label>Empresa<input id="v2Company" placeholder="Nombre de la empresa"></label><label>Contacto<input id="v2Contact" placeholder="Nombre del contacto"></label><label>Modalidad<select id="v2Mode"><option value="standard">Comercial estándar</option><option value="early">Acceso anticipado</option></select></label></div>' +
-    '<h3>Selecciona las soluciones</h3><div class="list">' + items.map(item=>'<label style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #8883"><input type="checkbox" class="v2-select" data-code="'+e(item.code)+'" data-price="'+item.price+'" data-period="'+e(item.periodicity)+'"><span style="flex:1"><strong>'+e(commercialName(item))+'</strong><small style="display:block">'+e(item.category)+' · '+e(item.periodicity === 'unico' ? 'Pago único' : 'Mensual')+'</small></span><span>'+fmtAmount(item.price,list.currency)+' '+e(list.currency)+'</span><input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad"></label>').join('') +
+    '<h3>Selecciona las soluciones</h3><div class="list">' + items.map(item=>'<label style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #8883"><input type="checkbox" class="v2-select" data-code="'+e(item.code)+'" data-price="'+item.price+'" data-id="'+e(item.id)+'" data-period="'+e(item.periodicity)+'"><span style="flex:1"><strong>'+e(commercialName(item))+'</strong><small style="display:block">'+e(item.category)+' · '+e(item.periodicity === 'unico' ? 'Pago único' : 'Mensual')+'</small></span><span>'+fmtAmount(item.price,list.currency)+' '+e(list.currency)+'</span><input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad"></label>').join('') +
     '</div><div id="v2Summary" class="card" style="margin-top:18px;padding:18px">Selecciona los servicios para preparar tu propuesta.</div><div class="button-row" style="margin-top:16px"><button type="button" class="primary-btn" data-action="v2-print">Descargar propuesta PDF V2</button></div><p class="muted">Los importes se calculan en '+e(list?.currency || 'UF')+' con la lista vigente, sin alterar la cotización tradicional.</p></section>';
 }
 
