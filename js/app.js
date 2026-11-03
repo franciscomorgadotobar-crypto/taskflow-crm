@@ -1435,6 +1435,21 @@ async function submitTemplatePack(ev) {
   }
 }
 
+function refreshCommercialV2() {
+  const root = $('v2Summary');
+  if (!root) return;
+  let monthly = 0, once = 0;
+  const rows = [...document.querySelectorAll('.v2-select:checked')].map(el => {
+    const qty = Math.max(1, Number(el.closest('label').querySelector('.v2-qty')?.value || 1));
+    const amount = qty * Number(el.dataset.price || 0);
+    if (el.dataset.period === 'unico') once += amount; else monthly += amount;
+    return { name: el.closest('label').querySelector('strong')?.textContent || '', qty, amount, period: el.dataset.period };
+  });
+  const cur = quoteState.priceLists.find(l => l.status === 'vigente')?.currency || 'UF';
+  root.innerHTML = '<h3>Tu propuesta TaskFlow</h3>' + rows.map(x => '<p>' + escapeHtml(x.name) + ' × ' + x.qty + ': ' + fmtAmount(x.amount, cur) + ' ' + cur + '</p>').join('') +
+    '<hr><p><strong>Inversión mensual: ' + fmtAmount(monthly, cur) + ' ' + cur + '</strong></p><p>Implementación y servicios únicos: ' + fmtAmount(once, cur) + ' ' + cur + '</p><small>Valores de catálogo antes de impuestos; no incluye contratación automática.</small>';
+}
+
 /* ---------- Cotizador ---------- */
 
 // El borrador vive en ui.quoteBuilder. Los montos nunca se calculan aquí: cada
@@ -3097,6 +3112,8 @@ const ACTIONS = {
     ui.quotesView = 'list';
     render();
   },
+  'quotes-view-v2': () => { ui.quotesView = 'v2'; render(); },
+  'v2-print': () => { refreshCommercialV2(); window.print(); },
   'quotes-view-lists': () => {
     ui.quotesView = 'lists';
     render();
@@ -4235,6 +4252,8 @@ function bindEvents() {
   document.addEventListener('keydown', handleKeydown);
   $('viewRoot').addEventListener('input', handleViewInput);
   $('viewRoot').addEventListener('change', handleViewInput);
+  $('viewRoot').addEventListener('change', (ev) => { if (ev.target.closest('.v2-select, .v2-qty')) refreshCommercialV2(); });
+  $('viewRoot').addEventListener('input', (ev) => { if (ev.target.closest('.v2-qty')) refreshCommercialV2(); });
   $('viewRoot').addEventListener('focusin', (ev) => {
     if (ev.target.matches('[data-template-body], [data-template-subject]')) lastTemplateField = ev.target;
   });
