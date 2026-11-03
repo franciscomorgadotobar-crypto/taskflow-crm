@@ -1219,8 +1219,8 @@ function quoteRow(q, { showCompany = false } = {}) {
       <div class="muted">${e(q.sellerName || q.owner || 'Sin vendedor')} · ${e(fmtDateTime(q.updatedAt))}</div>
     </div>
     <div class="list-side">
-      <strong>${fmtCurrency(q.totals?.monthly?.net, q.currency)} / mes + IVA</strong>
-      <span class="muted">Contrato ${q.contractMonths} meses: ${fmtCurrency(q.total, q.currency)} IVA incl.</span>
+      <strong>${fmtCurrency(q.totals?.monthly?.[q.absorbIva ? 'total' : 'net'], q.currency)} / mes${q.absorbIva ? '' : ' + IVA'}</strong>
+      <span class="muted">Contrato ${q.contractMonths} meses: ${fmtCurrency(q.total, q.currency)}${q.absorbIva ? '' : ' IVA incl.'}</span>
       <div class="actions">
         <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver</button>
         <button class="small-btn" data-action="edit-quote" data-id="${q.id}">Editar</button>
@@ -1382,7 +1382,7 @@ function renderQuotesList(ui) {
             <option value="">Todos los estados</option>
             ${QUOTE_STATUSES.map((s) => `<option value="${s.id}" ${status === s.id ? 'selected' : ''}>${e(s.label)}</option>`).join('')}
           </select>
-          <span class="toolbar-summary">${filtered.length}${totalLabel ? ` · ${totalLabel} (contratos, IVA incl.)` : ''}</span>
+          <span class="toolbar-summary">${filtered.length}${totalLabel ? ` · ${totalLabel} (total contratos)` : ''}</span>
         </div>
         ${
           filtered.length
@@ -1417,6 +1417,7 @@ const optionLabel = (list, id) => list.find((x) => x.id === id)?.label || '—';
  */
 export function quoteDocHtml(doc) {
   const cur = doc.currency || 'UF';
+  const absorbed = doc.absorbIva === true;
   const t = doc.totals || {};
   const client = doc.client || {};
   const issuer = doc.issuer || {};
@@ -1452,8 +1453,8 @@ export function quoteDocHtml(doc) {
     <div class="qd-totals">
       <div><span>Subtotal ${cur}</span><span>${amount(b?.subtotal)}</span></div>
       <div class="qd-disc"><span>Descuentos ${cur}</span><span>${amount(b?.discount)}</span></div>
-      <div><span>Neto ${cur}</span><span>${amount(b?.net)}</span></div>
-      <div><span>IVA 19%</span><span>${amount(b?.iva)}</span></div>
+      ${absorbed ? '' : `<div><span>Neto ${cur}</span><span>${amount(b?.net)}</span></div>
+      <div><span>IVA 19%</span><span>${amount(b?.iva)}</span></div>`}
       <div class="qd-final"><span>${finalLabel}</span><span>${amount(b?.total)}</span></div>
     </div>`;
 
@@ -1503,14 +1504,14 @@ export function quoteDocHtml(doc) {
       ${table(monthly, true)}
       ${totalsBox(t.monthly, `Total mes 1 ${cur}`)}
 
-      <h4>Proyección mensual del contrato <span class="qd-muted">(neto, más IVA)</span></h4>
+      <h4>Proyección mensual del contrato ${absorbed ? '' : '<span class="qd-muted">(neto, más IVA)</span>'}</h4>
       <div class="qd-months">${(t.projection || [])
         .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.net)}</strong></div>`)
         .join('')}</div>
 
       <div class="qd-totals qd-contract">
-        <div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
-        <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>
+        ${absorbed ? '' : `<div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
+        <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
         <div class="qd-final"><span>Total contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
       </div>
     </div>`;
@@ -1527,6 +1528,7 @@ export function quoteDocFromSaved(q) {
     status: q.status,
     owner: q.sellerName || q.owner,
     currency: q.currency,
+    absorbIva: q.absorbIva === true,
     ufValue: q.ufValue,
     ufDate: q.ufDate,
     usdValue: q.usdValue,
