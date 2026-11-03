@@ -2038,7 +2038,7 @@ function openQuoteView(id) {
   if (!q) return;
   const lead = getLead(q.leadId);
   $('quoteViewTitle').textContent = `${q.number || 'Cotización'} · ${lead?.company || q.client?.company || 'Empresa eliminada'}`;
-  $('quoteViewSubtitle').textContent = `Versión ${q.version}${q.isCurrent ? ' vigente' : ''} · ${q.owner || 'Sin responsable'} · actualizada ${fmtDateTime(q.updatedAt)}`;
+  $('quoteViewSubtitle').textContent = `Versión ${q.version}${q.isCurrent ? ' vigente' : ''} · ${q.sellerName || q.owner || 'Sin vendedor'} · actualizada ${fmtDateTime(q.updatedAt)}`;
   const versions = versionsOf(q.rootId);
   $('quoteViewBody').innerHTML = `
     ${quoteDocHtml(quoteDocFromSaved(q))}
