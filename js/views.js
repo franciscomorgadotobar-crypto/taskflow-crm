@@ -1216,7 +1216,7 @@ function quoteRow(q, { showCompany = false } = {}) {
       ${quoteStatusBadge(q.status)}
       ${!q.leadId ? '<span class="muted"> · Sin ficha en el CRM</span>' : ''}
       ${versions.length > 1 ? `<span class="muted"> · ${versions.length} versiones</span>` : ''}
-      <div class="muted">${e(q.owner || 'Sin responsable')} · ${e(fmtDateTime(q.updatedAt))}</div>
+      <div class="muted">${e(q.sellerName || q.owner || 'Sin vendedor')} · ${e(fmtDateTime(q.updatedAt))}</div>
     </div>
     <div class="list-side">
       <strong>${fmtCurrency(q.totals?.monthly?.net, q.currency)} / mes + IVA</strong>
@@ -1526,7 +1526,7 @@ export function quoteDocFromSaved(q) {
     number: q.number,
     version: q.version,
     status: q.status,
-    owner: q.owner,
+    owner: q.sellerName || q.owner,
     currency: q.currency,
     ufValue: q.ufValue,
     ufDate: q.ufDate,
