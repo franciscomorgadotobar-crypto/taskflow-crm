@@ -1421,35 +1421,41 @@ function commercialName(item) {
   if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + item.code.slice(9) + ' equipos identificados';
   return item.name;
 }
+// Diseño V2 independiente del documento oficial y de sus cálculos.
+const V2_BENEFITS = [
+  ['Equipos y ubicaciones', 'Organiza máquinas e instalaciones según su ubicación operacional.'],
+  ['Planes de mantenimiento', 'Define tareas y periodicidades para cada equipo.'],
+  ['Programación de intervenciones', 'Estructura el trabajo preventivo y correctivo.'],
+  ['Seguimiento del mantenimiento', 'Consulta planes, tareas y actividades de mantenimiento.']
+];
+export function commercialV2DocHtml({ company = '', contact = '', rows = [], currency = 'UF', early = false } = {}) {
+  const monthly = rows.filter(x => x.period !== 'unico');
+  const once = rows.filter(x => x.period === 'unico');
+  const sum = xs => xs.reduce((total, x) => total + x.amount, 0);
+  const money = n => fmtAmount(n, currency) + ' ' + e(currency);
+  const table = xs => xs.length ? '<table style="width:100%;border-collapse:collapse;margin:12px 0 18px"><thead><tr style="background:#e8f2ff"><th style="padding:10px;text-align:left">Solución incluida</th><th>Cantidad</th><th style="text-align:right">Valor unitario</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>' +
+    xs.map(x => '<tr style="border-bottom:1px solid #dbe5f1"><td style="padding:10px"><strong>' + e(x.name) + '</strong><br><small>' + e(x.description || '') + '</small></td><td style="text-align:center">' + x.qty + '</td><td style="text-align:right">' + money(x.unitPrice) + '</td><td style="text-align:right"><strong>' + money(x.amount) + '</strong></td></tr>').join('') + '</tbody></table>' : '<p>No se seleccionaron servicios para esta etapa.</p>';
+  return '<article class="commercial-v2-document" style="font:14px Arial,sans-serif;color:#172c49;background:white;padding:26px;max-width:780px;margin:auto">' +
+    '<header style="background:#1B3257;color:white;padding:26px;border-radius:12px"><strong style="font-size:26px">Task<span style="color:#6CAAF4">Flow</span></strong><span style="float:right">4R Labs</span><p style="margin:20px 0 6px;color:#a8d5ff">PROPUESTA COMERCIAL · MANTENIMIENTO</p><h1 style="font-size:27px;line-height:1.2;margin:8px 0">El mantenimiento de tus equipos, planificado y bajo control</h1><p style="line-height:1.5">Organiza tus equipos, estructura planes de mantenimiento y prepara la gestión de intervenciones desde una plataforma modular.</p></header>' +
+    '<p style="margin:18px 0"><strong>Empresa:</strong> ' + e(company || 'Por definir') + ' &nbsp; <strong>Contacto:</strong> ' + e(contact || 'Por definir') + '</p>' +
+    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">¿Qué permite organizar la solución?</h2>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + V2_BENEFITS.map(([title,desc])=>'<div style="border:1px solid #dce6f2;border-radius:9px;padding:12px"><strong>'+e(title)+'</strong><p style="margin:7px 0 0">'+e(desc)+'</p></div>').join('') + '</div>' +
+    '<p style="font-size:12px;color:#4b617a;margin:14px 0">La disponibilidad de cada funcionalidad se confirma en el alcance contratado. Las automatizaciones, mediciones por uso y funciones predictivas mencionadas en la hoja de ruta no se incluyen por defecto.</p>' +
+    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Soluciones propuestas</h2><h3>Servicios mensuales</h3>' + table(monthly) +
+    '<div style="background:#e7f2ff;border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:center"><strong>Inversión mensual de catálogo</strong><strong style="font-size:23px;color:#1D71B8">' + money(sum(monthly)) + '</strong></div>' +
+    '<h3>Implementación y servicios de pago único</h3>' + table(once) +
+    '<p><strong>Total de pago único:</strong> ' + money(sum(once)) + '</p>' +
+    (early ? '<section style="border:1px solid #1B7533;border-radius:10px;padding:16px;margin:20px 0"><h3 style="color:#1B7533">Acceso anticipado · Beneficios sujetos a confirmación</h3><p>La duración del piloto, acompañamiento y condiciones de continuidad se especificarán en la propuesta individual. Los precios de catálogo anteriores no representan un cobro durante un eventual período gratuito.</p></section>' : '') +
+    '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Próximos pasos</h2><p>Revisar el alcance → Coordinar demostración → Acordar implementación.</p>' +
+    '<footer style="border-top:1px solid #ddd;padding-top:12px;font-size:11px;color:#53657c">Valores tomados de la lista de precios vigente del CRM, sin descuentos ni impuestos. Esta propuesta preliminar no constituye contratación; condiciones finales sujetas a confirmación de 4R Labs.</footer></article>';
+}
 function renderCommercialQuoteV2() {
   const list = quoteState.priceLists.find(x => x.status === 'vigente') || quoteState.priceLists[0];
   const items = list ? itemsOfPriceList(list.id).filter(x => x.active) : [];
-  return `
-    <section class="card" style="padding:24px">
-      <p class="muted">TaskFlow · 4R Labs · Propuesta comercial V2</p>
-      <h2>Una solución que crece con tu operación</h2>
-      <p>Elige las capacidades que necesita tu empresa. Los precios se obtienen de la lista vigente, sin modificar sus nombres ni valores originales.</p>
-      <p><strong>Esta es una versión comercial independiente.</strong> No reemplaza el cotizador tradicional ni modifica las listas de precios.</p>
-      <div class="form-grid">
-        <label>Empresa<input id="v2Company" placeholder="Nombre de la empresa"></label>
-        <label>Contacto<input id="v2Contact" placeholder="Nombre del contacto"></label>
-      </div>
-      <div class="list" style="margin-top:18px">
-      ${items.map(item => `<label style="display:flex;align-items:center;gap:14px;padding:12px;border-bottom:1px solid #8883">
-        <input type="checkbox" class="v2-select" data-code="${e(item.code)}" data-price="${item.price}" data-period="${e(item.periodicity)}">
-        <span style="flex:1"><strong>${e(commercialName(item))}</strong><small style="display:block">${e(item.category)} · ${e(item.periodicity === 'unico' ? 'Una vez' : 'Mensual')}</small></span>
-        <span>${fmtAmount(item.price, list.currency)} ${e(list.currency)}</span>
-        <input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad">
-      </label>`).join('')}
-      </div>
-      <div id="v2Summary" class="card" style="margin-top:18px;padding:18px">
-        Selecciona las capacidades que deseas incluir en tu propuesta.
-      </div>
-      <div class="button-row" style="margin-top:16px">
-        <button type="button" class="primary-btn" data-action="v2-print">Imprimir / Guardar PDF</button>
-      </div>
-      <p class="muted">Valores referenciales de catálogo en ${e(list?.currency || 'UF')}; impuestos, condiciones y vigencia sujetos a confirmación comercial. Esta vista no guarda cotizaciones en el historial.</p>
-    </section>`;
+  return '<section class="card" style="padding:24px"><h2>Cotizador Comercial V2 · Mantenimiento</h2><p>Propuesta enfocada en las capacidades descritas en la presentación del módulo. Catálogo y cotizador oficial sin cambios.</p>' +
+    '<div class="form-grid"><label>Empresa<input id="v2Company" placeholder="Nombre de la empresa"></label><label>Contacto<input id="v2Contact" placeholder="Nombre del contacto"></label><label>Modalidad<select id="v2Mode"><option value="standard">Comercial estándar</option><option value="early">Acceso anticipado</option></select></label></div>' +
+    '<h3>Selecciona las soluciones</h3><div class="list">' + items.map(item=>'<label style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid #8883"><input type="checkbox" class="v2-select" data-code="'+e(item.code)+'" data-price="'+item.price+'" data-period="'+e(item.periodicity)+'"><span style="flex:1"><strong>'+e(commercialName(item))+'</strong><small style="display:block">'+e(item.category)+' · '+e(item.periodicity === 'unico' ? 'Pago único' : 'Mensual')+'</small></span><span>'+fmtAmount(item.price,list.currency)+' '+e(list.currency)+'</span><input type="number" class="v2-qty" value="1" min="1" step="1" style="width:65px" aria-label="Cantidad"></label>').join('') +
+    '</div><div id="v2Summary" class="card" style="margin-top:18px;padding:18px">Selecciona los servicios para preparar tu propuesta.</div><div class="button-row" style="margin-top:16px"><button type="button" class="primary-btn" data-action="v2-print">Descargar propuesta PDF V2</button></div><p class="muted">Los importes se calculan en '+e(list?.currency || 'UF')+' con la lista vigente, sin alterar la cotización tradicional.</p></section>';
 }
 
 export function renderQuotes(ui) {
