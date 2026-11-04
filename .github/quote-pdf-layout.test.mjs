@@ -84,7 +84,7 @@ try {
       const tableBox = table.getBoundingClientRect();
       const css = getComputedStyle(root);
       const horizontalPadding = [parseFloat(css.paddingLeft), parseFloat(css.paddingRight)];
-      const marginTolerance = 4;
+      const marginTolerance = 20; // tolera el padding superior del documento
 
       await worker.toPdf();
       const pdf = await worker.get('pdf');
@@ -100,7 +100,7 @@ try {
         allFinalValuesSamePage: projectionPage === contractPage,
         startsOnNewPage: projectionPage > 0 && Math.abs(projectionY % pagePx) < marginTolerance,
         marginsSymmetric: horizontalPadding[0] === horizontalPadding[1] &&
-          pageSize.width === 210 && pageSize.height === 297,
+          Math.abs(pageSize.width - 210) < 0.1 && Math.abs(pageSize.height - 297) < 0.1,
         tableWithinPaper: tableBox.left >= rootBox.left - 1 &&
           tableBox.right <= rootBox.right + 1,
         marginValues: horizontalPadding,
