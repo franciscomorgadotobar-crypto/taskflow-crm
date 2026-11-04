@@ -84,6 +84,18 @@ try {
           description: 'Ítems de inventario ilimitados desde 10.000\nHasta 9.999 usuarios\n15 almacenes\nHasta 20.000 equipos seriados'
         }]
       });
+      // Regresión Soc Incosec: cotización v1 sin descripciones guardadas.
+      const { quoteDocFromSaved } = await import('./js/views.js');
+      const oldQuote = {
+        ...base, priceListId: 'no-catalogo-en-prueba',
+        items: [
+          { ...base.lines[0], code: 'CFG_ADV', name: 'Configuración Avanzada (Hora)', quantity: 4, description: '', periodicity: 'unico' },
+          { ...base.lines[0], code: 'GE_BASE', name: 'Gestión Externa Plan Base', quantity: 1, description: '', periodicity: 'mensual' },
+          { ...base.lines[0], code: 'GE_APP', name: 'Gestión Externa Usuario App', quantity: 20, description: '', periodicity: 'mensual' },
+          { ...base.lines[0], code: 'INV_FULL', name: 'Inventario Plan Full', quantity: 1, description: '', periodicity: 'mensual' }
+        ]
+      };
+      const oldHtml = quoteDocHtml(quoteDocFromSaved(oldQuote));
       const email = buildQuoteEmail({
         ...base, absorbIva: true, items: base.lines,
         total: 238, subtotalNeto: 238, iva: 0
@@ -96,14 +108,21 @@ try {
         absorbedHasFinalTotal: absorbed.includes('238,00'),
         absorbedEmailHasIva: /IVA/i.test(email),
         absorbedEmailHasFinalTotal: email.includes('238,00'),
-        fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Capacidades incluidas en su plan de Inventario'),
-        commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Inversión total del período')
+        fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
+        commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Inversión total del período'),
+        oldQuoteHasScope: oldHtml.includes('Qué incluye cada solución contratada') &&
+          oldHtml.includes('plataforma web administrativa para gestión técnica') &&
+          oldHtml.includes('aplicación móvil para gestión de trabajos en terreno') &&
+          oldHtml.includes('20 accesos de usuario') &&
+          oldHtml.includes('4 horas contratadas') &&
+          oldHtml.includes('Ítems de inventario ilimitados desde 10.000'),
+        oldQuoteNoInternalStatus: !oldHtml.includes('Estado:') && !oldHtml.includes('Borrador')
       };
     });
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
-        !rendered.fullCapacityIncluded || !rendered.commercialLanguage) {
+        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope || !rendered.oldQuoteNoInternalStatus) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));
