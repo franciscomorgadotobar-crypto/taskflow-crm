@@ -155,6 +155,8 @@ try {
         oldQuoteNoInternalStatus: !oldHtml.includes('Estado:') && !oldHtml.includes('Borrador'),
         benefitsBelowScope: orderOK && headingsOK,
         pricesNotSplit: groupingOK,
+        projectionAndTotalTogether: normal.includes('class="qd-projection-summary"') &&
+          /<section class="qd-projection-summary">[\s\S]*?qd-months[\s\S]*?qd-contract[\s\S]*?<\/section>/.test(normal),
         financialHeading: withSetup.includes('Propuesta económica') &&
           withSetup.indexOf('Propuesta económica') < withSetup.indexOf('Puesta en marcha y servicios de pago único') &&
           monthlyOnly.includes('Propuesta económica') &&
@@ -166,7 +168,7 @@ try {
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
-        !rendered.pricesNotSplit || !rendered.financialHeading) {
+        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.projectionAndTotalTogether) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));
