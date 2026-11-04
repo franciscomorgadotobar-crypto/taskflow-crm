@@ -33,3 +33,6 @@ jobs:
 
       - name: Run browser smoke test
         run: node .github/smoke-test.mjs
+
+      - name: Verify actual HTML-to-PDF A4 layout
+        run: node .github/quote-pdf-layout.test.mjs
