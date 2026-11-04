@@ -1436,7 +1436,7 @@ export function commercialV2DocHtml({ company = '', contact = '', rows = [], cur
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + V2_BENEFITS.map(([title,desc])=>'<div style="border:1px solid #dce6f2;border-radius:9px;padding:12px"><strong>'+e(title)+'</strong><p style="margin:7px 0 0">'+e(desc)+'</p></div>').join('') + '</div>' +
     '<p style="font-size:12px;color:#4b617a;margin:14px 0">La disponibilidad de cada funcionalidad se confirma en el alcance contratado. Las automatizaciones, mediciones por uso y funciones predictivas mencionadas en la hoja de ruta no se incluyen por defecto.</p>' +
     '<h2 style="border-left:4px solid #1D71B8;padding-left:12px">Soluciones seleccionadas para su operación</h2><h3>Servicios mensuales</h3>' + table(monthly) +
-    '<div style="background:#e7f2ff;border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:center"><strong>Inversión mensual de catálogo</strong><strong style="font-size:23px;color:#1D71B8">' + money(sum(monthly)) + '</strong></div>' +
+    '<div style="background:#e7f2ff;border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:center"><strong>Valor mensual de catálogo</strong><strong style="font-size:23px;color:#1D71B8">' + money(sum(monthly)) + '</strong></div>' +
     '<h3>Implementación y servicios de pago único</h3>' + table(once) +
     '<p><strong>Total de pago único:</strong> ' + money(sum(once)) + '</p>' +
     (early ? '<section style="border:1px solid #1B7533;border-radius:10px;padding:16px;margin:20px 0"><h3 style="color:#1B7533">Acceso anticipado · Beneficios sujetos a confirmación</h3><p>La duración del piloto, acompañamiento y condiciones de continuidad se especificarán en la propuesta individual. Los precios de catálogo anteriores no representan un cobro durante un eventual período gratuito.</p></section>' : '') +
@@ -1498,7 +1498,7 @@ export function quoteDocHtml(doc) {
 
   const table = (rows) => `
     <table class="qd-table">
-      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th><th class="num">Inversión ${cur}</th></tr></thead>
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th><th class="num">Total ${cur}</th></tr></thead>
       <tbody>${
         rows.length
           ? rows
@@ -1509,7 +1509,7 @@ export function quoteDocHtml(doc) {
                   <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
                   <td class="num" data-label="Valor base ${cur}">${amount(l.subtotal)}</td>
                   <td class="num qd-disc" data-label="Descuento ${cur}">${amount(l.discount)}</td>
-                  <td class="num" data-label="Inversión ${cur}"><strong>${amount(l.total)}</strong></td>
+                  <td class="num" data-label="Total ${cur}"><strong>${amount(l.total)}</strong></td>
                 </tr>`
               )
               .join('')
@@ -1584,17 +1584,17 @@ export function quoteDocHtml(doc) {
         <h3 class="qd-economic-title">Propuesta económica</h3>
         <h4>Puesta en marcha y servicios de pago único</h4>
         ${table(setup)}
-        ${totalsBox(t.setup, `Inversión inicial ${cur}`)}
+        ${totalsBox(t.setup, `Total puesta en marcha ${cur}`)}
       </section>` : ''}
       <section class="qd-price-section qd-monthly-section">
         ${setup.length ? '' : '<h3 class="qd-economic-title">Propuesta económica</h3>'}
         <h4>Suscripción y servicios mensuales</h4>
         ${table(monthly)}
-        ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
+        ${totalsBox(t.monthly, `Total primer mes ${cur}`)}
       </section>
 
       <section class="qd-projection-summary">
-      <h4>Proyección de inversión mensual <span class="qd-muted">(montos finales${absorbed ? '' : ', IVA incluido'})</span></h4>
+      <h4>Proyección de valores mensuales <span class="qd-muted">(montos finales${absorbed ? '' : ', IVA incluido'})</span></h4>
       <div class="qd-months">${(t.projection || [])
         .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.total)}</strong></div>`)
         .join('')}</div>
@@ -1602,7 +1602,7 @@ export function quoteDocHtml(doc) {
       <div class="qd-totals qd-contract">
         ${absorbed ? '' : `<div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
         <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
-        <div class="qd-final"><span>Inversión total del período ${cur}</span><span>${amount(t.contract?.total)}</span></div>
+        <div class="qd-final"><span>Valor total del contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
       </div>
       </section>
     </div>`;

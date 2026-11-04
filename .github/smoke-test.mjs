@@ -159,11 +159,12 @@ try {
         absorbedHasIva: /IVA/i.test(absorbed),
         normalHasIva: /IVA/i.test(normal),
         absorbedHasFinalTotal: absorbed.includes('238,00'),
-        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de inversión mensual') && monthlyWithIva.includes('montos finales, IVA incluido') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
+        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de valores mensuales') && monthlyWithIva.includes('montos finales, IVA incluido') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
         absorbedEmailHasIva: /IVA/i.test(email),
         absorbedEmailHasFinalTotal: email.includes('238,00'),
         fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
-        commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Inversión total del período'),
+        commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Valor total del contrato'),
+        noInvestmentTerminology: !/inversi[oó]n/i.test([normal, withSetup, monthlyOnly, email].join(' ')) && withSetup.includes('Total puesta en marcha') && monthlyOnly.includes('Total primer mes') && normal.includes('Valor total del contrato'),
         oldQuoteHasScope: oldHtml.includes('Qué incluye cada solución contratada') &&
           oldHtml.includes('plataforma web administrativa para gestión técnica') &&
           oldHtml.includes('aplicación móvil para gestión de trabajos en terreno') &&
@@ -185,7 +186,7 @@ try {
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
-        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope ||
+        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
         !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
