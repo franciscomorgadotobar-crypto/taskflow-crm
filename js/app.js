@@ -1892,6 +1892,8 @@ function openQuoteBuilder(leadId = '', baseId = '', { alternative = false } = {}
     .join('');
   $('quoteSellerName').value = b.sellerName;
   fillQuoteLeadFields(lead, !base, b.client);
+  // Las alternativas son opciones para la misma empresa, no nuevos clientes.
+  $('quoteClientCompany').readOnly = asAlternative;
   if (base) {
     $('quoteContactName').value = base.client?.contact || '';
     $('quoteContactRole').value = base.client?.role || '';
@@ -2153,7 +2155,17 @@ function openQuoteView(id) {
         : ''
     }`;
   $('quoteViewEditBtn').dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
-  const altBtn = $('quoteViewAlternativeBtn');
+  // Compatibilidad PWA: el HTML en caché puede ser anterior al botón nuevo.
+  let altBtn = $('quoteViewAlternativeBtn');
+  if (!altBtn) {
+    altBtn = document.createElement('button');
+    altBtn.type = 'button';
+    altBtn.id = 'quoteViewAlternativeBtn';
+    altBtn.className = 'ghost-btn quote-alternative-btn';
+    altBtn.dataset.action = 'new-quote-alternative';
+    altBtn.textContent = 'Crear alternativa';
+    $('quoteViewEditBtn').insertAdjacentElement('afterend', altBtn);
+  }
   altBtn.dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
   altBtn.hidden = isReadOnly();
   $('quoteViewSendBtn').dataset.id = q.id;
