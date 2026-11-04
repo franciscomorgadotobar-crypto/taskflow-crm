@@ -361,8 +361,16 @@ try {
             .filter((button) => getComputedStyle(button).display !== 'none')
             .every((button) => button.getBoundingClientRect().width > 70),
           compactFooter: getComputedStyle(dialog.querySelector('[data-close-dialog="quoteViewDialog"]')).display === 'none' &&
-            [...dialog.querySelectorAll('.modal-actions button')]
-              .filter((button) => getComputedStyle(button).display !== 'none').length === 5,
+            (() => {
+              const visible = [...dialog.querySelectorAll('.modal-actions button')]
+                .filter((button) => getComputedStyle(button).display !== 'none');
+              // La exportación de la lista se oculta cuando no hay lista asociada.
+              // Las otras cuatro acciones (PDF, editar, alternativa, correo)
+              // deben seguir estando disponibles en el móvil.
+              return visible.length >= 4 && visible.length <= 5 &&
+                ['quoteViewPdfBtn', 'quoteViewEditBtn', 'quoteViewAlternativeBtn', 'quoteViewSendBtn']
+                  .every((id) => visible.some((button) => button.id === id));
+            })(),
           alternativeAction: dialog.querySelector('#quoteViewAlternativeBtn')?.textContent.trim() === 'Crear alternativa' &&
             getComputedStyle(dialog.querySelector('#quoteViewAlternativeBtn')).gridColumnStart === '1'
         };
