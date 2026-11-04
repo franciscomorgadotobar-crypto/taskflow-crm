@@ -800,6 +800,13 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-plan-card > strong { display: block; color: #1b3257; margin-bottom: 6px; }
 .qd-plan-card ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
 .qd-plan-card li { color: #41546b; font-size: 10.5px; }
+.qd-scope-lead { color: #53657c; font-size: 11px; margin: 0 0 10px; }
+.qd-scope-quantity { color: #1D71B8; font-size: 10px; font-weight: 700; margin: 0 0 7px; }
+.qd-plan-card { page-break-inside: avoid; }
+.qd-plan-card strong { overflow-wrap: anywhere; }
+.qd-table th:first-child, .qd-table td:first-child { min-width: 165px; overflow-wrap: anywhere; }
+.qd-table .qd-service-highlight { margin-top: 4px; }
+
 
 .qd-table { width: 100%; border-collapse: collapse; }
 .qd-table th, .qd-table td { border: 1px solid #dde4ee; padding: 6px 8px; text-align: left; vertical-align: top; }
