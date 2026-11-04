@@ -7864,9 +7864,10 @@ html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
   #quoteViewSendBtn { order: 2; }
   #quoteViewEditBtn { order: 3; }
   #quoteViewPriceListBtn { order: 4; }
+  /* El botón X del encabezado ya permite cerrar; evitemos una tercera
+     fila redundante que quita espacio al documento en pantallas pequeñas. */
   #quoteViewDialog .modal-actions > [data-close-dialog="quoteViewDialog"] {
-    order: 5;
-    grid-column: 1 / -1;
+    display: none;
   }
 
   #quoteViewBody .quote-doc,
