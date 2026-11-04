@@ -456,7 +456,7 @@ export function buildQuoteEmail(quote, lead) {
   const body = [
     `Hola ${name},`,
     '',
-    `Te comparto nuestra propuesta comercial TaskFlow ${quote.number || ''} para ${lead?.company || quote.client?.company || 'tu empresa'}. Incluye los servicios, las capacidades consideradas y la inversión correspondiente:`, 
+    `Te comparto nuestra propuesta comercial TaskFlow ${quote.number || ''} para ${lead?.company || quote.client?.company || 'tu empresa'}. Incluye los servicios, las capacidades consideradas y sus valores:`, 
     '',
     ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), absorb ? `Total habilitación: ${money(t.setup?.total)}` : `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
     ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), absorb ? `Total mensual: ${money(t.monthly?.total)}` : `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
