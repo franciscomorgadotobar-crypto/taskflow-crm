@@ -77,6 +77,14 @@ try {
       };
       const absorbed = quoteDocHtml({ ...base, absorbIva: true });
       const normal = quoteDocHtml({ ...base, absorbIva: false });
+      const monthlyWithIva = quoteDocHtml({
+        ...base, currency: 'UF', absorbIva: false,
+        totals: {
+          ...base.totals,
+          monthly: { subtotal: 30.70, discount: 0, net: 30.70, iva: 5.83, total: 36.53 },
+          projection: [{ month: 1, net: 30.70, iva: 5.83, total: 36.53 }, { month: 2, net: 30.70, iva: 5.83, total: 36.53 }]
+        }
+      });
       const full = quoteDocHtml({
         ...base, currency: 'UF', absorbIva: false,
         lines: [{
@@ -106,6 +114,7 @@ try {
         absorbedHasIva: /IVA/i.test(absorbed),
         normalHasIva: /IVA/i.test(normal),
         absorbedHasFinalTotal: absorbed.includes('238,00'),
+        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de inversión mensual') && monthlyWithIva.includes('montos finales, IVA incluido') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
         absorbedEmailHasIva: /IVA/i.test(email),
         absorbedEmailHasFinalTotal: email.includes('238,00'),
         fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
@@ -120,7 +129,7 @@ try {
       };
     });
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
-        !rendered.normalHasIva || !rendered.absorbedHasFinalTotal ||
+        !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope || !rendered.oldQuoteNoInternalStatus) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
