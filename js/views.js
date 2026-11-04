@@ -1211,18 +1211,24 @@ const quoteStatusBadge = (status) => {
 function quoteRow(q, { showCompany = false } = {}) {
   const lead = getLead(q.leadId);
   const versions = versionsOf(q.rootId);
-  return `<div class="list-item">
-    <div>
-      <strong>${showCompany ? e(lead?.company || q.client?.company || 'Empresa eliminada') + ' · ' : ''}${e(q.number || 'Sin número')} · v${q.version}</strong>
-      ${quoteStatusBadge(q.status)}
-      ${!q.leadId ? '<span class="muted"> · Sin ficha en el CRM</span>' : ''}
-      ${versions.length > 1 ? `<span class="muted"> · ${versions.length} versiones</span>` : ''}
-      <div class="muted">${e(q.sellerName || q.owner || 'Sin vendedor')} · ${e(fmtDateTime(q.updatedAt))}</div>
+  return `<div class="list-item quote-list-card">
+    <div class="quote-card-main">
+      <div class="quote-card-heading">
+        <strong class="quote-card-title">${showCompany ? e(lead?.company || q.client?.company || 'Empresa eliminada') + ' · ' : ''}${e(q.number || 'Sin número')} · v${q.version}</strong>
+        ${quoteStatusBadge(q.status)}
+      </div>
+      <div class="quote-card-context">
+        ${!q.leadId ? '<span class="muted">Sin ficha en el CRM</span>' : ''}
+        ${versions.length > 1 ? `<span class="muted">${versions.length} versiones</span>` : ''}
+      </div>
+      <div class="muted quote-card-meta">${e(q.sellerName || q.owner || 'Sin vendedor')} · ${e(fmtDateTime(q.updatedAt))}</div>
     </div>
-    <div class="list-side">
-      <strong>${fmtCurrency(q.totals?.monthly?.[q.absorbIva ? 'total' : 'net'], q.currency)} / mes${q.absorbIva ? '' : ' + IVA'}</strong>
-      <span class="muted">Contrato ${q.contractMonths} meses: ${fmtCurrency(q.total, q.currency)}${q.absorbIva ? '' : ' IVA incl.'}</span>
-      <div class="actions">
+    <div class="list-side quote-card-side">
+      <div class="quote-card-financial">
+        <strong class="quote-card-monthly"><span class="quote-amount">${fmtCurrency(q.totals?.monthly?.[q.absorbIva ? 'total' : 'net'], q.currency)}</span><span class="quote-card-tax"> / mes${q.absorbIva ? '' : ' + IVA'}</span></strong>
+        <span class="muted quote-card-contract">Contrato ${q.contractMonths} meses · ${fmtCurrency(q.total, q.currency)}${q.absorbIva ? '' : ' IVA incluido'}</span>
+      </div>
+      <div class="actions quote-card-actions">
         <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver</button>
         <button class="small-btn" data-action="edit-quote" data-id="${q.id}">Editar</button>
         <button class="small-btn" data-action="send-quote" data-id="${q.id}">Preparar correo</button>
@@ -1487,13 +1493,13 @@ export function quoteDocHtml(doc) {
           ? rows
               .map(
                 (l) => `<tr>
-                  <td><strong>${e(commercialName(l))}</strong>${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}</td>
-                  <td class="num">${fmtNumber(l.quantity)}</td>
-                  <td class="num">${amount(l.unitPrice)}</td>
-                  <td class="num">${amount(l.subtotal)}</td>
-                  <td class="num qd-disc">${amount(l.discount)}</td>
-                  ${withMonths ? `<td class="num">${l.discountMonths || '—'}</td>` : ''}
-                  <td class="num"><strong>${amount(l.total)}</strong></td>
+                  <td data-label="Solución"><strong>${e(commercialName(l))}</strong>${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}</td>
+                  <td class="num" data-label="Cantidad">${fmtNumber(l.quantity)}</td>
+                  <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
+                  <td class="num" data-label="Valor base ${cur}">${amount(l.subtotal)}</td>
+                  <td class="num qd-disc" data-label="Descuento ${cur}">${amount(l.discount)}</td>
+                  ${withMonths ? `<td class="num" data-label="Meses con beneficio">${l.discountMonths || '—'}</td>` : ''}
+                  <td class="num" data-label="Inversión ${cur}"><strong>${amount(l.total)}</strong></td>
                 </tr>`
               )
               .join('')
