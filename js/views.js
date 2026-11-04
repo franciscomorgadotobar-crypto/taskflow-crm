@@ -1569,9 +1569,9 @@ export function quoteDocHtml(doc) {
       ${table(monthly, true)}
       ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
 
-      <h4>Proyección de inversión mensual ${absorbed ? '' : '<span class="qd-muted">(valores netos, más IVA)</span>'}</h4>
+      <h4>Proyección de inversión mensual <span class="qd-muted">(montos finales${absorbed ? '' : ', IVA incluido'})</span></h4>
       <div class="qd-months">${(t.projection || [])
-        .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.net)}</strong></div>`)
+        .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.total)}</strong></div>`)
         .join('')}</div>
 
       <div class="qd-totals qd-contract">
