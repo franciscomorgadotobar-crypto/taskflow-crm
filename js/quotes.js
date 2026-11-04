@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { fmtAmount, fmtCurrency, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
+import { clientServiceName, clientServiceScope } from './quote-client-copy.js';
 
 /**
  * Cotizador. Vive separado de store.js por prolijidad: `state` en memoria y
@@ -445,7 +446,7 @@ export function buildQuoteEmail(quote, lead) {
   const absorb = quote.absorbIva === true;
   const money = (n) => fmtCurrency(n, cur);
   const line = (it) =>
-    `- ${it.name} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (descuento ${money(it.discount)})` : ''} = ${money(it.total)}${it.description ? '\n  Incluye: ' + it.description.split('\n').filter(Boolean).join(' · ') : ''}`;
+    `- ${clientServiceName(it)} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (descuento ${money(it.discount)})` : ''} = ${money(it.total)}\n  Incluye: ${clientServiceScope(it).split(/\r?\n/).filter(Boolean).join(' · ')}`;
   const setup = quote.items.filter((it) => it.periodicity === 'unico');
   const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
   const t = quote.totals || {};
