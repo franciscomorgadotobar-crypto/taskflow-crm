@@ -86,6 +86,7 @@ import {
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
+import { trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
@@ -2117,7 +2118,7 @@ async function downloadQuotePdf(doc) {
   const safe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
   const filename = `${safe(doc.number) || 'cotizacion'}${doc.version > 1 ? `-v${doc.version}` : ''}-${safe(doc.client?.company)}.pdf`;
   try {
-    await html2pdf()
+    const worker = html2pdf()
       .set({
         margin: [10, 10, 12, 10],
         filename,
@@ -2126,8 +2127,15 @@ async function downloadQuotePdf(doc) {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'], avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-months', '.qd-head'] }
       })
-      .from(holder.firstElementChild)
-      .save();
+      .from(holder.firstElementChild);
+
+    // Conservar la paginación del documento, pero comprobar el lienzo real
+    // antes de guardar: html2pdf puede añadir una hoja final sin texto.
+    await worker.toPdf();
+    const pdf = await worker.get('pdf');
+    const canvas = await worker.get('canvas');
+    trimTrailingEmptyQuotePages(pdf, canvas);
+    await pdf.save(filename);
   } finally {
     holder.remove();
   }

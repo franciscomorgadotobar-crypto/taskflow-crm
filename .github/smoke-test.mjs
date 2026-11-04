@@ -77,6 +77,11 @@ try {
       };
       const absorbed = quoteDocHtml({ ...base, absorbIva: true });
       const normal = quoteDocHtml({ ...base, absorbIva: false });
+      const monthlyOnly = quoteDocHtml({ ...base, lines: base.lines });
+      const withSetup = quoteDocHtml({
+        ...base,
+        lines: [{ ...base.lines[0], periodicity: 'unico' }, ...base.lines]
+      });
       const monthlyWithIva = quoteDocHtml({
         ...base, currency: 'UF', absorbIva: false,
         totals: {
@@ -149,17 +154,61 @@ try {
           oldHtml.includes('Ítems de inventario ilimitados desde 10.000'),
         oldQuoteNoInternalStatus: !oldHtml.includes('Estado:') && !oldHtml.includes('Borrador'),
         benefitsBelowScope: orderOK && headingsOK,
-        pricesNotSplit: groupingOK
+        pricesNotSplit: groupingOK,
+        financialHeading: withSetup.includes('Propuesta económica') &&
+          withSetup.indexOf('Propuesta económica') < withSetup.indexOf('Puesta en marcha y servicios de pago único') &&
+          monthlyOnly.includes('Propuesta económica') &&
+          (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope ||
-        !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope || !rendered.pricesNotSplit) {
+        !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
+        !rendered.pricesNotSplit || !rendered.financialHeading) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));
+
+    // Página final en blanco: retira solo hojas sin contenido real.
+    const pdfCleanup = await page.evaluate(async () => {
+      const { trimTrailingEmptyQuotePages } = await import('./js/quote-pdf-cleanup.js');
+      const canvas = document.createElement('canvas');
+      canvas.width = 380;
+      canvas.height = 1650; // Tres hojas con 10/10/12/10 mm de márgenes.
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = '#1b3257';
+      context.fillRect(25, 90, 100, 18);
+      context.fillRect(25, 605, 100, 18);
+      // Una línea de borde al comienzo de la tercera hoja no justifica
+      // exportarla como una página de papel vacía.
+      context.fillStyle = '#e2e8f0';
+      context.fillRect(25, 1120, 300, 2);
+      const makePdf = () => ({
+        count: 3,
+        internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
+        getNumberOfPages() { return this.count; },
+        deletePage(n) { if (n !== this.count) throw Error('Borrado incorrecto'); this.count--; }
+      });
+      const emptyPdf = makePdf();
+      const removed = trimTrailingEmptyQuotePages(emptyPdf, canvas);
+      context.fillStyle = '#1b3257';
+      context.fillRect(25, 1220, 120, 20);
+      const nonEmptyPdf = makePdf();
+      const preserved = trimTrailingEmptyQuotePages(nonEmptyPdf, canvas);
+      return {
+        blankRemoved: removed === 1 && emptyPdf.count === 2,
+        realContentPreserved: preserved === 0 && nonEmptyPdf.count === 3
+      };
+    });
+    if (!pdfCleanup.blankRemoved || !pdfCleanup.realContentPreserved) {
+      throw new Error('La limpieza del PDF no conserva correctamente sus páginas: ' + JSON.stringify(pdfCleanup));
+    }
+    console.log('QUOTE PDF PAGINATION PASS', testCase.name, JSON.stringify(pdfCleanup));
+
 
 
     // Reproducir el error real: JS nuevo ejecutándose con campos ausentes

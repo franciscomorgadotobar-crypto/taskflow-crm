@@ -1582,11 +1582,13 @@ export function quoteDocHtml(doc) {
         </section>` : ''}
 
       ${setup.length ? `<section class="qd-price-section qd-setup-section">
+        <h3 class="qd-economic-title">Propuesta económica</h3>
         <h4>Puesta en marcha y servicios de pago único</h4>
         ${table(setup, false)}
         ${totalsBox(t.setup, `Inversión inicial ${cur}`)}
       </section>` : ''}
       <section class="qd-price-section qd-monthly-section">
+        ${setup.length ? '' : '<h3 class="qd-economic-title">Propuesta económica</h3>'}
         <h4>Suscripción y servicios mensuales</h4>
         ${table(monthly, true)}
         ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}

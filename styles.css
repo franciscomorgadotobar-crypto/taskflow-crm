@@ -810,6 +810,18 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* Bloques financieros indivisibles para html2pdf, incluso al generar en móvil.
    Agrupar título + detalle + totales evita que el precio quede en dos hojas. */
+/* La propuesta económica inaugura los valores y viaja con el primer bloque. */
+.qd-economic-title {
+  margin: 0 0 12px !important;
+  padding: 0 0 9px;
+  color: #1b3257 !important;
+  border-bottom: 2px solid #d7e7f8;
+  font-size: 16px !important;
+  font-weight: 800;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
 .qd-price-section {
   display: flow-root;
   break-inside: avoid;
