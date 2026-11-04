@@ -28,6 +28,7 @@ import {
   taskOf
 } from './store.js';
 import { itemsOfPriceList, quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import { availableTutorialsForRole, teamTutorialStatus } from './tutorials.js';
 import {
@@ -1396,32 +1397,7 @@ function renderQuotesList(ui) {
 
 
 // Cotizador comercial V2: vista independiente, solo lectura del catálogo vigente.
-const COMMERCIAL_NAMES = {
-  GE_BASE: 'Operaciones en Terreno · Plan Esencial',
-  GE_APP: 'Acceso móvil para equipos en terreno',
-  GI_BASE: 'Gestión de Equipos · Plan Esencial',
-  GI_WEB: 'Acceso web para técnicos y colaboradores',
-  INV_ENTRADA: 'Inventario Inteligente · Inicio',
-  INV_BASICO: 'Inventario Inteligente · Crecimiento',
-  INV_MEDIO: 'Inventario Inteligente · Profesional',
-  INV_AVANZADO: 'Inventario Inteligente · Empresa',
-  INV_FULL: 'Inventario Inteligente · Corporativo',
-  INV_APP: 'Acceso móvil a inventario',
-  INV_USER_ADD: 'Colaborador adicional de inventario',
-  INV_ALMACEN_ADD: 'Nueva bodega o ubicación',
-  INV_DEP: 'Control de valorización de activos',
-  STORAGE_1GB: 'Espacio adicional para documentos (1 GB)',
-  SETUP: 'Puesta en marcha asistida (hora)',
-  CFG_ADV: 'Personalización avanzada (hora)',
-  TRAIN_REM: 'Capacitación en línea (hora)',
-  TRAIN_PRE_RM: 'Capacitación presencial en Santiago',
-};
-function commercialName(item) {
-  if (COMMERCIAL_NAMES[item.code]) return COMMERCIAL_NAMES[item.code];
-  if (item.code.startsWith('PACK_INV_')) return 'Capacidad adicional para ' + fmtNumber(Number(item.code.slice(9))) + ' ítems de inventario';
-  if (item.code.startsWith('PACK_SER_')) return 'Capacidad adicional para ' + fmtNumber(Number(item.code.slice(9))) + ' equipos seriados';
-  return item.name;
-}
+const commercialName = clientServiceName;
 // Diseño V2 independiente del documento oficial y de sus cálculos.
 const V2_BENEFITS = [
   ['Equipos y ubicaciones', 'Organiza máquinas e instalaciones según su ubicación operacional.'],
@@ -1494,9 +1470,13 @@ export function quoteDocHtml(doc) {
   const issuer = doc.issuer || {};
   const commercialInfo = Array.isArray(doc.commercialInfo) ? doc.commercialInfo.filter(Boolean) : [];
   const issuerName = issuer.commercialName || issuer.legalName || QUOTE_ISSUER.name || '';
-  const setup = doc.lines.filter((l) => l.periodicity === 'unico');
-  const monthly = doc.lines.filter((l) => l.periodicity !== 'unico');
-  const plans = doc.lines.filter((l) => /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(l.code || '') && l.description?.trim());
+  // La cotización guardada tiene prioridad; para versiones anteriores usamos
+  // el alcance del catálogo y, finalmente, la ficha descriptiva del producto.
+  const quotedLines = (doc.lines || []).map((line) => ({
+    ...line, description: clientServiceScope(line)
+  }));
+  const setup = quotedLines.filter((l) => l.periodicity === 'unico');
+  const monthly = quotedLines.filter((l) => l.periodicity !== 'unico');
   const amount = (n) => fmtAmount(n, cur);
 
   const table = (rows, withMonths) => `
@@ -1573,16 +1553,18 @@ export function quoteDocHtml(doc) {
           <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
         </section>` : ''}
 
-      ${setup.length ? `<h4>Puesta en marcha y servicios de pago único</h4>${table(setup, false)}${totalsBox(t.setup, `Inversión inicial ${cur}`)}` : ''}
-
-      ${plans.length ? `<section class="qd-included-capacities">
-        <h4>Capacidades incluidas en su plan de Inventario</h4>
-        <div class="qd-plan-grid">${plans.map((plan) => `
+      ${quotedLines.length ? `<section class="qd-included-capacities">
+        <h4>Qué incluye cada solución contratada</h4>
+        <p class="qd-scope-lead">Detalle de las plataformas, accesos, servicios y capacidades incluidos en esta propuesta.</p>
+        <div class="qd-plan-grid">${quotedLines.map((service) => `
           <div class="qd-plan-card">
-            <strong>${e(commercialName(plan))}</strong>
-            <ul>${plan.description.split(/\r?\n/).filter(Boolean).map((feature) => `<li>${e(feature)}</li>`).join('')}</ul>
+            <strong>${e(commercialName(service))}</strong>
+            <div class="qd-scope-quantity">${e(clientServiceQuantity(service))}</div>
+            <ul>${service.description.split(/\r?\n/).filter(Boolean).map((feature) => `<li>${e(feature)}</li>`).join('')}</ul>
           </div>`).join('')}</div>
       </section>` : ''}
+
+      ${setup.length ? `<h4>Puesta en marcha y servicios de pago único</h4>${table(setup, false)}${totalsBox(t.setup, `Inversión inicial ${cur}`)}` : ''}
       <h4>Suscripción y servicios mensuales</h4>
       ${table(monthly, true)}
       ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
@@ -1625,7 +1607,14 @@ export function quoteDocFromSaved(q) {
     client: q.client,
     issuer: savedIssuer || list?.issuerProfile || {},
     commercialInfo: savedCommercial || list?.commercialInfo || [],
-    lines: q.items,
+    lines: q.items.map((item) => {
+      const currentCatalog = quoteState.priceListItems.find((row) =>
+        row.id === item.priceListItemId && row.priceListId === q.priceListId);
+      return {
+        ...item,
+        description: item.description?.trim() || currentCatalog?.description || ''
+      };
+    }),
     totals: q.totals
   };
 }
