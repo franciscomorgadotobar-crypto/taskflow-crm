@@ -860,7 +860,22 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-totals { margin: 8px 0 0 auto; max-width: 300px; display: grid; gap: 2px; }
 .qd-totals > div { display: flex; justify-content: space-between; gap: 16px; padding: 3px 8px; }
 .qd-totals .qd-final { background: #dbe8f8; font-weight: 800; border-radius: 4px; }
-.qd-contract { max-width: 420px; margin-top: 14px; }
+.qd-contract { max-width: 420px; margin-top: 8px; }
+/* Evita que el total del contrato quede huérfano en otra hoja.
+   El bloque se mueve completo a la página siguiente si no cabe. */
+.qd-projection-summary {
+  display: flow-root;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-top: 10px;
+}
+.qd-projection-summary > h4 {
+  margin: 0 0 7px;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.qd-projection-summary .qd-months { break-inside: avoid; page-break-inside: avoid; }
+.qd-projection-summary .qd-contract { break-inside: avoid; page-break-inside: avoid; }
 .qd-months { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .qd-months > div { border: 1px solid #dde4ee; border-radius: 6px; background: #f7f9fc; padding: 6px; text-align: center; display: flex; flex-direction: column; }
 .qd-months span { font-size: 10px; color: #697586; font-weight: 700; }
