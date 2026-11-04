@@ -7615,3 +7615,405 @@ html[data-crm-view="settings"] .team-settings-card .role-list{
   }
 }
 /* ---------- End Más móvil ---------- */
+
+
+/* ---------- Cotizaciones: UX móvil legible y documento adaptable ----------
+   El documento para impresión se genera en .quote-pdf-holder (780px) y NO
+   utiliza estas reglas. Las mismas cotizaciones se muestran reordenadas en
+   pantalla sin cambiar su PDF ni sus montos. */
+html[data-crm-view="quotes"] #viewRoot .quote-list-card .quote-card-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.38;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-heading > .badge {
+  flex: 0 0 auto;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 4px;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-meta {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-side {
+  min-width: 0;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-financial {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-financial .quote-amount {
+  white-space: nowrap;
+}
+html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
+  overflow-wrap: anywhere;
+}
+
+/* Disposición específica de celular: la información no compite con acciones. */
+@media (max-width: 760px) {
+  html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child .button-row {
+    display: flex;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: max-content;
+  }
+  html[data-crm-view="quotes"] #viewRoot > .toolbar:first-child .small-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-head {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-head > h3 {
+    flex: 1 1 170px;
+  }
+  html[data-crm-view="quotes"] #viewRoot > .card > .card-head [data-action="new-quote"] {
+    min-height: 42px;
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+  html[data-crm-view="quotes"] #viewRoot .toolbar-summary {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+  }
+  html[data-crm-view="quotes"] #viewRoot .list > .quote-list-card {
+    display: grid;
+    grid-template-columns: minmax(0,1fr);
+    gap: 12px;
+    min-width: 0;
+    padding: 15px 14px 14px 18px;
+    overflow: visible;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-heading {
+    gap: 6px 8px;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-title {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-heading .badge {
+    margin: 0;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-meta,
+  html[data-crm-view="quotes"] #viewRoot .quote-card-context {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-side {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    gap: 11px;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-financial {
+    width: 100%;
+    border-radius: 11px;
+    padding: 12px 13px;
+    background: #f2f7fd;
+    border: 1px solid #e1eaf6;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-monthly {
+    font-size: 18px;
+    font-weight: 750;
+    line-height: 1.3;
+    color: #143b68;
+    overflow-wrap: anywhere;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-tax {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
+    font-size: 11px;
+    line-height: 1.4;
+    color: #596a80;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-actions.actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+    width: 100%;
+    overflow: visible;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-card-actions.actions > button {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px !important;
+    padding: 9px 7px !important;
+    font-size: 12px !important;
+    white-space: normal;
+    line-height: 1.25;
+  }
+
+  /* Vista de cotización: hoja responsive, sin desplazamiento horizontal. */
+  #quoteViewDialog,
+  #quotePreviewDialog {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 0;
+    border-radius: 0;
+  }
+  #quoteViewDialog .modal-card,
+  #quotePreviewDialog .modal-card {
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  #quoteViewDialog .modal-head,
+  #quotePreviewDialog .modal-head {
+    padding: 14px 15px 12px;
+    gap: 9px;
+    flex: 0 0 auto;
+  }
+  #quoteViewDialog .modal-head > div,
+  #quotePreviewDialog .modal-head > div {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  #quoteViewDialog .modal-head h2,
+  #quotePreviewDialog .modal-head h2 {
+    font-size: 17px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  #quoteViewDialog .modal-head p,
+  #quotePreviewDialog .modal-head p {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  #quoteViewDialog .modal-head .icon-btn,
+  #quotePreviewDialog .modal-head .icon-btn {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+  #quoteViewBody,
+  #quoteBuilderPreviewBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 12px 16px;
+    background: #f4f7fb;
+    -webkit-overflow-scrolling: touch;
+  }
+  #quoteViewDialog .modal-actions,
+  #quotePreviewDialog .modal-actions {
+    flex: 0 0 auto;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    overflow-y: auto;
+    max-height: 35dvh;
+  }
+  #quoteViewDialog .modal-actions > button,
+  #quotePreviewDialog .modal-actions > button {
+    width: 100%;
+    min-width: 0;
+    min-height: 43px;
+    padding: 9px 7px;
+    line-height: 1.25;
+    white-space: normal;
+    font-size: 12px;
+  }
+  #quoteViewPdfBtn { order: 1; background: #1d71b8; color: #fff; }
+  #quoteViewSendBtn { order: 2; }
+  #quoteViewEditBtn { order: 3; }
+  #quoteViewPriceListBtn { order: 4; }
+  #quoteViewDialog .modal-actions > [data-close-dialog="quoteViewDialog"] {
+    order: 5;
+    grid-column: 1 / -1;
+  }
+
+  #quoteViewBody .quote-doc,
+  #quoteBuilderPreviewBody .quote-doc {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 14px 12px;
+    border-radius: 10px;
+    box-shadow: none;
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  #quoteViewBody .qd-head,
+  #quoteBuilderPreviewBody .qd-head {
+    display: grid;
+    grid-template-columns: minmax(0,1fr);
+    gap: 12px;
+  }
+  #quoteViewBody .qd-issuer,
+  #quoteBuilderPreviewBody .qd-issuer {
+    align-items: flex-start;
+    text-align: left;
+  }
+  #quoteViewBody .qd-logo,
+  #quoteBuilderPreviewBody .qd-logo {
+    max-width: 135px;
+    max-height: 55px;
+    margin: 0 0 6px;
+  }
+  #quoteViewBody .qd-client,
+  #quoteViewBody .qd-meta,
+  #quoteBuilderPreviewBody .qd-client,
+  #quoteBuilderPreviewBody .qd-meta {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  #quoteViewBody .qd-plan-grid,
+  #quoteBuilderPreviewBody .qd-plan-grid {
+    grid-template-columns: minmax(0,1fr);
+  }
+  #quoteViewBody .qd-proposal-intro,
+  #quoteBuilderPreviewBody .qd-proposal-intro {
+    margin-top: 12px;
+    padding: 10px 12px;
+  }
+  #quoteViewBody .qd-totals,
+  #quoteBuilderPreviewBody .qd-totals {
+    max-width: 100%;
+    width: 100%;
+    margin-left: 0;
+  }
+  #quoteViewBody .qd-totals > div,
+  #quoteBuilderPreviewBody .qd-totals > div {
+    gap: 12px;
+  }
+  #quoteViewBody .qd-totals > div > span:last-child,
+  #quoteBuilderPreviewBody .qd-totals > div > span:last-child {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  #quoteViewBody .qd-months,
+  #quoteBuilderPreviewBody .qd-months {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+  #quoteViewBody .qd-months > div,
+  #quoteBuilderPreviewBody .qd-months > div {
+    min-width: 0;
+    padding: 7px 2px;
+  }
+
+  /* En pantalla los renglones financieros se vuelven tarjetas etiquetadas.
+     En el PDF permanecen como tabla tradicional de seis o siete columnas. */
+  #quoteViewBody .qd-table,
+  #quoteBuilderPreviewBody .qd-table {
+    display: block;
+    max-width: 100%;
+    width: 100%;
+    border-collapse: separate;
+  }
+  #quoteViewBody .qd-table thead,
+  #quoteBuilderPreviewBody .qd-table thead {
+    display: none;
+  }
+  #quoteViewBody .qd-table tbody,
+  #quoteBuilderPreviewBody .qd-table tbody {
+    display: grid;
+    gap: 9px;
+    width: 100%;
+  }
+  #quoteViewBody .qd-table tr,
+  #quoteBuilderPreviewBody .qd-table tr {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #dde6f2;
+    border-radius: 10px;
+  }
+  #quoteViewBody .qd-table td,
+  #quoteBuilderPreviewBody .qd-table td {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 9px;
+    border: 0;
+    border-bottom: 1px solid #edf1f6;
+    text-align: left;
+    white-space: normal;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+  #quoteViewBody .qd-table td::before,
+  #quoteBuilderPreviewBody .qd-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 9px;
+    color: #65758c;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  #quoteViewBody .qd-table td:first-child,
+  #quoteBuilderPreviewBody .qd-table td:first-child {
+    grid-column: 1 / -1;
+    min-width: 0;
+    background: #f2f6fc;
+    padding: 11px 10px;
+  }
+  #quoteViewBody .qd-table td:first-child::before,
+  #quoteBuilderPreviewBody .qd-table td:first-child::before {
+    display: none;
+  }
+  #quoteViewBody .qd-table td:first-child strong,
+  #quoteBuilderPreviewBody .qd-table td:first-child strong {
+    font-size: 12px;
+  }
+  #quoteViewBody .qd-table td:last-child,
+  #quoteBuilderPreviewBody .qd-table td:last-child {
+    grid-column: 1 / -1;
+    background: #eaf3ff;
+    border-bottom: 0;
+    color: #1b3257;
+  }
+}
