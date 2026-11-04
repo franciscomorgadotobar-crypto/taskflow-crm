@@ -1795,11 +1795,12 @@ function remapQuoteItems(newListId) {
   return dropped.length;
 }
 
-function openQuoteBuilder(leadId = '', baseId = '') {
+function openQuoteBuilder(leadId = '', baseId = '', { alternative = false } = {}) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   // La PWA puede cargar JS nuevo sobre HTML anterior: reponer campos antes de usarlos.
   ensureQuoteFormControls();
   const base = baseId ? getQuote(baseId) : null;
+  const asAlternative = alternative === true && Boolean(base);
   const targetLeadId = base?.leadId || leadId;
   if (targetLeadId && !canEditLeadLocally(targetLeadId)) return toast('Solo puedes cotizar oportunidades asignadas a ti.', 'error');
   if (base && !isAdmin() && base.ownerId !== session.user?.id) return toast('Solo quien creó esta cotización puede generar una nueva versión.', 'error');
@@ -1823,9 +1824,14 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     .map((d) => ({ scope: d.scope, itemRef: d.scope === 'line' ? refByItemId.get(d.quoteItemId) : '', kind: d.kind, value: d.value, months: d.months }));
 
   const b = (ui.quoteBuilder = {
-    baseId,
-    number: base?.number || '',
-    version: base ? Math.max(...versionsOf(base.rootId).map((q) => q.version)) + 1 : 1,
+    baseId: asAlternative ? '' : baseId,
+    alternativeOfRootId: asAlternative
+      ? (base.alternativeOfRootId || base.rootId)
+      : (base?.alternativeOfRootId || ''),
+    isNewAlternative: asAlternative,
+    sourceNumber: asAlternative ? base.number : '',
+    number: asAlternative ? '' : (base?.number || ''),
+    version: base && !asAlternative ? Math.max(...versionsOf(base.rootId).map((q) => q.version)) + 1 : 1,
     owner: base?.owner || session.profile?.name || '',
     sellerName: base?.sellerName || base?.owner || session.profile?.name || '',
     leadId: lead?.id || '',
@@ -1841,7 +1847,7 @@ function openQuoteBuilder(leadId = '', baseId = '') {
     quoteDate: todayISO(),
     validUntil: addDaysISO(todayISO(), 7),
     contractMonths: base?.contractMonths || 12,
-    status: base?.status || 'borrador',
+    status: asAlternative ? 'borrador' : (base?.status || 'borrador'),
     paymentMethod: base?.paymentMethod || '',
     paymentTerms: base?.paymentTerms || '',
     notes: earlyDataFromNotes(base?.notes || '').notes,
@@ -1863,12 +1869,16 @@ function openQuoteBuilder(leadId = '', baseId = '') {
   }
   if (dropped > 0) toast(`${dropped} línea(s) no existen en la lista vigente y se quitaron.`, 'error');
 
-  $('quoteBaseId').value = baseId;
-  $('quoteDialogTitle').textContent = base ? `Editar cotización ${base.number || ''}` : 'Nueva cotización';
-  $('quoteDialogSubtitle').textContent = base
-    ? `Guardar crea la versión ${b.version}; la anterior queda en el historial.`
-    : 'Elige una empresa del CRM o ingresa una nueva, agrega servicios y descuentos.';
-  $('quoteNumberBadge').textContent = base?.number || 'N° al guardar';
+  $('quoteBaseId').value = b.baseId;
+  $('quoteDialogTitle').textContent = asAlternative
+    ? `Nueva alternativa de ${base.number || 'cotización'}`
+    : base ? `Editar cotización ${base.number || ''}` : 'Nueva cotización';
+  $('quoteDialogSubtitle').textContent = asAlternative
+    ? 'Se creará otra cotización con número propio. La original seguirá disponible, sin cambios.'
+    : base
+      ? `Guardar crea la versión ${b.version}; la anterior queda en el historial.`
+      : 'Elige una empresa del CRM o ingresa una nueva, agrega servicios y descuentos.';
+  $('quoteNumberBadge').textContent = asAlternative ? 'Opción nueva' : (base?.number || 'N° al guardar');
   $('quoteLeadId').innerHTML = leadOptions(b.leadId) +
     '<option value="__external__">+ Cotizar a empresa no registrada en el CRM</option>';
   $('quoteLeadId').value = b.leadId || '__external__';
@@ -2074,7 +2084,9 @@ async function submitQuoteBuilder(e) {
   if (!saved) return;
   $('quoteDialog').close();
   ui.quoteBuilder = null;
-  toast(`Cotización ${saved.number} guardada${saved.version > 1 ? ` como versión ${saved.version}` : ''}.`);
+  toast(b.isNewAlternative
+    ? `Alternativa ${saved.number} creada. La cotización original se mantiene vigente.`
+    : `Cotización ${saved.number} guardada${saved.version > 1 ? ` como versión ${saved.version}` : ''}.`);
 }
 
 /* ---------- PDF ---------- */
@@ -2126,6 +2138,8 @@ function openQuoteView(id) {
   $('quoteViewTitle').textContent = `${q.number || 'Cotización'} · ${lead?.company || q.client?.company || 'Empresa eliminada'}`;
   $('quoteViewSubtitle').textContent = `Versión ${q.version}${q.isCurrent ? ' vigente' : ''} · ${q.sellerName || q.owner || 'Sin vendedor'} · actualizada ${fmtDateTime(q.updatedAt)}`;
   const versions = versionsOf(q.rootId);
+  const source = q.alternativeOfRootId ? getQuote(q.alternativeOfRootId) : null;
+  if (source) $('quoteViewSubtitle').textContent += ` · Alternativa de ${source.number}`;
   $('quoteViewBody').innerHTML = `
     ${quoteDocHtml(quoteDocFromSaved(q))}
     ${
@@ -2139,6 +2153,9 @@ function openQuoteView(id) {
         : ''
     }`;
   $('quoteViewEditBtn').dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
+  const altBtn = $('quoteViewAlternativeBtn');
+  altBtn.dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
+  altBtn.hidden = isReadOnly();
   $('quoteViewSendBtn').dataset.id = q.id;
   $('quoteViewPdfBtn').dataset.id = q.id;
   const listDownloadButton = $('quoteViewPriceListBtn');
@@ -3196,6 +3213,12 @@ const ACTIONS = {
     openQuoteBuilder(q.leadId, quoteId);
   },
   'view-quote': (id) => openQuoteView(id),
+  'new-quote-alternative': (id, btn) => {
+    const q = getQuote(id || btn?.dataset.id);
+    if (!q) return;
+    if ($('quoteViewDialog').open) $('quoteViewDialog').close();
+    openQuoteBuilder(q.leadId, q.id, { alternative: true });
+  },
   'send-quote': (id, btn) => openQuoteSend(id || btn?.dataset.id),
   'delete-quote': async (id) => {
     if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
