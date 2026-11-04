@@ -2115,22 +2115,6 @@ async function downloadQuotePdf(doc) {
   holder.className = 'quote-pdf-holder';
   holder.innerHTML = quoteDocHtml(doc);
   document.body.appendChild(holder);
-  // Reservar el espacio real de la hoja A4 antes de rasterizar.
-  // El motor html2pdf puede cortar el total pese a break-inside: avoid.
-  const projection = holder.querySelector('.qd-projection-summary');
-  if (projection) {
-    const pageHeightPx = holder.firstElementChild.getBoundingClientRect().width * 275 / 190;
-    const projectionTop = projection.getBoundingClientRect().top -
-      holder.firstElementChild.getBoundingClientRect().top;
-    const projectionHeight = projection.getBoundingClientRect().height;
-    const remaining = pageHeightPx - (projectionTop % pageHeightPx);
-    if (projectionHeight + 16 > remaining && projectionHeight + 16 < pageHeightPx) {
-      const spacer = document.createElement('div');
-      spacer.className = 'qd-print-page-spacer';
-      spacer.style.height = `${remaining + 2}px`;
-      projection.before(spacer);
-    }
-  }
   const safe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
   const filename = `${safe(doc.number) || 'cotizacion'}${doc.version > 1 ? `-v${doc.version}` : ''}-${safe(doc.client?.company)}.pdf`;
   try {
