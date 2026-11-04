@@ -2114,18 +2114,28 @@ async function downloadQuotePdf(doc) {
   const holder = document.createElement('div');
   holder.className = 'quote-pdf-holder';
   holder.innerHTML = quoteDocHtml(doc);
+  // html2pdf clona solo el nodo seleccionado; la clase del contenedor
+  // .quote-pdf-holder no se conserva en esa copia. La clase propia sí.
+  holder.firstElementChild.classList.add('qd-for-print');
   document.body.appendChild(holder);
   const safe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
   const filename = `${safe(doc.number) || 'cotizacion'}${doc.version > 1 ? `-v${doc.version}` : ''}-${safe(doc.client?.company)}.pdf`;
   try {
     const worker = html2pdf()
       .set({
-        margin: [10, 10, 12, 10],
+        // Márgenes idénticos en todas las hojas: A4 vertical, 12 mm.
+        margin: [12, 12, 12, 12],
         filename,
         image: { type: 'jpeg', quality: 0.96 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head'] }
+        pagebreak: {
+          mode: ['css', 'legacy'],
+          // La proyección y el resumen constituyen la última página.
+          // No se usan espaciadores manuales ni cálculos del espacio sobrante.
+          before: ['.qd-projection-summary'],
+          avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head']
+        }
       })
       .from(holder.firstElementChild);
 
