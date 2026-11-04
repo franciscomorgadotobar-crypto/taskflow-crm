@@ -104,6 +104,28 @@ try {
         ]
       };
       const oldHtml = quoteDocHtml(quoteDocFromSaved(oldQuote));
+      const restructuredHtml = quoteDocHtml(quoteDocFromSaved({
+        ...oldQuote, commercialInfo: ['Soporte 24/7', 'Implementación guiada']
+      }));
+      const parsed = new DOMParser().parseFromString(restructuredHtml, 'text/html');
+      const docNode = parsed.querySelector('.quote-doc');
+      // Comprobar estructura real y CSS aplicado para el generador html2pdf.
+      docNode.style.cssText = 'position:absolute;left:-10000px;width:780px';
+      document.body.appendChild(docNode);
+      const scopeSection = docNode.querySelector('.qd-included-capacities');
+      const benefitsSection = docNode.querySelector('.qd-included-benefits');
+      const setupSection = docNode.querySelector('.qd-setup-section');
+      const monthlySection = docNode.querySelector('.qd-monthly-section');
+      const orderOK = scopeSection?.nextElementSibling === benefitsSection &&
+        benefitsSection?.nextElementSibling === setupSection &&
+        setupSection?.nextElementSibling === monthlySection;
+      const groupingOK = [setupSection, monthlySection].every((node) =>
+        node && node.querySelector('h4') && node.querySelector('.qd-table') &&
+        node.querySelector('.qd-totals') && getComputedStyle(node).breakInside === 'avoid');
+      const headingsOK = benefitsSection?.querySelector('h4')?.textContent === 'Beneficios incluidos' &&
+        !restructuredHtml.includes('Beneficios y acompañamiento');
+      docNode.remove();
+
       const email = buildQuoteEmail({
         ...base, absorbIva: true, items: base.lines,
         total: 238, subtotalNeto: 238, iva: 0
@@ -125,13 +147,16 @@ try {
           oldHtml.includes('20 accesos de usuario') &&
           oldHtml.includes('4 horas contratadas') &&
           oldHtml.includes('Ítems de inventario ilimitados desde 10.000'),
-        oldQuoteNoInternalStatus: !oldHtml.includes('Estado:') && !oldHtml.includes('Borrador')
+        oldQuoteNoInternalStatus: !oldHtml.includes('Estado:') && !oldHtml.includes('Borrador'),
+        benefitsBelowScope: orderOK && headingsOK,
+        pricesNotSplit: groupingOK
       };
     });
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
-        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope || !rendered.oldQuoteNoInternalStatus) {
+        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope ||
+        !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope || !rendered.pricesNotSplit) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));

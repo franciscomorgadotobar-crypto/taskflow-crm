@@ -1547,12 +1547,6 @@ export function quoteDocHtml(doc) {
       </section>
       ${early ? `<section class="qd-commercial"><h3>Acceso Anticipado TaskFlow</h3><p>Piloto: ${e(early.days)} días. Precio piloto: ${amount(early.pilotPrice)}.</p><p>Alcance: ${e(early.scope)}</p><p>Condiciones: ${e(early.conditions)}</p><p>Beneficio posterior: ${e(early.benefit === '40x6' ? '40 % por seis meses' : early.benefit === 'preferential12' ? 'Tarifa preferencial por doce meses' : 'Sin descuento')}</p><p>Los precios siguientes corresponden a contratación posterior opcional.</p></section>` : ''}
       ${cleanNotes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(cleanNotes)}</p>` : ''}
-      ${commercialInfo.length ? `
-        <section class="qd-commercial">
-          <h4>Beneficios y acompañamiento</h4>
-          <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
-        </section>` : ''}
-
       ${quotedLines.length ? `<section class="qd-included-capacities">
         <h4>Qué incluye cada solución contratada</h4>
         <p class="qd-scope-lead">Detalle de las plataformas, accesos, servicios y capacidades incluidos en esta propuesta.</p>
@@ -1564,10 +1558,22 @@ export function quoteDocHtml(doc) {
           </div>`).join('')}</div>
       </section>` : ''}
 
-      ${setup.length ? `<h4>Puesta en marcha y servicios de pago único</h4>${table(setup, false)}${totalsBox(t.setup, `Inversión inicial ${cur}`)}` : ''}
-      <h4>Suscripción y servicios mensuales</h4>
-      ${table(monthly, true)}
-      ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
+      ${commercialInfo.length ? `
+        <section class="qd-commercial qd-included-benefits">
+          <h4>Beneficios incluidos</h4>
+          <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
+        </section>` : ''}
+
+      ${setup.length ? `<section class="qd-price-section qd-setup-section">
+        <h4>Puesta en marcha y servicios de pago único</h4>
+        ${table(setup, false)}
+        ${totalsBox(t.setup, `Inversión inicial ${cur}`)}
+      </section>` : ''}
+      <section class="qd-price-section qd-monthly-section">
+        <h4>Suscripción y servicios mensuales</h4>
+        ${table(monthly, true)}
+        ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
+      </section>
 
       <h4>Proyección de inversión mensual <span class="qd-muted">(montos finales${absorbed ? '' : ', IVA incluido'})</span></h4>
       <div class="qd-months">${(t.projection || [])
