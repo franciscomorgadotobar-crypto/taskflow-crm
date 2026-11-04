@@ -890,7 +890,7 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .quote-pdf-holder { position: fixed; left: -10000px; top: 0; width: 780px; }
 /* El PDF se compone dentro de A4 con 12 mm de margen por los cuatro lados.
    Este formato aplica solo a la exportación, nunca a la vista móvil. */
-.quote-pdf-holder .quote-doc {
+.quote-doc.qd-for-print {
   box-sizing: border-box;
   width: 100%;
   max-width: none;
@@ -900,27 +900,27 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   border-radius: 0;
   overflow: visible;
 }
-.quote-pdf-holder .qd-table {
+.quote-doc.qd-for-print .qd-table {
   width: 100%;
   table-layout: fixed;
 }
-.quote-pdf-holder .qd-table th:first-child,
-.quote-pdf-holder .qd-table td:first-child {
+.quote-doc.qd-for-print .qd-table th:first-child,
+.quote-doc.qd-for-print .qd-table td:first-child {
   width: 31%;
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.quote-pdf-holder .qd-table th.num {
+.quote-doc.qd-for-print .qd-table th.num {
   white-space: normal;
 }
-.quote-pdf-holder .qd-projection-summary {
+.quote-doc.qd-for-print .qd-projection-summary {
   margin-top: 0;
   padding: 0;
   break-inside: avoid;
   page-break-inside: avoid;
 }
-.quote-pdf-holder .qd-projection-summary .qd-months,
-.quote-pdf-holder .qd-projection-summary .qd-contract {
+.quote-doc.qd-for-print .qd-projection-summary .qd-months,
+.quote-doc.qd-for-print .qd-projection-summary .qd-contract {
   break-inside: avoid;
   page-break-inside: avoid;
 }
