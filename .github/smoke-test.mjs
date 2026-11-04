@@ -212,6 +212,120 @@ try {
 
 
 
+
+    // UX móvil de Cotizaciones: tarjeta financiera, acciones y vista del
+    // documento sin scroll horizontal, mientras el PDF conserva formato A4.
+    const quotesMobile = await page.evaluate(async () => {
+      if (window.innerWidth > 760) return { skipped: true };
+      const { renderQuotes, quoteDocHtml } = await import('./js/views.js');
+      const { state: quoteState } = await import('./js/quotes.js');
+      const app = document.getElementById('appShell');
+      const view = document.getElementById('viewRoot');
+      const dialog = document.getElementById('quoteViewDialog');
+      const body = document.getElementById('quoteViewBody');
+      const previous = {
+        appHidden: app.hidden,
+        root: view.innerHTML,
+        quoteRows: quoteState.quotes,
+        crmView: document.documentElement.dataset.crmView,
+        viewBody: body.innerHTML
+      };
+      const long = 'Soc Incosec Ltda. Servicios y Mantenimiento Industrial Limitada';
+      const quote = {
+        id: 'test-quote', rootId: 'test-quote', priceListId: 'test-list',
+        isCurrent: true, version: 1, number: 'P-202611-0002',
+        client: { company: long }, leadId: '', owner: 'Francisco Morgado',
+        status: 'borrador', currency: 'UF', contractMonths: 12, total: 440.78,
+        totals: { monthly: { net: 30.70, total: 36.53 } },
+        updatedAt: '2026-11-03T18:05:00Z'
+      };
+      const doc = {
+        ...quote, quoteDate: '2026-11-03', validUntil: '2026-11-10',
+        paymentMethod: 'transferencia', paymentTerms: '5_dias',
+        issuer: { commercialName: 'TaskFlow', legalName: 'Cuatro R Labs SpA' },
+        owner: 'Francisco Morgado',
+        lines: [
+          { code: 'CFG_ADV', name: 'Configuración avanzada', periodicity: 'unico',
+            quantity: 4, unitPrice: 2, subtotal: 8, discount: 6, total: 2 },
+          { code: 'GE_BASE', name: 'Gestión Externa Plan Base', periodicity: 'mensual',
+            quantity: 1, unitPrice: .7, subtotal: .7, discount: 0, total: .7 },
+          { code: 'GE_APP', name: 'Gestión Externa Usuario App', periodicity: 'mensual',
+            quantity: 20, unitPrice: .75, subtotal: 15, discount: 0, total: 15 },
+          { code: 'INV_FULL', name: 'Inventario Plan Full', periodicity: 'mensual',
+            quantity: 1, unitPrice: 15, subtotal: 15, discount: 0, total: 15 }
+        ],
+        commercialInfo: ['Soporte 24/7', 'Implementación guiada'],
+        totals: {
+          setup: { subtotal: 8, discount: 6, net: 2, iva: .38, total: 2.38 },
+          monthly: { subtotal: 30.7, discount: 0, net: 30.7, iva: 5.83, total: 36.53 },
+          projection: Array.from({ length: 12 }, (_, i) => ({ month: i+1, net: 30.7, total: 36.53 })),
+          contract: { net: 370.4, iva: 70.38, total: 440.78 }
+        }
+      };
+      try {
+        app.hidden = false;
+        document.documentElement.dataset.crmView = 'quotes';
+        quoteState.quotes = [quote];
+        view.innerHTML = renderQuotes({ quotesView: 'list', quoteFilters: { status: '' } });
+        const card = view.querySelector('.quote-list-card');
+        const actions = [...card.querySelectorAll('.quote-card-actions button')];
+        const within = (child, parent) => {
+          const a = child.getBoundingClientRect();
+          const b = parent.getBoundingClientRect();
+          return a.left >= b.left - 2 && a.right <= b.right + 2;
+        };
+        const list = {
+          fullWidth: card.scrollWidth <= card.clientWidth + 2,
+          buttonsVisible: actions.length >= 3 && actions.every((button) => within(button, card)),
+          gridActions: getComputedStyle(card.querySelector('.quote-card-actions')).display === 'grid',
+          amountFull: card.querySelector('.quote-card-monthly')?.textContent.includes('UF 30,70'),
+          titleReadable: card.querySelector('.quote-card-title')?.getBoundingClientRect().width > 120
+        };
+
+        body.innerHTML = quoteDocHtml(doc);
+        dialog.showModal();
+        const documentNode = body.querySelector('.quote-doc');
+        const financialTable = documentNode.querySelector('.qd-table');
+        const docInfo = {
+          fitsWidth: documentNode.scrollWidth <= documentNode.clientWidth + 2 &&
+            body.scrollWidth <= body.clientWidth + 2,
+          singleColumn: getComputedStyle(documentNode.querySelector('.qd-head')).gridTemplateColumns.trim().split(/\s+/).length === 1,
+          planSingleColumn: getComputedStyle(documentNode.querySelector('.qd-plan-grid')).gridTemplateColumns.trim().split(/\s+/).length === 1,
+          priceCards: getComputedStyle(financialTable).display === 'block',
+          labeledPrices: Boolean(financialTable.querySelector('td[data-label="Valor unitario UF"]')),
+          footerButtonsVisible: [...dialog.querySelectorAll('.modal-actions button:not([hidden])')].every((button) =>
+            button.getBoundingClientRect().width > 70)
+        };
+
+        const pdf = document.createElement('div');
+        pdf.className = 'quote-pdf-holder';
+        pdf.innerHTML = quoteDocHtml(doc);
+        document.body.appendChild(pdf);
+        const printDoc = pdf.querySelector('.quote-doc');
+        const printLayout = {
+          pageWidth: pdf.getBoundingClientRect().width === 780,
+          conventionalTable: getComputedStyle(printDoc.querySelector('.qd-table')).display === 'table',
+          threePartHeader: getComputedStyle(printDoc.querySelector('.qd-head')).gridTemplateColumns.trim().split(/\s+/).length === 3
+        };
+        pdf.remove();
+        return { list, docInfo, printLayout };
+      } finally {
+        if (dialog.open) dialog.close();
+        body.innerHTML = previous.viewBody;
+        view.innerHTML = previous.root;
+        quoteState.quotes = previous.quoteRows;
+        app.hidden = previous.appHidden;
+        if (previous.crmView === undefined) delete document.documentElement.dataset.crmView;
+        else document.documentElement.dataset.crmView = previous.crmView;
+      }
+    });
+    if (!quotesMobile.skipped && !Object.values({
+      ...quotesMobile.list, ...quotesMobile.docInfo, ...quotesMobile.printLayout
+    }).every(Boolean)) {
+      throw new Error('UX móvil de cotizaciones no supera las pruebas: ' + JSON.stringify(quotesMobile));
+    }
+    console.log('QUOTES MOBILE PASS', testCase.name, JSON.stringify(quotesMobile));
+
     console.log(`SMOKE PASS ${testCase.name}`, JSON.stringify(state));
     if (consoleErrors.length) {
       console.log(`Console errors no bloqueantes [${testCase.name}]:`, consoleErrors.join('\n'));
