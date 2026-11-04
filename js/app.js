@@ -2120,12 +2120,19 @@ async function downloadQuotePdf(doc) {
   try {
     const worker = html2pdf()
       .set({
-        margin: [10, 10, 12, 10],
+        // Márgenes idénticos en todas las hojas: A4 vertical, 12 mm.
+        margin: [12, 12, 12, 12],
         filename,
         image: { type: 'jpeg', quality: 0.96 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head'] }
+        pagebreak: {
+          mode: ['css', 'legacy'],
+          // La proyección y el resumen constituyen la última página.
+          // No se usan espaciadores manuales ni cálculos del espacio sobrante.
+          before: ['.qd-projection-summary'],
+          avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head']
+        }
       })
       .from(holder.firstElementChild);
 
