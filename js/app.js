@@ -2114,6 +2114,9 @@ async function downloadQuotePdf(doc) {
   const holder = document.createElement('div');
   holder.className = 'quote-pdf-holder';
   holder.innerHTML = quoteDocHtml(doc);
+  // html2pdf clona solo el nodo seleccionado; la clase del contenedor
+  // .quote-pdf-holder no se conserva en esa copia. La clase propia sí.
+  holder.firstElementChild.classList.add('qd-for-print');
   document.body.appendChild(holder);
   const safe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
   const filename = `${safe(doc.number) || 'cotizacion'}${doc.version > 1 ? `-v${doc.version}` : ''}-${safe(doc.client?.company)}.pdf`;
