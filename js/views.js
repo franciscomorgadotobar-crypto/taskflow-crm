@@ -1496,9 +1496,9 @@ export function quoteDocHtml(doc) {
   const monthly = quotedLines.filter((l) => l.periodicity !== 'unico');
   const amount = (n) => fmtAmount(n, cur);
 
-  const table = (rows, withMonths) => `
+  const table = (rows) => `
     <table class="qd-table">
-      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th>${withMonths ? '<th class="num">Meses con beneficio</th>' : ''}<th class="num">Inversión ${cur}</th></tr></thead>
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th><th class="num">Inversión ${cur}</th></tr></thead>
       <tbody>${
         rows.length
           ? rows
@@ -1509,12 +1509,11 @@ export function quoteDocHtml(doc) {
                   <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
                   <td class="num" data-label="Valor base ${cur}">${amount(l.subtotal)}</td>
                   <td class="num qd-disc" data-label="Descuento ${cur}">${amount(l.discount)}</td>
-                  ${withMonths ? `<td class="num" data-label="Meses con beneficio">${l.discountMonths || '—'}</td>` : ''}
                   <td class="num" data-label="Inversión ${cur}"><strong>${amount(l.total)}</strong></td>
                 </tr>`
               )
               .join('')
-          : `<tr><td colspan="${withMonths ? 7 : 6}" class="qd-empty">Sin líneas.</td></tr>`
+          : `<tr><td colspan="6" class="qd-empty">Sin líneas.</td></tr>`
       }</tbody>
     </table>`;
 
@@ -1584,13 +1583,13 @@ export function quoteDocHtml(doc) {
       ${setup.length ? `<section class="qd-price-section qd-setup-section">
         <h3 class="qd-economic-title">Propuesta económica</h3>
         <h4>Puesta en marcha y servicios de pago único</h4>
-        ${table(setup, false)}
+        ${table(setup)}
         ${totalsBox(t.setup, `Inversión inicial ${cur}`)}
       </section>` : ''}
       <section class="qd-price-section qd-monthly-section">
         ${setup.length ? '' : '<h3 class="qd-economic-title">Propuesta económica</h3>'}
         <h4>Suscripción y servicios mensuales</h4>
-        ${table(monthly, true)}
+        ${table(monthly)}
         ${totalsBox(t.monthly, `Inversión primer mes ${cur}`)}
       </section>
 
