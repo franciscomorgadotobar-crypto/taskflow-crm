@@ -109,6 +109,24 @@ try {
         ]
       };
       const oldHtml = quoteDocHtml(quoteDocFromSaved(oldQuote));
+
+      const temporaryBenefitsHtml = quoteDocHtml({
+        ...base,
+        lines: [{...base.lines[0], periodicity: 'mensual', discountMonths: 6, discount: 5.25, total: 9.75}],
+        totals: {...base.totals,
+          monthly: {subtotal: 15, discount: 5.25, net: 9.75, iva: 1.85, total: 11.60}}
+      });
+      const benefitDoc = new DOMParser().parseFromString(temporaryBenefitsHtml, 'text/html');
+      const benefitTable = benefitDoc.querySelector('.qd-monthly-section .qd-table');
+      const benefitHeaders = [...benefitTable.querySelectorAll('thead th')].map((el) => el.textContent.trim());
+      const discountMonthsHidden =
+        benefitHeaders.length === 6 &&
+        !temporaryBenefitsHtml.includes('Meses con beneficio') &&
+        benefitTable.querySelector('tbody tr')?.children.length === 6 &&
+        temporaryBenefitsHtml.includes('5,25') &&
+        temporaryBenefitsHtml.includes('9,75') &&
+        temporaryBenefitsHtml.includes('11,60');
+
       const restructuredHtml = quoteDocHtml(quoteDocFromSaved({
         ...oldQuote, commercialInfo: ['Soporte 24/7', 'Implementación guiada']
       }));
@@ -155,6 +173,7 @@ try {
         oldQuoteNoInternalStatus: !oldHtml.includes('Estado:') && !oldHtml.includes('Borrador'),
         benefitsBelowScope: orderOK && headingsOK,
         pricesNotSplit: groupingOK,
+        discountMonthsHidden,
         projectionAndTotalTogether: normal.includes('class="qd-projection-summary"') &&
           /<section class="qd-projection-summary">[\s\S]*?qd-months[\s\S]*?qd-contract[\s\S]*?<\/section>/.test(normal),
         financialHeading: withSetup.includes('Propuesta económica') &&
@@ -168,7 +187,7 @@ try {
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
-        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.projectionAndTotalTogether) {
+        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));
