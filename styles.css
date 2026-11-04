@@ -863,6 +863,13 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-contract { max-width: 420px; margin-top: 8px; }
 /* Evita que el total del contrato quede huérfano en otra hoja.
    El bloque se mueve completo a la página siguiente si no cabe. */
+.qd-print-page-spacer {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 .qd-projection-summary {
   display: flow-root;
   break-inside: avoid;
