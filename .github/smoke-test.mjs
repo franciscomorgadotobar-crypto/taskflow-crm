@@ -164,6 +164,7 @@ try {
         absorbedEmailHasFinalTotal: email.includes('238,00'),
         fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
         commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Valor total del contrato'),
+        noInvestmentTerminology: !/inversi[oó]n/i.test([normal, withSetup, monthlyOnly, email].join(' ')) && withSetup.includes('Total puesta en marcha') && monthlyOnly.includes('Total primer mes') && normal.includes('Valor total del contrato'),
         oldQuoteHasScope: oldHtml.includes('Qué incluye cada solución contratada') &&
           oldHtml.includes('plataforma web administrativa para gestión técnica') &&
           oldHtml.includes('aplicación móvil para gestión de trabajos en terreno') &&
@@ -185,7 +186,7 @@ try {
     if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
-        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.oldQuoteHasScope ||
+        !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
         !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
