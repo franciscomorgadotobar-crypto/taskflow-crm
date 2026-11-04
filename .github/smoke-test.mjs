@@ -293,8 +293,12 @@ try {
           planSingleColumn: getComputedStyle(documentNode.querySelector('.qd-plan-grid')).gridTemplateColumns.trim().split(/\s+/).length === 1,
           priceCards: getComputedStyle(financialTable).display === 'block',
           labeledPrices: Boolean(financialTable.querySelector('td[data-label="Valor unitario UF"]')),
-          footerButtonsVisible: [...dialog.querySelectorAll('.modal-actions button:not([hidden])')].every((button) =>
-            button.getBoundingClientRect().width > 70)
+          footerButtonsVisible: [...dialog.querySelectorAll('.modal-actions button')]
+            .filter((button) => getComputedStyle(button).display !== 'none')
+            .every((button) => button.getBoundingClientRect().width > 70),
+          compactFooter: getComputedStyle(dialog.querySelector('[data-close-dialog="quoteViewDialog"]')).display === 'none' &&
+            [...dialog.querySelectorAll('.modal-actions button')]
+              .filter((button) => getComputedStyle(button).display !== 'none').length === 4
         };
 
         const pdf = document.createElement('div');
