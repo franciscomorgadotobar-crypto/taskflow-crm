@@ -77,6 +77,7 @@ function fromDbQuote(r, items = [], discounts = []) {
   return {
     id: r.id,
     rootId: r.root_id || r.id,
+    alternativeOfRootId: r.alternative_of_root_id || '',
     version: r.version,
     isCurrent: r.is_current,
     leadId: r.lead_id || '',
@@ -344,6 +345,7 @@ function toRpcPayload(draft) {
   return {
     p_quote: {
       lead_id: draft.leadId,
+      alternative_of_root_id: draft.alternativeOfRootId || '',
       seller_name: draft.sellerName || draft.owner || '',
       price_list_id: draft.priceListId,
       currency: draft.currency,
@@ -381,9 +383,10 @@ export async function previewQuote(draft) {
 }
 
 /**
- * Guarda una cotización. Sin `baseId` crea la versión 1 con su número
- * P-AAAAMM-NNNN. Con `baseId` (la versión vigente que se estaba editando) crea la
- * siguiente versión con el mismo número y deja la anterior en el historial.
+ * Guarda una cotización. Sin `baseId` crea un número independiente y mantiene
+ * vigentes las demás propuestas. Si `alternativeOfRootId` tiene un origen, la
+ * nueva cotización será otra opción comercial vinculada, sin reemplazarlo.
+ * Con `baseId` se crea solo una revisión de la MISMA opción (historial).
  */
 export async function saveQuote(draft, baseId = '') {
   const { p_quote, p_items, p_discounts } = toRpcPayload(draft);

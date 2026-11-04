@@ -1211,6 +1211,14 @@ const quoteStatusBadge = (status) => {
 function quoteRow(q, { showCompany = false } = {}) {
   const lead = getLead(q.leadId);
   const versions = versionsOf(q.rootId);
+  const familyRoot = q.alternativeOfRootId || q.rootId;
+  const familyCount = quoteState.quotes.filter((it) =>
+    it.isCurrent && (it.alternativeOfRootId || it.rootId) === familyRoot).length;
+  const original = q.alternativeOfRootId ? quoteState.quotes.find((it) =>
+    it.id === q.alternativeOfRootId) : null;
+  const plan = (q.items || []).find((item) =>
+    /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(item.code || ''));
+  const planName = plan ? `Plan ${({ INV_ENTRADA: 'Entrada', INV_BASICO: 'Básico', INV_MEDIO: 'Medio', INV_AVANZADO: 'Avanzado', INV_FULL: 'Full' })[plan.code]}` : '';
   return `<div class="list-item quote-list-card">
     <div class="quote-card-main">
       <div class="quote-card-heading">
@@ -1218,6 +1226,9 @@ function quoteRow(q, { showCompany = false } = {}) {
         ${quoteStatusBadge(q.status)}
       </div>
       <div class="quote-card-context">
+        ${planName ? `<span class="quote-plan-tag">${e(planName)}</span>` : ''}
+        ${original ? `<span class="quote-alt-tag">Alternativa de ${e(original.number)}</span>` : ''}
+        ${familyCount > 1 ? `<span class="muted">${familyCount} opciones disponibles</span>` : ''}
         ${!q.leadId ? '<span class="muted">Sin ficha en el CRM</span>' : ''}
         ${versions.length > 1 ? `<span class="muted">${versions.length} versiones</span>` : ''}
       </div>

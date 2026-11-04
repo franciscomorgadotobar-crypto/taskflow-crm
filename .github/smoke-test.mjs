@@ -239,6 +239,15 @@ try {
         totals: { monthly: { net: 30.70, total: 36.53 } },
         updatedAt: '2026-11-03T18:05:00Z'
       };
+      const alternate = {
+        ...quote,
+        id: 'test-quote-alt',
+        rootId: 'test-quote-alt',
+        alternativeOfRootId: 'test-quote',
+        number: 'P-202611-0003',
+        items: [{ code: 'INV_ENTRADA', name: 'Inventario Plan Entrada' }]
+      };
+      quote.items = [{ code: 'INV_FULL', name: 'Inventario Plan Full' }];
       const doc = {
         ...quote, quoteDate: '2026-11-03', validUntil: '2026-11-10',
         paymentMethod: 'transferencia', paymentTerms: '5_dias',
@@ -265,7 +274,8 @@ try {
       try {
         app.hidden = false;
         document.documentElement.dataset.crmView = 'quotes';
-        quoteState.quotes = [quote];
+        // La misma empresa puede tener dos propuestas vigentes a la vez.
+        quoteState.quotes = [quote, alternate];
         view.innerHTML = renderQuotes({ quotesView: 'list', quoteFilters: { status: '' } });
         const card = view.querySelector('.quote-list-card');
         const actions = [...card.querySelectorAll('.quote-card-actions button')];
@@ -279,7 +289,12 @@ try {
           buttonsVisible: actions.length >= 3 && actions.every((button) => within(button, card)),
           gridActions: getComputedStyle(card.querySelector('.quote-card-actions')).display === 'grid',
           amountFull: card.querySelector('.quote-card-monthly')?.textContent.includes('UF 30,70'),
-          titleReadable: card.querySelector('.quote-card-title')?.getBoundingClientRect().width > 120
+          titleReadable: card.querySelector('.quote-card-title')?.getBoundingClientRect().width > 120,
+          alternativesCoexist: view.querySelectorAll('.quote-list-card').length === 2 &&
+            view.textContent.includes('Plan Full') &&
+            view.textContent.includes('Plan Entrada') &&
+            view.textContent.includes('Alternativa de P-202611-0002') &&
+            view.textContent.includes('2 opciones disponibles')
         };
 
         body.innerHTML = quoteDocHtml(doc);
@@ -298,7 +313,9 @@ try {
             .every((button) => button.getBoundingClientRect().width > 70),
           compactFooter: getComputedStyle(dialog.querySelector('[data-close-dialog="quoteViewDialog"]')).display === 'none' &&
             [...dialog.querySelectorAll('.modal-actions button')]
-              .filter((button) => getComputedStyle(button).display !== 'none').length === 4
+              .filter((button) => getComputedStyle(button).display !== 'none').length === 5,
+          alternativeAction: dialog.querySelector('#quoteViewAlternativeBtn')?.textContent.trim() === 'Crear alternativa' &&
+            getComputedStyle(dialog.querySelector('#quoteViewAlternativeBtn')).gridColumnStart === '1'
         };
 
         const pdf = document.createElement('div');
