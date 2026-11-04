@@ -458,7 +458,7 @@ export function buildQuoteEmail(quote, lead) {
     ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), absorb ? `Total habilitación: ${money(t.setup?.total)}` : `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
     ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), absorb ? `Total mensual: ${money(t.monthly?.total)}` : `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
     ...(Array.isArray(quote.commercialInfo) && quote.commercialInfo.length
-      ? ['Beneficios y acompañamiento:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
+      ? ['Beneficios incluidos:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
       : []),
     absorb ? `Contrato ${quote.contractMonths} meses: Total ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total ${money(quote.total)}`,
     quote.validUntil ? `` : '',
