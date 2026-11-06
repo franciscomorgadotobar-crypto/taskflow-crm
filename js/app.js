@@ -63,6 +63,7 @@ import {
 } from './store.js';
 import {
   buildQuoteEmail,
+  buildQuoteOptionalItems,
   clearLocal as quotesClearLocal,
   deletePriceList,
   deletePriceListItem,
@@ -85,6 +86,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
+import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
 import { trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
@@ -126,6 +128,7 @@ import {
   quoteDocFromSaved,
   quoteDocHtml,
   quoteLinesHtml,
+  quoteOptionalLinesHtml,
   renderDashboard,
   renderImplementation,
   renderLeadDetail,
@@ -1585,6 +1588,7 @@ function fillQuoteServiceOptions() {
         )
         .join('')
     : '<option value="">La lista no tiene servicios activos</option>';
+  $('quoteOptionalService').innerHTML = $('quoteAddService').innerHTML;
 }
 
 /** Mismo formato que quoteDocFromSaved, armado desde el borrador y su último cálculo. */
@@ -1629,6 +1633,7 @@ function builderDoc() {
     issuer: list?.issuerProfile || {},
     commercialInfo: list?.commercialInfo || [],
     lines,
+    optionalItems: buildQuoteOptionalItems(b),
     totals: calc || {}
   };
 }
@@ -1636,6 +1641,7 @@ function builderDoc() {
 function renderQuoteSummary() {
   const b = ui.quoteBuilder;
   $('quoteLinesRoot').innerHTML = quoteLinesHtml(b);
+  $('quoteOptionalLinesRoot').innerHTML = quoteOptionalLinesHtml(b);
   if (b.calcError) {
     $('quoteSummaryRoot').innerHTML = `<p class="import-error">${escapeHtml(b.calcError)}</p>`;
     return;
@@ -1793,7 +1799,14 @@ function remapQuoteItems(newListId) {
     return Boolean(match);
   });
   b.discounts = b.discounts.filter((d) => d.scope !== 'line' || !dropped.includes(d.itemRef));
-  return dropped.length;
+  const beforeOptional = b.optionalItems.length;
+  b.optionalItems = b.optionalItems.filter((it) => {
+    const code = listItemOf(it.priceListItemId)?.code || it.code;
+    const match = target.find((x) => x.code === code);
+    if (match) it.priceListItemId = match.id;
+    return Boolean(match);
+  });
+  return dropped.length + (beforeOptional - b.optionalItems.length);
 }
 
 function openQuoteBuilder(leadId = '', baseId = '', { alternative = false } = {}) {
@@ -1812,6 +1825,8 @@ function openQuoteBuilder(leadId = '', baseId = '', { alternative = false } = {}
   }
 
   const lead = getLead(targetLeadId);
+  const existingOptionals = readOptionalQuoteData(base?.notes || '');
+  const previousEarly = earlyDataFromNotes(existingOptionals.notes);
   const refByItemId = new Map();
   const items = (base?.items || [])
     .filter((it) => it.priceListItemId && listItemOf(it.priceListItemId))
@@ -1851,10 +1866,11 @@ function openQuoteBuilder(leadId = '', baseId = '', { alternative = false } = {}
     status: asAlternative ? 'borrador' : (base?.status || 'borrador'),
     paymentMethod: base?.paymentMethod || '',
     paymentTerms: base?.paymentTerms || '',
-    notes: earlyDataFromNotes(base?.notes || '').notes,
-    early: earlyDataFromNotes(base?.notes || '').early,
+    notes: previousEarly.notes,
+    early: previousEarly.early,
     client: base?.client || {},
     items,
+    optionalItems: (base?.optionalItems || existingOptionals.items).map((it) => ({ ...it })),
     discounts,
     calc: null,
     calcError: ''
@@ -1929,6 +1945,7 @@ function openQuoteBuilder(leadId = '', baseId = '', { alternative = false } = {}
   $('quoteEarlyConditions').value = b.early?.conditions || 'Implementación, capacitación, soporte preferencial y retroalimentación.';
   syncEarlyFields();
   $('quoteAddQty').value = 1;
+  $('quoteOptionalQty').value = 1;
   fillQuoteServiceOptions();
   renderQuoteDiscounts();
   renderQuoteSummary();
@@ -1941,6 +1958,14 @@ function handleQuoteFormChange(ev) {
   const b = ui.quoteBuilder;
   const el = ev.target;
   if (!b || !el) return;
+  if (el.dataset.quoteOptionalQty !== undefined) {
+    if (ev.type !== 'change') return;
+    const index = Number(el.dataset.quoteOptionalQty);
+    const line = b.optionalItems[index];
+    if (!line) return;
+    line.quantity = Math.max(1, Math.round(Number(el.value) || 1));
+    return renderQuoteSummary();
+  }
   if (el.dataset.quoteLineQty) {
     if (ev.type !== 'change') return;
     const it = b.items.find((x) => x.ref === el.dataset.quoteLineQty);
@@ -2008,6 +2033,8 @@ function handleQuoteFormChange(ev) {
       return syncQuoteDiscountInputs();
     case 'quoteAddService':
     case 'quoteAddQty':
+    case 'quoteOptionalService':
+    case 'quoteOptionalQty':
     case 'quoteDiscValue':
     case 'quoteDiscMonths':
       return;
@@ -2028,6 +2055,25 @@ function addQuoteLine() {
   renderQuoteDiscounts();
   renderQuoteSummary();
   scheduleQuotePreview();
+}
+
+function addQuoteOptional() {
+  const b = ui.quoteBuilder;
+  if (!b) return;
+  const id = $('quoteOptionalService').value;
+  const product = getPriceListItem(id);
+  if (!product || product.priceListId !== b.priceListId || !product.active) {
+    return toast('Selecciona un complemento activo de la lista.', 'error');
+  }
+  const quantity = Math.max(1, Math.round(Number($('quoteOptionalQty').value) || 1));
+  const existing = b.optionalItems.find((it) => it.priceListItemId === id);
+  if (existing) existing.quantity += quantity;
+  else b.optionalItems.push({
+    priceListItemId: id, code: product.code, name: product.name,
+    periodicity: product.periodicity, quantity
+  });
+  $('quoteOptionalQty').value = 1;
+  renderQuoteSummary();
 }
 
 function addQuoteDiscount() {
@@ -2083,7 +2129,10 @@ async function submitQuoteBuilder(e) {
     return toast('Revisa el valor UF: debe expresarse en pesos, no en unidades ni decimales.', 'error');
   }
 
-  const saved = await saveQuote({ ...b, notes: b.early ? `${b.notes}\n[[TF_EARLY:${encodeURIComponent(JSON.stringify(b.early))}]]` : b.notes }, b.baseId);
+  const pricedOptionals = buildQuoteOptionalItems(b);
+  if (pricedOptionals.length !== b.optionalItems.length) return toast('Revisa la moneda y las tasas de los complementos opcionales.', 'error');
+  const notesWithEarly = b.early ? `${b.notes}\n[[TF_EARLY:${encodeURIComponent(JSON.stringify(b.early))}]]` : b.notes;
+  const saved = await saveQuote({ ...b, notes: writeOptionalQuoteData(notesWithEarly, pricedOptionals) }, b.baseId);
   if (!saved) return;
   $('quoteDialog').close();
   ui.quoteBuilder = null;
@@ -3261,6 +3310,12 @@ const ACTIONS = {
     if (await deleteQuote(id)) toast('Cotización eliminada.');
   },
   'add-quote-line': () => addQuoteLine(),
+  'add-quote-optional': () => addQuoteOptional(),
+  'remove-quote-optional': (index) => {
+    if (!ui.quoteBuilder) return;
+    ui.quoteBuilder.optionalItems.splice(Number(index), 1);
+    renderQuoteSummary();
+  },
   'remove-quote-line': (ref) => {
     const b = ui.quoteBuilder;
     b.items = b.items.filter((it) => it.ref !== ref);

@@ -11,15 +11,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="CRM" />
   <title>CRM</title>
-  <link rel="manifest" href="manifest.webmanifest?v=2026-11-04quote-commercial-values7" />
+  <link rel="manifest" href="manifest.webmanifest?v=2026-11-06quote-optionals1" />
   <link rel="icon" type="image/png" href="assets/pwa-icon.svg" />
   <link rel="apple-touch-icon" href="assets/pwa-icon.svg" />
-  <link rel="stylesheet" href="styles.css?v=2026-11-04quote-commercial-values7" />
-  <link rel="stylesheet" href="ux-v2.css?v=2026-11-04quote-commercial-values7" />
-  <link rel="stylesheet" href="hyperfocus.css?v=2026-11-04quote-commercial-values7" />
-  <link rel="stylesheet" href="bonvallet.css?v=2026-11-04quote-commercial-values7" />
-  <link rel="stylesheet" href="chilecompra.css?v=2026-11-04quote-commercial-values7" />
-  <link rel="stylesheet" href="tutorials.css?v=2026-11-04quote-commercial-values7" />
+  <link rel="stylesheet" href="styles.css?v=2026-11-06quote-optionals1" />
+  <link rel="stylesheet" href="ux-v2.css?v=2026-11-06quote-optionals1" />
+  <link rel="stylesheet" href="hyperfocus.css?v=2026-11-06quote-optionals1" />
+  <link rel="stylesheet" href="bonvallet.css?v=2026-11-06quote-optionals1" />
+  <link rel="stylesheet" href="chilecompra.css?v=2026-11-06quote-optionals1" />
+  <link rel="stylesheet" href="tutorials.css?v=2026-11-06quote-optionals1" />
 </head>
 <body>
   <!-- Acceso -->
@@ -673,6 +673,16 @@
             <button type="button" class="ghost-btn" data-action="add-quote-line">Agregar línea</button>
           </div>
         </section>
+        <section class="quote-section quote-optional-section">
+          <h4>Complementos opcionales</h4>
+          <p class="muted quote-hint">Agrega productos del catálogo uno por uno, por ejemplo packs de inventario. Solo se muestran como referencia de precio; no se incluyen en el valor del contrato.</p>
+          <div id="quoteOptionalLinesRoot"></div>
+          <div class="quote-add-row">
+            <label class="grow">Producto opcional<select id="quoteOptionalService"></select></label>
+            <label>Cantidad<input id="quoteOptionalQty" type="number" min="1" step="1" value="1" /></label>
+            <button type="button" class="ghost-btn" data-action="add-quote-optional">Agregar complemento</button>
+          </div>
+        </section>
         <section class="quote-section">
           <h4>Descuentos</h4>
           <div id="quoteDiscountsRoot"></div>
@@ -947,29 +957,30 @@
     Versión de publicación. GitHub Pages manda "guardar por 10 minutos", así que sin
     esto un arreglo recién publicado no se ve hasta que pase ese rato o el usuario
     recargue a la fuerza. Al subir cambios hay que cambiar este número en TODAS las
-    líneas de abajo (buscar y reemplazar v=2026-11-04quote-commercial-values7), incluidas las hojas de estilo
+    líneas de abajo (buscar y reemplazar v=2026-11-06quote-optionals1), incluidas las hojas de estilo
     de arriba: si un módulo quedara sin versión, el navegador cargaría dos copias del
     mismo archivo y el CRM tendría dos estados en paralelo.
   -->
   <script type="importmap">
   {
     "imports": {
-      "./js/app.js": "./js/app.js?v=2026-11-04quote-commercial-values7",
-      "./js/auth.js": "./js/auth.js?v=2026-11-04quote-commercial-values7",
-      "./js/catalog.js": "./js/catalog.js?v=2026-11-04quote-commercial-values7",
-      "./js/chilecompra.js": "./js/chilecompra.js?v=2026-11-04quote-commercial-values7",
-      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-11-04quote-commercial-values7",
-      "./js/quotes.js": "./js/quotes.js?v=2026-11-04quote-commercial-values7",
-      "./js/quote-rates.js": "./js/quote-rates.js?v=2026-11-04quote-commercial-values7",
-      "./js/quote-form-compat.js": "./js/quote-form-compat.js?v=2026-11-04quote-commercial-values7",
-      "./js/quote-client-copy.js": "./js/quote-client-copy.js?v=2026-11-04quote-commercial-values7",
-      "./js/quote-pdf-cleanup.js": "./js/quote-pdf-cleanup.js?v=2026-11-04quote-commercial-values7",
-      "./js/price-list-export.js": "./js/price-list-export.js?v=2026-11-04quote-commercial-values7",
-      "./js/store.js": "./js/store.js?v=2026-11-04quote-commercial-values7",
-      "./js/supabase.js": "./js/supabase.js?v=2026-11-04quote-commercial-values7",
-      "./js/utils.js": "./js/utils.js?v=2026-11-04quote-commercial-values7",
-      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-11-04quote-commercial-values7",
-      "./js/views.js": "./js/views.js?v=2026-11-04quote-commercial-values7"
+      "./js/app.js": "./js/app.js?v=2026-11-06quote-optionals1",
+      "./js/auth.js": "./js/auth.js?v=2026-11-06quote-optionals1",
+      "./js/catalog.js": "./js/catalog.js?v=2026-11-06quote-optionals1",
+      "./js/chilecompra.js": "./js/chilecompra.js?v=2026-11-06quote-optionals1",
+      "./js/hyperfocus.js": "./js/hyperfocus.js?v=2026-11-06quote-optionals1",
+      "./js/quotes.js": "./js/quotes.js?v=2026-11-06quote-optionals1",
+      "./js/quote-rates.js": "./js/quote-rates.js?v=2026-11-06quote-optionals1",
+      "./js/quote-optionals.js": "./js/quote-optionals.js?v=2026-11-06quote-optionals1",
+      "./js/quote-form-compat.js": "./js/quote-form-compat.js?v=2026-11-06quote-optionals1",
+      "./js/quote-client-copy.js": "./js/quote-client-copy.js?v=2026-11-06quote-optionals1",
+      "./js/quote-pdf-cleanup.js": "./js/quote-pdf-cleanup.js?v=2026-11-06quote-optionals1",
+      "./js/price-list-export.js": "./js/price-list-export.js?v=2026-11-06quote-optionals1",
+      "./js/store.js": "./js/store.js?v=2026-11-06quote-optionals1",
+      "./js/supabase.js": "./js/supabase.js?v=2026-11-06quote-optionals1",
+      "./js/utils.js": "./js/utils.js?v=2026-11-06quote-optionals1",
+      "./js/ux-v2.js": "./js/ux-v2.js?v=2026-11-06quote-optionals1",
+      "./js/views.js": "./js/views.js?v=2026-11-06quote-optionals1"
     }
   }
   </script>
@@ -1007,9 +1018,9 @@
       }, 12000);
     })();
   </script>
-  <script src="config.js?v=2026-11-04quote-commercial-values7"></script>
-  <script type="module" src="js/app.js?v=2026-11-04quote-commercial-values7"></script>
-  <script type="module" src="js/ux-v2.js?v=2026-11-04quote-commercial-values7"></script>
-  <script type="module" src="js/bonvallet.js?v=2026-11-04quote-commercial-values7"></script>
+  <script src="config.js?v=2026-11-06quote-optionals1"></script>
+  <script type="module" src="js/app.js?v=2026-11-06quote-optionals1"></script>
+  <script type="module" src="js/ux-v2.js?v=2026-11-06quote-optionals1"></script>
+  <script type="module" src="js/bonvallet.js?v=2026-11-06quote-optionals1"></script>
 </body>
 </html>

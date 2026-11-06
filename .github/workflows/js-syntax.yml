@@ -31,3 +31,5 @@ jobs:
         run: node .github/price-list-export.test.mjs
       - name: Probar tasa UF y USD, fuentes y formato chileno
         run: node .github/quote-rates.test.mjs
+      - name: Probar complementos opcionales del cotizador
+        run: node .github/quote-optionals.test.mjs

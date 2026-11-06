@@ -27,7 +27,8 @@ import {
   state,
   taskOf
 } from './store.js';
-import { itemsOfPriceList, quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { buildQuoteOptionalItems, itemsOfPriceList, quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { readOptionalQuoteData } from './quote-optionals.js';
 import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import { availableTutorialsForRole, teamTutorialStatus } from './tutorials.js';
@@ -1479,7 +1480,10 @@ export function quoteDocHtml(doc) {
   const match = (doc.notes || '').match(/\[\[TF_EARLY:(.*?)\]\]/);
   let early = doc.early || null;
   try { if (!early && match) early = JSON.parse(decodeURIComponent(match[1])); } catch {}
-  const cleanNotes = match ? (doc.notes || '').replace(match[0], '').trim() : doc.notes;
+  const notesWithoutEarly = match ? (doc.notes || '').replace(match[0], '').trim() : doc.notes;
+  const parsedOptional = readOptionalQuoteData(notesWithoutEarly);
+  const cleanNotes = parsedOptional.notes;
+  const optionalItems = Array.isArray(doc.optionalItems) ? doc.optionalItems : parsedOptional.items;
   const cur = doc.currency || 'UF';
   const absorbed = doc.absorbIva === true;
   const t = doc.totals || {};
@@ -1593,6 +1597,20 @@ export function quoteDocHtml(doc) {
         ${totalsBox(t.monthly, `Total primer mes ${cur}`)}
       </section>
 
+      ${optionalItems.length ? `<section class="qd-optionals-section">
+        <h4>Complementos opcionales (contratación por separado)</h4>
+        <p class="qd-optional-notice"><strong>Valores informativos.</strong> Estos productos no forman parte de la solución contratada y no se incluyen en el total ni en la proyección del contrato. El cliente puede solicitar uno o varios posteriormente.</p>
+        <table class="qd-table qd-optional-table">
+          <thead><tr><th>Complemento</th><th class="num">Cant.</th><th class="num">Precio unit. ${cur}</th><th class="num">Valor referencial ${cur}</th></tr></thead>
+          <tbody>${optionalItems.map((it) => `<tr>
+            <td data-label="Complemento"><strong>${e(it.name)}</strong>${it.description ? `<div class="qd-service-highlight">${e(it.description.split(/\r?\n/)[0])}</div>` : ''}</td>
+            <td class="num" data-label="Cantidad">${fmtNumber(it.quantity)}</td>
+            <td class="num" data-label="Precio unitario ${cur}">${amount(it.unitPrice)}<div class="qd-muted">${it.includesIva ? 'IVA incluido' : 'neto + IVA'} · ${it.periodicity === 'unico' ? 'pago único' : 'mensual'}</div></td>
+            <td class="num" data-label="Valor referencial ${cur}"><strong>${amount(it.total)}</strong><div class="qd-muted">IVA incluido</div></td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </section>` : ''}
+
       <section class="qd-projection-summary">
       <h4>Proyección de valores mensuales <span class="qd-muted">(montos finales${absorbed ? '' : ', IVA incluido'})</span></h4>
       <div class="qd-months">${(t.projection || [])
@@ -1630,6 +1648,7 @@ export function quoteDocFromSaved(q) {
     paymentMethod: q.paymentMethod,
     paymentTerms: q.paymentTerms,
     notes: q.notes,
+    optionalItems: q.optionalItems || readOptionalQuoteData(q.notes).items,
     client: q.client,
     issuer: savedIssuer || list?.issuerProfile || {},
     commercialInfo: savedCommercial || list?.commercialInfo || [],
@@ -1674,6 +1693,25 @@ export function quoteLinesHtml(builder) {
         </tr>`;
       })
       .join('')}</tbody>
+  </table></div>`;
+}
+
+/** Opcionales seleccionados individualmente; no se incorporan a los descuentos ni al total. */
+export function quoteOptionalLinesHtml(builder) {
+  if (!builder.optionalItems?.length) return '<p class="muted">Sin complementos opcionales seleccionados.</p>';
+  const currency = builder.currency || 'UF';
+  return `<div class="table-wrap"><table class="data-table quote-optionals-table">
+    <thead><tr><th>Complemento</th><th>Cantidad</th><th>Precio unit. ${e(currency)}</th><th>Precio referencial IVA incl.</th><th></th></tr></thead>
+    <tbody>${builder.optionalItems.map((it, index) => {
+      const value = buildQuoteOptionalItems({ ...builder, optionalItems: [it] })[0];
+      return `<tr>
+        <td><strong>${e(value?.name || it.name || 'Producto no disponible')}</strong><div class="muted">${e((value?.periodicity || it.periodicity) === 'unico' ? 'Pago único' : 'Mensual')}</div></td>
+        <td><input type="number" class="cell-input qty" min="1" step="1" data-quote-optional-qty="${index}" value="${e(it.quantity)}" aria-label="Cantidad de ${e(it.name || 'complemento')}" /></td>
+        <td>${value ? fmtAmount(value.unitPrice, currency) : 'Falta tipo de cambio'}</td>
+        <td><strong>${value ? fmtAmount(value.total, currency) : '—'}</strong></td>
+        <td><button type="button" class="small-btn danger" data-action="remove-quote-optional" data-id="${index}">Quitar</button></td>
+      </tr>`;
+    }).join('')}</tbody>
   </table></div>`;
 }
 
