@@ -1000,6 +1000,113 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   break-inside: avoid;
   page-break-inside: avoid;
 }
+
+/* Propuesta económica unificada: una sola grilla, dos modalidades de cobro. */
+.qd-unified-economics {
+  display: block;
+  margin-top: 17px;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+.qd-economic-caption {
+  margin: 0 0 11px;
+  color: #53657c;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.qd-financial-group {
+  display: flow-root;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-financial-group + .qd-financial-group { margin-top: 11px; }
+.qd-financial-continued {
+  margin: 0 0 6px;
+  color: #53657c;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.qd-unified-table {
+  table-layout: fixed;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-billing-tag {
+  display: inline-block;
+  width: fit-content;
+  margin: 5px 0 1px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.qd-billing-once { background: #f0eafa; color: #6c44a6; }
+.qd-billing-monthly { background: #e6f1fc; color: #175f9d; }
+.qd-economic-summary {
+  display: block;
+  max-width: 100%;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d7e3f2;
+  border-radius: 9px;
+  background: #f7faff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-economic-summary > h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #1b3257;
+}
+.qd-economic-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 8px 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-economic-summary-row + .qd-economic-summary-row {
+  border-top: 1px solid #d7e3f2;
+}
+.qd-economic-summary-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.qd-economic-summary-copy > strong {
+  font-size: 11px;
+  color: #1b3257;
+}
+.qd-economic-summary-copy > small {
+  font-size: 10px;
+  color: #53657c;
+  line-height: 1.4;
+}
+.qd-economic-summary-price {
+  font-size: 14px;
+  color: #1b3257;
+  white-space: nowrap;
+}
+.quote-doc.qd-for-print .qd-unified-economics {
+  break-inside: auto;
+  page-break-inside: auto;
+}
+.quote-doc.qd-for-print .qd-financial-group,
+.quote-doc.qd-for-print .qd-economic-summary {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+@media(max-width: 760px) {
+  .quote-doc:not(.qd-for-print) .qd-economic-summary-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
 .qd-table thead { display: table-header-group; }
 .qd-table tr, .qd-table th, .qd-table td {
   break-inside: avoid;
