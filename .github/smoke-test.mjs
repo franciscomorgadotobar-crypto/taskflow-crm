@@ -439,7 +439,9 @@ try {
             view.textContent.includes('Plan Full') &&
             view.textContent.includes('Plan Entrada') &&
             view.textContent.includes('Alternativa de P-202611-0002') &&
-            view.textContent.includes('2 opciones disponibles')
+            view.textContent.includes('Ver las 2 opciones') &&
+            view.querySelectorAll('[data-action="quote-family"]').length === 2 &&
+            view.querySelector('[data-action="view-quote"][data-id="test-quote"]') !== null
         };
 
         body.innerHTML = quoteDocHtml(doc);
