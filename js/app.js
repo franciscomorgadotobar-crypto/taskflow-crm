@@ -127,6 +127,7 @@ import {
   quoteDiscountsHtml,
   quoteDocFromSaved,
   quoteDocHtml,
+  quoteFamilyHtml,
   quoteLinesHtml,
   quoteOptionalLinesHtml,
   renderDashboard,
@@ -2210,6 +2211,7 @@ function openQuoteView(id) {
   const source = q.alternativeOfRootId ? getQuote(q.alternativeOfRootId) : null;
   if (source) $('quoteViewSubtitle').textContent += ` · Alternativa de ${source.number}`;
   $('quoteViewBody').innerHTML = `
+    ${quoteFamilyHtml(q)}
     ${quoteDocHtml(quoteDocFromSaved(q))}
     ${
       versions.length > 1
@@ -2234,6 +2236,7 @@ function openQuoteView(id) {
     $('quoteViewEditBtn').insertAdjacentElement('afterend', altBtn);
   }
   altBtn.dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
+  altBtn.textContent = quoteFamilyHtml(q) ? 'Crear otra alternativa' : 'Crear alternativa';
   altBtn.hidden = isReadOnly();
   $('quoteViewSendBtn').dataset.id = q.id;
   $('quoteViewPdfBtn').dataset.id = q.id;
@@ -2242,7 +2245,10 @@ function openQuoteView(id) {
   listDownloadButton.hidden = !linkedPriceList;
   if (linkedPriceList) listDownloadButton.dataset.id = linkedPriceList.id;
   else delete listDownloadButton.dataset.id;
-  $('quoteViewDialog').showModal();
+  // Al alternar propuestas con el modal abierto se actualiza su contenido.
+  // showModal() sobre un diálogo ya abierto produciría InvalidStateError.
+  if (!$('quoteViewDialog').open) $('quoteViewDialog').showModal();
+  $('quoteViewBody').scrollTop = 0;
 }
 
 function openQuoteSend(id) {
@@ -3292,6 +3298,7 @@ const ACTIONS = {
     openQuoteBuilder(q.leadId, quoteId);
   },
   'view-quote': (id) => openQuoteView(id),
+  'quote-family': (id) => openQuoteView(id),
   'new-quote-alternative': (id, btn) => {
     const q = getQuote(id || btn?.dataset.id);
     if (!q) return;
