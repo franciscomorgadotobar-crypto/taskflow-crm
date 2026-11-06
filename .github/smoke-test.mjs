@@ -52,7 +52,7 @@ try {
     if (!state.authVisible && !state.appVisible) throw new Error(`[${testCase.name}] Pantalla blanca: authScreen y appShell siguen ocultos.`);
     if (state.horizontalOverflow) throw new Error(`[${testCase.name}] Hay overflow horizontal global (${state.width}x${state.height}).`);
 
-    // El documento externo no debe revelar la absorción ni desglosar IVA.
+    // En IVA absorbido se muestra «IVA incluido», pero sin desglose interno.
     const rendered = await page.evaluate(async () => {
       const { quoteDocHtml } = await import('./js/views.js');
       const { buildQuoteEmail } = await import('./js/quotes.js');
@@ -323,7 +323,7 @@ try {
         absorbedHasIva: /IVA incluido/i.test(absorbed),
         normalHasIva: /\bIVA\b/i.test(normal),
         absorbedHasFinalTotal: absorbed.includes('238,00'),
-        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de valores mensuales') && monthlyWithIva.includes('montos finales, IVA incluido') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
+        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de valores mensuales') && monthlyWithIva.includes('Proyección de valores mensuales <span class="qd-muted">(IVA incluido)') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
         absorbedEmailHasIva: /IVA incluido/i.test(email),
         absorbedEmailHasFinalTotal: email.includes('238,00'),
         fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
@@ -347,7 +347,7 @@ try {
           withSetup.includes('Total puesta en marcha (IVA incluido)') &&
           withSetup.includes('(neto)') && absorbed.includes('(IVA incluido)') &&
           !withSetup.includes('Total primer mes') &&
-          withSetup.includes('Valor total del contrato UF (IVA incluido)') &&
+          withSetup.includes('Valor total del contrato USD (IVA incluido)') &&
           withSetup.includes('Salida a producción') &&
           withSetup.includes('09:00 a 18:00'),
         financialHeading: withSetup.includes('Propuesta económica') &&
