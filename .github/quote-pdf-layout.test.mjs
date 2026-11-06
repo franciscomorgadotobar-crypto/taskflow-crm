@@ -112,7 +112,7 @@ try {
       return {
         projectionPage, contractPage, closingPage, pdfPages,
         closingOnLastPage: projectionPage === closingPage && closingPage === pdfPages - 1,
-        closingContents: closing.textContent.includes('Condiciones comerciales y próximos pasos') && closing.textContent.includes('Contacto comercial') && closing.textContent.includes('Confirmar la propuesta'),
+        closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
         firstProjectionPageIsLast: projectionPage === pdfPages - 1,
         allFinalValuesSamePage: projectionPage === contractPage,
