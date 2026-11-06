@@ -71,7 +71,7 @@ try {
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: {
             mode: ['css', 'legacy'],
-            before: ['.qd-projection-summary'],
+            before: ['.qd-projection-summary', '.qd-roadmap'],
             avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
           }
         })
@@ -123,7 +123,9 @@ try {
         start: Math.floor((top + 3) / pagePx),
         end: Math.floor((bottom - 3) / pagePx)
       }));
-      const stageIntegrity = stages.length === 5 && stagePages.every(({ start, end }) => start === end);
+      const stageIntegrity = stages.length === 5 && stagePages.every(({ start, end }) => start === end) &&
+        stages[4]?.textContent.includes('Salida a producción') &&
+        stages[4]?.textContent.includes('09:00 a 18:00');
       const allStagesOnSamePage = stagePages.every(({ start, end }) => start === closingStartPage && end === closingPage);
       const rootBox = root.getBoundingClientRect();
       const tableBox = table.getBoundingClientRect();
@@ -159,6 +161,8 @@ try {
       return {
         projectionPage, contractPage, closingStartPage, closingPage, pdfPages,
         closingOnLastPage: closingStartPage === closingPage && closingPage === pdfPages - 1,
+        roadmapDedicatedPage: closingStartPage > projectionPage &&
+          Math.abs(closingTop % pagePx) < marginTolerance,
         noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
         packsNeverSplit, optionalGroupPages, optionalRowPages,
         unifiedEconomicsCorrect: economicRows.length === 4 &&
@@ -168,9 +172,13 @@ try {
           economicSummary.querySelectorAll('.qd-economic-summary-row').length === 2 &&
           !root.querySelector('.qd-setup-section, .qd-monthly-section'),
         projectionBeforeRoadmap: contractBottom < closingTop,
+        taxLabelsPresent: root.textContent.includes('Total mensual (IVA incluido)') &&
+          root.textContent.includes('Valor total del contrato UF (IVA incluido)') &&
+          root.textContent.includes('Neto contrato') &&
+          !root.textContent.includes('Total primer mes'),
         closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
-        firstProjectionPageIsLast: projectionPage === pdfPages - 1,
+        projectionBeforeLastPage: projectionPage < pdfPages - 1,
         allFinalValuesSamePage: projectionPage === contractPage,
         startsOnNewPage: projectionPage > 0 && Math.abs(projectionY % pagePx) < marginTolerance,
         marginsSymmetric: horizontalPadding[0] === horizontalPadding[1] &&
@@ -190,9 +198,9 @@ try {
 
   console.log('COTIZACIÓN PDF A4 LAYOUT', JSON.stringify(result));
   const requirements = [
-    'firstProjectionPageIsLast', 'allFinalValuesSamePage',
+    'projectionBeforeLastPage', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'noRoadmapCuts', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'roadmapDedicatedPage', 'noRoadmapCuts', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {

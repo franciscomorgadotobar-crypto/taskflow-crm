@@ -33,3 +33,7 @@ jobs:
         run: node .github/quote-rates.test.mjs
       - name: Probar complementos opcionales del cotizador
         run: node .github/quote-optionals.test.mjs
+      - name: Instalar biblioteca para exportar Word
+        run: npm install --no-save docx@9.5.3 jszip@3.10.1
+      - name: Validar documento Word real con todas las etapas
+        run: node .github/quote-word.test.mjs

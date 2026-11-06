@@ -52,7 +52,7 @@ try {
     if (!state.authVisible && !state.appVisible) throw new Error(`[${testCase.name}] Pantalla blanca: authScreen y appShell siguen ocultos.`);
     if (state.horizontalOverflow) throw new Error(`[${testCase.name}] Hay overflow horizontal global (${state.width}x${state.height}).`);
 
-    // El documento externo no debe revelar la absorción ni desglosar IVA.
+    // En IVA absorbido se muestra «IVA incluido», pero sin desglose interno.
     const rendered = await page.evaluate(async () => {
       const { quoteDocHtml } = await import('./js/views.js');
       const { buildQuoteEmail } = await import('./js/quotes.js');
@@ -320,15 +320,15 @@ try {
         existingAlternativesCorrect,
         packInfoOK,
         hideByDefault: document.getElementById('quoteAbsorbIvaField')?.hidden,
-        absorbedHasIva: /\bIVA\b/i.test(absorbed),
+        absorbedHasIva: /IVA incluido/i.test(absorbed),
         normalHasIva: /\bIVA\b/i.test(normal),
         absorbedHasFinalTotal: absorbed.includes('238,00'),
-        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de valores mensuales') && monthlyWithIva.includes('montos finales, IVA incluido') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
-        absorbedEmailHasIva: /\bIVA\b/i.test(email),
+        projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de valores mensuales') && monthlyWithIva.includes('Proyección de valores mensuales <span class="qd-muted">(IVA incluido)') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
+        absorbedEmailHasIva: /IVA incluido/i.test(email),
         absorbedEmailHasFinalTotal: email.includes('238,00'),
         fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
         commercialLanguage: full.includes('Propuesta de soluciones TaskFlow') && full.includes('Valor total del contrato'),
-        noInvestmentTerminology: !/inversi[oó]n/i.test([normal, withSetup, monthlyOnly, email].join(' ')) && withSetup.includes('Total puesta en marcha') && monthlyOnly.includes('Total primer mes') && normal.includes('Valor total del contrato'),
+        noInvestmentTerminology: !/inversi[oó]n/i.test([normal, withSetup, monthlyOnly, email].join(' ')) && withSetup.includes('Total puesta en marcha') && monthlyOnly.includes('Total mensual') && normal.includes('Valor total del contrato'),
         oldQuoteHasScope: oldHtml.includes('Qué incluye cada solución contratada') &&
           oldHtml.includes('plataforma web administrativa para gestión técnica') &&
           oldHtml.includes('aplicación móvil para gestión de trabajos en terreno') &&
@@ -341,25 +341,34 @@ try {
         discountMonthsHidden,
         projectionAndTotalTogether: normal.includes('class="qd-projection-summary"') &&
           /<section class="qd-projection-summary">[\s\S]*?qd-months[\s\S]*?qd-contract[\s\S]*?<\/section>/.test(normal),
+        wordButtonsPresent: document.querySelectorAll('[data-action="quote-builder-word"]').length >= 2 &&
+          Boolean(document.querySelector('#quoteViewWordBtn[data-action="quote-word"]')),
+        taxAndMonthlyLabels: withSetup.includes('Total mensual (IVA incluido)') &&
+          withSetup.includes('Total puesta en marcha (IVA incluido)') &&
+          withSetup.includes('(neto)') && absorbed.includes('(IVA incluido)') &&
+          !withSetup.includes('Total primer mes') &&
+          withSetup.includes('Valor total del contrato USD (IVA incluido)') &&
+          withSetup.includes('Salida a producción') &&
+          withSetup.includes('09:00 a 18:00'),
         financialHeading: withSetup.includes('Propuesta económica') &&
           withSetup.includes('Resumen de valores') &&
           withSetup.includes('Total puesta en marcha') &&
-          withSetup.includes('Total primer mes') &&
+          withSetup.includes('Total mensual') &&
           (withSetup.match(/class="qd-unified-table"/g) || []).length === 0 &&
           (withSetup.match(/qd-unified-table/g) || []).length === 1 &&
           (withSetup.match(/class="qd-economic-title"/g) || []).length === 1 &&
           monthlyOnly.includes('Propuesta económica') &&
-          monthlyOnly.includes('Total primer mes') &&
+          monthlyOnly.includes('Total mensual') &&
           !monthlyOnly.includes('Total puesta en marcha') &&
           (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
-    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.existingAlternativesCorrect || !rendered.packInfoOK || !rendered.hideByDefault || rendered.absorbedHasIva ||
+    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.existingAlternativesCorrect || !rendered.packInfoOK || !rendered.hideByDefault || !rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
-        rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
+        !rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
-        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
+        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.wordButtonsPresent || !rendered.taxAndMonthlyLabels || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));

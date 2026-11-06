@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Playwright
         run: |
-          npm install --no-save playwright@1.55.0
+          npm install --no-save playwright@1.55.0 docx@9.5.3 jszip@3.10.1
           npx playwright install --with-deps chromium
 
       - name: Start local site
@@ -37,3 +37,5 @@ jobs:
 
       - name: Verify actual HTML-to-PDF A4 layout
         run: node .github/quote-pdf-layout.test.mjs
+      - name: Verify browser Word download DOCX
+        run: node .github/quote-word-browser.test.mjs
