@@ -84,22 +84,6 @@ export function ensureQuoteFormControls(root = document) {
     discounts.insertAdjacentElement('beforebegin', section);
   }
 
-  // Compatibilidad con instalaciones PWA que conservaron el formulario anterior.
-  for (const [selectId, detailsId, message] of [
-    ['quoteAddService', 'quoteServiceInfo', 'Detalle del servicio seleccionado'],
-    ['quoteOptionalService', 'quoteOptionalInfo', 'Detalle del complemento seleccionado']
-  ]) {
-    if (!byId(detailsId)) {
-      const addRow = byId(selectId)?.closest('.quote-add-row');
-      if (!addRow) continue;
-      const preview = root.createElement('div');
-      preview.id = detailsId;
-      preview.className = 'quote-service-info';
-      preview.setAttribute('aria-label', message);
-      addRow.insertAdjacentElement('afterend', preview);
-    }
-  }
-
   return { absorbField, absorbInput: byId('quoteAbsorbIva'), mode, earlyFields };
 }
 

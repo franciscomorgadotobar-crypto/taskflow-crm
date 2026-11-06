@@ -86,6 +86,7 @@ import {
   versionsOf
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
+import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
 import { trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
@@ -130,7 +131,6 @@ import {
   quoteFamilyHtml,
   quoteLinesHtml,
   quoteOptionalLinesHtml,
-  quoteCatalogServiceInfoHtml,
   renderDashboard,
   renderImplementation,
   renderLeadDetail,
@@ -1591,21 +1591,10 @@ function fillQuoteServiceOptions() {
         .join('')
     : '<option value="">La lista no tiene servicios activos</option>';
   $('quoteOptionalService').innerHTML = $('quoteAddService').innerHTML;
-  renderQuoteCatalogServiceDetails();
-}
-
-/** Muestra qué incluye el servicio seleccionado, sin incorporarlo todavía. */
-function renderQuoteCatalogServiceDetails() {
-  const selectedService = $('quoteAddService');
-  const selectedOptional = $('quoteOptionalService');
-  const serviceInfo = $('quoteServiceInfo');
-  const optionalInfo = $('quoteOptionalInfo');
-  if (serviceInfo && selectedService) {
-    serviceInfo.innerHTML = quoteCatalogServiceInfoHtml(selectedService.value);
-  }
-  if (optionalInfo && selectedOptional) {
-    optionalInfo.innerHTML = quoteCatalogServiceInfoHtml(selectedOptional.value, { optional: true });
-  }
+  // Selector enriquecido: permite ver cada plan y sus límites dentro del
+  // desplegable (no después de elegirlo ni fuera de la lista).
+  enhanceQuoteProductSelect($('quoteAddService'), items, list?.currency);
+  enhanceQuoteProductSelect($('quoteOptionalService'), items, list?.currency);
 }
 
 /** Mismo formato que quoteDocFromSaved, armado desde el borrador y su último cálculo. */
@@ -2050,7 +2039,6 @@ function handleQuoteFormChange(ev) {
       return syncQuoteDiscountInputs();
     case 'quoteAddService':
     case 'quoteOptionalService':
-      if (ev.type === 'change' || ev.type === 'input') renderQuoteCatalogServiceDetails();
       return;
     case 'quoteAddQty':
     case 'quoteOptionalQty':

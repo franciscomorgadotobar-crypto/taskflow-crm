@@ -176,9 +176,58 @@ try {
           fullInfo.includes('Hasta 20.000 equipos seriados') &&
           fullInfo.includes('UF 15,00') &&
           packInfo.includes('Amplía la capacidad contratada en 1.000 ítems') &&
-          packInfo.includes('no forma parte del total del contrato') &&
-          Boolean(document.getElementById('quoteServiceInfo')) &&
-          Boolean(document.getElementById('quoteOptionalInfo'));
+          packInfo.includes('no forma parte del total del contrato');
+
+        // El detalle debe estar DENTRO del selector desplegado, no bajo el campo.
+        const { enhanceQuoteProductSelect } = await import('./js/quote-rich-picker.js');
+        const dialog = document.getElementById('quoteDialog');
+        const service = document.getElementById('quoteAddService');
+        const optional = document.getElementById('quoteOptionalService');
+        const oldOptions = service.innerHTML;
+        const oldOptionalOptions = optional.innerHTML;
+        try {
+          const catalogItems = quoteCatalogState.priceListItems;
+          const optionsHtml = catalogItems.map((item) =>
+            '<option value="' + item.id + '">' + item.name + '</option>').join('');
+          service.innerHTML = optionsHtml;
+          optional.innerHTML = optionsHtml;
+          enhanceQuoteProductSelect(service, catalogItems, 'UF');
+          enhanceQuoteProductSelect(optional, catalogItems, 'UF');
+          dialog.showModal();
+          const trigger = service.nextElementSibling.querySelector('.quote-rich-trigger');
+          trigger.click();
+          const menu = [...dialog.querySelectorAll('.quote-rich-popup')].find((el) => !el.hidden);
+          const basicOption = menu?.querySelector('[data-rich-item="basico"]');
+          const basicSummary = basicOption?.textContent || '';
+          basicOption?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          const hovered = menu?.querySelector('.quote-rich-details')?.textContent || '';
+          const search = menu?.querySelector('.quote-rich-search');
+          search.value = '250 equipos';
+          search.dispatchEvent(new Event('input', { bubbles: true }));
+          const filtered = menu?.querySelectorAll('[data-rich-item]') || [];
+          const filteredBasic = filtered.length === 1 && filtered[0].dataset.richItem === 'basico';
+          filtered[0]?.click();
+          const serviceSelected = service.value === 'basico' && menu?.hidden;
+          optional.nextElementSibling.querySelector('.quote-rich-trigger').click();
+          const optionalMenu = [...dialog.querySelectorAll('.quote-rich-popup')].find((el) => !el.hidden);
+          const optionalRows = optionalMenu?.querySelectorAll('[data-rich-item]').length || 0;
+          const optionalDetail = optionalMenu?.querySelector('.quote-rich-details')?.textContent || '';
+          packInfoOK = packInfoOK &&
+            !!menu && !!basicOption &&
+            basicSummary.includes('500 ítems') &&
+            basicSummary.includes('2 usuarios') &&
+            hovered.includes('Hasta 500 ítems de inventario') &&
+            hovered.includes('Hasta 250 equipos seriados') &&
+            filteredBasic && serviceSelected &&
+            optionalRows === 4 &&
+            optionalDetail.includes('Hasta 200 ítems de inventario') &&
+            !document.getElementById('quoteServiceInfo') &&
+            !document.getElementById('quoteOptionalInfo');
+        } finally {
+          if (dialog.open) dialog.close();
+          service.innerHTML = oldOptions;
+          optional.innerHTML = oldOptionalOptions;
+        }
       } finally {
         quoteCatalogState.priceListItems = oldPriceItems;
         quoteCatalogState.priceLists = oldPriceLists;
