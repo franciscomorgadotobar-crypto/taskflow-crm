@@ -27,7 +27,7 @@ import {
   state,
   taskOf
 } from './store.js';
-import { buildQuoteOptionalItems, itemsOfPriceList, quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { buildQuoteOptionalItems, itemsOfPriceList, quoteFamilyOf, quotePlanLabel, quotesOf, state as quoteState, versionsOf } from './quotes.js';
 import { readOptionalQuoteData } from './quote-optionals.js';
 import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
@@ -1212,14 +1212,11 @@ const quoteStatusBadge = (status) => {
 function quoteRow(q, { showCompany = false } = {}) {
   const lead = getLead(q.leadId);
   const versions = versionsOf(q.rootId);
-  const familyRoot = q.alternativeOfRootId || q.rootId;
-  const familyCount = quoteState.quotes.filter((it) =>
-    it.isCurrent && (it.alternativeOfRootId || it.rootId) === familyRoot).length;
-  const original = q.alternativeOfRootId ? quoteState.quotes.find((it) =>
-    it.id === q.alternativeOfRootId) : null;
-  const plan = (q.items || []).find((item) =>
-    /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(item.code || ''));
-  const planName = plan ? `Plan ${({ INV_ENTRADA: 'Entrada', INV_BASICO: 'Básico', INV_MEDIO: 'Medio', INV_AVANZADO: 'Avanzado', INV_FULL: 'Full' })[plan.code]}` : '';
+  const family = quoteFamilyOf(q);
+  const familyCount = family.length;
+  const original = q.alternativeOfRootId
+    ? family.find((it) => !it.alternativeOfRootId) : null;
+  const planName = quotePlanLabel(q);
   return `<div class="list-item quote-list-card">
     <div class="quote-card-main">
       <div class="quote-card-heading">
@@ -1228,8 +1225,8 @@ function quoteRow(q, { showCompany = false } = {}) {
       </div>
       <div class="quote-card-context">
         ${planName ? `<span class="quote-plan-tag">${e(planName)}</span>` : ''}
-        ${original ? `<span class="quote-alt-tag">Alternativa de ${e(original.number)}</span>` : ''}
-        ${familyCount > 1 ? `<span class="muted">${familyCount} opciones disponibles</span>` : ''}
+        ${original ? `<button type="button" class="quote-alt-tag quote-alt-link" data-action="view-quote" data-id="${e(original.id)}" title="Abrir cotización original">Alternativa de ${e(original.number)}</button>` : ''}
+        ${familyCount > 1 ? `<button type="button" class="quote-family-link" data-action="quote-family" data-id="${e(q.id)}" title="Ver las propuestas comerciales vinculadas">Ver las ${familyCount} opciones</button>` : ''}
         ${!q.leadId ? '<span class="muted">Sin ficha en el CRM</span>' : ''}
         ${versions.length > 1 ? `<span class="muted">${versions.length} versiones</span>` : ''}
       </div>
@@ -1248,6 +1245,31 @@ function quoteRow(q, { showCompany = false } = {}) {
       </div>
     </div>
   </div>`;
+}
+
+/** Selector de alternativas ya guardadas, visible al abrir cualquiera de sus propuestas. */
+export function quoteFamilyHtml(quote) {
+  const family = quoteFamilyOf(quote);
+  if (family.length < 2) return '';
+  const selectedRoot = quote.rootId || quote.id;
+  return `<section class="quote-family-panel" aria-label="Opciones comerciales de esta cotización">
+    <div class="quote-family-heading">
+      <strong>Opciones comerciales (${family.length})</strong>
+      <span>Selecciona una para ver su cotización. Las opciones ya existen y conservan su número e historial.</span>
+    </div>
+    <div class="quote-family-options">${family.map((option) => {
+      const selected = (option.rootId || option.id) === selectedRoot;
+      const name = quotePlanLabel(option) || (option.alternativeOfRootId ? 'Alternativa' : 'Propuesta original');
+      return `<button type="button" class="quote-family-choice ${selected ? 'is-selected' : ''}"
+          data-action="view-quote" data-id="${e(option.id)}"
+          aria-current="${selected ? 'true' : 'false'}">
+        <span class="quote-family-choice-title">${e(name)}</span>
+        <span class="quote-family-choice-number">${e(option.number || 'Sin número')} · v${e(option.version)}</span>
+        <strong>${e(fmtCurrency(option.totals?.monthly?.[option.absorbIva ? 'total' : 'net'], option.currency))} / mes${option.absorbIva ? '' : ' + IVA'}</strong>
+        <span class="quote-family-choice-foot">${selected ? 'Opción que estás viendo' : 'Ver esta opción'} ${e(QUOTE_STATUS_LABEL[option.status] || option.status || '')}</span>
+      </button>`;
+    }).join('')}</div>
+  </section>`;
 }
 
 export function renderQuotesSection(leadId) {

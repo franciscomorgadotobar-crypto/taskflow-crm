@@ -359,6 +359,28 @@ export const quotesOf = (leadId) => state.quotes.filter((q) => q.leadId === lead
 export const versionsOf = (rootId) => state.quotes.filter((q) => q.rootId === rootId).sort((a, b) => b.version - a.version);
 
 export const currentQuoteOf = (rootId) => versionsOf(rootId).find((q) => q.isCurrent) || versionsOf(rootId)[0] || null;
+/** Alternativas ya existentes: agrupa la vigente de cada opción, no las versiones históricas. */
+export function quoteFamilyOf(quote) {
+  if (!quote) return [];
+  const familyRoot = quote.alternativeOfRootId || quote.rootId || quote.id;
+  return state.quotes
+    .filter((row) => row.isCurrent && (row.alternativeOfRootId || row.rootId || row.id) === familyRoot)
+    .sort((a, b) => {
+      const originalA = !a.alternativeOfRootId;
+      const originalB = !b.alternativeOfRootId;
+      if (originalA !== originalB) return originalA ? -1 : 1;
+      return String(a.number || '').localeCompare(String(b.number || ''), 'es', { numeric: true });
+    });
+}
+
+export function quotePlanLabel(quote) {
+  const plan = (quote?.items || []).find((item) =>
+    /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(item.code || ''));
+  if (!plan) return '';
+  return 'Plan ' + ({ INV_ENTRADA: 'Entrada', INV_BASICO: 'Básico',
+    INV_MEDIO: 'Medio', INV_AVANZADO: 'Avanzado', INV_FULL: 'Full' })[plan.code];
+}
+
 
 /**
  * Convierte el borrador del constructor al formato de las RPC quote_preview /

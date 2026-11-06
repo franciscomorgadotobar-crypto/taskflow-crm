@@ -174,6 +174,52 @@ try {
         optionalEmail.includes('NO incluidos en el total del contrato') &&
         optionalEmail.includes('2,38') && !optionalEmail.includes('TF_OPTIONALS');
 
+      // Alternativas comerciales: una propuesta original y su alternativa, con
+      // una versión anterior que NO se cuenta como tercera opción.
+      const { quoteFamilyOf, state: quoteSnapshot } = await import('./js/quotes.js');
+      const { quoteFamilyHtml, renderQuotesSection } = await import('./js/views.js');
+      const savedQuotes = quoteSnapshot.quotes;
+      const original = {
+        id: 'original-2', rootId: 'original-1', number: 'P-202611-0002', version: 2,
+        isCurrent: true, leadId: 'fixture-lead', ownerId: 'user-fixture',
+        sellerName: 'Prueba', status: 'borrador', currency: 'UF',
+        alternativeOfRootId: '', contractMonths: 12, total: 210,
+        updatedAt: '2026-11-06T10:00:00Z',
+        totals: { monthly: { net: 14, total: 16.66 } },
+        client: { company: 'Soc Incosec Ltda.' },
+        items: [{ code: 'INV_FULL', name: 'Inventario Plan Full' }]
+      };
+      const alternative = {
+        ...original, id: 'alternative-1', rootId: 'alternative-1',
+        number: 'P-202611-0003', version: 1,
+        alternativeOfRootId: 'original-1',
+        items: [{ code: 'INV_BASICO', name: 'Inventario Plan Básico' }],
+        totals: { monthly: { net: 8, total: 9.52 } }
+      };
+      const previous = { ...original, id: 'original-1', version: 1, isCurrent: false };
+      let existingAlternativesCorrect = false;
+      try {
+        quoteSnapshot.quotes = [previous, original, alternative];
+        const linked = quoteFamilyOf(original);
+        const listHtml = renderQuotesSection('fixture-lead');
+        const chooser = quoteFamilyHtml(alternative);
+        const parsedChooser = new DOMParser().parseFromString(chooser, 'text/html');
+        const choiceButtons = parsedChooser.querySelectorAll('[data-action="view-quote"]');
+        existingAlternativesCorrect =
+          linked.length === 2 &&
+          linked[0].id === original.id &&
+          linked[1].id === alternative.id &&
+          listHtml.includes('data-action="quote-family"') &&
+          listHtml.includes('Ver las 2 opciones') &&
+          listHtml.includes('data-id="original-2"') &&
+          choiceButtons.length === 2 &&
+          parsedChooser.querySelectorAll('.quote-family-choice.is-selected').length === 1 &&
+          chooser.includes('Plan Full') && chooser.includes('Plan Básico') &&
+          !chooser.includes('original-1"');
+      } finally {
+        quoteSnapshot.quotes = savedQuotes;
+      }
+
       const email = buildQuoteEmail({
         ...base, absorbIva: true, items: base.lines,
         total: 238, subtotalNeto: 238, iva: 0
@@ -182,6 +228,7 @@ try {
         checkboxPresent: Boolean(document.getElementById('quoteAbsorbIva')),
         optionalSelectorPresent: Boolean(document.getElementById('quoteOptionalService')) && Boolean(document.getElementById('quoteOptionalQty')),
         optionalOK,
+        existingAlternativesCorrect,
         hideByDefault: document.getElementById('quoteAbsorbIvaField')?.hidden,
         absorbedHasIva: /IVA/i.test(absorbed),
         normalHasIva: /IVA/i.test(normal),
@@ -210,7 +257,7 @@ try {
           (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
-    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.hideByDefault || rendered.absorbedHasIva ||
+    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.existingAlternativesCorrect || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
