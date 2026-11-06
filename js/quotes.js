@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 import { fmtAmount, fmtCurrency, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
 import { clientServiceName, clientServiceScope } from './quote-client-copy.js';
-import { readOptionalQuoteData } from './quote-optionals.js';
+import { optionalItemSnapshot, readOptionalQuoteData } from './quote-optionals.js';
 
 /**
  * Cotizador. Vive separado de store.js por prolijidad: `state` en memoria y
@@ -328,6 +328,28 @@ export async function deletePriceListItem(id) {
 }
 
 /* ---------- Cotizaciones ---------- */
+
+/** Complementos de catálogo con precio congelado por cada versión, fuera de los totales RPC. */
+export function buildQuoteOptionalItems(draft) {
+  const list = getPriceList(draft.priceListId);
+  const cfg = {
+    currency: draft.currency,
+    listCurrency: list?.currency || draft.currency,
+    ufValue: draft.ufValue,
+    usdValue: draft.usdValue,
+    absorbIva: draft.absorbIva === true
+  };
+  return (draft.optionalItems || []).map((line) => {
+    const current = getPriceListItem(line.priceListItemId);
+    const catalogItem = current?.priceListId === draft.priceListId ? current : null;
+    if (catalogItem) return optionalItemSnapshot(catalogItem, line.quantity, cfg);
+    // Preservar precios ya comunicados cuando un ítem del catálogo fue archivado.
+    if (line.currency !== draft.currency) return null;
+    return optionalItemSnapshot({ ...line, price: line.unitPrice }, line.quantity, {
+      ...cfg, listCurrency: draft.currency
+    });
+  }).filter(Boolean);
+}
 
 export const getQuote = (id) => state.quotes.find((q) => q.id === id) || null;
 
