@@ -1053,87 +1053,99 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-months > div { border: 1px solid #dde4ee; border-radius: 6px; background: #f7f9fc; padding: 6px; text-align: center; display: flex; flex-direction: column; }
 .qd-months span { font-size: 10px; color: #697586; font-weight: 700; }
 
-/* Última hoja: cierre comercial, después de proyección y total contractual. */
-.qd-closing {
-  margin-top: 28px;
-  padding-top: 17px;
+/* Última página: cronograma visual de puesta en marcha, después del total.
+   El grupo completo se mantiene unido en A4 y no desplaza el pie numerado. */
+.qd-closing.qd-roadmap {
+  margin-top: 24px;
+  padding-top: 13px;
   border-top: 2px solid #d7e7f8;
   color: #1b3257;
   break-inside: avoid;
   page-break-inside: avoid;
 }
-.qd-closing-intro > span {
+.qd-roadmap .qd-closing-intro > span {
   display: block;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .09em;
   color: #1d71b8;
 }
-.qd-closing-intro > h4 {
-  margin: 5px 0 4px;
-  font-size: 15px;
+.qd-roadmap .qd-closing-intro > h4 {
+  margin: 4px 0 3px;
+  font-size: 14px;
   font-weight: 800;
   color: #1b3257;
 }
-.qd-closing-intro > p {
-  margin: 0 0 13px;
+.qd-roadmap .qd-closing-intro > p {
+  margin: 0 0 12px;
   color: #53657c;
-  font-size: 10.5px;
+  font-size: 10px;
 }
-.qd-closing-grid {
+.qd-roadmap-steps {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.qd-closing-card {
-  min-width: 0;
-  padding: 13px 14px;
-  background: #f7faff;
-  border: 1px solid #d7e3f2;
-  border-radius: 9px;
-}
-.qd-closing-card > strong {
-  display: block;
-  font-size: 11px;
-  color: #1b3257;
-  margin-bottom: 9px;
-}
-.qd-closing-card dl {
-  display: grid;
-  gap: 6px;
+  gap: 7px;
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.qd-closing-card dl > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  border-bottom: 1px solid #e7edf5;
-  padding-bottom: 4px;
-}
-.qd-closing-card dt { color: #53657c; font-size: 10px; }
-.qd-closing-card dd { margin: 0; font-size: 10px; font-weight: 700; text-align: right; }
-.qd-closing-card ol { display: grid; gap: 9px; margin: 0; padding-left: 18px; font-size: 10.5px; line-height: 1.45; }
-.qd-closing-legal { margin: 12px 1px 0; color: #53657c; font-size: 10px; line-height: 1.5; }
-.qd-closing-contact {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 5px 12px;
-  margin-top: 17px;
-  padding: 12px 0 0;
-  border-top: 1px solid #e0e9f4;
-  color: #53657c;
-  font-size: 11px;
-}
-.qd-closing-contact > strong { color: #1b3257; }
-.qd-closing-contact > span:first-child { font-size: 10px; font-weight: 700; color: #1d71b8; }
-.quote-doc.qd-for-print .qd-closing {
-  margin-top: 24px;
+.qd-roadmap-step {
+  display: grid;
+  grid-template-columns: 185px minmax(0,1fr);
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 11px;
+  border: 1px solid #dce6f2;
+  border-radius: 8px;
+  background: #f8faff;
   break-inside: avoid;
   page-break-inside: avoid;
 }
-@media(max-width: 760px) {
-  .quote-doc:not(.qd-for-print) .qd-closing-grid { grid-template-columns: minmax(0, 1fr); }
+.qd-roadmap-phase {
+  display: grid;
+  grid-template-columns: 25px minmax(0,1fr);
+  gap: 1px 7px;
+  align-items: center;
+}
+.qd-roadmap-phase > span {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #e3f0ff;
+  color: #1d71b8;
+  font-size: 10px;
+  font-weight: 800;
+}
+.qd-roadmap-phase > strong { color: #1b3257; font-size: 10.5px; line-height: 1.25; }
+.qd-roadmap-phase > small { color: #53657c; font-size: 9.5px; line-height: 1.25; }
+.qd-roadmap-step > p {
+  margin: 0;
+  color: #3d536c;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.qd-roadmap-step-final {
+  background: #eef6ff;
+  border-color: #acccec;
+}
+.qd-roadmap-step-final .qd-roadmap-phase > span {
+  background: #1d71b8;
+  color: #fff;
+}
+.quote-doc.qd-for-print .qd-closing.qd-roadmap {
+  margin-top: 20px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+@media(max-width:760px) {
+  .quote-doc:not(.qd-for-print) .qd-roadmap-step {
+    grid-template-columns: minmax(0,1fr);
+    gap: 5px;
+    padding: 9px;
+  }
 }
 .quote-pdf-holder { position: fixed; left: -10000px; top: 0; width: 780px; }
 /* El PDF se compone dentro de A4 con 12 mm de margen por los cuatro lados.
