@@ -149,12 +149,39 @@ try {
         !restructuredHtml.includes('Beneficios y acompañamiento');
       docNode.remove();
 
+      const optionalPack = {
+        code: 'INV_PACK_1000', name: 'Pack adicional de 1.000 ítems',
+        description: 'Capacidad extra de inventario', quantity: 1,
+        periodicity: 'mensual', unitPrice: 2, total: 2.38,
+        currency: 'UF', includesIva: false
+      };
+      const optionalHtml = quoteDocHtml({ ...base, currency: 'UF', optionalItems: [optionalPack] });
+      const optionalEmail = buildQuoteEmail({
+        ...base, currency: 'UF', absorbIva: false,
+        items: base.lines, total: 238, subtotalNeto: 200, iva: 38,
+        optionalItems: [optionalPack],
+        notes: 'Notas públicas\n[[TF_OPTIONALS:metadato]]'
+      }, null).body;
+      const optionalSection = new DOMParser().parseFromString(optionalHtml, 'text/html')
+        .querySelector('.qd-optionals-section');
+      const optionalOK = Boolean(optionalSection) &&
+        optionalSection.textContent.includes('Pack adicional de 1.000 ítems') &&
+        optionalSection.textContent.includes('2,38') &&
+        optionalHtml.indexOf('qd-monthly-section') < optionalHtml.indexOf('qd-optionals-section') &&
+        optionalHtml.indexOf('qd-optionals-section') < optionalHtml.indexOf('qd-projection-summary') &&
+        optionalHtml.includes('Valor total del contrato') &&
+        optionalHtml.includes('238,00') &&
+        optionalEmail.includes('NO incluidos en el total del contrato') &&
+        optionalEmail.includes('2,38') && !optionalEmail.includes('TF_OPTIONALS');
+
       const email = buildQuoteEmail({
         ...base, absorbIva: true, items: base.lines,
         total: 238, subtotalNeto: 238, iva: 0
       }, null).body;
       return {
         checkboxPresent: Boolean(document.getElementById('quoteAbsorbIva')),
+        optionalSelectorPresent: Boolean(document.getElementById('quoteOptionalService')) && Boolean(document.getElementById('quoteOptionalQty')),
+        optionalOK,
         hideByDefault: document.getElementById('quoteAbsorbIvaField')?.hidden,
         absorbedHasIva: /IVA/i.test(absorbed),
         normalHasIva: /IVA/i.test(normal),
@@ -183,7 +210,7 @@ try {
           (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
-    if (!rendered.checkboxPresent || !rendered.hideByDefault || rendered.absorbedHasIva ||
+    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
