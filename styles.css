@@ -767,6 +767,32 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 }
 .quote-add-row input { width: 110px; }
 .quote-lines-table, .quote-discounts-table { min-width: 720px; }
+.quote-service-info { margin-top: 12px; min-width: 0; }
+.quote-service-info-card {
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--blue) 6%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--border));
+  border-radius: 12px;
+  color: var(--text);
+}
+.quote-service-info-heading { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px 18px; }
+.quote-service-info-heading > div { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.quote-service-info-heading strong { font-size: 14px; overflow-wrap: anywhere; }
+.quote-service-info-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .045em; font-weight: 800; color: var(--blue); }
+.quote-service-info-price { padding: 5px 9px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 12px; font-weight: 700; }
+.quote-service-info-features { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px 20px; margin: 12px 0 8px; padding-left: 20px; font-size: 12px; line-height: 1.45; }
+.quote-service-info-features li { padding-left: 2px; overflow-wrap: anywhere; }
+.quote-service-info-hint { margin: 9px 0 0; color: var(--muted); font-size: 11px; }
+.quote-line-details { margin-top: 7px; font-size: 11px; }
+.quote-line-details summary { color: var(--blue); cursor: pointer; font-weight: 700; }
+.quote-line-details summary:hover { text-decoration: underline; }
+.quote-line-details ul { margin: 7px 0 0; padding-left: 16px; display: grid; gap: 3px; line-height: 1.4; color: var(--muted); }
+.quote-service-info-empty { font-size: 12px; }
+@media(max-width:760px) {
+  .quote-service-info-card { padding: 12px; }
+  .quote-service-info-features { grid-template-columns: minmax(0,1fr); }
+  .quote-service-info-price { width: fit-content; }
+}
 .quote-optionals-table { min-width: 620px; }
 .quote-optionals-table .cell-input.qty { width: 76px; padding: 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
 .quote-optional-section { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
