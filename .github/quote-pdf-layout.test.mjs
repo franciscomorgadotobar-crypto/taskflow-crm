@@ -61,7 +61,7 @@ try {
           pagebreak: {
             mode: ['css', 'legacy'],
             before: ['.qd-projection-summary'],
-            avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head']
+            avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step']
           }
         })
         .from(holder.firstElementChild);
@@ -71,7 +71,8 @@ try {
       const root = container.querySelector('.quote-doc');
       const projection = root.querySelector('.qd-projection-summary');
       const contract = projection.querySelector('.qd-contract');
-      const closing = projection.querySelector('.qd-closing');
+      const closing = root.querySelector('.qd-closing');
+      const stages = [...closing.querySelectorAll('.qd-roadmap-step')];
       const header = projection.querySelector('h4');
       const table = root.querySelector('.qd-monthly-section .qd-table');
       const pageSize = await worker.get('pageSize');
@@ -79,10 +80,22 @@ try {
       const baseY = root.getBoundingClientRect().top;
       const projectionY = projection.getBoundingClientRect().top - baseY;
       const contractBottom = contract.getBoundingClientRect().bottom - baseY;
+      const closingTop = closing.getBoundingClientRect().top - baseY;
       const closingBottom = closing.getBoundingClientRect().bottom - baseY;
+      const stagesBounds = stages.map((stage) => ({
+        top: stage.getBoundingClientRect().top - baseY,
+        bottom: stage.getBoundingClientRect().bottom - baseY
+      }));
       const projectionPage = Math.floor((projectionY + 3) / pagePx);
       const contractPage = Math.floor((contractBottom - 3) / pagePx);
+      const closingStartPage = Math.floor((closingTop + 3) / pagePx);
       const closingPage = Math.floor((closingBottom - 3) / pagePx);
+      const stagePages = stagesBounds.map(({ top, bottom }) => ({
+        start: Math.floor((top + 3) / pagePx),
+        end: Math.floor((bottom - 3) / pagePx)
+      }));
+      const stageIntegrity = stages.length === 5 && stagePages.every(({ start, end }) => start === end);
+      const allStagesOnSamePage = stagePages.every(({ start, end }) => start === closingStartPage && end === closingPage);
       const rootBox = root.getBoundingClientRect();
       const tableBox = table.getBoundingClientRect();
       const css = getComputedStyle(root);
@@ -110,8 +123,10 @@ try {
 
 
       return {
-        projectionPage, contractPage, closingPage, pdfPages,
-        closingOnLastPage: projectionPage === closingPage && closingPage === pdfPages - 1,
+        projectionPage, contractPage, closingStartPage, closingPage, pdfPages,
+        closingOnLastPage: closingStartPage === closingPage && closingPage === pdfPages - 1,
+        noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
+        projectionBeforeRoadmap: contractBottom < closingTop,
         closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
         firstProjectionPageIsLast: projectionPage === pdfPages - 1,
@@ -136,7 +151,7 @@ try {
   const requirements = [
     'firstProjectionPageIsLast', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'noRoadmapCuts', 'projectionBeforeRoadmap', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {

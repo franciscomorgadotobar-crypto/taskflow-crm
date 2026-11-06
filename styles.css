@@ -1053,8 +1053,8 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-months > div { border: 1px solid #dde4ee; border-radius: 6px; background: #f7f9fc; padding: 6px; text-align: center; display: flex; flex-direction: column; }
 .qd-months span { font-size: 10px; color: #697586; font-weight: 700; }
 
-/* Última página: cronograma visual de puesta en marcha, después del total.
-   El grupo completo se mantiene unido en A4 y no desplaza el pie numerado. */
+/* Cronograma de puesta en marcha: bloque independiente de la proyección.
+   El salto se decide ANTES del bloque completo, nunca en mitad de una etapa. */
 .qd-closing.qd-roadmap {
   margin-top: 24px;
   padding-top: 13px;
@@ -1136,7 +1136,22 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   color: #fff;
 }
 .quote-doc.qd-for-print .qd-closing.qd-roadmap {
-  margin-top: 20px;
+  display: block;
+  box-sizing: border-box;
+  margin-top: 18px;
+  break-before: auto;
+  page-break-before: auto;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.quote-doc.qd-for-print .qd-roadmap-steps,
+.quote-doc.qd-for-print .qd-roadmap-step {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+/* Evitar que html2pdf considere la proyección y el cronograma un bloque
+   gigantesco e indivisible; ambos se conservan íntegros por separado. */
+.quote-doc.qd-for-print .qd-projection-summary {
   break-inside: avoid;
   page-break-inside: avoid;
 }

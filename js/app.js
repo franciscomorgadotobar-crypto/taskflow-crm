@@ -2187,10 +2187,11 @@ async function downloadQuotePdf(doc) {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: {
           mode: ['css', 'legacy'],
-          // La proyección y el resumen constituyen la última página.
-          // No se usan espaciadores manuales ni cálculos del espacio sobrante.
+          // La proyección abre una página; el cronograma es independiente.
+          // Si no cabe después de los totales, salta completo a la siguiente
+          // sin truncar sus cinco etapas ni crear páginas de relleno.
           before: ['.qd-projection-summary'],
-          avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head']
+          avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step']
         }
       })
       .from(holder.firstElementChild);

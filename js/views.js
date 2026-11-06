@@ -1644,6 +1644,7 @@ export function quoteDocHtml(doc) {
         <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
         <div class="qd-final"><span>Valor total del contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
       </div>
+      </section>
       <section class="qd-closing qd-roadmap">
         <div class="qd-closing-intro">
           <span>IMPLEMENTACIÓN TASKFLOW</span>
@@ -1672,7 +1673,6 @@ export function quoteDocHtml(doc) {
             <p>Al cerrar la marcha blanca, la plataforma queda 100% operativa. El cliente dispone de soporte permanente de lunes a viernes, de 09:00 a 18:00 hrs.</p>
           </li>
         </ol>
-      </section>
       </section>
     </div>`;
 }
