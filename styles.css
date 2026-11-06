@@ -1052,6 +1052,89 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-months { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .qd-months > div { border: 1px solid #dde4ee; border-radius: 6px; background: #f7f9fc; padding: 6px; text-align: center; display: flex; flex-direction: column; }
 .qd-months span { font-size: 10px; color: #697586; font-weight: 700; }
+
+/* Última hoja: cierre comercial, después de proyección y total contractual. */
+.qd-closing {
+  margin-top: 28px;
+  padding-top: 17px;
+  border-top: 2px solid #d7e7f8;
+  color: #1b3257;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-closing-intro > span {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  color: #1d71b8;
+}
+.qd-closing-intro > h4 {
+  margin: 5px 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1b3257;
+}
+.qd-closing-intro > p {
+  margin: 0 0 13px;
+  color: #53657c;
+  font-size: 10.5px;
+}
+.qd-closing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.qd-closing-card {
+  min-width: 0;
+  padding: 13px 14px;
+  background: #f7faff;
+  border: 1px solid #d7e3f2;
+  border-radius: 9px;
+}
+.qd-closing-card > strong {
+  display: block;
+  font-size: 11px;
+  color: #1b3257;
+  margin-bottom: 9px;
+}
+.qd-closing-card dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.qd-closing-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  border-bottom: 1px solid #e7edf5;
+  padding-bottom: 4px;
+}
+.qd-closing-card dt { color: #53657c; font-size: 10px; }
+.qd-closing-card dd { margin: 0; font-size: 10px; font-weight: 700; text-align: right; }
+.qd-closing-card ol { display: grid; gap: 9px; margin: 0; padding-left: 18px; font-size: 10.5px; line-height: 1.45; }
+.qd-closing-legal { margin: 12px 1px 0; color: #53657c; font-size: 10px; line-height: 1.5; }
+.qd-closing-contact {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 17px;
+  padding: 12px 0 0;
+  border-top: 1px solid #e0e9f4;
+  color: #53657c;
+  font-size: 11px;
+}
+.qd-closing-contact > strong { color: #1b3257; }
+.qd-closing-contact > span:first-child { font-size: 10px; font-weight: 700; color: #1d71b8; }
+.quote-doc.qd-for-print .qd-closing {
+  margin-top: 24px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+@media(max-width: 760px) {
+  .quote-doc:not(.qd-for-print) .qd-closing-grid { grid-template-columns: minmax(0, 1fr); }
+}
 .quote-pdf-holder { position: fixed; left: -10000px; top: 0; width: 780px; }
 /* El PDF se compone dentro de A4 con 12 mm de margen por los cuatro lados.
    Este formato aplica solo a la exportación, nunca a la vista móvil. */
