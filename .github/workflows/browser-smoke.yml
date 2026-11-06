@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    # Playwright 1.55 no instala Chromium en Ubuntu 26.04 (ubuntu-latest desde 2026).
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
