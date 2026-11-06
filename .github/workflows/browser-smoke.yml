@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master, feat/quote-pdf-unified-economic-section-20261106]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
