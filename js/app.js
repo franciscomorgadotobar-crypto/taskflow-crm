@@ -89,7 +89,7 @@ import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.j
 import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
-import { trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
+import { addQuotePdfFooters, trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
@@ -2200,7 +2200,8 @@ async function downloadQuotePdf(doc) {
     await worker.toPdf();
     const pdf = await worker.get('pdf');
     const canvas = await worker.get('canvas');
-    trimTrailingEmptyQuotePages(pdf, canvas);
+    trimTrailingEmptyQuotePages(pdf, canvas, { top: 12, right: 12, bottom: 12, left: 12 });
+    addQuotePdfFooters(pdf, doc);
     await pdf.save(filename);
   } finally {
     holder.remove();

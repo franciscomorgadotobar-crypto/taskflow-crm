@@ -1644,6 +1644,38 @@ export function quoteDocHtml(doc) {
         <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
         <div class="qd-final"><span>Valor total del contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
       </div>
+      <section class="qd-closing">
+        <div class="qd-closing-intro">
+          <span>CIERRE DE PROPUESTA</span>
+          <h4>Condiciones comerciales y próximos pasos</h4>
+          <p>Un resumen para revisar la propuesta y avanzar con su formalización.</p>
+        </div>
+        <div class="qd-closing-grid">
+          <div class="qd-closing-card">
+            <strong>Resumen de condiciones</strong>
+            <dl>
+              <div><dt>Validez de la propuesta</dt><dd>${e(fmtDate(doc.validUntil) || 'Por confirmar')}</dd></div>
+              <div><dt>Duración considerada</dt><dd>${e(doc.contractMonths || '—')} meses</dd></div>
+              <div><dt>Forma de pago</dt><dd>${e(optionLabel(PAYMENT_METHODS, doc.paymentMethod))}</dd></div>
+              <div><dt>Condición de pago</dt><dd>${e(optionLabel(PAYMENT_TERMS, doc.paymentTerms))}</dd></div>
+            </dl>
+          </div>
+          <div class="qd-closing-card">
+            <strong>¿Cómo continuar?</strong>
+            <ol>
+              <li>Revisar los módulos, capacidades y valores presentados.</li>
+              <li>Solicitar ajustes o aclaraciones al contacto comercial.</li>
+              <li>Confirmar la propuesta para coordinar el contrato y la habilitación.</li>
+            </ol>
+          </div>
+        </div>
+        <p class="qd-closing-legal">Los complementos opcionales no están incluidos en el valor del contrato. Su contratación posterior requiere aceptación y condiciones específicas. El alcance definitivo se formaliza en el contrato de servicios correspondiente.</p>
+        <div class="qd-closing-contact">
+          <span>Contacto comercial</span>
+          <strong>${e(doc.owner || issuerName || 'Equipo TaskFlow')}</strong>
+          ${issuer.email ? `<span>${e(issuer.email)}</span>` : ''}
+        </div>
+      </section>
       </section>
     </div>`;
 }
