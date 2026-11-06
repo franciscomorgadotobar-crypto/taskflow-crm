@@ -58,3 +58,38 @@ export function trimTrailingEmptyQuotePages(pdf, canvas, { top = 10, right = 10,
   }
   return removed;
 }
+
+/**
+ * Añade un pie vectorial a TODAS las páginas después de limpiar las hojas en
+ * blanco. Se dibuja en los 12 mm inferiores reservados por html2pdf, fuera
+ * del área de contenido. Por eso no modifica saltos, precios ni tamaño de hoja.
+ */
+export function addQuotePdfFooters(pdf, doc = {}) {
+  if (!pdf || typeof pdf.getNumberOfPages !== 'function' || typeof pdf.setPage !== 'function') return 0;
+  const total = pdf.getNumberOfPages();
+  const size = pdf.internal?.pageSize;
+  const width = Number(size?.getWidth?.()) || 210;
+  const height = Number(size?.getHeight?.()) || 297;
+  const issuer = String(doc.issuer?.commercialName || doc.issuer?.legalName || 'TaskFlow');
+  const reference = String(doc.number || 'Cotización en preparación');
+  const margin = 12;
+  const fit = (value, maxWidth) => {
+    let text = String(value);
+    if (typeof pdf.getTextWidth !== 'function') return text.slice(0, 38);
+    while (text.length && pdf.getTextWidth(text) > maxWidth) text = text.slice(0, -1);
+    return text.length < String(value).length ? text.trimEnd() + '...' : text;
+  };
+  for (let page = 1; page <= total; page++) {
+    pdf.setPage(page);
+    pdf.setDrawColor(216, 227, 241);
+    pdf.setLineWidth(0.25);
+    pdf.line(margin, height - 11, width - margin, height - 11);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(91, 107, 128);
+    pdf.text(fit(issuer + ' | Propuesta comercial', 70), margin, height - 6.8);
+    pdf.text(fit(reference, 61), width / 2, height - 6.8, { align: 'center' });
+    pdf.text('Página ' + page + ' de ' + total, width - margin, height - 6.8, { align: 'right' });
+  }
+  return total;
+}
