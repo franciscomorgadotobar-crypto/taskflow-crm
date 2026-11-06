@@ -72,7 +72,7 @@ try {
           pagebreak: {
             mode: ['css', 'legacy'],
             before: ['.qd-projection-summary'],
-            avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step']
+            avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
           }
         })
         .from(holder.firstElementChild);
@@ -87,7 +87,10 @@ try {
       const optionalGroups = [...root.querySelectorAll('.qd-optional-page-group')];
       const optionalRows = [...root.querySelectorAll('.qd-optionals-section tbody tr')];
       const header = projection.querySelector('h4');
-      const table = root.querySelector('.qd-monthly-section .qd-table');
+      const table = root.querySelector('.qd-unified-economics .qd-unified-table');
+      const economicRows = [...root.querySelectorAll('.qd-unified-table tbody tr')];
+      const economicBlocks = [...root.querySelectorAll('.qd-financial-group')];
+      const economicSummary = root.querySelector('.qd-economic-summary');
       const pageSize = await worker.get('pageSize');
       const pagePx = pageSize.inner.px.height;
       const baseY = root.getBoundingClientRect().top;
@@ -124,6 +127,11 @@ try {
       const allStagesOnSamePage = stagePages.every(({ start, end }) => start === closingStartPage && end === closingPage);
       const rootBox = root.getBoundingClientRect();
       const tableBox = table.getBoundingClientRect();
+      const economicBlocksWithinPages = economicBlocks.every((el) => {
+        const yStart = el.getBoundingClientRect().top - baseY;
+        const yEnd = el.getBoundingClientRect().bottom - baseY;
+        return Math.floor((yStart + 3) / pagePx) === Math.floor((yEnd - 3) / pagePx);
+      });
       const css = getComputedStyle(root);
       const horizontalPadding = [parseFloat(css.paddingLeft), parseFloat(css.paddingRight)];
       const marginTolerance = 20; // tolera el padding superior del documento
@@ -153,6 +161,12 @@ try {
         closingOnLastPage: closingStartPage === closingPage && closingPage === pdfPages - 1,
         noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
         packsNeverSplit, optionalGroupPages, optionalRowPages,
+        unifiedEconomicsCorrect: economicRows.length === 4 &&
+          economicRows.filter((row) => row.querySelector('.qd-billing-once')).length === 1 &&
+          economicRows.filter((row) => row.querySelector('.qd-billing-monthly')).length === 3 &&
+          economicBlocksWithinPages &&
+          economicSummary.querySelectorAll('.qd-economic-summary-row').length === 2 &&
+          !root.querySelector('.qd-setup-section, .qd-monthly-section'),
         projectionBeforeRoadmap: contractBottom < closingTop,
         closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
@@ -178,7 +192,7 @@ try {
   const requirements = [
     'firstProjectionPageIsLast', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'noRoadmapCuts', 'packsNeverSplit', 'projectionBeforeRoadmap', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'noRoadmapCuts', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {

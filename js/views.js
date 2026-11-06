@@ -1529,34 +1529,37 @@ export function quoteDocHtml(doc) {
     optionalGroups.push(optionalItems.slice(i, i + 4));
   }
 
-  const table = (rows) => `
-    <table class="qd-table">
-      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Descuento ${cur}</th><th class="num">Total ${cur}</th></tr></thead>
-      <tbody>${
-        rows.length
-          ? rows
-              .map(
-                (l) => `<tr>
-                  <td data-label="Solución"><strong>${e(commercialName(l))}</strong>${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}</td>
-                  <td class="num" data-label="Cantidad">${fmtNumber(l.quantity)}</td>
-                  <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
-                  <td class="num" data-label="Valor base ${cur}">${amount(l.subtotal)}</td>
-                  <td class="num qd-disc" data-label="Descuento ${cur}">${amount(l.discount)}</td>
-                  <td class="num" data-label="Total ${cur}"><strong>${amount(l.total)}</strong></td>
-                </tr>`
-              )
-              .join('')
-          : `<tr><td colspan="6" class="qd-empty">Sin líneas.</td></tr>`
-      }</tbody>
+  // Una sola tabla comercial, con cobros únicos y recurrentes diferenciados.
+  // Con muchas líneas se conserva el encabezado al paginar grupos de 5 filas.
+  const financialRows = [...setup, ...monthly];
+  const financialGroups = [];
+  for (let i = 0; i < financialRows.length; i += 5) {
+    financialGroups.push(financialRows.slice(i, i + 5));
+  }
+  const financialTable = (rows) => `
+    <table class="qd-table qd-unified-table">
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Beneficio ${cur}</th><th class="num">Total ${cur}</th></tr></thead>
+      <tbody>${rows.map((l) => `<tr>
+        <td data-label="Solución">
+          <strong>${e(commercialName(l))}</strong>
+          <span class="qd-billing-tag ${l.periodicity === 'unico' ? 'qd-billing-once' : 'qd-billing-monthly'}">${l.periodicity === 'unico' ? 'Pago único' : 'Mensual'}</span>
+          ${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}
+        </td>
+        <td class="num" data-label="Cantidad">${fmtNumber(l.quantity)}</td>
+        <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
+        <td class="num" data-label="Valor base ${cur}">${amount(l.subtotal)}</td>
+        <td class="num qd-disc" data-label="Beneficio ${cur}">${amount(l.discount)}</td>
+        <td class="num" data-label="Total ${cur}"><strong>${amount(l.total)}</strong></td>
+      </tr>`).join('')}</tbody>
     </table>`;
 
-  const totalsBox = (b, finalLabel) => `
-    <div class="qd-totals">
-      <div><span>Valor de lista ${cur}</span><span>${amount(b?.subtotal)}</span></div>
-      <div class="qd-disc"><span>Beneficios comerciales ${cur}</span><span>${amount(b?.discount)}</span></div>
-      ${absorbed ? '' : `<div><span>Neto ${cur}</span><span>${amount(b?.net)}</span></div>
-      <div><span>IVA 19%</span><span>${amount(b?.iva)}</span></div>`}
-      <div class="qd-final"><span>${finalLabel}</span><span>${amount(b?.total)}</span></div>
+  const summaryRow = (totals, label, recurring) => `
+    <div class="qd-economic-summary-row">
+      <div class="qd-economic-summary-copy">
+        <strong>${label}</strong>
+        <small>${recurring ? 'Suscripción recurrente' : 'Se cobra una sola vez'} · Lista ${amount(totals?.subtotal)} ${cur} · Beneficio ${amount(totals?.discount)} ${cur}${absorbed ? '' : ` · Neto ${amount(totals?.net)} ${cur} · IVA ${amount(totals?.iva)} ${cur}`}</small>
+      </div>
+      <strong class="qd-economic-summary-price">${amount(totals?.total)} ${cur}</strong>
     </div>`;
 
   return `
@@ -1613,17 +1616,18 @@ export function quoteDocHtml(doc) {
           <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
         </section>` : ''}
 
-      ${setup.length ? `<section class="qd-price-section qd-setup-section">
+      <section class="qd-price-section qd-unified-economics">
         <h3 class="qd-economic-title">Propuesta económica</h3>
-        <h4>Puesta en marcha y servicios de pago único</h4>
-        ${table(setup)}
-        ${totalsBox(t.setup, `Total puesta en marcha ${cur}`)}
-      </section>` : ''}
-      <section class="qd-price-section qd-monthly-section">
-        ${setup.length ? '' : '<h3 class="qd-economic-title">Propuesta económica</h3>'}
-        <h4>Suscripción y servicios mensuales</h4>
-        ${table(monthly)}
-        ${totalsBox(t.monthly, `Total primer mes ${cur}`)}
+        <p class="qd-economic-caption">Servicios de pago único y suscripción mensual. Los importes de cada modalidad se calculan por separado.</p>
+        ${financialGroups.length ? financialGroups.map((group, i) => `<div class="qd-financial-group">
+          ${i ? '<div class="qd-financial-continued">Detalle de servicios (continuación)</div>' : ''}
+          ${financialTable(group)}
+        </div>`).join('') : '<p class="qd-empty">No se han seleccionado servicios.</p>'}
+        <div class="qd-economic-summary">
+          <h4>Resumen de valores</h4>
+          ${setup.length ? summaryRow(t.setup, 'Total puesta en marcha', false) : ''}
+          ${summaryRow(t.monthly, 'Total primer mes', true)}
+        </div>
       </section>
 
       ${optionalGroups.length ? `<section class="qd-optionals-section">
