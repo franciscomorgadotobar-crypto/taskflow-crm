@@ -29,6 +29,7 @@ import {
 } from './store.js';
 import { buildQuoteOptionalItems, itemsOfPriceList, quoteFamilyOf, quotePlanLabel, quotesOf, state as quoteState, versionsOf } from './quotes.js';
 import { readOptionalQuoteData } from './quote-optionals.js';
+import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
 import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import { availableTutorialsForRole, teamTutorialStatus } from './tutorials.js';
@@ -1508,6 +1509,7 @@ export function quoteDocHtml(doc) {
   const optionalItems = Array.isArray(doc.optionalItems) ? doc.optionalItems : parsedOptional.items;
   const cur = doc.currency || 'UF';
   const absorbed = doc.absorbIva === true;
+  const detailTaxLabel = absorbed ? 'IVA incluido' : 'neto';
   const t = doc.totals || {};
   const client = doc.client || {};
   const issuer = doc.issuer || {};
@@ -1538,7 +1540,7 @@ export function quoteDocHtml(doc) {
   }
   const financialTable = (rows) => `
     <table class="qd-table qd-unified-table">
-      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur}</th><th class="num">Valor base ${cur}</th><th class="num">Beneficio ${cur}</th><th class="num">Total ${cur}</th></tr></thead>
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur} (${detailTaxLabel})</th><th class="num">Valor base ${cur} (${detailTaxLabel})</th><th class="num">Beneficio ${cur} (${detailTaxLabel})</th><th class="num">Subtotal ${cur} (${detailTaxLabel})</th></tr></thead>
       <tbody>${rows.map((l) => `<tr>
         <td data-label="Solución">
           <strong>${e(commercialName(l))}</strong>
@@ -1556,8 +1558,8 @@ export function quoteDocHtml(doc) {
   const summaryRow = (totals, label, recurring) => `
     <div class="qd-economic-summary-row">
       <div class="qd-economic-summary-copy">
-        <strong>${label}</strong>
-        <small>${recurring ? 'Suscripción recurrente' : 'Se cobra una sola vez'} · Lista ${amount(totals?.subtotal)} ${cur} · Beneficio ${amount(totals?.discount)} ${cur}${absorbed ? '' : ` · Neto ${amount(totals?.net)} ${cur} · IVA ${amount(totals?.iva)} ${cur}`}</small>
+        <strong>${label} (IVA incluido)</strong>
+        <small>${recurring ? 'Suscripción recurrente · consulta la proyección para variaciones por descuentos' : 'Se cobra una sola vez'} · Lista ${detailTaxLabel} ${amount(totals?.subtotal)} ${cur} · Beneficio ${detailTaxLabel} ${amount(totals?.discount)} ${cur}${absorbed ? '' : ` · Neto ${amount(totals?.net)} ${cur} · IVA 19% ${amount(totals?.iva)} ${cur}`}</small>
       </div>
       <strong class="qd-economic-summary-price">${amount(totals?.total)} ${cur}</strong>
     </div>`;
@@ -1626,7 +1628,7 @@ export function quoteDocHtml(doc) {
         <div class="qd-economic-summary">
           <h4>Resumen de valores</h4>
           ${setup.length ? summaryRow(t.setup, 'Total puesta en marcha', false) : ''}
-          ${summaryRow(t.monthly, 'Total primer mes', true)}
+          ${summaryRow(t.monthly, 'Total mensual', true)}
         </div>
       </section>
 
@@ -1648,7 +1650,7 @@ export function quoteDocHtml(doc) {
       </section>` : ''}
 
       <section class="qd-projection-summary">
-      <h4>Proyección de valores mensuales <span class="qd-muted">(montos finales${absorbed ? '' : ', IVA incluido'})</span></h4>
+      <h4>Proyección de valores mensuales <span class="qd-muted">(IVA incluido)</span></h4>
       <div class="qd-months">${(t.projection || [])
         .map((p) => `<div><span>Mes ${p.month}</span><strong>${amount(p.total)}</strong></div>`)
         .join('')}</div>
@@ -1656,7 +1658,7 @@ export function quoteDocHtml(doc) {
       <div class="qd-totals qd-contract">
         ${absorbed ? '' : `<div><span>Neto contrato (${e(doc.contractMonths)} meses + habilitación)</span><span>${amount(t.contract?.net)}</span></div>
         <div><span>IVA 19%</span><span>${amount(t.contract?.iva)}</span></div>`}
-        <div class="qd-final"><span>Valor total del contrato ${cur}</span><span>${amount(t.contract?.total)}</span></div>
+        <div class="qd-final"><span>Valor total del contrato ${cur} (IVA incluido)</span><span>${amount(t.contract?.total)}</span></div>
       </div>
       </section>
       <section class="qd-closing qd-roadmap">
@@ -1666,26 +1668,10 @@ export function quoteDocHtml(doc) {
           <p>Un proceso de puesta en marcha acompañado, con actividades y responsables coordinados con el cliente.</p>
         </div>
         <ol class="qd-roadmap-steps">
-          <li class="qd-roadmap-step">
-            <div class="qd-roadmap-phase"><span>01</span><strong>Kickoff</strong><small>Inicio del proyecto</small></div>
-            <p>Con la reunión de inicio arranca formalmente la implementación. Activamos al superadministrador y acordamos junto al cliente el calendario de trabajo.</p>
-          </li>
-          <li class="qd-roadmap-step">
-            <div class="qd-roadmap-phase"><span>02</span><strong>Semana 1</strong><small>Carga de información</small></div>
-            <p>El cliente entrega en una planilla estándar los datos de clientes, inventario, usuarios, activos, formularios y logo. Nuestro equipo carga la información y configura la plataforma según su operación.</p>
-          </li>
-          <li class="qd-roadmap-step">
-            <div class="qd-roadmap-phase"><span>03</span><strong>Semanas 2 y 3</strong><small>Capacitación</small></div>
-            <p>Capacitamos primero al personal administrativo y luego al técnico, de acuerdo con sus funciones, para que el equipo opere TaskFlow con autonomía.</p>
-          </li>
-          <li class="qd-roadmap-step">
-            <div class="qd-roadmap-phase"><span>04</span><strong>Semana 4</strong><small>Marcha blanca</small></div>
-            <p>El equipo utiliza la plataforma en su operación real con acompañamiento de TaskFlow. Ajustamos detalles y resolvemos dudas antes del cierre de esta etapa.</p>
-          </li>
-          <li class="qd-roadmap-step qd-roadmap-step-final">
-            <div class="qd-roadmap-phase"><span>05</span><strong>Salida a producción</strong><small>Operación regular</small></div>
-            <p>Al cerrar la marcha blanca, la plataforma queda 100% operativa. El cliente dispone de soporte permanente de lunes a viernes, de 09:00 a 18:00 hrs.</p>
-          </li>
+          ${QUOTE_IMPLEMENTATION_STEPS.map((step, i) => `<li class="qd-roadmap-step ${i === QUOTE_IMPLEMENTATION_STEPS.length - 1 ? 'qd-roadmap-step-final' : ''}">
+            <div class="qd-roadmap-phase"><span>${String(i + 1).padStart(2, '0')}</span><strong>${e(step.period)}</strong><small>${e(step.title)}</small></div>
+            <p>${e(step.body)}</p>
+          </li>`).join('')}
         </ol>
       </section>
     </div>`;
