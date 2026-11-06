@@ -495,7 +495,7 @@ export function buildQuoteEmail(quote, lead) {
   const absorb = quote.absorbIva === true;
   const money = (n) => fmtCurrency(n, cur);
   const line = (it) =>
-    `- ${clientServiceName(it)} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)}${it.discount ? ` (descuento ${money(it.discount)})` : ''} = ${money(it.total)}\n  Incluye: ${clientServiceScope(it).split(/\r?\n/).filter(Boolean).join(' · ')}`;
+    `- ${clientServiceName(it)} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)} (${absorb ? 'IVA incluido' : 'neto'})${it.discount ? ` (beneficio ${money(it.discount)} ${absorb ? 'IVA incluido' : 'neto'})` : ''} = ${money(it.total)} (${absorb ? 'IVA incluido' : 'neto'})\n  Incluye: ${clientServiceScope(it).split(/\r?\n/).filter(Boolean).join(' · ')}`;
   const setup = quote.items.filter((it) => it.periodicity === 'unico');
   const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
   const t = quote.totals || {};
@@ -507,14 +507,14 @@ export function buildQuoteEmail(quote, lead) {
     '',
     `Te comparto nuestra propuesta comercial TaskFlow ${quote.number || ''} para ${lead?.company || quote.client?.company || 'tu empresa'}. Incluye los servicios, las capacidades consideradas y sus valores:`, 
     '',
-    ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), absorb ? `Total habilitación: ${money(t.setup?.total)}` : `Total habilitación: ${money(t.setup?.net)} + IVA`, ''] : []),
-    ...(monthly.length ? ['Servicios mensuales (mes 1):', ...monthly.map(line), absorb ? `Total mensual: ${money(t.monthly?.total)}` : `Total mensual: ${money(t.monthly?.net)} + IVA`, ''] : []),
+    ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), `Total habilitación (IVA incluido): ${money(t.setup?.total)}`, ''] : []),
+    ...(monthly.length ? ['Servicios mensuales:', ...monthly.map(line), `Total mensual (IVA incluido): ${money(t.monthly?.total)}`, ''] : []),
     ...(Array.isArray(quote.commercialInfo) && quote.commercialInfo.length
       ? ['Beneficios incluidos:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
       : []),
-    absorb ? `Contrato ${quote.contractMonths} meses: Total ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total ${money(quote.total)}`,
+    absorb ? `Contrato ${quote.contractMonths} meses: Total (IVA incluido) ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total (IVA incluido) ${money(quote.total)}`,
     ...(optionalItems.length ? ['', 'Complementos opcionales (NO incluidos en el total del contrato):',
-      ...optionalItems.map((it) => `- ${it.name} · ${fmtNumber(it.quantity)} × ${money(it.unitPrice)} ${it.periodicity === 'unico' ? '(pago único)' : '(mensual)'} = ${money(it.total)} ${it.includesIva ? '(IVA incluido)' : '(IVA incluido en el total referencial)'}`),
+      ...optionalItems.map((it) => `- ${it.name} · ${fmtNumber(it.quantity)} × ${money(it.unitPrice)} (${it.includesIva ? 'IVA incluido' : 'neto'}) ${it.periodicity === 'unico' ? '(pago único)' : '(mensual)'} = ${money(it.total)} (IVA incluido)`),
       'Los complementos se contratan por separado, solo si el cliente los solicita.'] : []),
     quote.validUntil ? `` : '',
     quote.validUntil ? `Válida hasta ${fmtDate(quote.validUntil)}.` : '',
