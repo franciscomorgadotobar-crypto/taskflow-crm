@@ -1267,12 +1267,13 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .quote-doc.qd-for-print .qd-closing.qd-roadmap {
   display: block;
   box-sizing: border-box;
-  margin-top: 0;
+  margin-top: 16px;
   padding-top: 12px;
-  /* Hoja propia: las cinco fases nunca se recortan por la altura residual
-     de la página de proyección. html2pdf aplica además before explícito. */
-  break-before: page;
-  page-break-before: always;
+  /* La tabla de proyección y el roadmap son bloques distintos. Si ambas
+     secciones caben en A4 se mantienen juntas; si no, el motor inserta
+     el salto ANTES del cronograma completo, sin cortar la quinta etapa. */
+  break-before: auto;
+  page-break-before: auto;
   break-inside: avoid;
   page-break-inside: avoid;
 }
