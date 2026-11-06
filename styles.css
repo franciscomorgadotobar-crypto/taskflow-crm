@@ -767,6 +767,10 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 }
 .quote-add-row input { width: 110px; }
 .quote-lines-table, .quote-discounts-table { min-width: 720px; }
+.quote-optionals-table { min-width: 620px; }
+.quote-optionals-table .cell-input.qty { width: 76px; padding: 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
+.quote-optional-section { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+.quote-optional-section > .quote-hint { margin: 0 0 12px; line-height: 1.5; }
 .quote-lines-table .cell-input.qty { width: 70px; text-align: right; }
 .quote-hint { font-size: 12px; margin: 6px 0 0; }
 
@@ -851,6 +855,12 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   page-break-inside: avoid;
 }
 
+.qd-optionals-section { margin: 14px 0 0; border-top: 1px solid #d7e3f2; padding-top: 9px; }
+.qd-optionals-section h4 { margin: 0 0 6px; color: #1b3257; }
+.qd-optional-notice { margin: 0 0 8px; font-size: 10.5px; color: #53657c; line-height: 1.45; }
+.qd-optional-table { font-size: 10.5px; }
+.qd-optional-table td .qd-muted { font-size: 9.5px; white-space: normal; }
+.qd-optionals-section .qd-table tr { break-inside: avoid; page-break-inside: avoid; }
 .qd-table { width: 100%; border-collapse: collapse; }
 .qd-table th, .qd-table td { border: 1px solid #dde4ee; padding: 6px 8px; text-align: left; vertical-align: top; }
 .qd-table th { background: #f3f6fa; font-size: 11px; }
