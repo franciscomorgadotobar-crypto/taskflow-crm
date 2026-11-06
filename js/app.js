@@ -2191,7 +2191,7 @@ async function downloadQuotePdf(doc) {
           // Si no cabe después de los totales, salta completo a la siguiente
           // sin truncar sus cinco etapas ni crear páginas de relleno.
           before: ['.qd-projection-summary'],
-          avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step']
+          avoid: ['.qd-price-section', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
         }
       })
       .from(holder.firstElementChild);
