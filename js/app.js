@@ -90,6 +90,7 @@ import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
 import { addQuotePdfFooters, trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
+import { downloadQuoteWord } from './quote-word-export.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
 import { canAccessView, firstAccessibleView } from './access.js';
@@ -2190,7 +2191,7 @@ async function downloadQuotePdf(doc) {
           // La proyección abre una página; el cronograma es independiente.
           // Si no cabe después de los totales, salta completo a la siguiente
           // sin truncar sus cinco etapas ni crear páginas de relleno.
-          before: ['.qd-projection-summary'],
+          before: ['.qd-projection-summary', '.qd-roadmap'],
           avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
         }
       })
@@ -2248,6 +2249,18 @@ function openQuoteView(id) {
   altBtn.hidden = isReadOnly();
   $('quoteViewSendBtn').dataset.id = q.id;
   $('quoteViewPdfBtn').dataset.id = q.id;
+  // Botón disponible también para PWA con HTML previamente almacenado.
+  let wordBtn = $('quoteViewWordBtn');
+  if (!wordBtn) {
+    wordBtn = document.createElement('button');
+    wordBtn.type = 'button';
+    wordBtn.id = 'quoteViewWordBtn';
+    wordBtn.className = 'ghost-btn';
+    wordBtn.dataset.action = 'quote-word';
+    wordBtn.textContent = 'Descargar Word';
+    $('quoteViewPdfBtn').insertAdjacentElement('afterend', wordBtn);
+  }
+  wordBtn.dataset.id = q.id;
   const listDownloadButton = $('quoteViewPriceListBtn');
   const linkedPriceList = getPriceList(q.priceListId);
   listDownloadButton.hidden = !linkedPriceList;
@@ -3362,9 +3375,19 @@ const ACTIONS = {
     if (!b?.calc) return toast(b?.calcError || 'Completa la cotización para generar el PDF.', 'error');
     await downloadQuotePdf(builderDoc());
   },
+  'quote-builder-word': async () => {
+    const b = ui.quoteBuilder;
+    if (!b?.calc) return toast(b?.calcError || 'Completa la cotización para generar el Word.', 'error');
+    readQuoteHeader();
+    await downloadQuoteWord(builderDoc());
+  },
   'quote-pdf': async (id, btn) => {
     const q = getQuote(id || btn?.dataset.id);
     if (q) await downloadQuotePdf(quoteDocFromSaved(q));
+  },
+  'quote-word': async (id, btn) => {
+    const q = getQuote(id || btn?.dataset.id);
+    if (q) await downloadQuoteWord(quoteDocFromSaved(q));
   }
 };
 
