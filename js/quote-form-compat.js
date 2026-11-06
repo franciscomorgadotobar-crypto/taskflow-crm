@@ -64,6 +64,26 @@ export function ensureQuoteFormControls(root = document) {
     mode.closest('label')?.insertAdjacentElement('afterend', earlyFields);
   }
 
+  // En versiones PWA anteriores este bloque todavía no existe en index.html.
+  const optionalIds = ['quoteOptionalLinesRoot', 'quoteOptionalService', 'quoteOptionalQty'];
+  if (optionalIds.some((id) => !byId(id))) {
+    byId('quoteOptionalLinesRoot')?.closest('section')?.remove();
+    const discounts = byId('quoteDiscountsRoot')?.closest('section');
+    if (!discounts) throw new Error('No se encontró la sección de descuentos de la cotización.');
+    const section = root.createElement('section');
+    section.className = 'quote-section quote-optional-section';
+    section.innerHTML =
+      '<h4>Complementos opcionales</h4>' +
+      '<p class="muted quote-hint">Selecciona packs u otros productos individualmente. Sus valores no se suman al contrato.</p>' +
+      '<div id="quoteOptionalLinesRoot"></div>' +
+      '<div class="quote-add-row">' +
+      '<label class="grow">Producto opcional<select id="quoteOptionalService"></select></label>' +
+      '<label>Cantidad<input id="quoteOptionalQty" type="number" min="1" step="1" value="1"></label>' +
+      '<button type="button" class="ghost-btn" data-action="add-quote-optional">Agregar complemento</button>' +
+      '</div>';
+    discounts.insertAdjacentElement('beforebegin', section);
+  }
+
   return { absorbField, absorbInput: byId('quoteAbsorbIva'), mode, earlyFields };
 }
 
