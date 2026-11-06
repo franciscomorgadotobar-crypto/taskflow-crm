@@ -117,7 +117,7 @@ try {
           monthly: {subtotal: 15, discount: 5.25, net: 9.75, iva: 1.85, total: 11.60}}
       });
       const benefitDoc = new DOMParser().parseFromString(temporaryBenefitsHtml, 'text/html');
-      const benefitTable = benefitDoc.querySelector('.qd-monthly-section .qd-table');
+      const benefitTable = benefitDoc.querySelector('.qd-unified-economics .qd-unified-table');
       const benefitHeaders = [...benefitTable.querySelectorAll('thead th')].map((el) => el.textContent.trim());
       const discountMonthsHidden =
         benefitHeaders.length === 6 &&
@@ -137,14 +137,19 @@ try {
       document.body.appendChild(docNode);
       const scopeSection = docNode.querySelector('.qd-included-capacities');
       const benefitsSection = docNode.querySelector('.qd-included-benefits');
-      const setupSection = docNode.querySelector('.qd-setup-section');
-      const monthlySection = docNode.querySelector('.qd-monthly-section');
+      const economicSection = docNode.querySelector('.qd-unified-economics');
+      const financialGroup = economicSection?.querySelector('.qd-financial-group');
+      const summary = economicSection?.querySelector('.qd-economic-summary');
+      const allRows = [...(economicSection?.querySelectorAll('.qd-unified-table tbody tr') || [])];
       const orderOK = scopeSection?.nextElementSibling === benefitsSection &&
-        benefitsSection?.nextElementSibling === setupSection &&
-        setupSection?.nextElementSibling === monthlySection;
-      const groupingOK = [setupSection, monthlySection].every((node) =>
-        node && node.querySelector('h4') && node.querySelector('.qd-table') &&
-        node.querySelector('.qd-totals') && getComputedStyle(node).breakInside === 'avoid');
+        benefitsSection?.nextElementSibling === economicSection;
+      const groupingOK = Boolean(economicSection && financialGroup && summary) &&
+        allRows.length === 4 &&
+        allRows.filter((row) => row.querySelector('.qd-billing-once')).length === 1 &&
+        allRows.filter((row) => row.querySelector('.qd-billing-monthly')).length === 3 &&
+        summary.querySelectorAll('.qd-economic-summary-row').length === 2 &&
+        !economicSection.querySelector('.qd-setup-section, .qd-monthly-section') &&
+        getComputedStyle(financialGroup).breakInside === 'avoid';
       const headingsOK = benefitsSection?.querySelector('h4')?.textContent === 'Beneficios incluidos' &&
         !restructuredHtml.includes('Beneficios y acompañamiento');
       docNode.remove();
@@ -251,7 +256,7 @@ try {
       const optionalOK = Boolean(optionalSection) &&
         optionalSection.textContent.includes('Pack adicional de 1.000 ítems') &&
         optionalSection.textContent.includes('2,38') &&
-        optionalHtml.indexOf('qd-monthly-section') < optionalHtml.indexOf('qd-optionals-section') &&
+        optionalHtml.indexOf('qd-unified-economics') < optionalHtml.indexOf('qd-optionals-section') &&
         optionalHtml.indexOf('qd-optionals-section') < optionalHtml.indexOf('qd-projection-summary') &&
         optionalHtml.includes('Valor total del contrato') &&
         optionalHtml.includes('238,00') &&
@@ -337,8 +342,15 @@ try {
         projectionAndTotalTogether: normal.includes('class="qd-projection-summary"') &&
           /<section class="qd-projection-summary">[\s\S]*?qd-months[\s\S]*?qd-contract[\s\S]*?<\/section>/.test(normal),
         financialHeading: withSetup.includes('Propuesta económica') &&
-          withSetup.indexOf('Propuesta económica') < withSetup.indexOf('Puesta en marcha y servicios de pago único') &&
+          withSetup.includes('Resumen de valores') &&
+          withSetup.includes('Total puesta en marcha') &&
+          withSetup.includes('Total primer mes') &&
+          (withSetup.match(/class="qd-unified-table"/g) || []).length === 0 &&
+          (withSetup.match(/qd-unified-table/g) || []).length === 1 &&
+          (withSetup.match(/class="qd-economic-title"/g) || []).length === 1 &&
           monthlyOnly.includes('Propuesta económica') &&
+          monthlyOnly.includes('Total primer mes') &&
+          !monthlyOnly.includes('Total puesta en marcha') &&
           (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
