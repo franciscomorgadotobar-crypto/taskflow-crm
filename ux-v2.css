@@ -8020,6 +8020,89 @@ html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
 }
 
 
+/* Enlaces para opciones comerciales existentes; las etiquetas pasan a ser navegables. */
+.quote-alt-link,
+.quote-family-link {
+  font: inherit;
+  cursor: pointer;
+  white-space: normal;
+  text-align: left;
+}
+.quote-alt-link:hover,
+.quote-alt-link:focus-visible {
+  border-color: #86b8ea;
+  color: #155f9f;
+  background: #edf5ff;
+}
+.quote-family-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 3px 8px;
+  border: 1px solid #b8d8f4;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--blue) 9%, var(--panel));
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.quote-family-link:hover,
+.quote-family-link:focus-visible {
+  border-color: var(--blue);
+  text-decoration: underline;
+}
+.quote-family-panel {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--blue) 4%, var(--panel));
+}
+.quote-family-heading {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.quote-family-heading > strong { font-size: 14px; color: var(--text); }
+.quote-family-heading > span { font-size: 12px; line-height: 1.4; color: var(--muted); }
+.quote-family-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,215px),1fr));
+  gap: 10px;
+}
+.quote-family-choice {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 13px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.quote-family-choice:hover,
+.quote-family-choice:focus-visible {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 8%, var(--panel));
+}
+.quote-family-choice.is-selected {
+  border: 2px solid var(--blue);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--blue) 10%, var(--panel));
+}
+.quote-family-choice-title { color: var(--text); font-size: 13px; font-weight: 800; }
+.quote-family-choice-number { color: var(--muted); font-size: 11px; }
+.quote-family-choice > strong { color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.quote-family-choice-foot { color: var(--blue); font-size: 10px; font-weight: 700; }
+@media(max-width:760px) {
+  .quote-family-panel { padding: 11px; }
+  .quote-family-choice { min-height: 88px; }
+}
+
 /* Variantes comerciales simultáneas (cada una conserva su número e historial). */
 .quote-plan-tag,
 .quote-alt-tag {
