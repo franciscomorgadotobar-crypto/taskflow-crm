@@ -194,7 +194,9 @@ export function enhanceQuoteProductSelect(select, products = [], currency = 'UF'
     highlightedId = select.value;
     renderOptions();
     placePopup();
-    search.focus();
+    // En móvil no abrir automáticamente el teclado, que taparía los packs.
+    // El buscador permanece disponible al tocar el campo.
+    if (window.innerWidth > 620) search.focus({ preventScroll: true });
   };
 
   const pick = (id) => {
