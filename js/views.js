@@ -1521,6 +1521,13 @@ export function quoteDocHtml(doc) {
   const setup = quotedLines.filter((l) => l.periodicity === 'unico');
   const monthly = quotedLines.filter((l) => l.periodicity !== 'unico');
   const amount = (n) => fmtAmount(n, cur);
+  // Bloques cortos e indivisibles para html2pdf: una tabla HTML larga puede
+  // partir un <tr> aunque tenga break-inside: avoid. Cada bloque lleva una
+  // cabecera propia y puede comenzar en otra hoja sin dividir ningún pack.
+  const optionalGroups = [];
+  for (let i = 0; i < optionalItems.length; i += 4) {
+    optionalGroups.push(optionalItems.slice(i, i + 4));
+  }
 
   const table = (rows) => `
     <table class="qd-table">
@@ -1619,18 +1626,21 @@ export function quoteDocHtml(doc) {
         ${totalsBox(t.monthly, `Total primer mes ${cur}`)}
       </section>
 
-      ${optionalItems.length ? `<section class="qd-optionals-section">
-        <h4>Complementos opcionales (contratación por separado)</h4>
-        <p class="qd-optional-notice"><strong>Valores informativos.</strong> Estos productos no forman parte de la solución contratada y no se incluyen en el total ni en la proyección del contrato. El cliente puede solicitar uno o varios posteriormente.</p>
-        <table class="qd-table qd-optional-table">
-          <thead><tr><th>Complemento</th><th class="num">Cant.</th><th class="num">Precio unit. ${cur}</th><th class="num">Valor referencial ${cur}</th></tr></thead>
-          <tbody>${optionalItems.map((it) => `<tr>
-            <td data-label="Complemento"><strong>${e(it.name)}</strong>${it.description ? `<div class="qd-service-highlight">${e(it.description.split(/\r?\n/)[0])}</div>` : ''}</td>
-            <td class="num" data-label="Cantidad">${fmtNumber(it.quantity)}</td>
-            <td class="num" data-label="Precio unitario ${cur}">${amount(it.unitPrice)}<div class="qd-muted">${it.includesIva ? 'IVA incluido' : 'neto + IVA'} · ${it.periodicity === 'unico' ? 'pago único' : 'mensual'}</div></td>
-            <td class="num" data-label="Valor referencial ${cur}"><strong>${amount(it.total)}</strong><div class="qd-muted">IVA incluido</div></td>
-          </tr>`).join('')}</tbody>
-        </table>
+      ${optionalGroups.length ? `<section class="qd-optionals-section">
+        ${optionalGroups.map((group, groupIndex) => `<div class="qd-optional-page-group">
+          ${groupIndex === 0 ? `<h4>Complementos opcionales (contratación por separado)</h4>
+          <p class="qd-optional-notice"><strong>Valores informativos.</strong> Estos productos no forman parte de la solución contratada y no se incluyen en el total ni en la proyección del contrato. El cliente puede solicitar uno o varios posteriormente.</p>`
+          : `<p class="qd-optional-continued">Complementos opcionales (continuación)</p>`}
+          <table class="qd-table qd-optional-table">
+            <thead><tr><th>Complemento</th><th class="num">Cant.</th><th class="num">Precio unit. ${cur}</th><th class="num">Valor referencial ${cur}</th></tr></thead>
+            <tbody>${group.map((it) => `<tr>
+              <td data-label="Complemento"><strong>${e(it.name)}</strong>${it.description ? `<div class="qd-service-highlight">${e(it.description.split(/\r?\n/)[0])}</div>` : ''}</td>
+              <td class="num" data-label="Cantidad">${fmtNumber(it.quantity)}</td>
+              <td class="num" data-label="Precio unitario ${cur}">${amount(it.unitPrice)}<div class="qd-muted">${it.includesIva ? 'IVA incluido' : 'neto + IVA'} · ${it.periodicity === 'unico' ? 'pago único' : 'mensual'}</div></td>
+              <td class="num" data-label="Valor referencial ${cur}"><strong>${amount(it.total)}</strong><div class="qd-muted">IVA incluido</div></td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`).join('')}
       </section>` : ''}
 
       <section class="qd-projection-summary">

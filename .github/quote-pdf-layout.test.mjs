@@ -36,6 +36,17 @@ try {
       issuer: { commercialName: 'TaskFlow', legalName: 'Cuatro R Labs SpA', rut: '77.972.828-5' },
       commercialInfo: ['Soporte 24/7', 'Implementación guiada por 1 mes', 'Marketing conjunto incluido (opcional)'],
       lines,
+      // 9 packs: comprueba tanto la fila que quedaba partida como la
+      // continuidad de la tabla en varias hojas (grupos de 4 + 4 + 1).
+      optionalItems: Array.from({ length: 9 }, (_, i) => ({
+        name: 'Pack de inventario ' + (i + 1),
+        description: 'Capacidad adicional para ítems de inventario',
+        quantity: 1,
+        unitPrice: 0.35 + i * 0.3,
+        total: (0.35 + i * 0.3) * 1.19,
+        periodicity: 'mensual',
+        includesIva: false
+      })),
       totals: {
         setup: { subtotal: 8, discount: 6, net: 2, iva: .38, total: 2.38 },
         monthly: { subtotal: 30.7, discount: 10.75, net: 19.95, iva: 3.79, total: 23.74 },
@@ -73,6 +84,8 @@ try {
       const contract = projection.querySelector('.qd-contract');
       const closing = root.querySelector('.qd-closing');
       const stages = [...closing.querySelectorAll('.qd-roadmap-step')];
+      const optionalGroups = [...root.querySelectorAll('.qd-optional-page-group')];
+      const optionalRows = [...root.querySelectorAll('.qd-optionals-section tbody tr')];
       const header = projection.querySelector('h4');
       const table = root.querySelector('.qd-monthly-section .qd-table');
       const pageSize = await worker.get('pageSize');
@@ -90,6 +103,19 @@ try {
       const contractPage = Math.floor((contractBottom - 3) / pagePx);
       const closingStartPage = Math.floor((closingTop + 3) / pagePx);
       const closingPage = Math.floor((closingBottom - 3) / pagePx);
+      const optionalGroupPages = optionalGroups.map((el) => ({
+        first: Math.floor((el.getBoundingClientRect().top - baseY + 3) / pagePx),
+        last: Math.floor((el.getBoundingClientRect().bottom - baseY - 3) / pagePx)
+      }));
+      const optionalRowPages = optionalRows.map((el) => ({
+        first: Math.floor((el.getBoundingClientRect().top - baseY + 3) / pagePx),
+        last: Math.floor((el.getBoundingClientRect().bottom - baseY - 3) / pagePx)
+      }));
+      const packsNeverSplit =
+        optionalGroups.length === 3 &&
+        optionalRows.length === 9 &&
+        optionalGroupPages.every(({ first, last }) => first === last) &&
+        optionalRowPages.every(({ first, last }) => first === last);
       const stagePages = stagesBounds.map(({ top, bottom }) => ({
         start: Math.floor((top + 3) / pagePx),
         end: Math.floor((bottom - 3) / pagePx)
@@ -126,6 +152,7 @@ try {
         projectionPage, contractPage, closingStartPage, closingPage, pdfPages,
         closingOnLastPage: closingStartPage === closingPage && closingPage === pdfPages - 1,
         noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
+        packsNeverSplit, optionalGroupPages, optionalRowPages,
         projectionBeforeRoadmap: contractBottom < closingTop,
         closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
@@ -151,7 +178,7 @@ try {
   const requirements = [
     'firstProjectionPageIsLast', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'noRoadmapCuts', 'projectionBeforeRoadmap', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'noRoadmapCuts', 'packsNeverSplit', 'projectionBeforeRoadmap', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {

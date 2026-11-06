@@ -1016,6 +1016,28 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .qd-optional-table { font-size: 10.5px; }
 .qd-optional-table td .qd-muted { font-size: 9.5px; white-space: normal; }
 .qd-optionals-section .qd-table tr { break-inside: avoid; page-break-inside: avoid; }
+/* La unidad de paginación es cada grupo de hasta cuatro complementos, nunca
+   una fila: html2pdf rasteriza tablas completas y puede cortar TR aislados. */
+.qd-optional-page-group {
+  display: flow-root;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-optional-page-group + .qd-optional-page-group { margin-top: 12px; }
+.qd-optional-page-group .qd-optional-table {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qd-optional-continued {
+  margin: 0 0 6px;
+  color: #1b3257;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.quote-doc.qd-for-print .qd-optional-page-group {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 .qd-table { width: 100%; border-collapse: collapse; }
 .qd-table th, .qd-table td { border: 1px solid #dde4ee; padding: 6px 8px; text-align: left; vertical-align: top; }
 .qd-table th { background: #f3f6fa; font-size: 11px; }
