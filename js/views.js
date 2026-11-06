@@ -1690,6 +1690,38 @@ export function quoteDocFromSaved(q) {
 
 const PERIODICITY_BADGE = (p) => `<span class="badge">${p === 'unico' ? 'único' : 'mensual'}</span>`;
 
+/** Detalle de la capacidad del producto elegido antes de incorporarlo a la propuesta. */
+export function quoteCatalogServiceInfoHtml(itemId, { optional = false } = {}) {
+  const item = quoteState.priceListItems.find((entry) => entry.id === itemId);
+  if (!item) return '<p class="muted quote-service-info-empty">Selecciona un producto para consultar sus características.</p>';
+  const description = clientServiceScope(item);
+  const features = String(description || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const list = quoteState.priceLists.find((entry) => entry.id === item.priceListId);
+  const price = fmtCurrency(item.price, list?.currency || 'UF');
+  const periodicity = item.periodicity === 'unico' ? 'pago único' : 'mensual';
+  const name = clientServiceName(item);
+  return `<div class="quote-service-info-card" role="status" aria-live="polite">
+    <div class="quote-service-info-heading">
+      <div><span class="quote-service-info-eyebrow">Qué incluye el producto seleccionado</span>
+      <strong>${e(name)}</strong></div>
+      <span class="quote-service-info-price">${e(price)} · ${e(periodicity)}</span>
+    </div>
+    <ul class="quote-service-info-features">${features.map((feature) => `<li>${e(feature)}</li>`).join('')}</ul>
+    <p class="quote-service-info-hint">${optional
+      ? 'Complemento informativo: no forma parte del total del contrato salvo contratación posterior.'
+      : 'Estas capacidades se incluyen si agregas este producto a la cotización.'}</p>
+  </div>`;
+}
+
+const quoteLineDetailHtml = (item) => {
+  if (!item) return '';
+  const scope = clientServiceScope(item).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return scope.length ? `<details class="quote-line-details">
+    <summary>Ver qué incluye</summary>
+    <ul>${scope.map((line) => `<li>${e(line)}</li>`).join('')}</ul>
+  </details>` : '';
+};
+
 /** Líneas del borrador. Los montos vienen del último cálculo del servidor (`builder.calc`). */
 export function quoteLinesHtml(builder) {
   const cur = builder.currency;
@@ -1705,7 +1737,7 @@ export function quoteLinesHtml(builder) {
         const ci = calcItem(it.ref);
         const cl = calcLine(it.ref);
         return `<tr>
-          <td>${e(commercialName(li || { code: "", name: "Servicio no disponible" }))} ${PERIODICITY_BADGE(li?.periodicity)}<div class="qd-code">${e(li?.code || '')}</div>${li?.description ? `<div class="qd-service-highlight">${e(li.description.split(/\r?\n/)[0])}</div>` : ''}</td>
+          <td>${e(commercialName(li || { code: "", name: "Servicio no disponible" }))} ${PERIODICITY_BADGE(li?.periodicity)}<div class="qd-code">${e(li?.code || '')}</div>${quoteLineDetailHtml(li)}</td>
           <td class="num"><input class="cell-input qty" type="number" min="1" step="1" data-quote-line-qty="${e(it.ref)}" value="${e(it.quantity)}" /></td>
           <td class="num">${ci ? fmtAmount(ci.unit_price, cur) : dash}</td>
           <td class="num">${cl ? fmtAmount(cl.subtotal, cur) : dash}</td>
@@ -1727,7 +1759,7 @@ export function quoteOptionalLinesHtml(builder) {
     <tbody>${builder.optionalItems.map((it, index) => {
       const value = buildQuoteOptionalItems({ ...builder, optionalItems: [it] })[0];
       return `<tr>
-        <td><strong>${e(value?.name || it.name || 'Producto no disponible')}</strong><div class="muted">${e((value?.periodicity || it.periodicity) === 'unico' ? 'Pago único' : 'Mensual')}</div></td>
+        <td><strong>${e(value?.name || it.name || 'Producto no disponible')}</strong><div class="muted">${e((value?.periodicity || it.periodicity) === 'unico' ? 'Pago único' : 'Mensual')}</div>${quoteLineDetailHtml(quoteState.priceListItems.find((row) => row.id === it.priceListItemId) || value || it)}</td>
         <td><input type="number" class="cell-input qty" min="1" step="1" data-quote-optional-qty="${index}" value="${e(it.quantity)}" aria-label="Cantidad de ${e(it.name || 'complemento')}" /></td>
         <td>${value ? fmtAmount(value.unitPrice, currency) : 'Falta tipo de cambio'}</td>
         <td><strong>${value ? fmtAmount(value.total, currency) : '—'}</strong></td>

@@ -130,6 +130,7 @@ import {
   quoteFamilyHtml,
   quoteLinesHtml,
   quoteOptionalLinesHtml,
+  quoteCatalogServiceInfoHtml,
   renderDashboard,
   renderImplementation,
   renderLeadDetail,
@@ -1590,6 +1591,21 @@ function fillQuoteServiceOptions() {
         .join('')
     : '<option value="">La lista no tiene servicios activos</option>';
   $('quoteOptionalService').innerHTML = $('quoteAddService').innerHTML;
+  renderQuoteCatalogServiceDetails();
+}
+
+/** Muestra qué incluye el servicio seleccionado, sin incorporarlo todavía. */
+function renderQuoteCatalogServiceDetails() {
+  const selectedService = $('quoteAddService');
+  const selectedOptional = $('quoteOptionalService');
+  const serviceInfo = $('quoteServiceInfo');
+  const optionalInfo = $('quoteOptionalInfo');
+  if (serviceInfo && selectedService) {
+    serviceInfo.innerHTML = quoteCatalogServiceInfoHtml(selectedService.value);
+  }
+  if (optionalInfo && selectedOptional) {
+    optionalInfo.innerHTML = quoteCatalogServiceInfoHtml(selectedOptional.value, { optional: true });
+  }
 }
 
 /** Mismo formato que quoteDocFromSaved, armado desde el borrador y su último cálculo. */
@@ -2033,8 +2049,10 @@ function handleQuoteFormChange(ev) {
     case 'quoteDiscKind':
       return syncQuoteDiscountInputs();
     case 'quoteAddService':
-    case 'quoteAddQty':
     case 'quoteOptionalService':
+      if (ev.type === 'change' || ev.type === 'input') renderQuoteCatalogServiceDetails();
+      return;
+    case 'quoteAddQty':
     case 'quoteOptionalQty':
     case 'quoteDiscValue':
     case 'quoteDiscMonths':

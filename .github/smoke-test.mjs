@@ -149,6 +149,41 @@ try {
         !restructuredHtml.includes('Beneficios y acompañamiento');
       docNode.remove();
 
+      // Vista inmediata del contenido de cada pack al seleccionarlo en el cotizador.
+      const { quoteCatalogServiceInfoHtml } = await import('./js/views.js');
+      const { state: quoteCatalogState } = await import('./js/quotes.js');
+      const oldPriceItems = quoteCatalogState.priceListItems;
+      const oldPriceLists = quoteCatalogState.priceLists;
+      let packInfoOK = false;
+      try {
+        quoteCatalogState.priceLists = [{ id: 'catalog-preview', currency: 'UF' }];
+        quoteCatalogState.priceListItems = [
+          { id: 'entrada', priceListId: 'catalog-preview', code: 'INV_ENTRADA', name: 'Inventario Plan Entrada', price: 1.2, periodicity: 'mensual', description: '' },
+          { id: 'basico', priceListId: 'catalog-preview', code: 'INV_BASICO', name: 'Inventario Plan Básico', price: 2.8, periodicity: 'mensual', description: '' },
+          { id: 'full', priceListId: 'catalog-preview', code: 'INV_FULL', name: 'Inventario Plan Full', price: 15, periodicity: 'mensual', description: '' },
+          { id: 'pack', priceListId: 'catalog-preview', code: 'PACK_INV_1000', name: 'Pack adicional 1.000 ítems', price: 1, periodicity: 'mensual', description: '' }
+        ];
+        const entradaInfo = quoteCatalogServiceInfoHtml('entrada');
+        const basicoInfo = quoteCatalogServiceInfoHtml('basico');
+        const fullInfo = quoteCatalogServiceInfoHtml('full');
+        const packInfo = quoteCatalogServiceInfoHtml('pack', { optional: true });
+        packInfoOK =
+          entradaInfo.includes('Hasta 200 ítems de inventario') &&
+          entradaInfo.includes('1 usuario incluido') &&
+          basicoInfo.includes('Hasta 500 ítems de inventario') &&
+          basicoInfo.includes('Hasta 250 equipos seriados') &&
+          fullInfo.includes('Ítems de inventario ilimitados desde 10.000') &&
+          fullInfo.includes('Hasta 20.000 equipos seriados') &&
+          fullInfo.includes('UF 15,00') &&
+          packInfo.includes('Amplía la capacidad contratada en 1.000 ítems') &&
+          packInfo.includes('no forma parte del total del contrato') &&
+          Boolean(document.getElementById('quoteServiceInfo')) &&
+          Boolean(document.getElementById('quoteOptionalInfo'));
+      } finally {
+        quoteCatalogState.priceListItems = oldPriceItems;
+        quoteCatalogState.priceLists = oldPriceLists;
+      }
+
       const optionalPack = {
         code: 'INV_PACK_1000', name: 'Pack adicional de 1.000 ítems',
         description: 'Capacidad extra de inventario', quantity: 1,
@@ -229,6 +264,7 @@ try {
         optionalSelectorPresent: Boolean(document.getElementById('quoteOptionalService')) && Boolean(document.getElementById('quoteOptionalQty')),
         optionalOK,
         existingAlternativesCorrect,
+        packInfoOK,
         hideByDefault: document.getElementById('quoteAbsorbIvaField')?.hidden,
         absorbedHasIva: /IVA/i.test(absorbed),
         normalHasIva: /IVA/i.test(normal),
@@ -257,7 +293,7 @@ try {
           (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
-    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.existingAlternativesCorrect || !rendered.hideByDefault || rendered.absorbedHasIva ||
+    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.existingAlternativesCorrect || !rendered.packInfoOK || !rendered.hideByDefault || rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
