@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js';
 import { fmtAmount, fmtCurrency, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
 import { clientServiceName, clientServiceScope } from './quote-client-copy.js';
+import { readOptionalQuoteData } from './quote-optionals.js';
 
 /**
  * Cotizador. Vive separado de store.js por prolijidad: `state` en memoria y
@@ -106,6 +107,7 @@ function fromDbQuote(r, items = [], discounts = []) {
     iva: Number(r.iva || 0),
     total: Number(r.total || 0),
     notes: r.notes || '',
+    optionalItems: readOptionalQuoteData(r.notes).items,
     validUntil: r.valid_until || '',
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -453,6 +455,9 @@ export function buildQuoteEmail(quote, lead) {
   const setup = quote.items.filter((it) => it.periodicity === 'unico');
   const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
   const t = quote.totals || {};
+  const parsedOptional = readOptionalQuoteData(quote.notes);
+  const optionalItems = quote.optionalItems || parsedOptional.items;
+  const cleanNotes = parsedOptional.notes.replace(/\[\[TF_EARLY:.*?\]\]/g, '').trim();
   const body = [
     `Hola ${name},`,
     '',
@@ -464,10 +469,13 @@ export function buildQuoteEmail(quote, lead) {
       ? ['Beneficios incluidos:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
       : []),
     absorb ? `Contrato ${quote.contractMonths} meses: Total ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total ${money(quote.total)}`,
+    ...(optionalItems.length ? ['', 'Complementos opcionales (NO incluidos en el total del contrato):',
+      ...optionalItems.map((it) => `- ${it.name} · ${fmtNumber(it.quantity)} × ${money(it.unitPrice)} ${it.periodicity === 'unico' ? '(pago único)' : '(mensual)'} = ${money(it.total)} ${it.includesIva ? '(IVA incluido)' : '(IVA incluido en el total referencial)'}`),
+      'Los complementos se contratan por separado, solo si el cliente los solicita.'] : []),
     quote.validUntil ? `` : '',
     quote.validUntil ? `Válida hasta ${fmtDate(quote.validUntil)}.` : '',
-    quote.notes ? '' : '',
-    quote.notes || '',
+    cleanNotes ? '' : '',
+    cleanNotes,
     '',
     'Quedo disponible para revisar el alcance, resolver tus consultas y coordinar los próximos pasos.'
   ]
