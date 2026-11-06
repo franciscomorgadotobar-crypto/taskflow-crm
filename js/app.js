@@ -2188,10 +2188,10 @@ async function downloadQuotePdf(doc) {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: {
           mode: ['css', 'legacy'],
-          // La proyección abre una página; el cronograma es independiente.
-          // Si no cabe después de los totales, salta completo a la siguiente
-          // sin truncar sus cinco etapas ni crear páginas de relleno.
-          before: ['.qd-projection-summary', '.qd-roadmap'],
+          // La proyección inicia una página. El cronograma sigue inmediatamente
+          // después; html2pdf mueve el bloque completo sólo si no cabe.
+          // Nunca crear una página exclusiva de forma incondicional.
+          before: ['.qd-projection-summary'],
           avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
         }
       })
