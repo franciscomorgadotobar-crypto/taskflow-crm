@@ -71,7 +71,7 @@ try {
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: {
             mode: ['css', 'legacy'],
-            before: ['.qd-projection-summary', '.qd-roadmap'],
+            before: ['.qd-projection-summary'],
             avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
           }
         })
@@ -137,6 +137,10 @@ try {
       const css = getComputedStyle(root);
       const horizontalPadding = [parseFloat(css.paddingLeft), parseFloat(css.paddingRight)];
       const marginTolerance = 20; // tolera el padding superior del documento
+      const freeSpaceAfterTotals = pagePx - (contractBottom % pagePx);
+      const roadmapHeight = closingBottom - closingTop;
+      // Margen de seguridad para la distancia entre ambos bloques y el footer.
+      const roadmapShouldFit = freeSpaceAfterTotals >= roadmapHeight + 40;
 
       await worker.toPdf();
       const pdf = await worker.get('pdf');
@@ -161,8 +165,9 @@ try {
       return {
         projectionPage, contractPage, closingStartPage, closingPage, pdfPages,
         closingOnLastPage: closingStartPage === closingPage && closingPage === pdfPages - 1,
-        roadmapDedicatedPage: closingStartPage > projectionPage &&
-          Math.abs(closingTop % pagePx) < marginTolerance,
+        compactRoadmap: !roadmapShouldFit || closingStartPage === projectionPage,
+        roadmapOnExistingPageWhenPossible: roadmapShouldFit ? closingStartPage === projectionPage : true,
+        freeSpaceAfterTotals, roadmapHeight, roadmapShouldFit,
         noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
         packsNeverSplit, optionalGroupPages, optionalRowPages,
         unifiedEconomicsCorrect: economicRows.length === 4 &&
@@ -178,7 +183,7 @@ try {
           !root.textContent.includes('Total primer mes'),
         closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
-        projectionBeforeLastPage: projectionPage < pdfPages - 1,
+        projectionOnFinalPageWhenFits: !roadmapShouldFit || projectionPage === pdfPages - 1,
         allFinalValuesSamePage: projectionPage === contractPage,
         startsOnNewPage: projectionPage > 0 && Math.abs(projectionY % pagePx) < marginTolerance,
         marginsSymmetric: horizontalPadding[0] === horizontalPadding[1] &&
@@ -198,9 +203,9 @@ try {
 
   console.log('COTIZACIÓN PDF A4 LAYOUT', JSON.stringify(result));
   const requirements = [
-    'projectionBeforeLastPage', 'allFinalValuesSamePage',
+    'projectionOnFinalPageWhenFits', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'roadmapDedicatedPage', 'noRoadmapCuts', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {
