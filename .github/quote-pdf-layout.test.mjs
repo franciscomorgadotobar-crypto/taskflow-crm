@@ -225,6 +225,18 @@ try {
           economicSummary.querySelectorAll('.qd-economic-summary-row').length === 2 &&
           !root.querySelector('.qd-setup-section, .qd-monthly-section'),
         projectionBeforeRoadmap: contractBottom < closingTop,
+        priceComparisonVisible: economicSummary.textContent.includes('Precio sin descuento (IVA incluido)') &&
+          economicSummary.textContent.includes('Descuento aplicado') &&
+          economicSummary.textContent.includes('con descuento (IVA incluido)') &&
+          economicSummary.querySelectorAll('.qd-economic-summary-columns').length === 2 &&
+          (isReal ? (
+            economicSummary.textContent.includes('35%') &&
+            economicSummary.textContent.includes('100%') &&
+            economicSummary.textContent.includes('8,09') &&
+            economicSummary.textContent.includes('9,52') &&
+            economicSummary.textContent.includes('2,83') &&
+            economicSummary.textContent.includes('5,26')
+          ) : true),
         taxLabelsPresent: root.textContent.includes('Total mensual (IVA incluido)') &&
           root.textContent.includes('Valor total del contrato UF (IVA incluido)') &&
           root.textContent.includes('Neto contrato') &&
@@ -258,7 +270,7 @@ try {
     const requirements = [
     'projectionOnFinalPageWhenFits', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'forcedBreakWhenNeeded', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'forcedBreakWhenNeeded', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'priceComparisonVisible', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {
