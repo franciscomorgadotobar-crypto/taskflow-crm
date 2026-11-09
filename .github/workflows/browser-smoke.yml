@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master]
+    branches: [master, fix/quote-copy-compact-pdf-20261109]
   workflow_dispatch:
 
 permissions:
