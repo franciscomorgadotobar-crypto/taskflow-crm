@@ -1156,9 +1156,9 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   page-break-inside: avoid;
 }
 
-.qd-optionals-section { margin: 14px 0 0; border-top: 1px solid #d7e3f2; padding-top: 9px; }
+.qd-optionals-section { margin: 16px 0 0; border-top: 1px solid #d7e3f2; padding-top: 11px; }
 .qd-optionals-section h4 { margin: 0 0 6px; color: #1b3257; }
-.qd-optional-notice { margin: 0 0 8px; font-size: 10.5px; color: #53657c; line-height: 1.45; }
+.qd-optional-notice { margin: 0 0 11px; font-size: 10.5px; color: #53657c; line-height: 1.45; }
 .qd-optional-table { font-size: 10.5px; }
 .qd-optional-table td .qd-muted { font-size: 9.5px; white-space: normal; }
 .qd-optionals-section .qd-table tr { break-inside: avoid; page-break-inside: avoid; }
@@ -1366,8 +1366,13 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   white-space: normal;
 }
 .quote-doc.qd-for-print .qd-projection-summary {
-  margin-top: 0;
-  padding: 0;
+  margin-top: 16px;
+  padding: 10px 0 0;
+  border-top: 1px solid #d7e3f2;
+  /* No forzar cambio de hoja: aprovechar la página de complementos.
+     Mantener la proyección completa cuando entra en una hoja. */
+  break-before: auto;
+  page-break-before: auto;
   break-inside: avoid;
   page-break-inside: avoid;
 }
