@@ -14,6 +14,7 @@ try {
   const result = await page.evaluate(async () => {
     const { quoteDocHtml } = await import('./js/views.js');
     const { addQuotePdfFooters, trimTrailingEmptyQuotePages } = await import('./js/quote-pdf-cleanup.js');
+    const { placeQuoteRoadmap } = await import('./js/quote-pdf-roadmap.js');
     const lines = [
       { code: 'CFG_ADV', name: 'Configuración avanzada de la plataforma', periodicity: 'unico',
         quantity: 4, unitPrice: 2, subtotal: 8, discount: 6, total: 2 },
@@ -72,7 +73,7 @@ try {
           pagebreak: {
             mode: ['css', 'legacy'],
             before: ['.qd-projection-summary'],
-            avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
+            avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-optional-page-group']
           }
         })
         .from(holder.firstElementChild);
@@ -93,6 +94,7 @@ try {
       const economicSummary = root.querySelector('.qd-economic-summary');
       const pageSize = await worker.get('pageSize');
       const pagePx = pageSize.inner.px.height;
+      const roadmapPlacement = placeQuoteRoadmap(container, pagePx, { marginPx: 55 });
       const baseY = root.getBoundingClientRect().top;
       const projectionY = projection.getBoundingClientRect().top - baseY;
       const contractBottom = contract.getBoundingClientRect().bottom - baseY;
@@ -140,11 +142,34 @@ try {
       const freeSpaceAfterTotals = pagePx - (contractBottom % pagePx);
       const roadmapHeight = closingBottom - closingTop;
       // Margen de seguridad para la distancia entre ambos bloques y el footer.
-      const roadmapShouldFit = freeSpaceAfterTotals >= roadmapHeight + 40;
+      const roadmapShouldFit = freeSpaceAfterTotals >= roadmapHeight + 55;
+      const lastDescription = stages[4].querySelector('p').getBoundingClientRect();
+      const lastDescBounds = {
+        left: lastDescription.left - root.getBoundingClientRect().left,
+        top: lastDescription.top - baseY,
+        width: lastDescription.width,
+        height: lastDescription.height
+      };
 
       await worker.toPdf();
       const pdf = await worker.get('pdf');
       const canvas = await worker.get('canvas');
+      // Verificar los píxeles capturados de la descripción de la quinta etapa,
+      // no solamente el HTML: la regresión real ocultaba la última tarjeta
+      // aunque el DOM la contuviera completa.
+      const scale = canvas.width / rootBox.width;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const xStart = Math.max(0, Math.floor(lastDescBounds.left * scale) + 4);
+      const yStart = Math.max(0, Math.floor(lastDescBounds.top * scale) + 3);
+      const xEnd = Math.min(canvas.width, Math.ceil((lastDescBounds.left + lastDescBounds.width) * scale) - 3);
+      const yEnd = Math.min(canvas.height, Math.ceil((lastDescBounds.top + lastDescBounds.height) * scale) - 3);
+      let lastDescriptionInk = 0;
+      for (let y = yStart; y < yEnd; y += 2) {
+        const pixels = ctx.getImageData(xStart, y, xEnd - xStart, 1).data;
+        for (let x = 0; x < pixels.length; x += 8) {
+          if (pixels[x] < 125 && pixels[x+1] < 155 && pixels[x+2] < 185) lastDescriptionInk++;
+        }
+      }
       const trimmed = trimTrailingEmptyQuotePages(pdf, canvas, {
         top: 12, right: 12, bottom: 12, left: 12
       });
@@ -167,7 +192,10 @@ try {
         closingOnLastPage: closingStartPage === closingPage && closingPage === pdfPages - 1,
         compactRoadmap: !roadmapShouldFit || closingStartPage === projectionPage,
         roadmapOnExistingPageWhenPossible: roadmapShouldFit ? closingStartPage === projectionPage : true,
-        freeSpaceAfterTotals, roadmapHeight, roadmapShouldFit,
+        freeSpaceAfterTotals, roadmapHeight, roadmapShouldFit, roadmapPlacement,
+        lastStageActuallyVisible: lastDescriptionInk > 30 && closingPage < pdfPages &&
+          roadmapPlacement.bottomSafetyPx >= 55,
+        lastDescriptionInk,
         noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
         packsNeverSplit, optionalGroupPages, optionalRowPages,
         unifiedEconomicsCorrect: economicRows.length === 4 &&
@@ -205,7 +233,7 @@ try {
   const requirements = [
     'projectionOnFinalPageWhenFits', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {
