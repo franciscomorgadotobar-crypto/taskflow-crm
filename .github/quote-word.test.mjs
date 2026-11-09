@@ -43,12 +43,15 @@ for (const label of [
   'P-202611-0004', 'Cliente de prueba', 'Total mensual (IVA incluido)',
   'Total puesta en marcha (IVA incluido)', 'Neto', '5,26', '0,00',
   'Complementos opcionales', 'Pack adicional de 500 ítems',
+  'Sin descuento (IVA incluido)', 'Descuento aplicado', 'Con descuento (IVA incluido)',
+  '35%', '100%', '8,09', '9,52', '2,83', '5,26',
   'Kickoff', 'Semana 1', 'Semanas 2 y 3', 'Semana 4',
   'Salida a producción', '09:00 a 18:00'
 ]) {
   assert.ok(xml.includes(label), 'Falta en el Word: ' + label);
 }
 assert.ok(!xml.includes('Total primer mes'), 'No debe usarse la etiqueta antigua');
+assert.ok(!xml.includes('Beneficio neto') && !xml.includes('Beneficio neto'), 'No deben mostrarse beneficios como descuentos');
 const alternate = await createQuoteWordBlob({ ...sample, absorbIva: true }, docx);
 assert.ok(alternate.size > 10000);
 console.log('QUOTE WORD DOCX PASS', file.size, alternate.size);
