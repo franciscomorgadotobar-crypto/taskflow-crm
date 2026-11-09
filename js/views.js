@@ -30,6 +30,7 @@ import {
 import { buildQuoteOptionalItems, itemsOfPriceList, quoteFamilyOf, quotePlanLabel, quotesOf, state as quoteState, versionsOf } from './quotes.js';
 import { readOptionalQuoteData } from './quote-optionals.js';
 import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
+import { quoteDiscountComparison, quoteDiscountPercent } from './quote-commercial-pricing.js';
 import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import { availableTutorialsForRole, teamTutorialStatus } from './tutorials.js';
@@ -1540,7 +1541,7 @@ export function quoteDocHtml(doc) {
   }
   const financialTable = (rows) => `
     <table class="qd-table qd-unified-table">
-      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur} (${detailTaxLabel})</th><th class="num">Valor base ${cur} (${detailTaxLabel})</th><th class="num">Beneficio ${cur} (${detailTaxLabel})</th><th class="num">Subtotal ${cur} (${detailTaxLabel})</th></tr></thead>
+      <thead><tr><th>Solución</th><th class="num">Cant.</th><th class="num">Valor unit. ${cur} (${detailTaxLabel})</th><th class="num">Valor base ${cur} (${detailTaxLabel})</th><th class="num">Descuento ${cur} (${detailTaxLabel})</th><th class="num">Subtotal ${cur} (${detailTaxLabel})</th></tr></thead>
       <tbody>${rows.map((l) => `<tr>
         <td data-label="Solución">
           <strong>${e(commercialName(l))}</strong>
@@ -1550,19 +1551,39 @@ export function quoteDocHtml(doc) {
         <td class="num" data-label="Cantidad">${fmtNumber(l.quantity)}</td>
         <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
         <td class="num" data-label="Valor base ${cur}">${amount(l.subtotal)}</td>
-        <td class="num qd-disc" data-label="Beneficio ${cur}">${amount(l.discount)}</td>
+        <td class="num qd-disc" data-label="Descuento ${cur}">${amount(l.discount)}</td>
         <td class="num" data-label="Total ${cur}"><strong>${amount(l.total)}</strong></td>
       </tr>`).join('')}</tbody>
     </table>`;
 
-  const summaryRow = (totals, label, recurring) => `
-    <div class="qd-economic-summary-row">
-      <div class="qd-economic-summary-copy">
-        <strong>${label} (IVA incluido)</strong>
-        <small>${recurring ? 'Suscripción recurrente · consulta la proyección para variaciones por descuentos' : 'Se cobra una sola vez'} · Lista ${detailTaxLabel} ${amount(totals?.subtotal)} ${cur} · Beneficio ${detailTaxLabel} ${amount(totals?.discount)} ${cur}${absorbed ? '' : ` · Neto ${amount(totals?.net)} ${cur} · IVA 19% ${amount(totals?.iva)} ${cur}`}</small>
-      </div>
-      <strong class="qd-economic-summary-price">${amount(totals?.total)} ${cur}</strong>
-    </div>`;
+  const summaryRow = (totals, label, recurring) => {
+    const prices = quoteDiscountComparison(totals, { absorbIva: absorbed });
+    return `
+      <div class="qd-economic-summary-row">
+        <div class="qd-economic-summary-heading">
+          <strong>${label} (IVA incluido)</strong>
+          <span>${recurring ? 'Suscripción mensual' : 'Pago único'}</span>
+        </div>
+        <div class="qd-economic-summary-columns">
+          <div class="qd-economic-summary-value qd-economic-before">
+            <span>Precio sin descuento (IVA incluido)</span>
+            <strong>${amount(prices.listWithVat)} ${cur}</strong>
+          </div>
+          <div class="qd-economic-summary-value qd-economic-discount">
+            <span>Descuento aplicado <b>${quoteDiscountPercent(prices.discountPercent)}</b></span>
+            <strong>−${amount(prices.savedWithVat)} ${cur}</strong>
+          </div>
+          <div class="qd-economic-summary-value qd-economic-after">
+            <span>${recurring ? 'Total mensual' : 'Total puesta en marcha'} con descuento (IVA incluido)</span>
+            <strong>${amount(prices.finalWithVat)} ${cur}</strong>
+          </div>
+        </div>
+        <p class="qd-economic-summary-note">${absorbed
+          ? 'Valores finales con IVA incluido.'
+          : `Precio con descuento: neto ${amount(prices.netAfterDiscount)} ${cur} + IVA 19% ${amount(prices.vatAfterDiscount)} ${cur}.`}
+          ${recurring ? 'Los descuentos temporales pueden variar según el mes; consulta la proyección mensual.' : ''}</p>
+      </div>`;
+  };
 
   return `
     <div class="quote-doc">
@@ -1614,7 +1635,7 @@ export function quoteDocHtml(doc) {
 
       ${commercialInfo.length ? `
         <section class="qd-commercial qd-included-benefits">
-          <h4>Beneficios incluidos</h4>
+          <h4>Incluidos</h4>
           <ul>${commercialInfo.map((item) => `<li>${e(item)}</li>`).join('')}</ul>
         </section>` : ''}
 
