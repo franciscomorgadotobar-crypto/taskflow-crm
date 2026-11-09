@@ -1,6 +1,7 @@
 import { clientServiceName, clientServiceScope } from './quote-client-copy.js';
 import { readOptionalQuoteData } from './quote-optionals.js';
 import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
+import { quoteDiscountComparison, quoteDiscountPercent } from './quote-commercial-pricing.js';
 import { fmtAmount, fmtDate } from './utils.js';
 
 // Biblioteca DOCX real: el archivo es editable en Microsoft Word, no HTML .doc.
@@ -161,12 +162,12 @@ export async function createQuoteWordBlob(rawDoc, lib) {
     }
   }
   if (model.commercialInfo.length) {
-    put(heading('Beneficios incluidos'));
+    put(heading('Incluidos'));
     for (const benefit of model.commercialInfo) put(p('• ' + benefit));
   }
   put(heading('Propuesta económica'));
-  put(p('Precios unitarios, valores de lista, beneficios y subtotales expresados como ' + model.taxBasis + '. Los importes finales indicados a continuación incluyen IVA.'));
-  const financeHead = ['Solución / tipo', 'Cant.', 'Unit. ' + model.taxBasis, 'Base ' + model.taxBasis, 'Beneficio ' + model.taxBasis, 'Subtotal ' + model.taxBasis];
+  put(p('Precios unitarios, valores de lista, descuentos y subtotales expresados como ' + model.taxBasis + '. Los importes finales indicados a continuación incluyen IVA.'));
+  const financeHead = ['Solución / tipo', 'Cant.', 'Unit. ' + model.taxBasis, 'Base ' + model.taxBasis, 'Descuento ' + model.taxBasis, 'Subtotal ' + model.taxBasis];
   if (model.items.length) put(table(financeHead, model.items.map((it) => [
     it.name + ' (' + it.periodicity + ')', it.quantity, it.unit, it.subtotal, it.discount, it.total
   ])));
@@ -174,13 +175,29 @@ export async function createQuoteWordBlob(rawDoc, lib) {
   const monthly = model.totals.monthly || {};
   const contract = model.totals.contract || {};
   put(heading('Resumen de valores'));
+  // Los tres importes del comparativo usan la MISMA base: IVA incluido.
+  const addComparison = (name, values) => {
+    const prices = quoteDiscountComparison(values, { absorbIva: rawDoc.absorbIva === true });
+    put(subheading(name + ' (IVA incluido)'));
+    put(table(
+      ['Sin descuento (IVA incluido)', 'Descuento aplicado', 'Con descuento (IVA incluido)'],
+      [[
+        model.money(prices.listWithVat),
+        quoteDiscountPercent(prices.discountPercent) + '  (−' + model.money(prices.savedWithVat) + ')',
+        model.money(prices.finalWithVat)
+      ]]
+    ));
+    if (!rawDoc.absorbIva) put(p(
+      'Precio final: neto ' + model.money(prices.netAfterDiscount) +
+      ' + IVA 19% ' + model.money(prices.vatAfterDiscount) + '.'
+    ));
+  };
   if (model.items.some((it) => it.periodicity === 'Pago único')) {
-    put(subheading('Total puesta en marcha (IVA incluido): ' + model.money(setup.total)));
-    if (!rawDoc.absorbIva) put(p('Lista neta ' + model.money(setup.subtotal) + ' · Beneficio neto ' + model.money(setup.discount) + ' · Neto ' + model.money(setup.net) + ' · IVA 19% ' + model.money(setup.iva)));
+    addComparison('Total puesta en marcha', setup);
   }
-  put(subheading('Total mensual (IVA incluido): ' + model.money(monthly.total)));
-  if (!rawDoc.absorbIva) put(p('Lista neta ' + model.money(monthly.subtotal) + ' · Beneficio neto ' + model.money(monthly.discount) + ' · Neto ' + model.money(monthly.net) + ' · IVA 19% ' + model.money(monthly.iva)));
-  put(p('Las variaciones de descuento entre meses se detallan en la proyección de valores.'));
+  addComparison('Total mensual', monthly);
+  put(p('Los descuentos temporales pueden variar según el mes; consulta la proyección de valores.'));
+
   if (model.optional.length) {
     put(heading('Complementos opcionales — contratación por separado'));
     put(p('Valores informativos, no incluidos en la solución ni en el valor total del contrato.'));

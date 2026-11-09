@@ -150,7 +150,7 @@ try {
         summary.querySelectorAll('.qd-economic-summary-row').length === 2 &&
         !economicSection.querySelector('.qd-setup-section, .qd-monthly-section') &&
         getComputedStyle(financialGroup).breakInside === 'avoid';
-      const headingsOK = benefitsSection?.querySelector('h4')?.textContent === 'Beneficios incluidos' &&
+      const headingsOK = benefitsSection?.querySelector('h4')?.textContent === 'Incluidos' &&
         !restructuredHtml.includes('Beneficios y acompañamiento');
       docNode.remove();
 
@@ -350,6 +350,14 @@ try {
           withSetup.includes('Valor total del contrato USD (IVA incluido)') &&
           withSetup.includes('Salida a producción') &&
           withSetup.includes('09:00 a 18:00'),
+        commercialDiscountClarity: withSetup.includes('Precio sin descuento (IVA incluido)') &&
+          withSetup.includes('Descuento aplicado') &&
+          withSetup.includes('con descuento (IVA incluido)') &&
+          withSetup.includes('Precio con descuento: neto') &&
+          withSetup.includes('Descuento USD (neto)') &&
+          absorbed.includes('Descuento USD (IVA incluido)') &&
+          !withSetup.includes('Beneficio USD') &&
+          !monthlyOnly.includes('Beneficio USD'),
         financialHeading: withSetup.includes('Propuesta económica') &&
           withSetup.includes('Resumen de valores') &&
           withSetup.includes('Total puesta en marcha') &&
@@ -368,7 +376,7 @@ try {
         !rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
-        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.wordButtonsPresent || !rendered.taxAndMonthlyLabels || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
+        !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.commercialDiscountClarity || !rendered.wordButtonsPresent || !rendered.taxAndMonthlyLabels || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {
       throw new Error('Documento USD de IVA absorbido incorrecto: ' + JSON.stringify(rendered));
     }
     console.log('QUOTE ABSORB PASS', testCase.name, JSON.stringify(rendered));

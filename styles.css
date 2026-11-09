@@ -1061,35 +1061,71 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   color: #1b3257;
 }
 .qd-economic-summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px 18px;
-  padding: 8px 0;
+  display: grid;
+  gap: 9px;
+  padding: 10px 0 12px;
   break-inside: avoid;
   page-break-inside: avoid;
 }
 .qd-economic-summary-row + .qd-economic-summary-row {
   border-top: 1px solid #d7e3f2;
 }
-.qd-economic-summary-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
+.qd-economic-summary-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
 }
-.qd-economic-summary-copy > strong {
+.qd-economic-summary-heading > strong {
   font-size: 11px;
   color: #1b3257;
 }
-.qd-economic-summary-copy > small {
-  font-size: 10px;
+.qd-economic-summary-heading > span {
   color: #53657c;
-  line-height: 1.4;
+  font-size: 10px;
 }
-.qd-economic-summary-price {
-  font-size: 14px;
+.qd-economic-summary-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+.qd-economic-summary-value {
+  display: grid;
+  gap: 4px;
+  align-content: space-between;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid #dce6f2;
+  border-radius: 6px;
+  background: #ffffff;
+}
+.qd-economic-summary-value > span {
+  font-size: 9px;
+  line-height: 1.3;
+  color: #53657c;
+  overflow-wrap: anywhere;
+}
+.qd-economic-summary-value strong {
+  font-size: 12px;
   color: #1b3257;
   white-space: nowrap;
+}
+.qd-economic-before strong { color: #65748b; text-decoration: line-through; }
+.qd-economic-discount > span b { color: #9b4538; }
+.qd-economic-discount strong { color: #ad4232; }
+.qd-economic-after {
+  background: #e7f1fc;
+  border-color: #b6d1eb;
+}
+.qd-economic-after strong {
+  font-size: 14px;
+  color: #18375c;
+}
+.qd-economic-summary-note {
+  margin: 0;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: #53657c;
 }
 .quote-doc.qd-for-print .qd-unified-economics {
   break-inside: auto;
@@ -1101,9 +1137,12 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   page-break-inside: avoid;
 }
 @media(max-width: 760px) {
-  .quote-doc:not(.qd-for-print) .qd-economic-summary-row {
-    align-items: flex-start;
-    flex-wrap: wrap;
+  .quote-doc:not(.qd-for-print) .qd-economic-summary-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quote-doc:not(.qd-for-print) .qd-economic-summary-value {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
   }
 }
 
@@ -1264,23 +1303,28 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   background: #1d71b8;
   color: #fff;
 }
+/* html2pdf no debe insertar rellenos entre los cinco pasos por reglas
+   de avoid anidadas. La función placeQuoteRoadmap calcula el salto entero
+   en el clon, luego de que html2pdf pagina las secciones anteriores. */
 .quote-doc.qd-for-print .qd-closing.qd-roadmap {
   display: block;
   box-sizing: border-box;
   margin-top: 16px;
   padding-top: 12px;
-  /* La tabla de proyección y el roadmap son bloques distintos. Si ambas
-     secciones caben en A4 se mantienen juntas; si no, el motor inserta
-     el salto ANTES del cronograma completo, sin cortar la quinta etapa. */
   break-before: auto;
   page-break-before: auto;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
 }
 .quote-doc.qd-for-print .qd-roadmap-steps,
 .quote-doc.qd-for-print .qd-roadmap-step {
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+.quote-doc.qd-for-print .qd-roadmap-page-spacer {
+  display: block;
+  width: 100%;
+  break-inside: auto;
 }
 /* Evitar que html2pdf considere la proyección y el cronograma un bloque
    gigantesco e indivisible; ambos se conservan íntegros por separado. */

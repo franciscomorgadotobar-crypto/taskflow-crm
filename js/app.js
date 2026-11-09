@@ -90,6 +90,7 @@ import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
 import { addQuotePdfFooters, trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
+import { placeQuoteRoadmap } from './quote-pdf-roadmap.js';
 import { downloadQuoteWord } from './quote-word-export.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
@@ -2192,13 +2193,20 @@ async function downloadQuotePdf(doc) {
           // después; html2pdf mueve el bloque completo sólo si no cabe.
           // Nunca crear una página exclusiva de forma incondicional.
           before: ['.qd-projection-summary'],
-          avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-roadmap', '.qd-roadmap-step', '.qd-optional-page-group']
+          avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-optional-page-group']
         }
       })
       .from(holder.firstElementChild);
 
-    // Conservar la paginación del documento, pero comprobar el lienzo real
-    // antes de guardar: html2pdf puede añadir una hoja final sin texto.
+    // html2pdf aplica los saltos a la copia durante toContainer(). Ajustar
+    // las cinco etapas DESPUÉS de esos saltos y ANTES de rasterizar; así
+    // nunca recorta "Salida a producción" por un avoid anidado.
+    await worker.toContainer();
+    const pageSize = await worker.get('pageSize');
+    const container = await worker.get('container');
+    placeQuoteRoadmap(container, pageSize.inner.px.height, { marginPx: 55 });
+
+    // Comprobar el lienzo final antes de guardar (incluidas hojas vacías).
     await worker.toPdf();
     const pdf = await worker.get('pdf');
     const canvas = await worker.get('canvas');
