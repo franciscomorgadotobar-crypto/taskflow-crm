@@ -26,6 +26,8 @@ try {
         quantity: 1, unitPrice: 15, subtotal: 15, discount: 5.25, total: 9.75, discountMonths: 6 }
     ];
     const isReal = scenario === 'real';
+    const isStress = scenario === 'stress';
+    const monthCount = isStress ? 84 : 12;
     const effectiveLines = isReal ? [
       { code: 'CFG_ADV', name: 'Configuración avanzada de la plataforma', periodicity: 'unico',
         quantity: 4, unitPrice: 2, subtotal: 8, discount: 8, total: 0 },
@@ -38,7 +40,7 @@ try {
     const doc = {
       number: isReal ? 'P-202611-0004' : 'P-202611-0002', version: 1, currency: 'UF',
       quoteDate: '2026-11-03', validUntil: '2026-11-10',
-      contractMonths: 12, paymentMethod: 'transferencia', paymentTerms: '5_dias',
+      contractMonths: monthCount, paymentMethod: 'transferencia', paymentTerms: '5_dias',
       owner: 'Francisco Morgado',
       client: {
         company: 'Soc Incosec Ltda.', rut: '89681600-4',
@@ -61,14 +63,14 @@ try {
       totals: isReal ? {
         setup: { subtotal: 8, discount: 8, net: 0, iva: 0, total: 0 },
         monthly: { subtotal: 6.8, discount: 2.38, net: 4.42, iva: .84, total: 5.26 },
-        projection: Array.from({ length: 12 }, (_, i) => ({
+        projection: Array.from({ length: monthCount }, (_, i) => ({
           month: i + 1, net: 4.42, total: 5.26
         })),
         contract: { net: 53.04, iva: 10.08, total: 63.12 }
       } : {
         setup: { subtotal: 8, discount: 6, net: 2, iva: .38, total: 2.38 },
         monthly: { subtotal: 30.7, discount: 10.75, net: 19.95, iva: 3.79, total: 23.74 },
-        projection: Array.from({ length: 12 }, (_, i) => ({
+        projection: Array.from({ length: monthCount }, (_, i) => ({
           month: i + 1, net: i < 6 ? 19.95 : 30.7, total: i < 6 ? 23.74 : 36.53
         })),
         contract: { net: 305.9, iva: 58.12, total: 364.02 }
@@ -213,6 +215,7 @@ try {
         lastStageActuallyVisible: lastDescriptionInk > 30 && closingPage < pdfPages &&
           roadmapPlacement.bottomSafetyPx >= 55,
         lastDescriptionInk,
+        forcedBreakWhenNeeded: !isStress || (roadmapPlacement.applied && closingStartPage > projectionPage),
         noRoadmapCuts: stageIntegrity && allStagesOnSamePage,
         packsNeverSplit, optionalGroupPages, optionalRowPages,
         unifiedEconomicsCorrect: economicRows.length === effectiveLines.length &&
@@ -248,13 +251,13 @@ try {
     }
   }, scenario);
 
-  for (const scenario of ['expanded', 'real']) {
+  for (const scenario of ['expanded', 'real', 'stress']) {
     const result = await evaluateScenario(scenario);
     console.log('COTIZACIÓN PDF A4 LAYOUT', JSON.stringify(result));
     const requirements = [
     'projectionOnFinalPageWhenFits', 'allFinalValuesSamePage',
     'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
+    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'forcedBreakWhenNeeded', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {
