@@ -25,7 +25,7 @@ try {
       { code: 'INV_FULL', name: 'Inventario Plan Full', periodicity: 'mensual',
         quantity: 1, unitPrice: 15, subtotal: 15, discount: 5.25, total: 9.75, discountMonths: 6 }
     ];
-    const isReal = scenario === 'real';
+    const isReal = scenario === 'real' || scenario === 'mobile';
     const isStress = scenario === 'stress';
     const monthCount = isStress ? 84 : 12;
     const effectiveLines = isReal ? [
@@ -251,7 +251,8 @@ try {
     }
   }, scenario);
 
-  for (const scenario of ['expanded', 'real', 'stress']) {
+  for (const scenario of ['expanded', 'real', 'stress', 'mobile']) {
+    if (scenario === 'mobile') await page.setViewportSize({ width: 390, height: 844 });
     const result = await evaluateScenario(scenario);
     console.log('COTIZACIÓN PDF A4 LAYOUT', JSON.stringify(result));
     const requirements = [
