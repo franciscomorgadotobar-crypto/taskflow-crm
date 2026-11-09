@@ -1264,23 +1264,28 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   background: #1d71b8;
   color: #fff;
 }
+/* html2pdf no debe insertar rellenos entre los cinco pasos por reglas
+   de avoid anidadas. La función placeQuoteRoadmap calcula el salto entero
+   en el clon, luego de que html2pdf pagina las secciones anteriores. */
 .quote-doc.qd-for-print .qd-closing.qd-roadmap {
   display: block;
   box-sizing: border-box;
   margin-top: 16px;
   padding-top: 12px;
-  /* La tabla de proyección y el roadmap son bloques distintos. Si ambas
-     secciones caben en A4 se mantienen juntas; si no, el motor inserta
-     el salto ANTES del cronograma completo, sin cortar la quinta etapa. */
   break-before: auto;
   page-break-before: auto;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
 }
 .quote-doc.qd-for-print .qd-roadmap-steps,
 .quote-doc.qd-for-print .qd-roadmap-step {
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
+}
+.quote-doc.qd-for-print .qd-roadmap-page-spacer {
+  display: block;
+  width: 100%;
+  break-inside: auto;
 }
 /* Evitar que html2pdf considere la proyección y el cronograma un bloque
    gigantesco e indivisible; ambos se conservan íntegros por separado. */
