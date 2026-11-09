@@ -91,7 +91,6 @@ try {
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: {
             mode: ['css', 'legacy'],
-            before: ['.qd-projection-summary'],
             avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-optional-page-group']
           }
         })
@@ -135,6 +134,11 @@ try {
         first: Math.floor((el.getBoundingClientRect().top - baseY + 3) / pagePx),
         last: Math.floor((el.getBoundingClientRect().bottom - baseY - 3) / pagePx)
       }));
+      const lastOptionalBottom = Math.max(...optionalGroups.map((el) => el.getBoundingClientRect().bottom - baseY));
+      const projectedHeight = contractBottom - projectionY;
+      const remainingAfterOptionals = pagePx - (lastOptionalBottom % pagePx);
+      const projectionShouldSharePage = remainingAfterOptionals >= projectedHeight + 30;
+      const lastOptionalPage = optionalGroupPages.at(-1)?.last ?? -1;
       const packsNeverSplit =
         optionalGroups.length === Math.ceil(packCount / 4) &&
         optionalRows.length === packCount &&
@@ -237,6 +241,8 @@ try {
             economicSummary.textContent.includes('2,83') &&
             economicSummary.textContent.includes('5,26')
           ) : true),
+        unwantedCopyRemoved: !root.textContent.includes('Los descuentos temporales pueden variar según el mes') &&
+          !root.textContent.includes('El cliente puede solicitar uno o varios posteriormente'),
         taxLabelsPresent: root.textContent.includes('Total mensual (IVA incluido)') &&
           root.textContent.includes('Valor total del contrato UF (IVA incluido)') &&
           root.textContent.includes('Neto contrato') &&
@@ -244,8 +250,10 @@ try {
         closingContents: closing.textContent.includes('Próximos pasos: de la contratación a la operación') && closing.textContent.includes('Kickoff') && closing.textContent.includes('Carga de información') && closing.textContent.includes('Capacitación') && closing.textContent.includes('Marcha blanca') && closing.textContent.includes('Salida a producción') && closing.textContent.includes('09:00 a 18:00') && closing.querySelectorAll('.qd-roadmap-step').length === 5,
         footerOnEveryPage: decorated === pdfPages && pdf.getNumberOfPages() === pdfPages && footerNumbersCorrect && footerBrandsCorrect,
         projectionOnFinalPageWhenFits: !roadmapShouldFit || projectionPage === pdfPages - 1,
+        projectionUsesFreeSpace: !projectionShouldSharePage || projectionPage === lastOptionalPage,
+        projectionShouldSharePage, remainingAfterOptionals, projectedHeight,
         allFinalValuesSamePage: projectionPage === contractPage,
-        startsOnNewPage: projectionPage > 0 && Math.abs(projectionY % pagePx) < marginTolerance,
+        noForcedProjectionBreak: projectionPage >= lastOptionalPage,
         marginsSymmetric: horizontalPadding[0] === horizontalPadding[1] &&
           Math.abs(pageSize.width - 210) < 0.1 && Math.abs(pageSize.height - 297) < 0.1,
         tableWithinPaper: tableBox.left >= rootBox.left - 1 &&
@@ -269,8 +277,8 @@ try {
     console.log('COTIZACIÓN PDF A4 LAYOUT', JSON.stringify(result));
     const requirements = [
     'projectionOnFinalPageWhenFits', 'allFinalValuesSamePage',
-    'startsOnNewPage', 'marginsSymmetric', 'tableWithinPaper',
-    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'forcedBreakWhenNeeded', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'priceComparisonVisible', 'projectionBeforeRoadmap', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
+    'noForcedProjectionBreak', 'projectionUsesFreeSpace', 'marginsSymmetric', 'tableWithinPaper',
+    'closingOnLastPage', 'compactRoadmap', 'roadmapOnExistingPageWhenPossible', 'noRoadmapCuts', 'lastStageActuallyVisible', 'forcedBreakWhenNeeded', 'packsNeverSplit', 'unifiedEconomicsCorrect', 'priceComparisonVisible', 'projectionBeforeRoadmap', 'unwantedCopyRemoved', 'taxLabelsPresent', 'closingContents', 'footerOnEveryPage'
   ];
   for (const check of requirements) {
     if (!result[check]) {

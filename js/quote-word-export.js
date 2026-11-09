@@ -196,7 +196,6 @@ export async function createQuoteWordBlob(rawDoc, lib) {
     addComparison('Total puesta en marcha', setup);
   }
   addComparison('Total mensual', monthly);
-  put(p('Los descuentos temporales pueden variar según el mes; consulta la proyección de valores.'));
 
   if (model.optional.length) {
     put(heading('Complementos opcionales — contratación por separado'));

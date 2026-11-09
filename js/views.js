@@ -1580,8 +1580,7 @@ export function quoteDocHtml(doc) {
         </div>
         <p class="qd-economic-summary-note">${absorbed
           ? 'Valores finales con IVA incluido.'
-          : `Precio con descuento: neto ${amount(prices.netAfterDiscount)} ${cur} + IVA 19% ${amount(prices.vatAfterDiscount)} ${cur}.`}
-          ${recurring ? 'Los descuentos temporales pueden variar según el mes; consulta la proyección mensual.' : ''}</p>
+          : `Precio con descuento: neto ${amount(prices.netAfterDiscount)} ${cur} + IVA 19% ${amount(prices.vatAfterDiscount)} ${cur}.`}</p>
       </div>`;
   };
 
@@ -1656,7 +1655,7 @@ export function quoteDocHtml(doc) {
       ${optionalGroups.length ? `<section class="qd-optionals-section">
         ${optionalGroups.map((group, groupIndex) => `<div class="qd-optional-page-group">
           ${groupIndex === 0 ? `<h4>Complementos opcionales (contratación por separado)</h4>
-          <p class="qd-optional-notice"><strong>Valores informativos.</strong> Estos productos no forman parte de la solución contratada y no se incluyen en el total ni en la proyección del contrato. El cliente puede solicitar uno o varios posteriormente.</p>`
+          <p class="qd-optional-notice"><strong>Valores informativos.</strong> Estos productos no forman parte de la solución contratada y no se incluyen en el total ni en la proyección del contrato.</p>`
           : `<p class="qd-optional-continued">Complementos opcionales (continuación)</p>`}
           <table class="qd-table qd-optional-table">
             <thead><tr><th>Complemento</th><th class="num">Cant.</th><th class="num">Precio unit. ${cur}</th><th class="num">Valor referencial ${cur}</th></tr></thead>
