@@ -317,6 +317,8 @@ try {
         checkboxPresent: Boolean(document.getElementById('quoteAbsorbIva')),
         optionalSelectorPresent: Boolean(document.getElementById('quoteOptionalService')) && Boolean(document.getElementById('quoteOptionalQty')),
         optionalOK,
+        shortCommercialCopy: !optionalHtml.includes('Los descuentos temporales pueden variar según el mes') &&
+          !optionalHtml.includes('El cliente puede solicitar uno o varios posteriormente'),
         existingAlternativesCorrect,
         packInfoOK,
         hideByDefault: document.getElementById('quoteAbsorbIvaField')?.hidden,
@@ -371,7 +373,7 @@ try {
           (monthlyOnly.match(/class="qd-economic-title"/g) || []).length === 1
       };
     });
-    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.existingAlternativesCorrect || !rendered.packInfoOK || !rendered.hideByDefault || !rendered.absorbedHasIva ||
+    if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.shortCommercialCopy || !rendered.existingAlternativesCorrect || !rendered.packInfoOK || !rendered.hideByDefault || !rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
         !rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
