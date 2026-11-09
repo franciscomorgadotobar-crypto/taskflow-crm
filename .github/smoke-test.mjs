@@ -354,7 +354,8 @@ try {
           withSetup.includes('Descuento aplicado') &&
           withSetup.includes('con descuento (IVA incluido)') &&
           withSetup.includes('Precio con descuento: neto') &&
-          withSetup.includes('Descuento USD (IVA incluido)') &&
+          withSetup.includes('Descuento USD (neto)') &&
+          absorbed.includes('Descuento USD (IVA incluido)') &&
           !withSetup.includes('Beneficio USD') &&
           !monthlyOnly.includes('Beneficio USD'),
         financialHeading: withSetup.includes('Propuesta económica') &&
