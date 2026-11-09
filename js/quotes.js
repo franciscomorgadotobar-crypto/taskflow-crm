@@ -495,7 +495,7 @@ export function buildQuoteEmail(quote, lead) {
   const absorb = quote.absorbIva === true;
   const money = (n) => fmtCurrency(n, cur);
   const line = (it) =>
-    `- ${clientServiceName(it)} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)} (${absorb ? 'IVA incluido' : 'neto'})${it.discount ? ` (beneficio ${money(it.discount)} ${absorb ? 'IVA incluido' : 'neto'})` : ''} = ${money(it.total)} (${absorb ? 'IVA incluido' : 'neto'})\n  Incluye: ${clientServiceScope(it).split(/\r?\n/).filter(Boolean).join(' · ')}`;
+    `- ${clientServiceName(it)} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)} (${absorb ? 'IVA incluido' : 'neto'})${it.discount ? ` (descuento ${money(it.discount)} ${absorb ? 'IVA incluido' : 'neto'})` : ''} = ${money(it.total)} (${absorb ? 'IVA incluido' : 'neto'})\n  Incluye: ${clientServiceScope(it).split(/\r?\n/).filter(Boolean).join(' · ')}`;
   const setup = quote.items.filter((it) => it.periodicity === 'unico');
   const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
   const t = quote.totals || {};
@@ -510,7 +510,7 @@ export function buildQuoteEmail(quote, lead) {
     ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), `Total habilitación (IVA incluido): ${money(t.setup?.total)}`, ''] : []),
     ...(monthly.length ? ['Servicios mensuales:', ...monthly.map(line), `Total mensual (IVA incluido): ${money(t.monthly?.total)}`, ''] : []),
     ...(Array.isArray(quote.commercialInfo) && quote.commercialInfo.length
-      ? ['Beneficios incluidos:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
+      ? ['Incluidos:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
       : []),
     absorb ? `Contrato ${quote.contractMonths} meses: Total (IVA incluido) ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total (IVA incluido) ${money(quote.total)}`,
     ...(optionalItems.length ? ['', 'Complementos opcionales (NO incluidos en el total del contrato):',
