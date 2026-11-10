@@ -263,10 +263,10 @@ try {
         optionalEmail.includes('NO incluidos en el total del contrato') &&
         optionalEmail.includes('2,38') && !optionalEmail.includes('TF_OPTIONALS');
 
-      // Alternativas comerciales: una propuesta original y su alternativa, con
-      // una versión anterior que NO se cuenta como tercera opción.
-      const { quoteFamilyOf, state: quoteSnapshot } = await import('./js/quotes.js');
-      const { quoteFamilyHtml, renderQuotesSection } = await import('./js/views.js');
+      // Dos opciones con una versión histórica: una ficha, no tarjetas
+      // duplicadas ni un segundo selector de opciones dentro del documento.
+      const { quoteFamilyOf, quoteGroupsOf, state: quoteSnapshot } = await import('./js/quotes.js');
+      const { renderQuotesSection, renderQuotes } = await import('./js/views.js');
       const savedQuotes = quoteSnapshot.quotes;
       const original = {
         id: 'original-2', rootId: 'original-1', number: 'P-202611-0002', version: 2,
@@ -281,30 +281,53 @@ try {
       const alternative = {
         ...original, id: 'alternative-1', rootId: 'alternative-1',
         number: 'P-202611-0003', version: 1,
-        alternativeOfRootId: 'original-1',
+        alternativeOfRootId: 'original-1', status: 'enviada',
         items: [{ code: 'INV_BASICO', name: 'Inventario Plan Básico' }],
         totals: { monthly: { net: 8, total: 9.52 } }
       };
       const previous = { ...original, id: 'original-1', version: 1, isCurrent: false };
+      const third = {
+        ...alternative, id: 'third-3', rootId: 'third-1',
+        number: 'P-202611-0004', version: 3, status: 'borrador'
+      };
+      const thirdV2 = { ...third, id: 'third-2', version: 2, isCurrent: false };
+      const thirdV1 = { ...third, id: 'third-1', version: 1, isCurrent: false };
+      const standalone = {
+        ...original, id: 'unrelated-1', rootId: 'unrelated-1', number: 'P-202611-0010',
+        version: 1, alternativeOfRootId: '', items: [], status: 'rechazada'
+      };
       let existingAlternativesCorrect = false;
       try {
-        quoteSnapshot.quotes = [previous, original, alternative];
+        quoteSnapshot.quotes = [previous, original, alternative, thirdV1, thirdV2, third, standalone];
         const linked = quoteFamilyOf(original);
-        const listHtml = renderQuotesSection('fixture-lead');
-        const chooser = quoteFamilyHtml(alternative);
-        const parsedChooser = new DOMParser().parseFromString(chooser, 'text/html');
-        const choiceButtons = parsedChooser.querySelectorAll('[data-action="view-quote"]');
+        const families = quoteGroupsOf();
+        const filtered = quoteGroupsOf(quoteSnapshot.quotes, { status: 'enviada' });
+        const list = new DOMParser().parseFromString(renderQuotesSection('fixture-lead'), 'text/html');
+        const general = new DOMParser().parseFromString(
+          renderQuotes({ quotesView: 'list', quoteFilters: { status: '' } }), 'text/html');
+        const group = [...list.querySelectorAll('.quote-group-card')]
+          .find((node) => node.dataset.quoteGroup === 'original-1');
+        const optionRows = group?.querySelectorAll('.quote-group-option') || [];
+        const history = group?.querySelector('.quote-option-history');
         existingAlternativesCorrect =
-          linked.length === 2 &&
-          linked[0].id === original.id &&
-          linked[1].id === alternative.id &&
-          listHtml.includes('data-action="quote-family"') &&
-          listHtml.includes('Ver las 2 opciones') &&
-          listHtml.includes('data-id="original-2"') &&
-          choiceButtons.length === 2 &&
-          parsedChooser.querySelectorAll('.quote-family-choice.is-selected').length === 1 &&
-          chooser.includes('Plan Full') && chooser.includes('Plan Básico') &&
-          !chooser.includes('original-1"');
+          linked.length === 3 && linked[0].id === original.id &&
+          linked[1].id === alternative.id && linked[2].id === third.id &&
+          families.length === 2 && filtered.length === 1 && filtered[0].options.length === 3 &&
+          list.querySelectorAll('.quote-group-card').length === 2 &&
+          general.querySelectorAll('.quote-group-card').length === 2 &&
+          list.querySelectorAll('.quote-list-card').length === 0 &&
+          optionRows.length === 3 &&
+          group.querySelector('summary').textContent.includes('3 opciones comerciales') &&
+          group.querySelector('summary').textContent.includes('6 versiones') &&
+          group.querySelectorAll('.quote-option-history').length === 2 &&
+          history?.querySelectorAll('.quote-option-version').length === 2 &&
+          group.querySelectorAll('.quote-option-version').length === 5 &&
+          history.querySelector('[data-action="view-quote"][data-id="original-1"]') !== null &&
+          group.querySelector('.quote-group-options [data-quote-id="alternative-1"]') !== null &&
+          group.querySelector('.quote-group-options [data-quote-id="third-3"]') !== null &&
+          list.querySelectorAll('[data-action="quote-family"]').length === 0 &&
+          group.textContent.includes('Plan Full') && group.textContent.includes('Plan Básico') &&
+          group.textContent.includes('IVA incluido');
       } finally {
         quoteSnapshot.quotes = savedQuotes;
       }
@@ -538,8 +561,9 @@ try {
         // La misma empresa puede tener dos propuestas vigentes a la vez.
         quoteState.quotes = [quote, alternate];
         view.innerHTML = renderQuotes({ quotesView: 'list', quoteFilters: { status: '' } });
-        const card = view.querySelector('.quote-list-card');
-        const actions = [...card.querySelectorAll('.quote-card-actions button')];
+        const card = view.querySelector('.quote-group-card');
+        card.open = true;
+        const actions = [...card.querySelectorAll('.quote-option-actions button')];
         const within = (child, parent) => {
           const a = child.getBoundingClientRect();
           const b = parent.getBoundingClientRect();
@@ -548,15 +572,15 @@ try {
         const list = {
           fullWidth: card.scrollWidth <= card.clientWidth + 2,
           buttonsVisible: actions.length >= 3 && actions.every((button) => within(button, card)),
-          gridActions: getComputedStyle(card.querySelector('.quote-card-actions')).display === 'grid',
-          amountFull: card.querySelector('.quote-card-monthly')?.textContent.includes('UF 30,70'),
-          titleReadable: card.querySelector('.quote-card-title')?.getBoundingClientRect().width > 120,
-          alternativesCoexist: view.querySelectorAll('.quote-list-card').length === 2 &&
+          gridActions: getComputedStyle(card.querySelector('.quote-option-actions')).display === 'grid',
+          amountFull: card.querySelector('.quote-option-price')?.textContent.includes('UF 36,53'),
+          titleReadable: card.querySelector('.quote-group-company')?.getBoundingClientRect().width > 120,
+          alternativesCoexist: view.querySelectorAll('.quote-group-card').length === 1 &&
+            view.querySelectorAll('.quote-group-option').length === 2 &&
             view.textContent.includes('Plan Full') &&
             view.textContent.includes('Plan Entrada') &&
-            view.textContent.includes('Alternativa de P-202611-0002') &&
-            view.textContent.includes('Ver las 2 opciones') &&
-            view.querySelectorAll('[data-action="quote-family"]').length === 2 &&
+            card.querySelector('summary').textContent.includes('2 opciones comerciales') &&
+            view.querySelectorAll('[data-action="quote-family"]').length === 0 &&
             view.querySelector('[data-action="view-quote"][data-id="test-quote"]') !== null
         };
 

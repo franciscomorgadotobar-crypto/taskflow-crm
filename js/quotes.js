@@ -359,18 +359,46 @@ export const quotesOf = (leadId) => state.quotes.filter((q) => q.leadId === lead
 export const versionsOf = (rootId) => state.quotes.filter((q) => q.rootId === rootId).sort((a, b) => b.version - a.version);
 
 export const currentQuoteOf = (rootId) => versionsOf(rootId).find((q) => q.isCurrent) || versionsOf(rootId)[0] || null;
+
+/** La relación de alternativas es explícita: NO agrupar por nombre del cliente.
+ * Cada raíz de cotización representa una opción; alternativeOfRootId vincula
+ * esas opciones a la propuesta original. El historial no crea nuevas opciones.
+ */
+export const quoteFamilyKey = (quote) =>
+  String(quote?.alternativeOfRootId || quote?.rootId || quote?.id || '');
+
+/** Una ficha por grupo de alternativas vigentes, sin duplicar versiones.
+ * Un filtro por estado selecciona GRUPOS con alguna opción coincidente;
+ * dentro del grupo se siguen viendo todas las opciones y sus estados.
+ */
+export function quoteGroupsOf(quotes = state.quotes, { status = '' } = {}) {
+  const groups = new Map();
+  for (const q of quotes) {
+    if (!q?.isCurrent) continue;
+    const key = quoteFamilyKey(q);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(q);
+  }
+  return [...groups.entries()]
+    .filter(([, options]) => !status || options.some((q) => q.status === status))
+    .map(([key, options]) => ({
+      key,
+      options: options.sort((a, b) => {
+        if (Boolean(a.alternativeOfRootId) !== Boolean(b.alternativeOfRootId))
+          return a.alternativeOfRootId ? 1 : -1;
+        return String(a.number || '').localeCompare(String(b.number || ''), 'es', { numeric: true });
+      }),
+      updatedAt: Math.max(...options.map((q) => Date.parse(q.updatedAt || '') || 0))
+    }))
+    .sort((a, b) => b.updatedAt - a.updatedAt || a.key.localeCompare(b.key));
+}
+
 /** Alternativas ya existentes: agrupa la vigente de cada opción, no las versiones históricas. */
 export function quoteFamilyOf(quote) {
   if (!quote) return [];
-  const familyRoot = quote.alternativeOfRootId || quote.rootId || quote.id;
-  return state.quotes
-    .filter((row) => row.isCurrent && (row.alternativeOfRootId || row.rootId || row.id) === familyRoot)
-    .sort((a, b) => {
-      const originalA = !a.alternativeOfRootId;
-      const originalB = !b.alternativeOfRootId;
-      if (originalA !== originalB) return originalA ? -1 : 1;
-      return String(a.number || '').localeCompare(String(b.number || ''), 'es', { numeric: true });
-    });
+  const key = quoteFamilyKey(quote);
+  return quoteGroupsOf().find((group) => group.key === key)?.options || [];
 }
 
 export function quotePlanLabel(quote) {

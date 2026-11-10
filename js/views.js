@@ -27,7 +27,7 @@ import {
   state,
   taskOf
 } from './store.js';
-import { buildQuoteOptionalItems, itemsOfPriceList, quoteFamilyOf, quotePlanLabel, quotesOf, state as quoteState, versionsOf } from './quotes.js';
+import { buildQuoteOptionalItems, itemsOfPriceList, quoteGroupsOf, quotePlanLabel, quotesOf, state as quoteState, versionsOf } from './quotes.js';
 import { readOptionalQuoteData } from './quote-optionals.js';
 import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
 import { quoteDiscountComparison, quoteDiscountPercent } from './quote-commercial-pricing.js';
@@ -1210,74 +1210,69 @@ const quoteStatusBadge = (status) => {
   return `<span class="badge ${tone}">${e(QUOTE_STATUS_LABEL[status] || status)}</span>`;
 };
 
-/** Fila de cotización, reutilizada en la ficha y en la lista general. */
-function quoteRow(q, { showCompany = false } = {}) {
-  const lead = getLead(q.leadId);
-  const versions = versionsOf(q.rootId);
-  const family = quoteFamilyOf(q);
-  const familyCount = family.length;
-  const original = q.alternativeOfRootId
-    ? family.find((it) => !it.alternativeOfRootId) : null;
-  const planName = quotePlanLabel(q);
-  return `<div class="list-item quote-list-card">
-    <div class="quote-card-main">
-      <div class="quote-card-heading">
-        <strong class="quote-card-title">${showCompany ? e(lead?.company || q.client?.company || 'Empresa eliminada') + ' · ' : ''}${e(q.number || 'Sin número')} · v${q.version}</strong>
-        ${quoteStatusBadge(q.status)}
+/** Cada opción es una cotización independiente; su historial mantiene el número. */
+function quoteOptionRow(q, index) {
+  const versions = versionsOf(q.rootId || q.id);
+  const name = quotePlanLabel(q) || (q.alternativeOfRootId ? 'Propuesta alternativa' : 'Propuesta original');
+  const monthly = q.totals?.monthly?.total == null ? 'Monto por confirmar'
+    : fmtCurrency(q.totals.monthly.total, q.currency) + ' / mes · IVA incluido';
+  return `<article class="quote-group-option" data-quote-id="${e(q.id)}">
+    <div class="quote-option-top">
+      <div class="quote-option-title-group">
+        <strong>Opción ${index + 1} · ${e(name)}</strong>
+        <span>${e(q.number || 'Sin número')} · versión vigente v${e(q.version)} ${quoteStatusBadge(q.status)}</span>
       </div>
-      <div class="quote-card-context">
-        ${planName ? `<span class="quote-plan-tag">${e(planName)}</span>` : ''}
-        ${original ? `<button type="button" class="quote-alt-tag quote-alt-link" data-action="view-quote" data-id="${e(original.id)}" title="Abrir cotización original">Alternativa de ${e(original.number)}</button>` : ''}
-        ${familyCount > 1 ? `<button type="button" class="quote-family-link" data-action="quote-family" data-id="${e(q.id)}" title="Ver las propuestas comerciales vinculadas">Ver las ${familyCount} opciones</button>` : ''}
-        ${!q.leadId ? '<span class="muted">Sin ficha en el CRM</span>' : ''}
-        ${versions.length > 1 ? `<span class="muted">${versions.length} versiones</span>` : ''}
-      </div>
-      <div class="muted quote-card-meta">${e(q.sellerName || q.owner || 'Sin vendedor')} · ${e(fmtDateTime(q.updatedAt))}</div>
-    </div>
-    <div class="list-side quote-card-side">
-      <div class="quote-card-financial">
-        <strong class="quote-card-monthly"><span class="quote-amount">${fmtCurrency(q.totals?.monthly?.[q.absorbIva ? 'total' : 'net'], q.currency)}</span><span class="quote-card-tax"> / mes${q.absorbIva ? '' : ' + IVA'}</span></strong>
-        <span class="muted quote-card-contract">Contrato ${q.contractMonths} meses · ${fmtCurrency(q.total, q.currency)}${q.absorbIva ? '' : ' IVA incluido'}</span>
-      </div>
-      <div class="actions quote-card-actions">
-        <button class="small-btn" data-action="view-quote" data-id="${q.id}">Ver</button>
-        <button class="small-btn" data-action="edit-quote" data-id="${q.id}">Editar</button>
-        <button class="small-btn" data-action="send-quote" data-id="${q.id}">Preparar correo</button>
-        ${isAdmin() || q.ownerId === session.user?.id ? `<button class="small-btn danger" data-action="delete-quote" data-id="${q.id}">Eliminar</button>` : ''}
+      <div class="quote-option-price">
+        <strong>${e(monthly)}</strong>
+        <span>Contrato ${e(q.contractMonths)} meses · ${fmtCurrency(q.total, q.currency)} IVA incluido</span>
       </div>
     </div>
-  </div>`;
+    <div class="quote-option-meta">${e(q.sellerName || q.owner || 'Sin vendedor')} · actualizada ${e(fmtDateTime(q.updatedAt))}</div>
+    <div class="actions quote-option-actions">
+      <button type="button" class="small-btn" data-action="view-quote" data-id="${e(q.id)}">Ver cotización</button>
+      <button type="button" class="small-btn" data-action="edit-quote" data-id="${e(q.id)}">Editar (nueva versión)</button>
+      <button type="button" class="small-btn" data-action="send-quote" data-id="${e(q.id)}">Preparar correo</button>
+      ${isAdmin() || q.ownerId === session.user?.id ? `<button type="button" class="small-btn danger" data-action="delete-quote" data-id="${e(q.id)}">Eliminar</button>` : ''}
+    </div>
+    ${versions.length > 1 ? `<details class="quote-option-history">
+      <summary>Historial de versiones (${versions.length})</summary>
+      <div class="quote-option-history-list">
+        ${versions.map((v) => `<div class="quote-option-version">
+          <span><strong>v${e(v.version)}</strong> ${v.isCurrent ? '<span class="badge success">Vigente</span>' : '<span class="muted">Anterior</span>'}</span>
+          <span class="muted">${e(fmtDateTime(v.updatedAt))}</span>
+          <button type="button" class="small-btn" data-action="view-quote" data-id="${e(v.id)}">Ver</button>
+        </div>`).join('')}
+      </div>
+    </details>` : '<span class="quote-option-no-history">Sin versiones anteriores</span>'}
+  </article>`;
 }
 
-/** Selector de alternativas ya guardadas, visible al abrir cualquiera de sus propuestas. */
-export function quoteFamilyHtml(quote) {
-  const family = quoteFamilyOf(quote);
-  if (family.length < 2) return '';
-  const selectedRoot = quote.rootId || quote.id;
-  return `<section class="quote-family-panel" aria-label="Opciones comerciales de esta cotización">
-    <div class="quote-family-heading">
-      <strong>Opciones comerciales (${family.length})</strong>
-      <span>Selecciona una para ver su cotización. Las opciones ya existen y conservan su número e historial.</span>
-    </div>
-    <div class="quote-family-options">${family.map((option) => {
-      const selected = (option.rootId || option.id) === selectedRoot;
-      const name = quotePlanLabel(option) || (option.alternativeOfRootId ? 'Alternativa' : 'Propuesta original');
-      return `<button type="button" class="quote-family-choice ${selected ? 'is-selected' : ''}"
-          data-action="view-quote" data-id="${e(option.id)}"
-          aria-current="${selected ? 'true' : 'false'}">
-        <span class="quote-family-choice-title">${e(name)}</span>
-        <span class="quote-family-choice-number">${e(option.number || 'Sin número')} · v${e(option.version)}</span>
-        <strong>${e(fmtCurrency(option.totals?.monthly?.[option.absorbIva ? 'total' : 'net'], option.currency))} / mes${option.absorbIva ? '' : ' + IVA'}</strong>
-        <span class="quote-family-choice-foot">${selected ? 'Opción que estás viendo' : 'Ver esta opción'} ${e(QUOTE_STATUS_LABEL[option.status] || option.status || '')}</span>
-      </button>`;
-    }).join('')}</div>
-  </section>`;
+/** Ficha única y expandible para cada familia de opciones relacionadas. */
+function quoteGroupCard(group) {
+  const choices = group.options;
+  const first = choices.find((q) => !q.alternativeOfRootId) || choices[0];
+  const lead = getLead(first.leadId);
+  const company = lead?.company || first.client?.company || 'Cliente sin nombre';
+  const count = choices.length;
+  const versionCount = choices.reduce((sum, q) => sum + versionsOf(q.rootId || q.id).length, 0);
+  const versionLabel = versionCount === 1 ? '1 versión' : `${versionCount} versiones`;
+  return `<details class="quote-group-card" data-quote-group="${e(group.key)}">
+    <summary class="quote-group-summary">
+      <span class="quote-group-header">
+        <strong class="quote-group-company">${e(company)}</strong>
+        <span class="quote-group-count">${count} ${count === 1 ? 'opción comercial' : 'opciones comerciales'} · ${versionLabel}</span>
+        ${!first.leadId ? '<span class="quote-group-unlinked">Sin ficha en el CRM</span>' : ''}
+      </span>
+      <span class="quote-group-disclose"><span>${count === 1 ? 'Ver propuesta' : 'Ver opciones'}</span><span class="quote-group-chevron" aria-hidden="true">⌄</span></span>
+    </summary>
+    <div class="quote-group-options">${choices.map((q, index) => quoteOptionRow(q, index)).join('')}</div>
+  </details>`;
 }
 
 export function renderQuotesSection(leadId) {
-  const rows = quotesOf(leadId).filter((q) => q.isCurrent);
-  return rows.length
-    ? `<div class="list">${rows.map((q) => quoteRow(q)).join('')}</div>`
+  const groups = quoteGroupsOf(quotesOf(leadId));
+  return groups.length
+    ? `<div class="list quote-group-list">${groups.map((group) => quoteGroupCard(group)).join('')}</div>`
     : '<p class="muted">Sin cotizaciones para esta empresa.</p>';
 }
 
@@ -1405,15 +1400,9 @@ function renderPriceLists(ui) {
 }
 
 function renderQuotesList(ui) {
-  const rows = quoteState.quotes.filter((q) => q.isCurrent);
   const status = ui.quoteFilters?.status || '';
-  const filtered = status ? rows.filter((q) => q.status === status) : rows;
-  // Los totales se suman por moneda: UF, CLP y USD no se mezclan.
-  const sums = {};
-  filtered.forEach((q) => (sums[q.currency] = (sums[q.currency] || 0) + q.total));
-  const totalLabel = Object.entries(sums)
-    .map(([cur, v]) => fmtCurrency(v, cur))
-    .join(' + ');
+  const groups = quoteGroupsOf(quoteState.quotes, { status });
+  const optionsCount = groups.reduce((sum, group) => sum + group.options.length, 0);
   return `
     <div class="card">
       <div class="card-head">
@@ -1424,19 +1413,16 @@ function renderQuotesList(ui) {
         <div class="toolbar">
           <select id="quoteStatus">
             <option value="">Todos los estados</option>
-            ${QUOTE_STATUSES.map((s) => `<option value="${s.id}" ${status === s.id ? 'selected' : ''}>${e(s.label)}</option>`).join('')}
+            ${QUOTE_STATUSES.map((item) => `<option value="${item.id}" ${status === item.id ? 'selected' : ''}>${e(item.label)}</option>`).join('')}
           </select>
-          <span class="toolbar-summary">${filtered.length}${totalLabel ? ` · ${totalLabel} (total contratos)` : ''}</span>
+          <span class="toolbar-summary">${groups.length} ${groups.length === 1 ? 'grupo' : 'grupos'} · ${optionsCount} ${optionsCount === 1 ? 'opción vigente' : 'opciones vigentes'}</span>
         </div>
-        ${
-          filtered.length
-            ? `<div class="list">${filtered.map((q) => quoteRow(q, { showCompany: true })).join('')}</div>`
-            : empty('Sin cotizaciones', 'Crea la primera con "Nueva cotización" o desde la ficha de una empresa.')
-        }
+        ${groups.length
+          ? `<div class="list quote-group-list">${groups.map((group) => quoteGroupCard(group)).join('')}</div>`
+          : empty('Sin cotizaciones', 'Crea la primera con "Nueva cotización" o desde la ficha de una empresa.')}
       </div>
     </div>`;
 }
-
 
 // Cotizador comercial V2: vista independiente, solo lectura del catálogo vigente.
 const commercialName = clientServiceName;

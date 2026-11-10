@@ -8020,6 +8020,181 @@ html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
 }
 
 
+/* Cotizaciones: una ficha por grupo, opciones y versiones por nivel.
+   El documento PDF/Word no utiliza estas reglas. */
+#viewRoot .quote-group-list { gap: 10px; }
+#viewRoot .quote-group-card {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 2px 10px rgba(24,57,94,.055);
+}
+#viewRoot .quote-group-summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 13px 16px;
+  cursor: pointer;
+}
+#viewRoot .quote-group-summary::-webkit-details-marker { display: none; }
+#viewRoot .quote-group-summary:focus-visible,
+#viewRoot .quote-option-history > summary:focus-visible,
+#quoteViewBody .quote-view-history > summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -3px;
+  border-radius: 7px;
+}
+#viewRoot .quote-group-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+#viewRoot .quote-group-company {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+#viewRoot .quote-group-count {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+}
+#viewRoot .quote-group-unlinked { font-size: 10px; color: var(--muted); }
+#viewRoot .quote-group-disclose {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--border));
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: color-mix(in srgb, var(--blue) 6%, var(--panel));
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 750;
+}
+#viewRoot .quote-group-chevron { display: inline-block; font-size: 16px; transition: transform .15s ease; }
+#viewRoot .quote-group-card[open] .quote-group-chevron { transform: rotate(180deg); }
+#viewRoot .quote-group-options {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--blue) 3%, var(--panel));
+}
+#viewRoot .quote-group-option {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+#viewRoot .quote-option-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px 22px;
+  min-width: 0;
+}
+#viewRoot .quote-option-title-group { display: grid; gap: 5px; min-width: 0; }
+#viewRoot .quote-option-title-group > strong { font-size: 13px; line-height: 1.3; color: var(--text); }
+#viewRoot .quote-option-title-group > span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+#viewRoot .quote-option-price {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  min-width: 0;
+}
+#viewRoot .quote-option-price > strong { font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+#viewRoot .quote-option-price > span { font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
+#viewRoot .quote-option-meta,
+#viewRoot .quote-option-no-history { color: var(--muted); font-size: 10px; line-height: 1.4; }
+#viewRoot .quote-option-actions.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: 100%;
+}
+#viewRoot .quote-option-actions > button { font-size: 11px; min-height: 32px; }
+#viewRoot .quote-option-history {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+#viewRoot .quote-option-history > summary,
+#quoteViewBody .quote-view-history > summary {
+  cursor: pointer;
+  width: fit-content;
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--blue);
+  padding: 4px 0;
+}
+#viewRoot .quote-option-history-list { display: grid; gap: 6px; margin-top: 8px; }
+#viewRoot .quote-option-version {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1.5fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 11px;
+}
+#viewRoot .quote-option-version > span:first-child { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+#quoteViewBody .quote-view-history {
+  margin: 16px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+@media (max-width: 760px) {
+  #viewRoot .quote-group-summary { min-height: 61px; padding: 11px 12px; }
+  #viewRoot .quote-group-count { font-size: 11px; }
+  #viewRoot .quote-group-disclose { font-size: 10px; padding: 7px; }
+  #viewRoot .quote-group-options { padding: 9px; }
+  #viewRoot .quote-group-option { padding: 11px; }
+  #viewRoot .quote-option-top { flex-direction: column; gap: 8px; }
+  #viewRoot .quote-option-price { text-align: left; width: 100%; }
+  html[data-crm-view="quotes"] #viewRoot .quote-option-actions.actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+  }
+  html[data-crm-view="quotes"] #viewRoot .quote-option-actions.actions > button {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-height: 40px;
+  }
+  #viewRoot .quote-option-version { grid-template-columns: minmax(0,1fr) auto; }
+  #viewRoot .quote-option-version > span:nth-child(2) { grid-column: 1; }
+  #viewRoot .quote-option-version > button { grid-column: 2; grid-row: 1 / 3; }
+}
+
 /* Enlaces para opciones comerciales existentes; las etiquetas pasan a ser navegables. */
 .quote-alt-link,
 .quote-family-link {
