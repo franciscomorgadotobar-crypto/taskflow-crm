@@ -263,10 +263,10 @@ try {
         optionalEmail.includes('NO incluidos en el total del contrato') &&
         optionalEmail.includes('2,38') && !optionalEmail.includes('TF_OPTIONALS');
 
-      // Alternativas comerciales: una propuesta original y su alternativa, con
-      // una versión anterior que NO se cuenta como tercera opción.
-      const { quoteFamilyOf, state: quoteSnapshot } = await import('./js/quotes.js');
-      const { quoteFamilyHtml, renderQuotesSection } = await import('./js/views.js');
+      // Dos opciones con una versión histórica: una ficha, no tarjetas
+      // duplicadas ni un segundo selector de opciones dentro del documento.
+      const { quoteFamilyOf, quoteGroupsOf, state: quoteSnapshot } = await import('./js/quotes.js');
+      const { renderQuotesSection, renderQuotes } = await import('./js/views.js');
       const savedQuotes = quoteSnapshot.quotes;
       const original = {
         id: 'original-2', rootId: 'original-1', number: 'P-202611-0002', version: 2,
@@ -281,30 +281,43 @@ try {
       const alternative = {
         ...original, id: 'alternative-1', rootId: 'alternative-1',
         number: 'P-202611-0003', version: 1,
-        alternativeOfRootId: 'original-1',
+        alternativeOfRootId: 'original-1', status: 'enviada',
         items: [{ code: 'INV_BASICO', name: 'Inventario Plan Básico' }],
         totals: { monthly: { net: 8, total: 9.52 } }
       };
       const previous = { ...original, id: 'original-1', version: 1, isCurrent: false };
+      const standalone = {
+        ...original, id: 'unrelated-1', rootId: 'unrelated-1', number: 'P-202611-0010',
+        version: 1, alternativeOfRootId: '', items: [], status: 'rechazada'
+      };
       let existingAlternativesCorrect = false;
       try {
-        quoteSnapshot.quotes = [previous, original, alternative];
+        quoteSnapshot.quotes = [previous, original, alternative, standalone];
         const linked = quoteFamilyOf(original);
-        const listHtml = renderQuotesSection('fixture-lead');
-        const chooser = quoteFamilyHtml(alternative);
-        const parsedChooser = new DOMParser().parseFromString(chooser, 'text/html');
-        const choiceButtons = parsedChooser.querySelectorAll('[data-action="view-quote"]');
+        const families = quoteGroupsOf();
+        const filtered = quoteGroupsOf(quoteSnapshot.quotes, { status: 'enviada' });
+        const list = new DOMParser().parseFromString(renderQuotesSection('fixture-lead'), 'text/html');
+        const general = new DOMParser().parseFromString(
+          renderQuotes({ quotesView: 'list', quoteFilters: { status: '' } }), 'text/html');
+        const group = [...list.querySelectorAll('.quote-group-card')]
+          .find((node) => node.dataset.quoteGroup === 'original-1');
+        const optionRows = group?.querySelectorAll('.quote-group-option') || [];
+        const history = group?.querySelector('.quote-option-history');
         existingAlternativesCorrect =
-          linked.length === 2 &&
-          linked[0].id === original.id &&
-          linked[1].id === alternative.id &&
-          listHtml.includes('data-action="quote-family"') &&
-          listHtml.includes('Ver las 2 opciones') &&
-          listHtml.includes('data-id="original-2"') &&
-          choiceButtons.length === 2 &&
-          parsedChooser.querySelectorAll('.quote-family-choice.is-selected').length === 1 &&
-          chooser.includes('Plan Full') && chooser.includes('Plan Básico') &&
-          !chooser.includes('original-1"');
+          linked.length === 2 && linked[0].id === original.id && linked[1].id === alternative.id &&
+          families.length === 2 && filtered.length === 1 && filtered[0].options.length === 2 &&
+          list.querySelectorAll('.quote-group-card').length === 2 &&
+          general.querySelectorAll('.quote-group-card').length === 2 &&
+          list.querySelectorAll('.quote-list-card').length === 0 &&
+          optionRows.length === 2 &&
+          group.querySelector('summary').textContent.includes('2 opciones comerciales') &&
+          group.querySelector('summary').textContent.includes('3 versiones') &&
+          history?.querySelectorAll('.quote-option-version').length === 2 &&
+          history.querySelector('[data-action="view-quote"][data-id="original-1"]') !== null &&
+          group.querySelector('.quote-group-options [data-quote-id="alternative-1"]') !== null &&
+          list.querySelectorAll('[data-action="quote-family"]').length === 0 &&
+          group.textContent.includes('Plan Full') && group.textContent.includes('Plan Básico') &&
+          group.textContent.includes('IVA incluido');
       } finally {
         quoteSnapshot.quotes = savedQuotes;
       }
