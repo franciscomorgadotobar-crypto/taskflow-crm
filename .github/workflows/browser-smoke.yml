@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master]
+    branches: [master, feat/quote-grouped-commercial-proposals-20261110]
   workflow_dispatch:
 
 permissions:
