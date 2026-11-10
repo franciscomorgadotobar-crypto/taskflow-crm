@@ -83,7 +83,8 @@ import {
   stopRealtime as quotesStopRealtime,
   updatePriceList,
   uploadPriceListLogo,
-  versionsOf
+  versionsOf,
+  quoteFamilyOf
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
 import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
@@ -130,7 +131,6 @@ import {
   quoteDiscountsHtml,
   quoteDocFromSaved,
   quoteDocHtml,
-  quoteFamilyHtml,
   quoteLinesHtml,
   quoteOptionalLinesHtml,
   renderDashboard,
@@ -2226,19 +2226,21 @@ function openQuoteView(id) {
   const versions = versionsOf(q.rootId);
   const source = q.alternativeOfRootId ? getQuote(q.alternativeOfRootId) : null;
   if (source) $('quoteViewSubtitle').textContent += ` · Alternativa de ${source.number}`;
+  // El selector de opciones vive exclusivamente en la ficha agrupada del
+  // listado. Aquí se presenta UNA cotización, sin duplicar las alternativas.
   $('quoteViewBody').innerHTML = `
-    ${quoteFamilyHtml(q)}
     ${quoteDocHtml(quoteDocFromSaved(q))}
-    ${
-      versions.length > 1
-        ? `<h4 class="settings-subtitle">Versiones</h4><div class="list">${versions
-            .map(
-              (v) =>
-                `<div class="list-item"><div>Versión ${v.version} ${v.isCurrent ? '<span class="badge success">Vigente</span>' : ''}</div><div class="list-side"><span class="muted">${fmtDateTime(v.updatedAt)}</span> <button class="small-btn" data-action="view-quote" data-id="${v.id}">Ver</button></div></div>`
-            )
-            .join('')}</div>`
-        : ''
-    }`;
+    ${versions.length > 1
+      ? `<details class="quote-view-history"><summary>Historial de esta opción (${versions.length} versiones)</summary>
+          <div class="list">${versions.map((v) => `
+            <div class="list-item">
+              <span>Versión ${v.version} ${v.isCurrent ? '<span class="badge success">Vigente</span>' : ''}</span>
+              <span class="list-side"><span class="muted">${fmtDateTime(v.updatedAt)}</span>
+                <button type="button" class="small-btn" data-action="view-quote" data-id="${escapeHtml(v.id)}">Ver</button>
+              </span>
+            </div>`).join('')}</div>
+        </details>`
+      : ''}`;
   $('quoteViewEditBtn').dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
   // Compatibilidad PWA: el HTML en caché puede ser anterior al botón nuevo.
   let altBtn = $('quoteViewAlternativeBtn');
@@ -2252,7 +2254,7 @@ function openQuoteView(id) {
     $('quoteViewEditBtn').insertAdjacentElement('afterend', altBtn);
   }
   altBtn.dataset.id = versions.find((v) => v.isCurrent)?.id || q.id;
-  altBtn.textContent = quoteFamilyHtml(q) ? 'Crear otra alternativa' : 'Crear alternativa';
+  altBtn.textContent = quoteFamilyOf(q).length > 1 ? 'Crear otra alternativa' : 'Crear alternativa';
   altBtn.hidden = isReadOnly();
   $('quoteViewSendBtn').dataset.id = q.id;
   $('quoteViewPdfBtn').dataset.id = q.id;
