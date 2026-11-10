@@ -551,8 +551,9 @@ try {
         // La misma empresa puede tener dos propuestas vigentes a la vez.
         quoteState.quotes = [quote, alternate];
         view.innerHTML = renderQuotes({ quotesView: 'list', quoteFilters: { status: '' } });
-        const card = view.querySelector('.quote-list-card');
-        const actions = [...card.querySelectorAll('.quote-card-actions button')];
+        const card = view.querySelector('.quote-group-card');
+        card.open = true;
+        const actions = [...card.querySelectorAll('.quote-option-actions button')];
         const within = (child, parent) => {
           const a = child.getBoundingClientRect();
           const b = parent.getBoundingClientRect();
@@ -561,15 +562,15 @@ try {
         const list = {
           fullWidth: card.scrollWidth <= card.clientWidth + 2,
           buttonsVisible: actions.length >= 3 && actions.every((button) => within(button, card)),
-          gridActions: getComputedStyle(card.querySelector('.quote-card-actions')).display === 'grid',
-          amountFull: card.querySelector('.quote-card-monthly')?.textContent.includes('UF 30,70'),
-          titleReadable: card.querySelector('.quote-card-title')?.getBoundingClientRect().width > 120,
-          alternativesCoexist: view.querySelectorAll('.quote-list-card').length === 2 &&
+          gridActions: getComputedStyle(card.querySelector('.quote-option-actions')).display === 'grid',
+          amountFull: card.querySelector('.quote-option-price')?.textContent.includes('UF 36,53'),
+          titleReadable: card.querySelector('.quote-group-company')?.getBoundingClientRect().width > 120,
+          alternativesCoexist: view.querySelectorAll('.quote-group-card').length === 1 &&
+            view.querySelectorAll('.quote-group-option').length === 2 &&
             view.textContent.includes('Plan Full') &&
             view.textContent.includes('Plan Entrada') &&
-            view.textContent.includes('Alternativa de P-202611-0002') &&
-            view.textContent.includes('Ver las 2 opciones') &&
-            view.querySelectorAll('[data-action="quote-family"]').length === 2 &&
+            card.querySelector('summary').textContent.includes('2 opciones comerciales') &&
+            view.querySelectorAll('[data-action="quote-family"]').length === 0 &&
             view.querySelector('[data-action="view-quote"][data-id="test-quote"]') !== null
         };
 
