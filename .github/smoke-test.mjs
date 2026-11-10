@@ -286,13 +286,19 @@ try {
         totals: { monthly: { net: 8, total: 9.52 } }
       };
       const previous = { ...original, id: 'original-1', version: 1, isCurrent: false };
+      const third = {
+        ...alternative, id: 'third-3', rootId: 'third-1',
+        number: 'P-202611-0004', version: 3, status: 'borrador'
+      };
+      const thirdV2 = { ...third, id: 'third-2', version: 2, isCurrent: false };
+      const thirdV1 = { ...third, id: 'third-1', version: 1, isCurrent: false };
       const standalone = {
         ...original, id: 'unrelated-1', rootId: 'unrelated-1', number: 'P-202611-0010',
         version: 1, alternativeOfRootId: '', items: [], status: 'rechazada'
       };
       let existingAlternativesCorrect = false;
       try {
-        quoteSnapshot.quotes = [previous, original, alternative, standalone];
+        quoteSnapshot.quotes = [previous, original, alternative, thirdV1, thirdV2, third, standalone];
         const linked = quoteFamilyOf(original);
         const families = quoteGroupsOf();
         const filtered = quoteGroupsOf(quoteSnapshot.quotes, { status: 'enviada' });
@@ -304,17 +310,21 @@ try {
         const optionRows = group?.querySelectorAll('.quote-group-option') || [];
         const history = group?.querySelector('.quote-option-history');
         existingAlternativesCorrect =
-          linked.length === 2 && linked[0].id === original.id && linked[1].id === alternative.id &&
-          families.length === 2 && filtered.length === 1 && filtered[0].options.length === 2 &&
+          linked.length === 3 && linked[0].id === original.id &&
+          linked[1].id === alternative.id && linked[2].id === third.id &&
+          families.length === 2 && filtered.length === 1 && filtered[0].options.length === 3 &&
           list.querySelectorAll('.quote-group-card').length === 2 &&
           general.querySelectorAll('.quote-group-card').length === 2 &&
           list.querySelectorAll('.quote-list-card').length === 0 &&
-          optionRows.length === 2 &&
-          group.querySelector('summary').textContent.includes('2 opciones comerciales') &&
-          group.querySelector('summary').textContent.includes('3 versiones') &&
+          optionRows.length === 3 &&
+          group.querySelector('summary').textContent.includes('3 opciones comerciales') &&
+          group.querySelector('summary').textContent.includes('6 versiones') &&
+          group.querySelectorAll('.quote-option-history').length === 2 &&
           history?.querySelectorAll('.quote-option-version').length === 2 &&
+          group.querySelectorAll('.quote-option-version').length === 5 &&
           history.querySelector('[data-action="view-quote"][data-id="original-1"]') !== null &&
           group.querySelector('.quote-group-options [data-quote-id="alternative-1"]') !== null &&
+          group.querySelector('.quote-group-options [data-quote-id="third-3"]') !== null &&
           list.querySelectorAll('[data-action="quote-family"]').length === 0 &&
           group.textContent.includes('Plan Full') && group.textContent.includes('Plan Básico') &&
           group.textContent.includes('IVA incluido');
