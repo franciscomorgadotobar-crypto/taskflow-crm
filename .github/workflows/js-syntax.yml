@@ -33,6 +33,8 @@ jobs:
         run: node .github/quote-rates.test.mjs
       - name: Probar complementos opcionales del cotizador
         run: node .github/quote-optionals.test.mjs
+      - name: Probar movimientos directos del embudo
+        run: node .github/kanban-drop.test.mjs
       - name: Probar plantilla comercial de correo para cotizaciones
         run: node .github/quote-email.test.mjs
       - name: Validar comparación de precios y descuentos comerciales
