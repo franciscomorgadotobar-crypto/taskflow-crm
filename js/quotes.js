@@ -629,7 +629,7 @@ export function buildQuoteEmail(quote, lead) {
     const list = nQuote(monthly.subtotal) > 0
       ? ', en lugar de ' + money(monthly.subtotal) + (absorbed ? ' IVA incluido' : ' netos + IVA')
       : '';
-    body.push('Con esto, el valor mensual queda en ' + final +
+    body.push((discounts.length ? 'Con esto, el valor mensual queda en ' : 'El valor mensual de la propuesta es de ') + final +
       (stable ? ', fijo durante todo el contrato' : '') + list + '.');
   }
   if (setupItems.length && !nQuote(setup.discount) && nQuote(setup.total) > 0)
