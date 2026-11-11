@@ -1238,7 +1238,9 @@ function bindKanbanDrag() {
       const lead = getLead(draggedId);
       if (!lead || lead.stage === target) return;
       if (!canEditLeadLocally(lead)) return toast('Solo puedes mover oportunidades asignadas a ti.', 'error');
-      if (target === 'Perdido') return openStage(lead.id);
+      // Soltar una tarjeta confirma el cambio de etapa, incluido «Perdido».
+      // El diálogo permanece para la acción explícita «Mover» (botón).
+
       if (await setStage(lead.id, target)) toast(`${lead.company} → ${target}`);
     });
   });
