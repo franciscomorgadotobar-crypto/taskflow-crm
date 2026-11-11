@@ -2,7 +2,7 @@ name: CRM Browser Smoke Test
 
 on:
   push:
-    branches: [master, feat/quote-email-sales-template-20261111]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
