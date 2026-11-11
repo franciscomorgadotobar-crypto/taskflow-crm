@@ -614,7 +614,7 @@ export function buildQuoteEmail(quote, lead) {
       (fully ? (configuration ? ' quedan sin costo' : ' queda sin costo') : ' tienen un precio reducido') + base);
   }
   if (nQuote(monthly.discount) > 0 && nQuote(monthly.subtotal) > 0) {
-    discounts.push(pctQuote(monthly.discount ? monthly : { subtotal: 0, discount: 0 }) +
+    discounts.push(pctQuote(monthly) +
       ' de descuento en los servicios mensuales' +
       (stable ? ' durante los ' + months + ' meses del contrato' : ' en la mensualidad presentada') + '.');
   }
