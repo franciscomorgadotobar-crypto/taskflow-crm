@@ -260,7 +260,7 @@ try {
         optionalHtml.indexOf('qd-optionals-section') < optionalHtml.indexOf('qd-projection-summary') &&
         optionalHtml.includes('Valor total del contrato') &&
         optionalHtml.includes('238,00') &&
-        optionalEmail.includes('NO incluidos en el total del contrato') &&
+        optionalEmail.includes('Si más adelante necesitan mayor capacidad') &&
         optionalEmail.includes('2,38') && !optionalEmail.includes('TF_OPTIONALS');
 
       // Dos opciones con una versión histórica: una ficha, no tarjetas
@@ -336,6 +336,62 @@ try {
         ...base, absorbIva: true, items: base.lines,
         total: 238, subtotalNeto: 238, iva: 0
       }, null).body;
+      // Caso comercial: Incosec Plan Básico, 100% implementación,
+      // 60% mensual por 12 meses y capacidad exacta desde el catálogo.
+      const incosec = {
+        ...base, currency: 'UF', number: 'P-202611-0003', version: 3,
+        absorbIva: false, contractMonths: 12, total: 105.67,
+        client: { company: 'Soc Incosec Ltda.', contact: 'David Yáñez' },
+        items: [
+          { code: 'CFG_ADV', periodicity: 'unico', quantity: 4, unitPrice: 2, subtotal: 8, discount: 8, total: 0 },
+          { code: 'GE_BASE', periodicity: 'mensual', quantity: 1, unitPrice: .7, subtotal: .7, discount: .42, total: .28 },
+          { code: 'GE_APP', periodicity: 'mensual', quantity: 20, unitPrice: .75, subtotal: 15, discount: 9, total: 6 },
+          { code: 'INV_BASICO', periodicity: 'mensual', quantity: 1, unitPrice: 2.8, subtotal: 2.8, discount: 1.68, total: 1.12 }
+        ],
+        totals: {
+          setup: { subtotal: 8, discount: 8, net: 0, iva: 0, total: 0 },
+          monthly: { subtotal: 18.5, discount: 11.1, net: 7.4, iva: 1.41, total: 8.81 },
+          projection: Array.from({length:12},(_,i)=>({month:i+1,total:8.81})),
+          contract: { net: 88.8, iva: 16.87, total: 105.67 }
+        },
+        commercialInfo: ['Implementación guiada por 1 mes', 'Soporte', 'Marketing conjunto (opcional)'],
+        optionalItems: [{ name: 'Packs de ítems de inventario 500', unitPrice: .35,
+          total: .4165, quantity: 1, periodicity: 'mensual', includesIva: false }],
+        notes: ''
+      };
+      const mail = buildQuoteEmail(incosec, null);
+      const variable = buildQuoteEmail({
+        ...incosec,
+        totals: {...incosec.totals, projection: incosec.totals.projection.map((m,i) =>
+          i ? {...m,total:12.54} : m)}
+      }, null).body;
+      const noDiscount = buildQuoteEmail({
+        ...incosec, version:1,
+        totals:{...incosec.totals,
+          setup:{subtotal:0,discount:0,net:0,total:0},
+          monthly:{subtotal:18.5,discount:0,net:18.5,iva:3.52,total:22.02}}
+      }, null).body;
+      const commercialEmailQuality =
+        mail.subject.includes('P-202611-0003 v3') &&
+        mail.body.includes('Estimado David:') &&
+        mail.body.includes('cotización ajustada') &&
+        mail.body.includes('Plan Básico de Inventario') &&
+        mail.body.includes('100% de descuento') &&
+        mail.body.includes('60% de descuento') &&
+        mail.body.includes('durante los 12 meses del contrato') &&
+        mail.body.includes('UF 7,40 netos + IVA (UF 8,81 IVA incluido)') &&
+        mail.body.includes('UF 18,50 netos + IVA') &&
+        mail.body.includes('UF 105,67 IVA incluido') &&
+        mail.body.includes('20 usuarios App') &&
+        mail.body.includes('Hasta 500 ítems de inventario') &&
+        mail.body.includes('250 equipos seriados') &&
+        mail.body.includes('UF 0,35 + IVA') &&
+        mail.body.includes('500 ítems') &&
+        !mail.body.includes('Servicio ·') &&
+        !variable.includes('durante los 12 meses del contrato') &&
+        !variable.includes('fijo durante todo el contrato') &&
+        noDiscount.includes('El valor mensual de la propuesta es de') &&
+        !noDiscount.includes('siguientes descuentos');
       return {
         checkboxPresent: Boolean(document.getElementById('quoteAbsorbIva')),
         optionalSelectorPresent: Boolean(document.getElementById('quoteOptionalService')) && Boolean(document.getElementById('quoteOptionalQty')),
@@ -349,6 +405,7 @@ try {
         normalHasIva: /\bIVA\b/i.test(normal),
         absorbedHasFinalTotal: absorbed.includes('238,00'),
         projectionUsesFinalPrice: monthlyWithIva.includes('Proyección de valores mensuales') && monthlyWithIva.includes('Proyección de valores mensuales <span class="qd-muted">(IVA incluido)') && monthlyWithIva.includes('<span>Mes 1</span><strong>36,53</strong>') && !monthlyWithIva.includes('<span>Mes 1</span><strong>30,70</strong>'),
+        commercialEmailQuality,
         absorbedEmailHasIva: /IVA incluido/i.test(email),
         absorbedEmailHasFinalTotal: email.includes('238,00'),
         fullCapacityIncluded: full.includes('Ítems de inventario ilimitados desde 10.000') && full.includes('Hasta 20.000 equipos seriados') && full.includes('Qué incluye cada solución contratada'),
@@ -398,7 +455,7 @@ try {
     });
     if (!rendered.checkboxPresent || !rendered.optionalSelectorPresent || !rendered.optionalOK || !rendered.shortCommercialCopy || !rendered.existingAlternativesCorrect || !rendered.packInfoOK || !rendered.hideByDefault || !rendered.absorbedHasIva ||
         !rendered.normalHasIva || !rendered.absorbedHasFinalTotal || !rendered.projectionUsesFinalPrice ||
-        !rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
+        !rendered.commercialEmailQuality || !rendered.absorbedEmailHasIva || !rendered.absorbedEmailHasFinalTotal ||
         !rendered.fullCapacityIncluded || !rendered.commercialLanguage || !rendered.noInvestmentTerminology || !rendered.oldQuoteHasScope ||
         !rendered.oldQuoteNoInternalStatus || !rendered.benefitsBelowScope ||
         !rendered.pricesNotSplit || !rendered.financialHeading || !rendered.commercialDiscountClarity || !rendered.wordButtonsPresent || !rendered.taxAndMonthlyLabels || !rendered.projectionAndTotalTogether || !rendered.discountMonthsHidden) {

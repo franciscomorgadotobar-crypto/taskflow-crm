@@ -2,6 +2,7 @@ import { supabase } from './supabase.js';
 import { fmtAmount, fmtCurrency, fmtDate, fmtNumber, nowISO, toast } from './utils.js';
 import { clientServiceName, clientServiceScope } from './quote-client-copy.js';
 import { optionalItemSnapshot, readOptionalQuoteData } from './quote-optionals.js';
+import { quoteDiscountPercent } from './quote-commercial-pricing.js';
 
 /**
  * Cotizador. Vive separado de store.js por prolijidad: `state` en memoria y
@@ -512,46 +513,147 @@ export async function deleteQuote(id) {
   return false;
 }
 
-/* ---------- Correo de cotización ---------- */
+/* ---------- Correo de cotización: propuesta comercial ejecutiva ---------- */
+const quoteFirstName = (name) => String(name || '').trim().split(/\s+/)[0] || '';
+const nQuote = (value) => Number(value) || 0;
+const sumQuote = (items, prop) => items.reduce((acc, item) => acc + nQuote(item[prop]), 0);
+const pctQuote = (totals) => quoteDiscountPercent(100 * nQuote(totals.discount) / (nQuote(totals.subtotal) || 1));
+const trimQuoteText = (value) => String(value || '').trim().replace(/[.;]+$/, '');
+const planQuoteName = (item) => clientServiceName(item).replace(/^Inventario\s*[-–]\s*/i, '');
 
-const firstName = (full) => String(full || '').trim().split(/\s+/)[0] || '';
+function quoteProjectionStable(totals, months) {
+  const projection = totals?.projection;
+  return months > 0 && Array.isArray(projection) && projection.length >= months &&
+    projection.slice(0, months).every((row) =>
+      Math.abs(nQuote(row.total) - nQuote(totals.monthly?.total)) < 0.015);
+}
 
-/** Cuerpo y asunto por defecto: se muestran en un editor antes de enviar, así que son solo el punto de partida. */
+function quoteScopeBullets(items) {
+  const bullets = [];
+  const web = items.find((item) => item.code === 'GE_BASE');
+  const app = items.find((item) => item.code === 'GE_APP');
+  if (web || app) {
+    const parts = [];
+    if (web) parts.push('Plan Base (plataforma administrativa)');
+    if (app) parts.push(fmtNumber(app.quantity) + ' usuarios App para personal en terreno');
+    bullets.push('Gestión Externa: ' + parts.join(' y ') + '.');
+  }
+  for (const item of items) {
+    if (item === web || item === app) continue;
+    if (/^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(item.code || '')) {
+      const details = clientServiceScope(item).split(/\r?\n/)
+        .map(trimQuoteText).filter(Boolean).slice(0, 6);
+      bullets.push('Inventario ' + planQuoteName(item) +
+        (details.length ? ': ' + details.join(', ') : '') + '.');
+    } else {
+      const quantity = nQuote(item.quantity);
+      bullets.push(clientServiceName(item) + (quantity > 1 ? ' (' + fmtNumber(quantity) + ' unidades)' : '') + '.');
+    }
+  }
+  return bullets;
+}
+
+function quoteEmailOptionalPack(quote, money) {
+  const optional = Array.isArray(quote.optionalItems)
+    ? quote.optionalItems : readOptionalQuoteData(quote.notes).items;
+  const packs = optional.filter((item) =>
+    /ítems|items|inventario/i.test(item.name || '') || /PACK_?(INV|ITEMS)/i.test(item.code || ''));
+  if (!packs.length) return '';
+  const pack = [...packs].sort((a, b) => nQuote(a.unitPrice) - nQuote(b.unitPrice))[0];
+  const label = String(pack.name || '').trim();
+  const count = label.match(/(?:inventario|ítems|items)\s*(\d[\d.,]*)/i) ||
+    label.match(/(\d[\d.,]*)\s*(?:ítems|items)/i);
+  const tax = pack.includesIva ? ' IVA incluido' : ' + IVA';
+  const finalPrice = !pack.includesIva && nQuote(pack.total) > 0
+    ? ' (' + money(pack.total) + ' IVA incluido)' : '';
+  return 'Si más adelante necesitan mayor capacidad, pueden agregar packs de inventario desde ' +
+    money(pack.unitPrice) + tax + finalPrice +
+    (pack.periodicity === 'unico' ? ' (pago único)' : ' mensuales') +
+    ' (' + (count ? count[1] + ' ítems' : label) + ').';
+}
+
+/** Plantilla editable con datos de la cotización; no simula descuentos ni vigencias. */
 export function buildQuoteEmail(quote, lead) {
-  const name = firstName(quote.client?.contact || lead?.contact) || 'equipo';
-  const cur = quote.currency;
-  const absorb = quote.absorbIva === true;
-  const money = (n) => fmtCurrency(n, cur);
-  const line = (it) =>
-    `- ${clientServiceName(it)} · ${fmtNumber(it.quantity)} x ${money(it.unitPrice)} (${absorb ? 'IVA incluido' : 'neto'})${it.discount ? ` (descuento ${money(it.discount)} ${absorb ? 'IVA incluido' : 'neto'})` : ''} = ${money(it.total)} (${absorb ? 'IVA incluido' : 'neto'})\n  Incluye: ${clientServiceScope(it).split(/\r?\n/).filter(Boolean).join(' · ')}`;
-  const setup = quote.items.filter((it) => it.periodicity === 'unico');
-  const monthly = quote.items.filter((it) => it.periodicity !== 'unico');
-  const t = quote.totals || {};
-  const parsedOptional = readOptionalQuoteData(quote.notes);
-  const optionalItems = quote.optionalItems || parsedOptional.items;
-  const cleanNotes = parsedOptional.notes.replace(/\[\[TF_EARLY:.*?\]\]/g, '').trim();
+  const contact = quoteFirstName(quote.client?.contact || lead?.contact);
+  const company = lead?.company || quote.client?.company || 'tu empresa';
+  const money = (value) => fmtCurrency(value, quote.currency || 'UF');
+  const absorbed = quote.absorbIva === true;
+  const items = Array.isArray(quote.items) ? quote.items : [];
+  const setupItems = items.filter((item) => item.periodicity === 'unico');
+  const monthlyItems = items.filter((item) => item.periodicity !== 'unico');
+  const totals = quote.totals || {};
+  const setup = totals.setup || {
+    subtotal: sumQuote(setupItems, 'subtotal'), discount: sumQuote(setupItems, 'discount'),
+    total: sumQuote(setupItems, 'total')
+  };
+  const monthly = totals.monthly || {
+    subtotal: sumQuote(monthlyItems, 'subtotal'), discount: sumQuote(monthlyItems, 'discount'),
+    net: sumQuote(monthlyItems, 'total'), total: sumQuote(monthlyItems, 'total')
+  };
+  const months = nQuote(quote.contractMonths);
+  const stable = quoteProjectionStable(totals, months);
+  const version = nQuote(quote.version);
+  const plan = monthlyItems.find((item) => /^INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL)$/.test(item.code || ''));
+  const versionText = version ? ', versión ' + version : '';
+  const planText = plan ? ', considerando el ' + planQuoteName(plan) + ' de Inventario' : '';
   const body = [
-    `Hola ${name},`,
-    '',
-    `Te comparto nuestra propuesta comercial TaskFlow ${quote.number || ''} para ${lead?.company || quote.client?.company || 'tu empresa'}. Incluye los servicios, las capacidades consideradas y sus valores:`, 
-    '',
-    ...(setup.length ? ['Habilitación (pago único):', ...setup.map(line), `Total habilitación (IVA incluido): ${money(t.setup?.total)}`, ''] : []),
-    ...(monthly.length ? ['Servicios mensuales:', ...monthly.map(line), `Total mensual (IVA incluido): ${money(t.monthly?.total)}`, ''] : []),
-    ...(Array.isArray(quote.commercialInfo) && quote.commercialInfo.length
-      ? ['Incluidos:', ...quote.commercialInfo.map((item) => `- ${item}`), '']
-      : []),
-    absorb ? `Contrato ${quote.contractMonths} meses: Total (IVA incluido) ${money(quote.total)}` : `Contrato ${quote.contractMonths} meses: ${money(quote.subtotalNeto)} neto · IVA ${money(quote.iva)} · Total (IVA incluido) ${money(quote.total)}`,
-    ...(optionalItems.length ? ['', 'Complementos opcionales (NO incluidos en el total del contrato):',
-      ...optionalItems.map((it) => `- ${it.name} · ${fmtNumber(it.quantity)} × ${money(it.unitPrice)} (${it.includesIva ? 'IVA incluido' : 'neto'}) ${it.periodicity === 'unico' ? '(pago único)' : '(mensual)'} = ${money(it.total)} (IVA incluido)`),
-      'Los complementos se contratan por separado, solo si el cliente los solicita.'] : []),
-    quote.validUntil ? `` : '',
-    quote.validUntil ? `Válida hasta ${fmtDate(quote.validUntil)}.` : '',
-    cleanNotes ? '' : '',
-    cleanNotes,
-    '',
-    'Quedo disponible para revisar el alcance, resolver tus consultas y coordinar los próximos pasos.'
-  ]
-    .filter((l, i, arr) => !(l === '' && arr[i - 1] === ''))
-    .join('\n');
-  return { subject: `Cotización ${quote.number || 'Cotización'} — ${lead?.company || quote.client?.company || ''}`, body };
+    contact ? 'Estimado ' + contact + ':' : 'Estimados:', '',
+    'Junto con saludar, te comparto la ' + (version > 1 ? 'cotización ajustada' : 'propuesta comercial') +
+      ' de TaskFlow para ' + company + ' (' + (quote.number || 'sin número') + versionText + ')' + planText + '.', ''
+  ];
+  const discounts = [];
+  if (nQuote(setup.discount) > 0 && nQuote(setup.subtotal) > 0) {
+    const fully = nQuote(setup.discount) >= nQuote(setup.subtotal) - 0.005;
+    const configuration = setupItems.length === 1 && setupItems[0].code === 'CFG_ADV';
+    const work = configuration
+      ? 'las ' + fmtNumber(setupItems[0].quantity) + ' horas de configuración avanzada'
+      : 'la puesta en marcha';
+    const base = ' (valor de lista ' + money(setup.subtotal) +
+      (absorbed ? ' IVA incluido' : ' netos + IVA') + ').';
+    discounts.push(pctQuote(setup) + ' de descuento en la implementación: ' + work +
+      (fully ? (configuration ? ' quedan sin costo' : ' queda sin costo') : ' tienen un precio reducido') + base);
+  }
+  if (nQuote(monthly.discount) > 0 && nQuote(monthly.subtotal) > 0) {
+    discounts.push(pctQuote(monthly) +
+      ' de descuento en los servicios mensuales' +
+      (stable ? ' durante los ' + months + ' meses del contrato' : ' en la mensualidad presentada') + '.');
+  }
+  if (discounts.length) body.push(
+    'Para ajustarnos a sus requerimientos, aplicamos los siguientes descuentos:', '',
+    ...discounts.map((item) => '• ' + item), ''
+  );
+  if (monthlyItems.length && totals.monthly) {
+    const final = absorbed
+      ? money(monthly.total) + ' IVA incluido'
+      : money(monthly.net) + ' netos + IVA (' + money(monthly.total) + ' IVA incluido)';
+    const list = nQuote(monthly.subtotal) > 0
+      ? ', en lugar de ' + money(monthly.subtotal) + (absorbed ? ' IVA incluido' : ' netos + IVA')
+      : '';
+    body.push((discounts.length ? 'Con esto, el valor mensual queda en ' : 'El valor mensual de la propuesta es de ') + final +
+      (stable ? ', fijo durante todo el contrato' : '') + list + '.');
+  }
+  if (setupItems.length && !nQuote(setup.discount) && nQuote(setup.total) > 0)
+    body.push('La puesta en marcha tiene un valor de pago único de ' + money(setup.total) + ' IVA incluido.');
+  const contract = nQuote(quote.total) > 0 ? nQuote(quote.total) : nQuote(totals.contract?.total);
+  if (contract > 0) body.push('El valor total del contrato es de ' + money(contract) + ' IVA incluido.');
+  if (!stable && Array.isArray(totals.projection) && totals.projection.length > 1)
+    body.push('Los valores de los meses siguientes se detallan en la proyección de la cotización.');
+
+  const scope = quoteScopeBullets(monthlyItems);
+  const included = Array.isArray(quote.commercialInfo)
+    ? quote.commercialInfo.map(trimQuoteText).filter(Boolean) : [];
+  if (scope.length || included.length) {
+    body.push('', 'La propuesta incluye:', '', ...scope.map((line) => '• ' + line));
+    if (included.length) body.push('• ' + included.join('; ') + '.');
+  }
+  const optional = quoteEmailOptionalPack(quote, money);
+  if (optional) body.push('', optional);
+  const notes = readOptionalQuoteData(quote.notes).notes.replace(/\[\[TF_EARLY:.*?\]\]/g, '').trim();
+  if (notes) body.push('', 'Observaciones: ' + notes);
+  if (quote.validUntil) body.push('', 'Propuesta válida hasta ' + fmtDate(quote.validUntil) + '.');
+  body.push('', 'Quedo atento a tus comentarios.', '', 'Un cordial saludo.');
+  return {
+    subject: ('Cotización ' + (quote.number || '') + (version > 1 ? ' v' + version : '') + ' — ' + company).trim(),
+    body: body.join('\n').replace(/\n{3,}/g, '\n\n')
+  };
 }
