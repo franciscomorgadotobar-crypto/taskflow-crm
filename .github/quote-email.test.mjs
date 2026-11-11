@@ -17,7 +17,7 @@ const ctx = {
   fmtDate: (x) => String(x),
   readOptionalQuoteData: (notes) => ({ notes: String(notes || ''), items: [] })
 };
-const buildQuoteEmail = runInNewContext(quoteCode + '\nbuildQuoteEmail;', ctx);
+const buildQuoteEmail = runInNewContext(quoteCode.replace('export function buildQuoteEmail', 'function buildQuoteEmail') + '\nbuildQuoteEmail;', ctx);
 const sample = {
   number: 'P-202611-0003', version: 3, contractMonths: 12,
   currency: 'UF', absorbIva: false, total: 105.67,
