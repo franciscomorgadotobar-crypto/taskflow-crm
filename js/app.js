@@ -1520,6 +1520,11 @@ function issuerProfileFromFields(prefix) {
 }
 
 const activePriceLists = () => quoteState.priceLists.filter((l) => l.status === 'vigente');
+const defenderListMonths = (listId) => {
+  const name = getPriceList(listId)?.name || '';
+  const match = name.match(/^TaskFlow Defender · (?:referencia Las Condes|arriendo mensual) · (12|24|36) meses$/);
+  return match ? Number(match[1]) : null;
+};
 const listItemOf = (id) => getPriceListItem(id);
 
 function earlyDataFromNotes(notes = '') {
@@ -2000,6 +2005,11 @@ function handleQuoteFormChange(ev) {
       if (ev.type !== 'change') return;
       const dropped = remapQuoteItems(el.value);
       b.priceListId = el.value;
+      const defenderTerm = defenderListMonths(b.priceListId);
+      if (defenderTerm) {
+        b.contractMonths = defenderTerm;
+        $('quoteContractMonths').value = defenderTerm;
+      }
       if (dropped) toast(`${dropped} línea(s) no existen en la nueva lista y se quitaron.`, 'error');
       fillQuoteServiceOptions();
       renderQuoteDiscounts();
@@ -2032,6 +2042,14 @@ function handleQuoteFormChange(ev) {
         loadQuoteRates();
       }
       return;
+    case 'quoteContractMonths': {
+      const term = defenderListMonths(b.priceListId);
+      if (term && Number(el.value) !== term) {
+        el.value = term;
+        toast('Este catálogo Defender tiene cuotas calculadas para ' + term + ' meses. Selecciona otra lista Defender para un plazo diferente.', 'error');
+      }
+      return scheduleQuotePreview();
+    }
     case 'quoteAbsorbIva':
       b.absorbIva = b.currency === 'USD' && el.checked;
       return scheduleQuotePreview();
@@ -2127,6 +2145,10 @@ async function submitQuoteBuilder(e) {
   if (!b.paymentMethod) return toast('Selecciona la forma de pago.', 'error');
   if (!b.paymentTerms) return toast('Selecciona la condición de pago.', 'error');
   if (!b.items.length) return toast('Agrega al menos una línea de servicio.', 'error');
+  const defenderMonths = defenderListMonths(b.priceListId);
+  if (defenderMonths && b.contractMonths !== defenderMonths) {
+    return toast('El plazo de Defender debe coincidir con los ' + defenderMonths + ' meses de la lista de precios.', 'error');
+  }
   const ratesNeeded = quoteRatesNeeded();
   if (ratesNeeded.uf && !(b.ufValue > 0)) {
     $('quoteUfValue').focus();
