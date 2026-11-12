@@ -87,6 +87,7 @@ import {
   quoteFamilyOf
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
+import { DEFENDER_DEFAULT, defenderConfig, defenderPriceListName, defenderPriceListItems, defenderQuoteLines, defenderNotes } from './defender-pricing.js';
 import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
@@ -129,6 +130,7 @@ import {
   fillTemplate,
   filterPipeline,
   quoteDiscountsHtml,
+  renderDefenderSummaryHtml,
   quoteDocFromSaved,
   quoteDocHtml,
   quoteLinesHtml,
@@ -1518,6 +1520,11 @@ function issuerProfileFromFields(prefix) {
 }
 
 const activePriceLists = () => quoteState.priceLists.filter((l) => l.status === 'vigente');
+const defenderListMonths = (listId) => {
+  const name = getPriceList(listId)?.name || '';
+  const match = name.match(/^TaskFlow Defender · (?:referencia Las Condes|arriendo mensual) · (12|24|36) meses$/);
+  return match ? Number(match[1]) : null;
+};
 const listItemOf = (id) => getPriceListItem(id);
 
 function earlyDataFromNotes(notes = '') {
@@ -1998,6 +2005,11 @@ function handleQuoteFormChange(ev) {
       if (ev.type !== 'change') return;
       const dropped = remapQuoteItems(el.value);
       b.priceListId = el.value;
+      const defenderTerm = defenderListMonths(b.priceListId);
+      if (defenderTerm) {
+        b.contractMonths = defenderTerm;
+        $('quoteContractMonths').value = defenderTerm;
+      }
       if (dropped) toast(`${dropped} línea(s) no existen en la nueva lista y se quitaron.`, 'error');
       fillQuoteServiceOptions();
       renderQuoteDiscounts();
@@ -2030,6 +2042,14 @@ function handleQuoteFormChange(ev) {
         loadQuoteRates();
       }
       return;
+    case 'quoteContractMonths': {
+      const term = defenderListMonths(b.priceListId);
+      if (term && Number(el.value) !== term) {
+        el.value = term;
+        toast('Este catálogo Defender tiene cuotas calculadas para ' + term + ' meses. Selecciona otra lista Defender para un plazo diferente.', 'error');
+      }
+      return scheduleQuotePreview();
+    }
     case 'quoteAbsorbIva':
       b.absorbIva = b.currency === 'USD' && el.checked;
       return scheduleQuotePreview();
@@ -2125,6 +2145,10 @@ async function submitQuoteBuilder(e) {
   if (!b.paymentMethod) return toast('Selecciona la forma de pago.', 'error');
   if (!b.paymentTerms) return toast('Selecciona la condición de pago.', 'error');
   if (!b.items.length) return toast('Agrega al menos una línea de servicio.', 'error');
+  const defenderMonths = defenderListMonths(b.priceListId);
+  if (defenderMonths && b.contractMonths !== defenderMonths) {
+    return toast('El plazo de Defender debe coincidir con los ' + defenderMonths + ' meses de la lista de precios.', 'error');
+  }
   const ratesNeeded = quoteRatesNeeded();
   if (ratesNeeded.uf && !(b.ufValue > 0)) {
     $('quoteUfValue').focus();
@@ -2150,6 +2174,82 @@ async function submitQuoteBuilder(e) {
   toast(b.isNewAlternative
     ? `Alternativa ${saved.number} creada. La cotización original se mantiene vigente.`
     : `Cotización ${saved.number} guardada${saved.version > 1 ? ` como versión ${saved.version}` : ''}.`);
+}
+
+
+/* ---------- TaskFlow Defender municipal ---------- */
+
+/** La primera carga la hace un administrador a través de la RPC de catálogo existente. */
+async function defenderEnsurePriceList(config) {
+  const name = defenderPriceListName(config);
+  const required = defenderQuoteLines(config);
+  let list = activePriceLists().find((item) => item.name === name);
+  if (!list) {
+    if (!isAdmin()) {
+      toast('Solicita a un administrador que registre primero la lista de TaskFlow Defender para este plazo y modalidad.', 'error');
+      return null;
+    }
+    const added = await importPriceList({
+      name, currency: 'UF',
+      items: defenderPriceListItems(config),
+      sourceFile: 'Cotizacion_TaskFlow_Defender_Las_Condes_v2.xlsx'
+    });
+    if (!added) return null;
+    list = activePriceLists().find((item) => item.name === name);
+    if (!list) return toast('La lista no aparece todavía. Actualiza el catálogo y vuelve a intentar.', 'error');
+    // Datos disponibles de la empresa; RUT, dirección y logo los completa el administrador.
+    await updatePriceList(list.id, {
+      issuerProfile: { commercialName: '4R Labs' },
+      commercialInfo: ['TaskFlow Defender · gestión y trazabilidad de equipamiento municipal', 'Soporte 8×5 y mantención de hardware incluidos']
+    });
+    list = getPriceList(list.id) || list;
+  }
+  const actual = itemsOfPriceList(list.id).filter((item) => item.active);
+  const expected = defenderPriceListItems(config);
+  const matched = expected.every((want) => {
+    const item = actual.find((it) => it.code === want.code);
+    return item && item.periodicity === want.periodicity &&
+      Math.abs(Number(item.price) - Number(want.price)) < 0.000001;
+  });
+  if (!matched || !required.every((line) => actual.some((item) => item.code === line.code))) {
+    toast('La lista de Defender fue modificada o está incompleta. Revisa los precios vigentes antes de cotizar.', 'error');
+    return null;
+  }
+  return list;
+}
+
+async function prepareDefenderQuote() {
+  if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
+  const config = defenderConfig(ui.defenderDraft || DEFENDER_DEFAULT);
+  if (config.hardwareMode === 'reference') {
+    const accepted = confirm('La planilla Las Condes describe hardware en UF/mes, pero el resumen lo prorratea por 12. Se usará el resumen prorrateado de referencia. ¿Continuar con esta interpretación?');
+    if (!accepted) return;
+  }
+  const list = await defenderEnsurePriceList(config);
+  if (!list) return;
+  openQuoteBuilder();
+  const b = ui.quoteBuilder;
+  if (!b) return;
+  b.priceListId = list.id;
+  b.currency = 'UF';
+  b.contractMonths = config.months;
+  b.validUntil = addDaysISO(b.quoteDate, 30);
+  b.notes = defenderNotes(config);
+  b.items = defenderQuoteLines(config).map((line) => {
+    const product = itemsOfPriceList(list.id).find((item) => item.code === line.code && item.active);
+    return { ref: quoteRef(), priceListItemId: product.id, quantity: line.quantity };
+  });
+  $('quotePriceList').value = list.id;
+  $('quoteCurrency').value = 'UF';
+  $('quoteContractMonths').value = config.months;
+  $('quoteValidUntil').value = b.validUntil;
+  $('quoteNotes').value = b.notes;
+  fillQuoteServiceOptions();
+  syncQuoteAbsorbIvaField();
+  syncQuoteRateFields();
+  renderQuoteDiscounts();
+  scheduleQuotePreview();
+  toast('TaskFlow Defender cargado. Completa municipio, contacto y condiciones antes de guardar.');
 }
 
 /* ---------- PDF ---------- */
@@ -3280,6 +3380,8 @@ const ACTIONS = {
     render();
   },
   'quotes-view-v2': () => { ui.quotesView = 'v2'; render(); },
+  'quotes-view-defender': () => { ui.quotesView = 'defender'; render(); },
+  'defender-prepare-quote': () => prepareDefenderQuote(),
   'v2-print': () => exportCommercialV2Pdf(),
   'quotes-view-lists': () => {
     ui.quotesView = 'lists';
@@ -3468,6 +3570,21 @@ function ensureAccessibleView() {
 
 async function handleViewInput(ev) {
   const el = ev.target;
+  if (el.dataset?.defenderField) {
+    const key = el.dataset.defenderField;
+    const current = defenderConfig(ui.defenderDraft || DEFENDER_DEFAULT);
+    const next = { ...current, [key]: el.value };
+    if (key === 'users') {
+      // Si los tags aún siguen la dotación previa, ajustarlos automáticamente.
+      for (const tag of ['tagMini', 'tagStandard', 'tagTextile']) {
+        if (next[tag] === current.users) next[tag] = Number(el.value);
+      }
+    }
+    ui.defenderDraft = defenderConfig(next);
+    const summary = $('defenderSummaryRoot');
+    if (summary) summary.innerHTML = renderDefenderSummaryHtml(ui.defenderDraft);
+    return;
+  }
 
   if (el.matches?.('[name="mobileNavMode"]')) {
     if (ev.type !== 'change') return;

@@ -31,6 +31,7 @@ import { buildQuoteOptionalItems, itemsOfPriceList, quoteGroupsOf, quotePlanLabe
 import { readOptionalQuoteData } from './quote-optionals.js';
 import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
 import { quoteDiscountComparison, quoteDiscountPercent } from './quote-commercial-pricing.js';
+import { DEFENDER_DEFAULT, DEFENDER_HARDWARE, DEFENDER_TAGS, calculateDefender } from './defender-pricing.js';
 import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import { availableTutorialsForRole, teamTutorialStatus } from './tutorials.js';
@@ -1353,6 +1354,7 @@ function renderPriceLists(ui) {
           <p class="muted">Cada archivo importado crea una lista nueva. Al cotizar se elige la lista a usar.</p>
         </div>
         <div class="actions">
+          <button class="small-btn" data-action="quotes-view-defender">TaskFlow Defender · configurar</button>
           ${lists.length ? '<button class="small-btn" data-action="download-all-price-lists">Descargar todas (Excel)</button>' : ''}
           ${admin ? '<button class="primary-btn" data-action="import-price-list">Importar lista</button>' : ''}
         </div>
@@ -1407,7 +1409,7 @@ function renderQuotesList(ui) {
     <div class="card">
       <div class="card-head">
         <h3>Propuestas comerciales</h3>
-        <button class="primary-btn" data-action="new-quote">+ Nueva cotización</button>
+        <div class="actions"><button class="small-btn" data-action="quotes-view-defender">TaskFlow Defender</button><button class="primary-btn" data-action="new-quote">+ Nueva cotización</button></div>
       </div>
       <div class="card-body">
         <div class="toolbar">
@@ -1463,6 +1465,56 @@ function renderCommercialQuoteV2() {
     '</div><div id="v2Summary" class="card" style="margin-top:18px;padding:18px">Selecciona los servicios para preparar tu propuesta.</div><div class="button-row" style="margin-top:16px"><button type="button" class="primary-btn" data-action="v2-print">Descargar propuesta PDF V2</button></div><p class="muted">Los importes se calculan en '+e(list?.currency || 'UF')+' con la lista vigente, sin alterar la cotización tradicional.</p></section>';
 }
 
+const defenderNumberInput = (field, label, value, min = 0) =>
+  '<label>' + e(label) + '<input type="number" min="' + min + '" max="1000000" step="1" data-defender-field="' +
+  e(field) + '" value="' + e(value) + '" /></label>';
+
+export function renderDefenderSummaryHtml(input = {}) {
+  const calc = calculateDefender(input);
+  const money = (amount) => fmtAmount(amount, 'UF') + ' UF';
+  const table = [
+    ['Hardware RFID', calc.hardware],
+    ['Tags RFID', calc.tags],
+    ['Implementación', calc.implementation],
+    ['Software por usuario activo (soporte 8×5)', calc.software]
+  ].map(([name, value]) => '<tr><td>' + e(name) + '</td><td class="num">' + e(money(value)) + '</td></tr>').join('');
+  return '<div class="table-wrap"><table class="data-table"><thead><tr><th>Componente</th><th class="num">Valor neto mensual</th></tr></thead>' +
+    '<tbody>' + table + '<tr><td><strong>Total mensual neto</strong></td><td class="num"><strong>' +
+    e(money(calc.monthlyNet)) + '</strong></td></tr><tr><td>Total contrato ' + calc.config.months +
+    ' meses · neto</td><td class="num"><strong>' + e(money(calc.contractNet)) + '</strong></td></tr></tbody></table></div>' +
+    '<p class="muted">Mensual IVA incluido (19%): ' + e(money(calc.monthlyWithVat)) +
+    ' · ' + calc.tagged + ' elementos etiquetados · ' + calc.config.users + ' usuarios activos.</p>' +
+    (calc.config.hardwareMode === 'reference'
+      ? '<p class="muted">Atención: la referencia Las Condes divide el hardware por los meses del contrato, aunque la hoja de parámetros dice UF/mes. La cotización conservará ese modelo solo si se valida comercialmente.</p>'
+      : '<p class="muted">En esta modalidad el hardware se factura mensualmente a su tarifa completa; solo tags e implementación se prorratean.</p>');
+}
+
+function renderDefenderCalculator(ui) {
+  const c = calculateDefender(ui.defenderDraft || DEFENDER_DEFAULT).config;
+  return '<div class="card"><div class="card-head"><div><h3>TaskFlow Defender · valorización municipal</h3>' +
+    '<p class="muted">Configura dotación, locales y equipamiento. Precios netos en UF. El PDF y Word usan el formato del cotizador actual.</p></div></div>' +
+    '<div class="card-body"><section class="quote-section"><h4>Parámetros del municipio</h4><div class="form-grid">' +
+    defenderNumberInput('users', 'Guardias / usuarios activos', c.users, 1) +
+    defenderNumberInput('sites', 'Locales / dependencias', c.sites, 1) +
+    '<label>Duración de contrato<select data-defender-field="months">' +
+    [12,24,36].map((n) => '<option value="' + n + '"' + (c.months === n ? ' selected' : '') + '>' + n + ' meses</option>').join('') +
+    '</select></label><label>Modalidad de hardware<select data-defender-field="hardwareMode">' +
+    '<option value="reference"' + (c.hardwareMode === 'reference' ? ' selected' : '') + '>Referencia Las Condes · prorrateado</option>' +
+    '<option value="monthly"' + (c.hardwareMode === 'monthly' ? ' selected' : '') + '>Arriendo mensual · precio completo</option>' +
+    '</select></label></div></section>' +
+    '<section class="quote-section"><h4>Hardware RFID</h4><div class="form-grid">' +
+    DEFENDER_HARDWARE.map((item) => defenderNumberInput(item.key, item.name, c[item.key])).join('') +
+    '</div></section>' +
+    '<section class="quote-section"><h4>Tags RFID · por tipo de elemento</h4><div class="form-grid">' +
+    DEFENDER_TAGS.map((item) => defenderNumberInput(item.key, item.name, c[item.key])).join('') +
+    '</div></section>' +
+    '<section class="quote-section"><h4>Resumen valorizado</h4><div id="defenderSummaryRoot">' +
+    renderDefenderSummaryHtml(c) + '</div></section>' +
+    '<div class="actions"><button type="button" class="primary-btn" data-action="defender-prepare-quote">Preparar cotización en formato CRM</button></div>' +
+    '<p class="muted">Al preparar la primera cotización de una modalidad, un administrador registra su lista en el catálogo del CRM. No se guarda una oferta hasta confirmar el formulario habitual.</p>' +
+    '</div></div>';
+}
+
 export function renderQuotes(ui) {
   const view = ui.quotesView || 'list';
   return `
@@ -1470,10 +1522,11 @@ export function renderQuotes(ui) {
       <div class="button-row">
         <button class="small-btn ${view === 'list' ? 'active-view' : ''}" data-action="quotes-view-list">Cotizaciones</button>
         <button class="small-btn ${view === 'lists' ? 'active-view' : ''}" data-action="quotes-view-lists">Listas de precios</button>
+        <button class="small-btn ${view === 'defender' ? 'active-view' : ''}" data-action="quotes-view-defender">TaskFlow Defender</button>
         <button class="small-btn ${view === 'v2' ? 'active-view' : ''}" data-action="quotes-view-v2">Cotizador comercial V2</button>
       </div>
     </div>
-    ${view === 'v2' ? renderCommercialQuoteV2() : view === 'lists' ? renderPriceLists(ui) : renderQuotesList(ui)}`;
+    ${view === 'v2' ? renderCommercialQuoteV2() : view === 'lists' ? renderPriceLists(ui) : view === 'defender' ? renderDefenderCalculator(ui) : renderQuotesList(ui)}`;
 }
 
 /* ---------- Documento de cotización (vista previa, "Ver" y PDF) ---------- */
