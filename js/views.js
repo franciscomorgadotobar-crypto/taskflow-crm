@@ -1354,6 +1354,7 @@ function renderPriceLists(ui) {
           <p class="muted">Cada archivo importado crea una lista nueva. Al cotizar se elige la lista a usar.</p>
         </div>
         <div class="actions">
+          <button class="small-btn" data-action="quotes-view-defender">TaskFlow Defender · configurar</button>
           ${lists.length ? '<button class="small-btn" data-action="download-all-price-lists">Descargar todas (Excel)</button>' : ''}
           ${admin ? '<button class="primary-btn" data-action="import-price-list">Importar lista</button>' : ''}
         </div>
@@ -1408,7 +1409,7 @@ function renderQuotesList(ui) {
     <div class="card">
       <div class="card-head">
         <h3>Propuestas comerciales</h3>
-        <button class="primary-btn" data-action="new-quote">+ Nueva cotización</button>
+        <div class="actions"><button class="small-btn" data-action="quotes-view-defender">TaskFlow Defender</button><button class="primary-btn" data-action="new-quote">+ Nueva cotización</button></div>
       </div>
       <div class="card-body">
         <div class="toolbar">
