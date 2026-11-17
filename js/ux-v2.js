@@ -157,7 +157,7 @@ function effectiveBottomNav() {
   const preferred = Array.isArray(state.me?.bottomNav) && state.me.bottomNav.length
     ? state.me.bottomNav
     : DEFAULT_BOTTOM_NAV;
-  const fallback = ['dashboard', 'chilecompra', 'hyperfocus', 'pipeline', 'remarketing', 'leads', 'implementation', 'templates', 'quotes'];
+  const fallback = ['dashboard', 'chilecompra', 'hyperfocus', 'pipeline', 'remarketing', 'leads', 'implementation', 'templates', 'quotes', 'lobby'];
   const result = [];
 
   [...preferred, ...fallback].forEach((view) => {
@@ -172,7 +172,7 @@ function mobileDrawerIcon(view) {
   if (view === 'chilecompra') return '<span class="v2-drawer-logo v2-drawer-logo--chilecompra" aria-hidden="true"></span>';
   const symbols = {
     dashboard:'⌂', leads:'♟', hyperfocus:'⚡', pipeline:'▥', remarketing:'↺',
-    implementation:'✓', templates:'✎', quotes:'$', help:'?', profile:'◉',
+    implementation:'✓', templates:'✎', quotes:'$', lobby:'⚖', help:'?', profile:'◉',
     settings:'⚙', audit:'≡'
   };
   return `<span class="v2-drawer-symbol" aria-hidden="true">${symbols[view] || '•'}</span>`;
