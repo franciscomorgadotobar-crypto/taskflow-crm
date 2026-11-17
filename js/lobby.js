@@ -25,7 +25,7 @@ export const lobbyState = {
 };
 export const onLobbyChange = (fn) => (listeners.add(fn), () => listeners.delete(fn));
 const notify = () => listeners.forEach(fn => fn(lobbyState));
-const today = () => new Date().toLocaleDateString('en-CA', {timeZone:'America/Santiago'});
+const today = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const date = (x) => x ? new Date(String(x).slice(0,10)+'T12:00:00').toLocaleDateString('es-CL') : '—';
 const dateTime = (x) => x ? new Date(x).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}) : '—';
