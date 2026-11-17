@@ -81,3 +81,19 @@
 .lobby-dialog-foot>a{font-size:11px;color:var(--blue);margin-right:auto;}
 @media(max-width:1250px){.lobby-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}.lobby-filters{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:720px){.lobby-toolbar{flex-direction:column;align-items:stretch;}.lobby-toolbar-actions{justify-content:flex-start;}.lobby-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}.lobby-kpi>strong{font-size:21px;}.lobby-filters{grid-template-columns:1fr;}.lobby-municipal-grid{grid-template-columns:1fr;}.lobby-task{grid-template-columns:1fr auto;}.lobby-task-date{grid-column:1/-1;}.lobby-form-grid{grid-template-columns:1fr;padding:12px;}.lobby-form-grid .span-2{grid-column:1;}.lobby-dialog-head,.lobby-dialog-foot{padding:12px;}.lobby-dialog-foot{flex-wrap:wrap;}.lobby-dialog-foot>a{width:100%;}.lobby-region>summary{align-items:flex-start;}.lobby-region>summary span{max-width:45%;}}
+
+/* Errores persistentes visibles dentro del diálogo de edición */
+.lobby-form-feedback {
+  color: var(--danger);
+  background: rgba(180, 35, 24, .09);
+  border: 1px solid rgba(180, 35, 24, .24);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 20px 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (max-width:720px) {
+  .lobby-form-feedback { margin: 0 12px 4px; }
+}

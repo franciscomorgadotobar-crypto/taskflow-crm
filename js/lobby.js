@@ -219,7 +219,6 @@ export function renderLobby() {
         lobbyState.tab==='agenda'?renderAgenda():
         lobbyState.tab==='followups'?renderFollowups():renderRequests())+
     '</div>')+
-    '<dialog id="lobbyFormDialog" class="lobby-dialog"></dialog>'+
   '</section>';
 }
 function select(name,vals,selected,blankLabel) {
@@ -236,7 +235,7 @@ function formMarkup(r={},presetId='') {
   const input=(n,type='text',val='')=>'<input type="'+type+'" name="'+n+'" id="lobby-'+n+'" value="'+htmlValue(val)+'"/>';
   const row=(label,field,cls='')=>'<label class="'+cls+'"><span>'+label+'</span>'+field+'</label>';
   const meetingLocal=r.meeting_at?new Date(new Date(r.meeting_at).getTime()-new Date(r.meeting_at).getTimezoneOffset()*60000).toISOString().slice(0,16):'';
-  return '<form id="lobbyForm" class="lobby-form"><div class="lobby-dialog-head"><div><h2>'+e(r.id?'Editar solicitud':'Nueva solicitud')+'</h2>'+
+  return '<form id="lobbyForm" class="lobby-form" novalidate><div class="lobby-dialog-head"><div><h2>'+e(r.id?'Editar solicitud':'Nueva solicitud')+'</h2>'+
     '<p>Registra la gestión completa. La presentación oficial se realiza en el portal de Ley de Lobby.</p></div>'+
     '<button type="button" class="ghost-btn" data-lobby-action="close">Cerrar</button></div>'+
     '<input type="hidden" name="id" value="'+htmlValue(r.id||'')+'"/>'+
@@ -247,7 +246,7 @@ function formMarkup(r={},presetId='') {
     row('Cargo de la autoridad',select('authority_role',ROLES,role,'Seleccionar cargo'))+
     row('Otro cargo',input('authority_role_other','text',custom), 'lobby-custom-role'+(role==='Otro'?'':' is-hidden'))+
     row('Nombre de la autoridad',input('authority_name','text',r.authority_name||''))+
-    row('Materia de la audiencia *','<textarea name="matter" rows="4" required>'+e(matter)+'</textarea>','span-2')+
+    row('Materia de la audiencia','<textarea name="matter" rows="4" placeholder="Puedes completar la materia más adelante">'+e(matter)+'</textarea>','span-2')+
     '<div class="lobby-form-section span-2">1. Solicitud y respuesta</div>'+
     '<div class="lobby-form-checks span-2">'+chk('sent','Solicitud enviada')+'</div>'+
     row('Fecha de solicitud',input('requested_at','date',r.requested_at||''))+
@@ -265,7 +264,8 @@ function formMarkup(r={},presetId='') {
     row('URL comprobante / evidencia',input('evidence_url','url',r.evidence_url||''),'span-2')+
     row('Vincular oportunidad existente','<select name="lead_id"><option value="">Sin vinculación comercial</option>'+
       linked.map(l=>'<option value="'+htmlValue(l.id)+'"'+(l.id===r.lead_id?' selected':'')+'>'+e(l.company)+'</option>').join('')+'</select>','span-2')+
-    '</div><div class="lobby-dialog-foot"><a href="'+PORTAL+'" target="_blank" rel="noopener noreferrer">Abrir formulario oficial ↗</a>'+
+    '</div><div id="lobbyFormFeedback" class="lobby-form-feedback" role="alert" hidden></div>'+
+    '<div class="lobby-dialog-foot"><a href="'+PORTAL+'" target="_blank" rel="noopener noreferrer">Abrir formulario oficial ↗</a>'+
     '<button type="button" class="ghost-btn" data-lobby-action="close">Cancelar</button>'+
     '<button type="submit" class="primary-btn">Guardar solicitud</button></div></form>';
 }
@@ -273,8 +273,7 @@ function openEditor(id='',presetId='') {
   if (!canWrite()) return toast('Tu perfil tiene acceso de solo lectura a este módulo.','error');
   const r=lobbyState.requests.find(x=>x.id===id);
   if (id&&!r) return toast('La solicitud ya no está disponible. Actualiza el módulo.','error');
-  const dialog=document.getElementById('lobbyFormDialog');
-  if(!dialog)return;
+  const dialog=ensureLobbyDialog();
   dialog.innerHTML=formMarkup(r,presetId);
   dialog.showModal();
 }
@@ -287,7 +286,10 @@ async function persistForm(form) {
   const role=val('authority_role')==='Otro'?val('authority_role_other'):val('authority_role');
   const url=val('evidence_url');
   if(url&&!/^https?:\/\//i.test(url))throw new Error('La evidencia debe tener una URL https:// o http:// válida.');
-  if (!val('municipality_id') || !val('matter')) throw new Error('Selecciona municipalidad e ingresa la materia.');
+  if (!val('municipality_id')) {
+    form.querySelector('[name="municipality_id"]')?.focus();
+    throw new Error('Selecciona una municipalidad para guardar la solicitud.');
+  }
   const selected=val('initiative')||'Por definir';
   const sent=data.has('sent')||!!val('requested_at');
   const meeting=val('meeting_at');
@@ -305,6 +307,7 @@ async function persistForm(form) {
     ? await supabase.from('lobby_requests').update(payload).eq('id',id).select('*').single()
     : await supabase.from('lobby_requests').insert(payload).select('*').single();
   if(result.error)throw result.error;
+  if(!result.data?.id)throw new Error('El servidor no confirmó la solicitud. Intenta nuevamente.');
   if(id) lobbyState.requests=lobbyState.requests.map(x=>x.id===id?result.data:x);
   else lobbyState.requests.unshift(result.data);
   document.getElementById('lobbyFormDialog')?.close();
@@ -359,10 +362,68 @@ function paint() {
   if(!root)return;
   root.innerHTML=renderLobby();
 }
+function ensureLobbyDialog() {
+  let dialog = document.getElementById('lobbyFormDialog');
+  if (dialog) return dialog;
+  dialog = document.createElement('dialog');
+  dialog.id = 'lobbyFormDialog';
+  dialog.className = 'lobby-dialog';
+  // El formulario permanece en el DOM aunque el CRM redibuje la vista.
+  document.body.appendChild(dialog);
+  dialog.addEventListener('click', (ev) => {
+    if (ev.target.closest?.('[data-lobby-action="close"]')) {
+      ev.preventDefault();
+      dialog.close();
+    }
+  });
+  dialog.addEventListener('change', (ev) => {
+    const x = ev.target;
+    if (x.name === 'initiative') {
+      const matter = x.form?.querySelector('[name="matter"]');
+      if (matter) matter.value = MATTERS.find(t => t.name === x.value)?.text || '';
+    }
+    if (x.name === 'authority_role') {
+      x.form?.querySelector('.lobby-custom-role')?.classList.toggle('is-hidden', x.value !== 'Otro');
+    }
+  });
+  dialog.addEventListener('submit', async (ev) => {
+    if (ev.target.id !== 'lobbyForm') return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const form = ev.target;
+    if (form.dataset.busy === '1') return;
+    const feedback = form.querySelector('#lobbyFormFeedback');
+    if (feedback) { feedback.hidden = true; feedback.textContent = ''; }
+    form.dataset.busy = '1';
+    const button = form.querySelector('[type="submit"]');
+    if (button) { button.disabled = true; button.textContent = 'Guardando…'; }
+    try {
+      await persistForm(form);
+    } catch (error) {
+      console.error('Ley de Lobby: no se pudo guardar la solicitud', error);
+      const message = error?.message || 'No se pudo guardar la solicitud.';
+      if (feedback?.isConnected) {
+        feedback.textContent = 'No se guardó la solicitud: ' + message;
+        feedback.hidden = false;
+        feedback.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+      toast('No se guardó la solicitud: ' + message, 'error');
+    } finally {
+      delete form.dataset.busy;
+      if (button?.isConnected) {
+        button.disabled = false;
+        button.textContent = 'Guardar solicitud';
+      }
+    }
+  });
+  return dialog;
+}
+
 export function mountLobbyView() {
   const root=document.getElementById('viewRoot');
   if(!root||root.dataset.lobbyBound==='1')return;
   root.dataset.lobbyBound='1';
+  ensureLobbyDialog();
   root.addEventListener('click',async ev=>{
     const b=ev.target.closest('[data-lobby-action]');
     if(!b)return;
@@ -391,31 +452,11 @@ export function mountLobbyView() {
     if(x.dataset.lobbyFilter){
       lobbyState[x.dataset.lobbyFilter]=x.value;paint();return;
     }
-    if(x.name==='initiative'&&x.closest('#lobbyForm')){
-      x.form.querySelector('[name="matter"]').value=MATTERS.find(t=>t.name===x.value)?.text||'';
-      return;
-    }
-    if(x.name==='authority_role'&&x.closest('#lobbyForm')){
-      x.form.querySelector('.lobby-custom-role')?.classList.toggle('is-hidden',x.value!=='Otro');
-      return;
-    }
     if(x.dataset.lobbyToggle){
       x.disabled=true;
       try{await quickToggle(x.dataset.id,x.dataset.lobbyToggle,x.checked);}
       catch(error){x.checked=!x.checked;toast(error.message||'No se guardó el cambio.','error');}
       finally{if(x.isConnected)x.disabled=!canWrite();}
     }
-  });
-  root.addEventListener('submit',async ev=>{
-    if(ev.target.id!=='lobbyForm')return;
-    ev.preventDefault();
-    const form=ev.target;
-    if(form.dataset.busy==='1')return;
-    form.dataset.busy='1';
-    const btn=form.querySelector('[type="submit"]');
-    if(btn)btn.disabled=true;
-    try{await persistForm(form);}
-    catch(error){console.error(error);toast(error.message||'No se pudo guardar la solicitud.','error');}
-    finally{delete form.dataset.busy;if(btn?.isConnected)btn.disabled=false;}
   });
 }
