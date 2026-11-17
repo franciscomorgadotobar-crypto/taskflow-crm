@@ -40,6 +40,7 @@ CREATE INDEX IF NOT EXISTS lobby_requests_org_idx ON public.lobby_requests(organ
 CREATE INDEX IF NOT EXISTS lobby_requests_next_idx ON public.lobby_requests(organization_id, next_action_at);
 CREATE INDEX IF NOT EXISTS lobby_requests_meeting_idx ON public.lobby_requests(organization_id, meeting_at);
 CREATE INDEX IF NOT EXISTS lobby_requests_municipality_idx ON public.lobby_requests(municipality_id);
+CREATE INDEX IF NOT EXISTS lobby_requests_lead_idx ON public.lobby_requests(lead_id) WHERE lead_id IS NOT NULL;
 ALTER TABLE public.lobby_municipalities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lobby_requests ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.lobby_municipalities TO authenticated;
