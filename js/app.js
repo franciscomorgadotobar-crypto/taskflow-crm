@@ -118,6 +118,7 @@ import {
   onChileCompraChange,
   renderChileCompra
 } from './chilecompra.js';
+import { hydrateLobby, clearLobby, renderLobby, mountLobbyView, onLobbyChange } from './lobby.js';
 import {
   clearTutorials,
   hydrateTutorials,
@@ -410,6 +411,7 @@ const VIEWS = {
   pipeline: ['Embudo Comercial', 'Prospectos calificados, desde el primer contacto hasta el cierre.', renderPipeline],
   remarketing: ['Remarketing', 'Prospectos con un "no" temporal — retomar en el momento indicado.', renderRemarketing],
   chilecompra: ['ChileCompra', 'Busca y monitorea oportunidades de Mercado Público.', renderChileCompra],
+  lobby: ['Ley de Lobby', 'Solicitudes municipales, reuniones, agenda y seguimientos.', renderLobby],
   implementation: ['Implementación', 'Oportunidades ganadas que pasan a puesta en marcha.', renderImplementation],
   templates: ['Plantillas', 'Mensajes comerciales con variables por empresa.', renderTemplates],
   quotes: ['Cotizaciones', 'Listas de precios y cotizaciones para tus clientes.', renderQuotes],
@@ -443,6 +445,7 @@ function render() {
   if (ui.view === 'pipeline') bindKanbanDrag();
   if (ui.view === 'templates') bindTemplateAccordion();
   if (ui.view === 'chilecompra') mountChileCompraView();
+  if (ui.view === 'lobby') mountLobbyView();
 }
 
 function refreshDetailIfOpen() {
@@ -4618,6 +4621,9 @@ async function start() {
   onChileCompraChange(() => {
     if (ui.view === 'dashboard') render();
   });
+  onLobbyChange(() => {
+    if (ui.view === 'lobby') render();
+  });
   onTutorialChange(() => {
     if (ui.view === 'help' || ui.view === 'settings') render();
   });
@@ -4649,6 +4655,7 @@ async function start() {
           quotesClearLocal();
           hyperFocusClearLocal();
           clearChileCompra();
+          clearLobby();
           clearTutorials();
           activeDataUserId = nextUserId;
         } catch (err) {
@@ -4676,7 +4683,8 @@ async function start() {
           ['Cotizaciones', quotesHydrate()],
           ['Híper Foco', hyperFocusHydrate()],
           ['ChileCompra', hydrateChileCompra()],
-          ['Tutoriales', hydrateTutorials()]
+          ['Tutoriales', hydrateTutorials()],
+          ['Ley de Lobby', hydrateLobby()]
         ];
         // El núcleo CRM es prioritario: ChileCompra, cotizador y tutoriales
         // siguen cargando sin bloquear la pantalla principal.
@@ -4690,6 +4698,7 @@ async function start() {
           quotesClearLocal();
           hyperFocusClearLocal();
           clearChileCompra();
+          clearLobby();
           clearTutorials();
           return;
         }
@@ -4760,6 +4769,7 @@ async function start() {
       quotesClearLocal();
       hyperFocusClearLocal();
       clearChileCompra();
+          clearLobby();
       clearTutorials();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
@@ -4778,6 +4788,7 @@ async function start() {
       quotesClearLocal();
       hyperFocusClearLocal();
       clearChileCompra();
+          clearLobby();
       clearTutorials();
       $('appShell').hidden = true;
       $('authScreen').hidden = false;
