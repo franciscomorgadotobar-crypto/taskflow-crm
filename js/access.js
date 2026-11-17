@@ -28,6 +28,6 @@ export function canAccessView(view) {
 }
 
 export function firstAccessibleView() {
-  const preferred = ['dashboard', 'leads', 'hyperfocus', 'pipeline', 'remarketing', 'implementation', 'templates', 'chilecompra', 'quotes', 'help'];
+  const preferred = ['dashboard', 'leads', 'hyperfocus', 'pipeline', 'remarketing', 'implementation', 'templates', 'chilecompra', 'lobby', 'quotes', 'help'];
   return preferred.find(canAccessView) || 'profile';
 }
