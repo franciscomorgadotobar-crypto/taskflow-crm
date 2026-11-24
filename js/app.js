@@ -118,7 +118,7 @@ import {
   onChileCompraChange,
   renderChileCompra
 } from './chilecompra.js';
-import { hydrateLobby, clearLobby, renderLobby, mountLobbyView, onLobbyChange } from './lobby.js';
+import { lobbyState, hydrateLobby, clearLobby, renderLobby, mountLobbyView, onLobbyChange } from './lobby.js';
 import {
   clearTutorials,
   hydrateTutorials,
@@ -421,6 +421,161 @@ const VIEWS = {
   settings: ['Configuración', 'Preferencias y administración.', renderSettings]
 };
 
+
+/* ---------- Historial de navegación (Atrás de Android / navegador) ---------- */
+const CRM_HISTORY_KEY = 'taskflowNavigation';
+let crmHistoryToken = '';
+let crmHistoryUser = '';
+let crmHistoryEntry = null;
+let crmHistoryRestoring = false;
+let crmHistoryGuard = false;
+
+function crmHistorySnapshot() {
+  const saved = navigationSnapshot();
+  saved.detailLeadId = ''; // Los diálogos usan el cierre nativo.
+  saved.ui.priceListId = ui.priceListId;
+  saved.lobbyTab = ui.view === 'lobby' ? lobbyState.tab : '';
+  return saved;
+}
+
+function crmHistoryRoute(saved) {
+  const u = saved.ui;
+  const cc = saved.chilecompra;
+  return JSON.stringify([
+    saved.view,
+    saved.view === 'settings' ? u.settingsSection : '',
+    saved.view === 'quotes' ? [u.quotesView, u.quotesView === 'lists' ? u.priceListId : ''] : '',
+    saved.view === 'dashboard' ? u.taskTab : '',
+    saved.view === 'pipeline' ? u.pipelineView : '',
+    saved.lobbyTab,
+    cc ? [cc.tab, cc.selectedCampaignId, cc.selectedId, cc.selectedId ? cc.detailTab : ''] : ''
+  ]);
+}
+
+function crmHistoryWrite(saved, { push = false, guard = false } = {}) {
+  const entry = { token: crmHistoryToken, snapshot: saved, guard };
+  try {
+    const next = { ...(history.state || {}), [CRM_HISTORY_KEY]: entry };
+    if (push) history.pushState(next, '');
+    else history.replaceState(next, '');
+    crmHistoryEntry = entry;
+    return true;
+  } catch (err) {
+    console.warn('No se pudo actualizar el historial del CRM', err);
+    return false;
+  }
+}
+
+function crmHistoryReady() {
+  if (session.status !== 'signed-in' || !session.user?.id ||
+      $('appShell')?.dataset.ready !== 'true') return false;
+  if (crmHistoryUser !== session.user.id || !crmHistoryEntry) {
+    crmHistoryUser = session.user.id;
+    crmHistoryToken = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+    crmHistoryGuard = false;
+    return crmHistoryWrite(crmHistorySnapshot());
+  }
+  return true;
+}
+
+function crmHistorySync(refresh = false) {
+  if (crmHistoryRestoring || navigationRestoreActive || !crmHistoryReady()) return;
+  const saved = crmHistorySnapshot();
+  const changed = crmHistoryRoute(saved) !== crmHistoryRoute(crmHistoryEntry.snapshot);
+  if (changed || refresh) crmHistoryWrite(saved, { push: changed });
+}
+
+function crmHistoryBeforeInteraction(ev) {
+  if (!ev.isTrusted || crmHistoryRestoring || !crmHistoryReady()) return;
+  if (!navigationRestoreActive) crmHistorySync(true);
+  // En modo instalado, proteger la pantalla inicial. Crear el punto de retorno
+  // durante una interacción real evita depender de entradas sin activación.
+  if (pwaInstalled && !crmHistoryGuard) {
+    const saved = crmHistorySnapshot();
+    if (crmHistoryWrite(saved, { guard: true })) {
+      crmHistoryGuard = crmHistoryWrite(saved, { push: true });
+      if (!crmHistoryGuard) crmHistoryWrite(saved);
+    }
+  }
+}
+
+function crmHistoryApply(saved) {
+  if (saved.userId !== session.user?.id || !canAccessView(saved.view)) {
+    saved = crmHistorySnapshot();
+    saved.view = firstAccessibleView();
+    saved.ui.settingsSection = 'home';
+  }
+  navigationInteractionVersion++;
+  navigationRestoreActive = false;
+  pendingSavedNavigation = null;
+  applySavedNavigation(saved);
+  if (saved.ui.priceListId !== undefined) ui.priceListId = saved.ui.priceListId;
+  if (saved.view === 'lobby' && saved.lobbyTab) lobbyState.tab = saved.lobbyTab;
+  if (saved.view === 'chilecompra' && saved.chilecompra) {
+    const cc = saved.chilecompra;
+    // Restaurar la ruta con datos ya cargados, sin repetir búsquedas asíncronas.
+    chilecompraState.tab = cc.tab;
+    chilecompraState.selectedCampaignId = cc.selectedCampaignId || '';
+    const row = [...chilecompraState.results, ...chilecompraState.opportunities]
+      .find(o => o.id === cc.selectedId);
+    chilecompraState.selectedId = row?.id || '';
+    chilecompraState.detailTab = cc.detailTab || 'resumen';
+    chilecompraState.detailLoading = false;
+    chilecompraState.detailError = '';
+  }
+  ensureAccessibleView();
+  render();
+  if (ui.view === 'audit' && isAdmin()) hydrateAudit();
+  const version = navigationInteractionVersion;
+  requestAnimationFrame(() => {
+    if (version !== navigationInteractionVersion) return;
+    const root = $('viewRoot');
+    const main = document.querySelector('.main');
+    if (root) root.scrollTop = saved.viewScroll || 0;
+    if (main) main.scrollTop = saved.mainScroll || 0;
+    window.scrollTo(0, saved.scrollY || 0);
+    saveNavigationLocation();
+  });
+}
+
+function bindCrmHistory() {
+  document.addEventListener('click', crmHistoryBeforeInteraction, { capture: true });
+  document.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' || ev.key === ' ') crmHistoryBeforeInteraction(ev);
+  }, { capture: true });
+  // ChileCompra y Lobby también cambian de sección sin llamar al render central.
+  document.addEventListener('click', () => queueMicrotask(() => crmHistorySync()));
+  document.addEventListener('change', () => queueMicrotask(() => crmHistorySync()));
+  window.addEventListener('popstate', ev => {
+    if (session.status !== 'signed-in' || !crmHistoryEntry) return;
+    const target = ev.state?.[CRM_HISTORY_KEY];
+    const current = crmHistoryEntry;
+    crmHistoryRestoring = true;
+    try {
+      const dialogs = Array.from(document.querySelectorAll('dialog[open]'));
+      const dialog = document.activeElement?.closest?.('dialog[open]') || dialogs.at(-1);
+      if (dialog) {
+        // Alternativa para navegadores que envían popstate antes del cierre nativo.
+        if (dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) dialog.close();
+        crmHistoryWrite(current.snapshot, { push: true });
+        return;
+      }
+      if (!target || target.token !== crmHistoryToken) {
+        if (pwaInstalled) crmHistoryWrite(current.snapshot, { push: true });
+        return;
+      }
+      crmHistoryEntry = target;
+      crmHistoryApply(target.snapshot);
+      if (target.guard && pwaInstalled) {
+        crmHistoryWrite(target.snapshot, { push: true });
+        toast('Ya estás en la primera pantalla del CRM.');
+      }
+    } finally {
+      crmHistoryRestoring = false;
+    }
+  });
+}
+
 /* ---------- Render ---------- */
 
 function render() {
@@ -446,6 +601,7 @@ function render() {
   if (ui.view === 'templates') bindTemplateAccordion();
   if (ui.view === 'chilecompra') mountChileCompraView();
   if (ui.view === 'lobby') mountLobbyView();
+  crmHistorySync();
 }
 
 function refreshDetailIfOpen() {
@@ -3152,8 +3308,9 @@ const ACTIONS = {
   },
   'open-manage': () => openManage(),
   'open-chilecompra': async (id, btn) => {
-    ui.view = 'chilecompra';
+    if (!canAccessView('chilecompra')) return toast('Este módulo no está habilitado para tu perfil.', 'error');
     const mod = await import('./chilecompra.js');
+    ui.view = 'chilecompra';
     const { chilecompraState } = mod;
     const query = String(btn?.dataset.query || '').trim();
     chilecompraState.query = query;
@@ -4591,6 +4748,7 @@ function showStartupScreen(message, { retry = false } = {}) {
 
 function markCrmReady() {
   $('appShell').dataset.ready = 'true';
+  crmHistoryReady();
   document.dispatchEvent(new CustomEvent('crm-personal:app-ready'));
 }
 
@@ -4603,6 +4761,7 @@ async function start() {
   initTutorialRuntime();
   bindEvents();
   bindNavigationMemory();
+  bindCrmHistory();
   renderAuthMode();
 
   onChange(() => {
@@ -4762,6 +4921,8 @@ async function start() {
       navigationRestoreActive = false;
       pendingSavedNavigation = null;
       activeDataUserId = '';
+      crmHistoryEntry = null;
+      crmHistoryUser = '';
       stopRealtime();
       quotesStopRealtime();
       hyperFocusStopRealtime();
@@ -4781,6 +4942,8 @@ async function start() {
       navigationRestoreActive = false;
       pendingSavedNavigation = null;
       activeDataUserId = '';
+      crmHistoryEntry = null;
+      crmHistoryUser = '';
       stopRealtime();
       quotesStopRealtime();
       hyperFocusStopRealtime();
