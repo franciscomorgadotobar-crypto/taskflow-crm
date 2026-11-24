@@ -27,6 +27,7 @@ js/store.js            Estado del CRM: leads, levantamientos, actividades, plant
 js/quotes.js         Estado del cotizador: catálogo de servicios y cotizaciones con versionado
 js/views.js            Render de cada vista (HTML puro)
 js/hyperfocus.js        Campañas Híper Foco: importación, cola secuencial, resultados y conversión al CRM
+supabase/functions/lead-sheet-sync  Conexión automática con la planilla de leads de Meta Ads
 js/app.js              Routing, diálogos, kanban, acciones y el cotizador
 hyperfocus.css          Estilos del modo Híper Foco
 apps-script/Code.gs Backend antiguo (Google Sheets) — obsoleto, se mantiene solo de referencia
@@ -98,6 +99,31 @@ Híper Foco está diseñado para trabajar bases grandes sin convertir cada fila 
 - `visita` puede ver campañas, pero no gestionarlas; `comercial`, `admin` y `super` pueden trabajar la cola.
 
 Para activar las tablas y RLS ejecuta `supabase/0008_hyperfocus.sql` después de `0007_rls_organization_scoped.sql`.
+
+## Conexión con la planilla de leads (Meta Ads)
+
+Los leads que llegan a la planilla de Google de la campaña (hoja "Info Meta", alimentada por los formularios de Meta Ads) entran solos al CRM:
+
+- Cada 10 minutos el cron `lead-sheet-sync` llama a la Edge Function `supabase/functions/lead-sheet-sync`, que descarga la hoja como CSV por enlace. No usa credenciales de Google, por eso la planilla debe seguir compartida como "cualquier persona con el enlace puede ver". Nunca escribe en la planilla.
+- Cada fila nueva se crea como lead en etapa **Lead** y origen **Meta Ads**, con la fecha real de llegada, teléfono con código de país, rubro del catálogo, personas en terreno en el levantamiento y el detalle del formulario en las notas.
+- El responsable se asigna por turno rotativo entre los perfiles de `assignees`; los perfiles inactivos se saltan.
+- No se duplica: cada fila queda registrada en `lead_sheet_imports` por su id de Meta, así que un lead eliminado del CRM no vuelve a entrar. Si el correo o el teléfono ya existen en otro lead, la fila se vincula a ese lead y se agrega la actividad "Volvió a enviar el formulario".
+- El resultado de la última revisión queda en `lead_sheet_sources` (`last_sync_at`, `last_sync_status`, `last_sync_error`, `last_sync_summary`).
+
+Requiere `supabase/migrations/202611241200_lead_sheet_sync.sql` y desplegar la función con `verify_jwt` desactivado: la función valida su propia llave interna, que la migración genera y guarda en Vault.
+
+### Cambiar o agregar una planilla (por ejemplo, la campaña del mes siguiente)
+
+```sql
+insert into public.lead_sheet_sources (organization_id, name, spreadsheet_id, sheet_gid, lead_source, assignees)
+values ('<organization_id>', 'Nombre de la planilla', '<id de la planilla>', '0', 'Meta Ads',
+        array['<uuid responsable 1>'::uuid, '<uuid responsable 2>'::uuid]);
+
+-- Para dejar de leer la planilla anterior:
+update public.lead_sheet_sources set active = false where name = 'Nombre de la planilla anterior';
+```
+
+El id de la planilla es la parte de la URL entre `/d/` y `/edit`; `sheet_gid` es el número que aparece después de `#gid=` al abrir la hoja. Las columnas se reconocen por el nombre del encabezado, así que la conexión sigue funcionando si Meta cambia el orden o agrega preguntas; las preguntas nuevas se copian a las notas del lead.
 
 ## Cotizador
 

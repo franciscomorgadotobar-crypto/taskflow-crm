@@ -10,10 +10,14 @@
 --   * registra cada fila en lead_sheet_imports, así una fila ya importada nunca
 --     vuelve a entrar aunque el lead se elimine después en el CRM.
 -- La planilla es solo lectura: nada se escribe en ella.
+--
+-- Seguridad: ambas funciones son SECURITY INVOKER. Solo service_role (la Edge
+-- Function) puede usarlas: anon/authenticated no tienen acceso a Vault y la RLS de
+-- lead_sheet_sources / lead_sheet_imports no les permite modificar nada.
 
 begin;
 
-create table if not exists public.lead_sheet_sources (
+create table public.lead_sheet_sources (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   name text not null default '',
@@ -33,11 +37,10 @@ create table if not exists public.lead_sheet_sources (
   unique (organization_id, spreadsheet_id, sheet_gid)
 );
 
-drop trigger if exists set_updated_at on public.lead_sheet_sources;
 create trigger set_updated_at before update on public.lead_sheet_sources
   for each row execute function public.set_updated_at();
 
-create table if not exists public.lead_sheet_imports (
+create table public.lead_sheet_imports (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   external_id text not null,
   source_id uuid references public.lead_sheet_sources(id) on delete set null,
@@ -48,28 +51,23 @@ create table if not exists public.lead_sheet_imports (
   primary key (organization_id, external_id)
 );
 
-create index if not exists lead_sheet_imports_lead_idx
+create index lead_sheet_imports_lead_idx
   on public.lead_sheet_imports(lead_id) where lead_id is not null;
-create index if not exists lead_sheet_imports_source_idx
+create index lead_sheet_imports_source_idx
   on public.lead_sheet_imports(source_id, imported_at desc);
 
+-- Solo lectura para administración de la organización (diagnóstico). Sin políticas
+-- de escritura: los clientes no pueden crear, modificar ni borrar filas.
 alter table public.lead_sheet_sources enable row level security;
 alter table public.lead_sheet_imports enable row level security;
 
--- Lectura para administración de la organización (diagnóstico). Las escrituras
--- quedan reservadas a la Edge Function, que usa service_role.
-drop policy if exists lead_sheet_sources_select on public.lead_sheet_sources;
 create policy lead_sheet_sources_select on public.lead_sheet_sources
 for select to authenticated
 using (organization_id = internal.my_org() and internal.can_manage_all());
 
-drop policy if exists lead_sheet_imports_select on public.lead_sheet_imports;
 create policy lead_sheet_imports_select on public.lead_sheet_imports
 for select to authenticated
 using (organization_id = internal.my_org() and internal.can_manage_all());
-
-revoke all on table public.lead_sheet_sources, public.lead_sheet_imports from public, anon, authenticated;
-grant select on table public.lead_sheet_sources, public.lead_sheet_imports to authenticated;
 
 -- Llave interna del cron. Se genera al aplicar la migración y vive solo en Vault.
 do $$
@@ -84,12 +82,14 @@ begin
 end
 $$;
 
-create or replace function public.internal_lead_sheet_cron_key()
+-- La Edge Function la usa para validar al cron. Solo funciona para service_role:
+-- anon y authenticated no tienen acceso al esquema vault.
+create function public.internal_lead_sheet_cron_key()
 returns text
 language sql
 stable
-security definer
-set search_path = pg_catalog, public, vault
+security invoker
+set search_path = ''
 as $$
   select decrypted_secret
   from vault.decrypted_secrets
@@ -98,16 +98,13 @@ as $$
   limit 1
 $$;
 
-revoke all on function public.internal_lead_sheet_cron_key() from public, anon, authenticated;
-grant execute on function public.internal_lead_sheet_cron_key() to service_role;
-
 -- Importa filas ya mapeadas por la Edge Function. Cada fila es un objeto con:
 -- external_id, created_at, company, contact, role, email, phone, industry,
 -- technicians, notes, summary y payload (fila original de la planilla).
-create or replace function public.lead_sheet_import(p_source_id uuid, p_rows jsonb)
+create function public.lead_sheet_import(p_source_id uuid, p_rows jsonb)
 returns jsonb
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 declare
@@ -136,6 +133,7 @@ begin
     raise exception 'Las filas deben llegar como arreglo JSON';
   end if;
 
+  -- Con RLS, solo service_role puede bloquear la fila de la fuente.
   select *
     into v_source
     from public.lead_sheet_sources
@@ -309,18 +307,7 @@ begin
 end;
 $$;
 
-revoke all on function public.lead_sheet_import(uuid, jsonb) from public, anon, authenticated;
-grant execute on function public.lead_sheet_import(uuid, jsonb) to service_role;
-
--- Revisión automática cada 10 minutos.
-do $$
-begin
-  perform cron.unschedule('lead-sheet-sync');
-exception when others then
-  null;
-end
-$$;
-
+-- Revisión automática cada 10 minutos (cron.schedule reemplaza el job si ya existe).
 select cron.schedule(
   'lead-sheet-sync',
   '*/10 * * * *',
