@@ -41,6 +41,8 @@ jobs:
         run: node .github/quote-email.test.mjs
       - name: Validar comparación de precios y descuentos comerciales
         run: node .github/quote-commercial-pricing.test.mjs
+      - name: Probar mapeo de la planilla de leads (Meta Ads)
+        run: node .github/lead-sheet-sync.test.mjs
       - name: Instalar biblioteca para exportar Word
         run: npm install --no-save docx@9.5.3 jszip@3.10.1
       - name: Validar documento Word real con todas las etapas
