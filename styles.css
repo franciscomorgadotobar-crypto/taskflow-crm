@@ -1640,3 +1640,30 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
   }
 }
 /* ---------- End cotizaciones empresa/previsualización ---------- */
+
+
+/* Alcance completo bajo la solución; no duplicar tarjetas de capacidades. */
+.qd-line-scope { margin:6px 0 0; padding-left:14px; color:#46617c; font-size:10px; line-height:1.45; font-weight:400; }
+.qd-line-scope li { margin:0 0 3px; overflow-wrap:anywhere; }
+.qd-module-tag { display:inline-block; background:#e6f1fc; color:#175f9d; margin-top:3px; }
+.qd-unified-table { table-layout:fixed; }
+.qd-unified-table th:first-child,.qd-unified-table td:first-child { width:36%; min-width:0; }
+.qd-unified-table th:nth-child(2) { width:8%; }
+.qd-unified-table th:nth-child(n+3) { width:14%; }
+.qd-unified-table th.num,.qd-optional-table th.num { white-space:normal; overflow-wrap:anywhere; }
+.qd-optional-table { table-layout:fixed; }
+.qd-optional-table th:first-child,.qd-optional-table td:first-child { width:43%; min-width:0; }
+.qd-optional-table th:nth-child(2) { width:9%; }
+.qd-optional-table th:nth-child(n+3) { width:24%; }
+/* El ancho y altura de las hojas son medidos antes de rasterizar. */
+.quote-doc.qd-for-print.qd-page { width:100%; padding:0; display:flow-root; overflow:visible; }
+.quote-doc.qd-for-print.qd-page .qd-unified-table th:first-child,
+.quote-doc.qd-for-print.qd-page .qd-unified-table td:first-child { width:36%; }
+.quote-doc.qd-for-print.qd-page .qd-optional-table th:first-child,
+.quote-doc.qd-for-print.qd-page .qd-optional-table td:first-child { width:43%; }
+.quote-doc.qd-for-print.qd-page .qd-table th,.quote-doc.qd-for-print.qd-page .qd-table td { padding:6px; }
+.quote-doc.qd-for-print.qd-page .qd-economic-title { margin-top:12px; }
+.quote-doc.qd-for-print.qd-page .qd-page-table { margin-top:12px; display:flow-root; }
+.quote-doc.qd-for-print.qd-page .qd-page-table > h4 { margin:0 0 6px; }
+.quote-doc.qd-for-print.qd-page .qd-page-table > p { margin:0 0 7px; }
+.quote-doc.qd-for-print.qd-page .qd-page-block { display:flow-root; }
