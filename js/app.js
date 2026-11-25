@@ -91,8 +91,8 @@ import { DEFENDER_DEFAULT, defenderConfig, defenderPriceListName, defenderPriceL
 import { mountQuoteCatalog } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
-import { addQuotePdfFooters, trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
-import { placeQuoteRoadmap } from './quote-pdf-roadmap.js';
+import { addQuotePdfFooters } from './quote-pdf-cleanup.js';
+import { composeQuotePages } from './quote-pdf-roadmap.js';
 import { downloadQuoteWord } from './quote-word-export.js';
 import { downloadPriceListCsv, downloadPriceListXlsx, downloadAllPriceListsXlsx } from './price-list-export.js';
 import { isAdmin, isReadOnly, isSuper, onAuthChange, resetPassword, session, signIn, signOut, signUp } from './auth.js';
@@ -1806,6 +1806,7 @@ function builderDoc() {
     return {
       code: ci.code,
       name: ci.name,
+      category: getPriceListItem(ci.price_list_item_id)?.category || '',
       description: getPriceListItem(ci.price_list_item_id)?.description || '',
       periodicity: ci.periodicity,
       quantity: ci.quantity,
@@ -2461,45 +2462,53 @@ async function downloadQuotePdf(doc) {
   const html2pdf = await ensureHtml2Pdf();
   const holder = document.createElement('div');
   holder.className = 'quote-pdf-holder';
+  // A4: 210 x 297 mm menos 12 mm en cada borde. Mantener idéntico ancho
+  // al medir y capturar para que ninguna fila cambie de altura.
+  holder.style.width = '186mm';
   holder.innerHTML = quoteDocHtml(doc);
-  // html2pdf clona solo el nodo seleccionado; la clase del contenedor
-  // .quote-pdf-holder no se conserva en esa copia. La clase propia sí.
-  holder.firstElementChild.classList.add('qd-for-print');
+  const source = holder.firstElementChild;
+  source.classList.add('qd-for-print');
   document.body.appendChild(holder);
-  const safe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
+  const safe = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
   const filename = `${safe(doc.number) || 'cotizacion'}${doc.version > 1 ? `-v${doc.version}` : ''}-${safe(doc.client?.company)}.pdf`;
   try {
-    const worker = html2pdf()
-      .set({
-        // Márgenes idénticos en todas las hojas: A4 vertical, 12 mm.
+    if (document.fonts?.ready) await document.fonts.ready;
+    await Promise.all([...source.querySelectorAll('img')].map(img => img.decode?.().catch(() => {}) || Promise.resolve()));
+    const pageHost = document.createElement('div');
+    holder.append(pageHost);
+    const pages = composeQuotePages(source, pageHost, { maxHeight: Math.floor(273 * 96 / 25.4) - 18 });
+    if (!pages.length) throw new Error('La cotización no contiene páginas.');
+    source.remove();
+    let pdf = null;
+    for (const page of pages) {
+      // Una captura por hoja, sin cortes automáticos ni canvas gigante.
+      const worker = html2pdf().set({
         margin: [12, 12, 12, 12],
         filename,
-        image: { type: 'jpeg', quality: 0.96 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        image: { type: 'jpeg', quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 1200, scrollX: 0, scrollY: 0 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: {
-          mode: ['css', 'legacy'],
-          // No forzar una página nueva para la proyección: debe ocupar el
-          // espacio disponible bajo los complementos opcionales. html2pdf
-          // mueve los bloques enteros solamente cuando no caben.
-          avoid: ['.qd-financial-group', '.qd-economic-summary', '.qd-included-benefits', '.qd-plan-card', 'tr', '.qd-totals', '.qd-contract', '.qd-head', '.qd-optional-page-group']
+        pagebreak: { mode: [] }
+      }).from(page);
+      try {
+        await worker.toCanvas();
+        const canvas = await worker.get('canvas');
+        if (!canvas?.width || !canvas?.height) throw new Error('No se pudo capturar una hoja de la cotización.');
+        const height = 186 * canvas.height / canvas.width;
+        if (height > 273) throw new Error('Una hoja excede el área imprimible. No se guardará un PDF cortado.');
+        if (!pdf) {
+          await worker.toPdf();
+          pdf = await worker.get('pdf');
+          if (pdf.getNumberOfPages() !== 1) throw new Error('No se pudo preparar la primera hoja completa.');
+        } else {
+          pdf.addPage('a4', 'portrait');
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', 12, 12, 186, height);
         }
-      })
-      .from(holder.firstElementChild);
-
-    // html2pdf aplica los saltos a la copia durante toContainer(). Ajustar
-    // las cinco etapas DESPUÉS de esos saltos y ANTES de rasterizar; así
-    // nunca recorta "Salida a producción" por un avoid anidado.
-    await worker.toContainer();
-    const pageSize = await worker.get('pageSize');
-    const container = await worker.get('container');
-    placeQuoteRoadmap(container, pageSize.inner.px.height, { marginPx: 55 });
-
-    // Comprobar el lienzo final antes de guardar (incluidas hojas vacías).
-    await worker.toPdf();
-    const pdf = await worker.get('pdf');
-    const canvas = await worker.get('canvas');
-    trimTrailingEmptyQuotePages(pdf, canvas, { top: 12, right: 12, bottom: 12, left: 12 });
+      } finally {
+        page.remove();
+      }
+    }
+    if (pdf.getNumberOfPages() !== pages.length) throw new Error('La paginación no coincide con la cotización.');
     addQuotePdfFooters(pdf, doc);
     await pdf.save(filename);
   } finally {
