@@ -604,10 +604,36 @@ function render() {
   crmHistorySync();
 }
 
+// Evitar perder el borrador del resultado por sincronizaciones o actualizaciones de cotizaciones.
+const fichaTaskSaving = new Set();
 function refreshDetailIfOpen() {
-  if ($('detailDialog').open && detailLeadId) {
-    $('detailBody').innerHTML = renderLeadDetail(detailLeadId);
-    buildTaskTypeGroups($('detailBody'));
+  if (!$('detailDialog').open || !detailLeadId || fichaTaskSaving.has(detailLeadId)) return;
+  const body = $('detailBody');
+  const previous = body.querySelector('[data-task-flow="ficha"]');
+  const draft = previous && $('fichaResult') ? {
+    signature: previous.dataset.taskSignature,
+    result: $('fichaResult').value,
+    nextAction: $('fichaNextAction')?.value || '',
+    nextDate: $('fichaNextDate')?.value || '',
+    nextType: taskTypeValue('ficha'),
+    step: previous.querySelector('[data-flow-step="2"]')?.hidden === false ? 2 : 1,
+    focus: document.activeElement?.id || '',
+    selection: document.activeElement?.tagName === 'TEXTAREA' ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null
+  } : null;
+  body.innerHTML = renderLeadDetail(detailLeadId);
+  buildTaskTypeGroups(body);
+  const current = body.querySelector('[data-task-flow="ficha"]');
+  if (draft && current?.dataset.taskSignature === draft.signature && $('fichaResult')) {
+    $('fichaResult').value = draft.result;
+    $('fichaNextAction').value = draft.nextAction;
+    $('fichaNextDate').value = draft.nextDate;
+    setTaskType('ficha', draft.nextType);
+    setFichaTaskStep(draft.step);
+    if (['fichaResult','fichaNextAction','fichaNextDate'].includes(draft.focus)) {
+      const field = $(draft.focus);
+      field?.focus({ preventScroll: true });
+      if (draft.selection && field?.tagName === 'TEXTAREA') field.setSelectionRange(...draft.selection);
+    }
   }
 }
 
@@ -3058,8 +3084,7 @@ function setFichaTaskStep(step) {
 }
 
 function continueFichaTask() {
-  const result = $('fichaResult')?.value.trim() || '';
-  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+  if (fichaTaskSaving.has(detailLeadId)) return;
   setFichaTaskStep(2);
   setTimeout(() => $('fichaNextAction')?.focus(), 60);
 }
@@ -3067,27 +3092,44 @@ function continueFichaTask() {
 async function finishFichaTask(id, { withoutNext = false } = {}) {
   if (isReadOnly()) return toast('Tu perfil es de solo lectura.', 'error');
   if (!canEditLeadLocally(id)) return toast('Solo puedes cerrar gestiones de oportunidades asignadas a ti.', 'error');
-  const result = $('fichaResult')?.value.trim() || '';
-  if (!result) return toast('Cuenta cómo resultó la gestión.', 'error');
+  if (fichaTaskSaving.has(id)) return;
+  const task = taskOf(getLead(id));
+  const flow = document.querySelector('[data-task-flow="ficha"]');
+  if (!task || detailLeadId !== id || !flow || flow.dataset.taskSignature !== JSON.stringify([id, task.type, task.note, task.date])) {
+    refreshDetailIfOpen();
+    return toast('La tarea pendiente cambió. Revisa la ficha actualizada.', 'error');
+  }
 
+  const result = $('fichaResult')?.value.trim() || 'Gestión marcada como realizada.';
   const nextType = withoutNext ? '' : taskTypeValue('ficha');
   const nextAction = withoutNext ? '' : ($('fichaNextAction')?.value.trim() || '');
   const nextDate = withoutNext ? '' : ($('fichaNextDate')?.value || '');
 
-  if (!withoutNext && !nextType && !nextAction) return toast('Define la siguiente acción o usa “Cerrar sin próxima acción”.', 'error');
+  if (!withoutNext && !nextType && !nextAction) return toast('Define la siguiente acción o selecciona “Solo marcar como realizada”.', 'error');
   if (!withoutNext && !nextDate) return toast('Elige la fecha de la siguiente acción.', 'error');
 
-  const task = taskOf(getLead(id));
-  const closed = await completeTaskAtomic(id, {
-    type: task?.type || 'Actividad',
-    date: localDateTimeInput(),
-    result,
-    nextType,
-    nextAction,
-    nextDate
-  });
+  fichaTaskSaving.add(id);
+  const controls = [...flow.querySelectorAll('button, textarea, input')].filter(el => !el.disabled);
+  controls.forEach(el => { el.disabled = true; });
+  flow.setAttribute('aria-busy', 'true');
+  let closed;
+  try {
+    closed = await completeTaskAtomic(id, {
+      type: task.type || 'Actividad',
+      date: localDateTimeInput(),
+      result,
+      nextType,
+      nextAction,
+      nextDate
+    });
+  } finally {
+    fichaTaskSaving.delete(id);
+    controls.forEach(el => { el.disabled = false; });
+    flow.removeAttribute('aria-busy');
+  }
   if (!closed) return;
-  toast(withoutNext ? 'Gestión cerrada sin próxima acción.' : 'Gestión cerrada y siguiente acción agendada.');
+  refreshDetailIfOpen();
+  toast(withoutNext ? 'Tarea realizada. Registrada en Actividad.' : 'Tarea realizada y siguiente acción agendada.');
 }
 
 function teamRedirectTo() {
