@@ -8319,3 +8319,32 @@ html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
     font-size: 10px;
   }
 }
+
+
+/* Ficha comercial: una decisión explícita, sin obligar a programar seguimiento. */
+.task-flow--ficha .ficha-task-decisions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+.task-flow--ficha .ficha-task-decisions > button {
+  width: 100%;
+  min-height: 42px;
+  white-space: normal;
+  line-height: 1.35;
+}
+.task-flow--ficha .ficha-task-reschedule {
+  grid-column: 1 / -1;
+  justify-self: start;
+  width: auto !important;
+}
+.task-flow--ficha[aria-busy="true"] {
+  cursor: progress;
+}
+@media (max-width: 560px) {
+  .task-flow--ficha .ficha-task-decisions {
+    grid-template-columns: 1fr;
+  }
+  .task-flow--ficha .ficha-task-reschedule {
+    width: 100% !important;
+  }
+}
