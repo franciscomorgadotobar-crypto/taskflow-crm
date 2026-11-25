@@ -131,3 +131,14 @@ export function clientServiceQuantity(item = {}) {
     return quantity + (Number(item.quantity) === 1 ? ' plan contratado' : ' planes contratados');
   return quantity + (Number(item.quantity) === 1 ? ' unidad contratada' : ' unidades contratadas');
 }
+
+/** Módulo comercial independiente de la periodicidad de cobro. */
+export function clientServiceModule(item = {}) {
+  const code = String(item.code || '').toUpperCase();
+  const name = [item.name, item.category].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/^(INV_|PACK_INV_|PACK_SER_)/.test(code) || /inventario|equipos seriados/.test(name)) return 'Inventario';
+  if (/^(LAB_|LABORATORIO)/.test(code) || /laboratorio/.test(name)) return 'Laboratorio';
+  if (/^(GE_|GI_|OTS?_)/.test(code) || /gestion externa|gestion interna|orden(?:es)? de trabajo|\bots?\b/.test(name)) return 'OTs';
+  if (/^(SETUP|CFG_ADV|TRAIN_)/.test(code) || /puesta en marcha|capacitacion|habilitacion|configuracion/.test(name)) return 'Implementación';
+  return String(item.category || '').trim() || 'Servicios';
+}
