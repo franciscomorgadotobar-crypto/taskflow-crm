@@ -1281,7 +1281,7 @@ export function renderQuotesSection(leadId) {
 export const PERIODICITY_LABEL = { unico: 'Único', mensual: 'Mensual' };
 
 function renderPriceListItems(list) {
-  const items = itemsOfPriceList(list.id);
+  const items = [...itemsOfPriceList(list.id)].sort((a, b) => Number(a.price) - Number(b.price) || a.name.localeCompare(b.name, 'es'));
   const admin = isAdmin();
   return `
     <div class="card" style="margin-top:16px">
@@ -1817,7 +1817,7 @@ export function quoteLinesHtml(builder) {
   const calcItem = (ref) => builder.calc?.items?.find((x) => x.ref === ref);
   const calcLine = (ref) => builder.calc?.lines?.find((x) => x.ref === ref);
   const dash = '—';
-  if (!builder.items.length) return '<p class="muted">Sin líneas. Elige un servicio de la lista y agrégalo.</p>';
+  if (!builder.items.length) return '<p class="muted">Sin líneas. Agrega servicios desde el catálogo con el botón +.</p>';
   return `<div class="table-wrap"><table class="data-table quote-lines-table">
     <thead><tr><th>Servicio</th><th class="num">Cant.</th><th class="num">P. unit. ${cur}</th><th class="num">Subtotal</th><th class="num">Dscto</th><th class="num">Total</th><th></th></tr></thead>
     <tbody>${builder.items
@@ -2114,7 +2114,6 @@ export function renderLeadDetail(id) {
   const task = taskOf(l);
   const taskOverdue = Boolean(task && (!task.date || task.date < today));
 
-  const primary = contacts[0] || null;
   const canManageTask = !isReadOnly() && canEditLeadLocally(l);
   const nextTaskBody = task
     ? `<div class="task-flow task-flow--ficha" data-task-flow="ficha" data-task-signature="${e(JSON.stringify([l.id, task.type, task.note, task.date]))}">
@@ -2130,14 +2129,16 @@ export function renderLeadDetail(id) {
               ${taskOverdue ? '<span class="badge danger">Vencida</span>' : ''}
             </div>
           </div>
-          <div class="actions task-flow-channels" aria-label="Canales para realizar la gestión">
-            <button class="small-btn task-flow-channel-btn" data-action="call-contact" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>Llamar</button>
-            <button class="small-btn task-flow-channel-btn task-flow-channel-btn--whatsapp" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>WhatsApp</button>
-            <button class="small-btn task-flow-channel-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.email ? '' : 'disabled title="Sin correo registrado"'}>Correo</button>
-          </div>
           ${canManageTask ? `<div class="task-form task-flow-current-form">
             <label class="span-2">Resultado de la gestión <span class="muted">(opcional)</span>
               <textarea id="fichaResult" rows="3" placeholder="Registra qué ocurrió o los acuerdos alcanzados"></textarea>
+            </label>
+            <label class="span-2">¿Cómo se realizó la gestión?
+              <select id="fichaActualType">
+                <option value="" ${task.type ? '' : 'selected'}>Sin especificar</option>
+                ${[...new Set([...ACTIVITY_TYPES, ...(task.type ? [task.type] : [])])].map(type => `<option value="${e(type)}" ${type === task.type ? 'selected' : ''}>${e(type)}</option>`).join('')}
+              </select>
+              <small class="muted">Si cambió la modalidad, selecciona la que realmente utilizaste.</small>
             </label>
           </div>
           <div class="actions task-form-actions task-flow-footer task-flow-footer--stack ficha-task-decisions">
