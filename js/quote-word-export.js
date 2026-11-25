@@ -1,4 +1,4 @@
-import { clientServiceName, clientServiceScope } from './quote-client-copy.js';
+import { clientServiceName, clientServiceScope, clientServiceModule } from './quote-client-copy.js';
 import { readOptionalQuoteData } from './quote-optionals.js';
 import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
 import { quoteDiscountComparison, quoteDiscountPercent } from './quote-commercial-pricing.js';
@@ -62,6 +62,7 @@ export function quoteWordModel(rawDoc = {}) {
     items: (doc.lines || []).map((l) => ({
       name: clientServiceName(l),
       description: clientServiceScope(l),
+      module: clientServiceModule(l),
       periodicity: l.periodicity === 'unico' ? 'Pago único' : 'Mensual',
       quantity: Number(l.quantity) || 0,
       unit: money(l.unitPrice),
@@ -71,7 +72,8 @@ export function quoteWordModel(rawDoc = {}) {
     })),
     optional: optional.map((o) => ({
       name: o.name || 'Complemento',
-      description: o.description || '',
+      description: clientServiceScope(o),
+      module: clientServiceModule(o),
       periodicity: o.periodicity === 'unico' ? 'Pago único' : 'Mensual',
       quantity: Number(o.quantity) || 0,
       unit: money(o.unitPrice),
@@ -114,12 +116,22 @@ export async function createQuoteWordBlob(rawDoc, lib) {
   const cell = (value, { head = false, strong = false } = {}) => new TableCell({
     shading: head ? { fill: 'EAF2FA' } : undefined,
     margins: { top: 90, bottom: 90, left: 90, right: 90 },
-    children: [new Paragraph({
-      children: [new TextRun({ text: String(value ?? ''), bold: head || strong, color: NAVY, size: 17 })],
-      spacing: { after: 0 }
-    })]
+    children: typeof value === 'object' && value !== null
+      ? [
+          new Paragraph({ children: [new TextRun({text: value.name, bold:true, color:NAVY, size:17})], spacing:{after:50} }),
+          new Paragraph({ children: [new TextRun({text:value.module, bold:true, color:BLUE, size:16})], spacing:{after:60} }),
+          ...String(value.description || '').split(/\r?\n/).map(v=>v.trim()).filter(Boolean).map(v=>new Paragraph({
+            children:[new TextRun({text:'• '+v.replace(/^[-•]\s*/, ''), color:MUTED, size:16})],
+            spacing:{after:40}, keepLines:true
+          }))
+        ]
+      : [new Paragraph({
+          children: [new TextRun({ text: String(value ?? ''), bold: head || strong, color: NAVY, size: 17 })],
+          spacing: { after: 0 }
+        })]
   });
-  const table = (headings, rows) => new Table({
+  const table = (headings, rows, columnWidths) => new Table({
+    ...(columnWidths ? { columnWidths } : {}),
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: {
       top: { style: BorderStyle.SINGLE, size: 4, color: BORDER },
@@ -130,7 +142,7 @@ export async function createQuoteWordBlob(rawDoc, lib) {
       insideVertical: { style: BorderStyle.SINGLE, size: 3, color: BORDER }
     },
     rows: [
-      new TableRow({ cantSplit: true, children: headings.map((v) => cell(v, { head: true })) }),
+      new TableRow({ cantSplit: true, tableHeader: true, children: headings.map((v) => cell(v, { head: true })) }),
       ...rows.map((values) => new TableRow({
         cantSplit: true,
         children: values.map((v, i) => cell(v, { strong: i === values.length - 1 }))
@@ -152,15 +164,6 @@ export async function createQuoteWordBlob(rawDoc, lib) {
   put(line('Vigencia hasta', model.validUntil), line('Contrato considerado', model.contractMonths + ' meses'));
 
   if (model.notes) put(heading('Observaciones'), p(model.notes));
-  if (model.items.length) {
-    put(heading('Qué incluye la solución contratada'));
-    for (const item of model.items) {
-      put(subheading(item.name + ' · ' + item.periodicity));
-      for (const detail of item.description.split(/\r?\n/).filter(Boolean)) {
-        put(p('• ' + detail, { indent: { left: 240 } }));
-      }
-    }
-  }
   if (model.commercialInfo.length) {
     put(heading('Incluidos'));
     for (const benefit of model.commercialInfo) put(p('• ' + benefit));
@@ -169,8 +172,8 @@ export async function createQuoteWordBlob(rawDoc, lib) {
   put(p('Precios unitarios, valores de lista, descuentos y subtotales expresados como ' + model.taxBasis + '. Los importes finales indicados a continuación incluyen IVA.'));
   const financeHead = ['Solución / tipo', 'Cant.', 'Unit. ' + model.taxBasis, 'Base ' + model.taxBasis, 'Descuento ' + model.taxBasis, 'Subtotal ' + model.taxBasis];
   if (model.items.length) put(table(financeHead, model.items.map((it) => [
-    it.name + ' (' + it.periodicity + ')', it.quantity, it.unit, it.subtotal, it.discount, it.total
-  ])));
+    {name:it.name,module:it.module,description:it.description}, it.quantity, it.unit, it.subtotal, it.discount, it.total
+  ]), [3700,800,1400,1400,1400,1400]));
   const setup = model.totals.setup || {};
   const monthly = model.totals.monthly || {};
   const contract = model.totals.contract || {};
@@ -201,8 +204,8 @@ export async function createQuoteWordBlob(rawDoc, lib) {
     put(heading('Complementos opcionales — contratación por separado'));
     put(p('Valores informativos, no incluidos en la solución ni en el valor total del contrato.'));
     put(table(['Complemento', 'Tipo', 'Cantidad', 'Unitario (' + model.taxBasis + ')', 'Total (IVA incluido)'], model.optional.map((it) => [
-      it.name, it.periodicity, it.quantity, it.unit, it.total
-    ])));
+      {name:it.name,module:it.module,description:it.description}, it.periodicity, it.quantity, it.unit, it.total
+    ]), [4300,1400,900,1700,1800]));
   }
   put(heading('Proyección de valores mensuales (IVA incluido)'));
   const projection = (model.totals.projection || []).map((entry) => [
