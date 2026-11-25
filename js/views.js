@@ -16,6 +16,7 @@ import {
 } from './catalog.js';
 import {
   activitiesOf,
+  canEditLeadLocally,
   contactsOf,
   findContact,
   getDiscovery,
@@ -2114,13 +2115,9 @@ export function renderLeadDetail(id) {
   const taskOverdue = Boolean(task && (!task.date || task.date < today));
 
   const primary = contacts[0] || null;
+  const canManageTask = !isReadOnly() && canEditLeadLocally(l);
   const nextTaskBody = task
-    ? `<div class="task-flow task-flow--ficha" data-task-flow="ficha">
-        <div class="task-flow-progress" aria-label="Flujo de gestión">
-          <span class="is-active" data-flow-indicator="1"><b>1</b> Gestión</span>
-          <i></i>
-          <span data-flow-indicator="2"><b>2</b> Siguiente acción</span>
-        </div>
+    ? `<div class="task-flow task-flow--ficha" data-task-flow="ficha" data-task-signature="${e(JSON.stringify([l.id, task.type, task.note, task.date]))}">
 
         <section class="task-flow-step is-active" data-flow-step="1">
           <div class="next-highlight ${taskOverdue ? 'overdue-box' : ''}">
@@ -2138,22 +2135,23 @@ export function renderLeadDetail(id) {
             <button class="small-btn task-flow-channel-btn task-flow-channel-btn--whatsapp" data-action="open-whatsapp" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.phone ? '' : 'disabled title="Sin teléfono registrado"'}>WhatsApp</button>
             <button class="small-btn task-flow-channel-btn" data-action="open-email" data-id="${l.id}" data-contact="${primary?.key || ''}" ${primary?.email ? '' : 'disabled title="Sin correo registrado"'}>Correo</button>
           </div>
-          <div class="task-form task-flow-current-form">
-            <label class="span-2">¿Cómo resultó?
-              <textarea id="fichaResult" rows="4" placeholder="Qué pasó, qué dijeron, en qué quedaron"></textarea>
+          ${canManageTask ? `<div class="task-form task-flow-current-form">
+            <label class="span-2">Resultado de la gestión <span class="muted">(opcional)</span>
+              <textarea id="fichaResult" rows="3" placeholder="Registra qué ocurrió o los acuerdos alcanzados"></textarea>
             </label>
           </div>
-          <p class="muted form-note task-flow-note">Si no pudiste realizarla, reagéndala sin cerrarla.</p>
-          <div class="actions task-form-actions task-flow-footer">
-            <button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Reagendar</button>
-            <button class="primary-btn" data-action="ficha-task-continue" data-id="${l.id}">Continuar →</button>
+          <div class="actions task-form-actions task-flow-footer task-flow-footer--stack ficha-task-decisions">
+            <button type="button" class="primary-btn" data-action="ficha-task-close-no-next" data-id="${l.id}">✓ Marcar como realizada</button>
+            <button type="button" class="ghost-btn" data-action="ficha-task-continue" data-id="${l.id}">Realizar y agendar siguiente</button>
+            <button type="button" class="small-btn ficha-task-reschedule" data-action="reschedule-task" data-id="${l.id}">Reagendar tarea pendiente</button>
           </div>
+          <p class="muted form-note task-flow-note">Marcar como realizada cierra la tarea y la registra en Actividad. Reagendar mantiene la tarea pendiente.</p>` : '<p class="muted form-note task-flow-note">Solo el responsable o un perfil autorizado puede gestionar esta tarea.</p>'}
         </section>
 
         <section class="task-flow-step" data-flow-step="2" hidden>
           <div class="task-flow-completed-summary">
             <span class="task-flow-check">✓</span>
-            <div><strong>Resultado listo</strong><span>Ahora define qué debe ocurrir después.</span></div>
+            <div><strong>Agendar siguiente acción</strong><span>La tarea actual se marcará como realizada al guardar la nueva.</span></div>
           </div>
           <div class="task-form">
             <div class="span-2 task-type-row" data-task-type-group="ficha">
@@ -2166,14 +2164,14 @@ export function renderLeadDetail(id) {
             <label class="span-2">Fecha de la siguiente acción<input id="fichaNextDate" type="date" /></label>
           </div>
           <div class="actions task-form-actions task-flow-footer task-flow-footer--stack">
-            <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Guardar y agendar</button>
-            <button class="ghost-btn" data-action="ficha-task-close-no-next" data-id="${l.id}">Cerrar sin próxima acción</button>
-            <button class="link-btn task-flow-back" data-action="ficha-task-back" data-id="${l.id}">← Volver al resultado</button>
+            <button class="primary-btn" data-action="complete-task-inline" data-id="${l.id}">Marcar realizada y agendar</button>
+            <button class="ghost-btn" data-action="ficha-task-close-no-next" data-id="${l.id}">Solo marcar como realizada</button>
+            <button class="link-btn task-flow-back" data-action="ficha-task-back" data-id="${l.id}">← Volver a la tarea pendiente</button>
           </div>
         </section>
       </div>`
     : `<p class="muted">Sin gestión pendiente para este prospecto.</p>
-       <div class="actions"><button class="small-btn" data-action="reschedule-task" data-id="${l.id}">Agendar tarea</button></div>`;
+       ${canManageTask ? `<div class="actions"><button class="primary-btn" data-action="reschedule-task" data-id="${l.id}">Agendar nueva tarea</button></div>` : ''}`;
 
   return `
     <div class="detail-grid">
