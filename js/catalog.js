@@ -110,7 +110,9 @@ export const ACTIVITY_TYPES = ['Llamada', 'Reunión', 'Demo', 'Correo', 'WhatsAp
 export const TASK_TYPES = [
   { value: 'Llamada', label: 'Llamar' },
   { value: 'WhatsApp', label: 'WhatsApp' },
-  { value: 'Correo', label: 'Correo' }
+  { value: 'Correo', label: 'Correo' },
+  { value: 'Reunión', label: 'Reunión' },
+  { value: 'Demo', label: 'Demo' }
 ];
 
 export const CURRENT_MANAGEMENT = ['WhatsApp / papel', 'Excel / formularios', 'Software parcial', 'ERP / CMMS integrado'];
