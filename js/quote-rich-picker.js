@@ -267,3 +267,108 @@ export function enhanceQuoteProductSelect(select, products = [], currency = 'UF'
   select._quoteRichPicker = picker;
   picker.update(products, currency);
 }
+
+/** Catálogo integrado: todas las capacidades y el precio visibles, sin popups. */
+export function quoteCatalogModule(item) {
+  const code = String(item.code || '').toUpperCase();
+  if (/^GE_/.test(code)) return 'Gestión Externa';
+  if (/^GI_/.test(code)) return 'Gestión Interna';
+  if (/^(INV_|PACK_INV_|PACK_SER_)/.test(code)) return 'Inventario';
+  return String(item.category || 'Otros servicios').trim() || 'Otros servicios';
+}
+export function quoteCatalogGroups(products, byPrice = false) {
+  const sorted = [...products].sort((a, b) => Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es'));
+  if (byPrice) return [['Todos los servicios · menor a mayor', sorted]];
+  const groups = new Map();
+  for (const product of sorted) {
+    const group = quoteCatalogModule(product);
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(product);
+  }
+  const priority = ['Gestión Externa', 'Gestión Interna', 'Inventario'];
+  const order = group => priority.includes(group) ? priority.indexOf(group) : priority.length;
+  return [...groups].sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b, 'es'));
+}
+export function mountQuoteCatalog(host, products, currency) {
+  host.replaceChildren();
+  const header = make('div', 'quote-catalog-toolbar');
+  const search = make('input', 'quote-catalog-search');
+  search.type = 'search';
+  search.placeholder = 'Buscar módulo, plan o capacidad…';
+  search.setAttribute('aria-label', 'Buscar en el catálogo');
+  const sort = make('select', 'quote-catalog-sort');
+  sort.setAttribute('aria-label', 'Orden del catálogo');
+  for (const [value, label] of [['module', 'Por módulo · menor a mayor'], ['price', 'Todos · menor a mayor precio']]) {
+    const opt = make('option', '', label); opt.value = value; sort.append(opt);
+  }
+  const count = make('p', 'muted quote-catalog-count');
+  const body = make('div', 'quote-catalog-body');
+  const selection = make('p', 'quote-catalog-selection muted');
+  selection.setAttribute('aria-live', 'polite');
+  header.append(search, sort);
+  host.append(header, count, body, selection);
+  let builder = null;
+
+  function update(next) {
+    builder = next;
+    const quantities = rows => {
+      const map = new Map();
+      for (const row of rows || []) map.set(row.priceListItemId, (map.get(row.priceListItemId) || 0) + Number(row.quantity || 0));
+      return map;
+    };
+    const included = quantities(next?.items);
+    const optional = quantities(next?.optionalItems);
+    for (const row of body.querySelectorAll('[data-catalog-product]')) {
+      const id = row.dataset.catalogProduct;
+      const qty = included.get(id) || 0;
+      const opt = optional.get(id) || 0;
+      row.classList.toggle('is-included', qty > 0);
+      row.querySelector('.quote-catalog-quantity').textContent = qty || opt ? [qty ? qty + ' incluido(s)' : '', opt ? opt + ' opcional(es)' : ''].filter(Boolean).join(' · ') : 'Sin agregar';
+    }
+    selection.textContent = [...included.values()].reduce((a,b)=>a+b,0) + ' unidades incluidas · ' + [...optional.values()].reduce((a,b)=>a+b,0) + ' opcionales';
+  }
+
+  function paint() {
+    const query = normal(search.value);
+    const visible = products.filter(p => !query || normal([quoteCatalogModule(p), p.name, p.code, clientServiceScope(p)].join(' ')).includes(query));
+    count.textContent = visible.length + ' de ' + products.length + ' servicios · precios de lista en ' + currency + ' · periodicidad indicada por producto';
+    body.replaceChildren();
+    if (!visible.length) body.append(make('p', 'muted', 'No hay servicios para mostrar.'));
+    for (const [group, rows] of quoteCatalogGroups(visible, sort.value === 'price')) {
+      if (!rows.length) continue;
+      const section = make('section', 'quote-catalog-group');
+      const heading = make('h5', '', group);
+      const grid = make('div', 'quote-catalog-grid');
+      section.append(heading, grid);
+      for (const product of rows) {
+        const card = make('article', 'quote-catalog-card');
+        card.dataset.catalogProduct = product.id;
+        const top = make('div', 'quote-catalog-card-top');
+        const name = make('strong', '', product.name);
+        const price = make('div', 'quote-catalog-price');
+        price.append(make('strong', '', fmtCurrency(product.price, currency)), make('small', '', product.periodicity === 'unico' ? 'Pago único' : 'Mensual'));
+        top.append(name, price);
+        const description = make('ul', 'quote-catalog-description');
+        for (const line of capabilities(product)) description.append(make('li', '', line));
+        const footer = make('div', 'quote-catalog-card-footer');
+        const qty = make('span', 'quote-catalog-quantity');
+        const actions = make('div', 'quote-catalog-actions');
+        const optional = make('button', 'small-btn', '+ Opcional');
+        optional.type = 'button'; optional.dataset.action = 'quote-catalog-optional'; optional.dataset.id = product.id;
+        optional.setAttribute('aria-label', 'Agregar ' + product.name + ' como opcional');
+        const add = make('button', 'primary-btn quote-catalog-plus', '+');
+        add.type = 'button'; add.dataset.action = 'quote-catalog-add'; add.dataset.id = product.id;
+        add.setAttribute('aria-label', 'Agregar una unidad de ' + product.name);
+        actions.append(optional, add); footer.append(qty, actions);
+        card.append(top, description, footer); grid.append(card);
+      }
+      body.append(section);
+    }
+    update(builder);
+  }
+  search.addEventListener('input', paint);
+  sort.addEventListener('change', paint);
+  host._quoteCatalog = { update };
+  paint();
+  return host._quoteCatalog;
+}
