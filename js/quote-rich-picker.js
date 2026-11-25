@@ -367,6 +367,7 @@ export function mountQuoteCatalog(host, products, currency) {
     update(builder);
   }
   search.addEventListener('input', paint);
+  search.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
   sort.addEventListener('change', paint);
   host._quoteCatalog = { update };
   paint();
