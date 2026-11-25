@@ -76,3 +76,108 @@ export function placeQuoteRoadmap(container, innerPageHeightPx, options = {}) {
     pageHeightPx: pageHeight,
   };
 }
+
+/**
+ * Construye hojas A4 reales antes de rasterizar. Cada hoja se mide al mismo
+ * ancho que el área imprimible, y se añade una fila completa o bloque completo.
+ * No se corta un canvas largo ni se descartan hojas por heurísticas de color.
+ */
+export function composeQuotePages(source, host, { maxHeight = 1010 } = {}) {
+  if (!source || !host || !(maxHeight > 0)) throw new Error('No se pudo preparar la paginación.');
+  const pages = [];
+  let page;
+  const newPage = () => {
+    page = document.createElement('div');
+    page.className = 'quote-doc qd-for-print qd-page';
+    host.append(page); pages.push(page);
+    return page;
+  };
+  const fits = () => Math.max(page.scrollHeight, page.getBoundingClientRect().height) <= maxHeight;
+  const appendBlock = (node) => {
+    const block = document.createElement('div');
+    block.className = 'qd-page-block';
+    block.append(node);
+    page.append(block);
+    if (!fits()) {
+      block.remove();
+      if (page.childElementCount) newPage();
+      page.append(block);
+      if (!fits()) throw new Error('Un bloque de la cotización supera una hoja A4. Reduce su extensión para exportar sin cortes.');
+    }
+  };
+  const clone = node => node.cloneNode(true);
+  newPage();
+
+  function appendTable(tables, heading, caption, continued, kind) {
+    if (!tables.length) return;
+    const rows = tables.flatMap(table => [...table.querySelectorAll('tbody > tr')]);
+    if (!rows.length) return;
+    let section = null, body = null;
+    const init = (first) => {
+      section = document.createElement('section');
+      section.className = 'qd-page-table ' + kind;
+      if (first && heading) section.append(clone(heading));
+      else {
+        const h = document.createElement('h4'); h.textContent = continued; section.append(h);
+      }
+      if (first && caption) section.append(clone(caption));
+      const table = tables[0].cloneNode(false);
+      if (tables[0].tHead) table.append(clone(tables[0].tHead));
+      body = document.createElement('tbody'); table.append(body); section.append(table);
+      page.append(section);
+    };
+    for (let i = 0; i < rows.length; i++) {
+      if (!section) init(i === 0);
+      const row = clone(rows[i]);
+      body.append(row);
+      if (fits()) continue;
+      row.remove();
+      if (!body.childElementCount) section.remove();
+      if (page.childElementCount) newPage();
+      init(i === 0);
+      body.append(row);
+      if (!fits()) throw new Error('El alcance de un servicio supera una hoja A4. No se ha generado un PDF incompleto.');
+    }
+  }
+
+  function appendProjection(section) {
+    const heading = section.querySelector('h4');
+    const months = section.querySelector('.qd-months');
+    const totals = section.querySelector('.qd-contract');
+    const entries = [...(months?.children || [])];
+    // Bloques de hasta 24 meses para contratos largos; cada uno es indivisible.
+    const chunks = Math.max(1, Math.ceil(entries.length / 24));
+    for (let i = 0; i < chunks; i++) {
+      const block = section.cloneNode(false);
+      if (heading) {
+        const h = clone(heading);
+        if (i) h.append(document.createTextNode(' · continuación'));
+        block.append(h);
+      }
+      if (months) {
+        const grid = months.cloneNode(false);
+        entries.slice(i * 24, (i + 1) * 24).forEach(node => grid.append(clone(node)));
+        block.append(grid);
+      }
+      if (i === chunks - 1 && totals) block.append(clone(totals));
+      appendBlock(block);
+    }
+  }
+
+  for (const node of source.children) {
+    if (node.classList.contains('qd-unified-economics')) {
+      appendTable([...node.querySelectorAll('.qd-unified-table')], node.querySelector('.qd-economic-title'),
+        node.querySelector('.qd-economic-caption'), 'Propuesta económica · continuación', 'qd-financial-group');
+      const summary = node.querySelector('.qd-economic-summary');
+      if (summary) appendBlock(clone(summary));
+    } else if (node.classList.contains('qd-optionals-section')) {
+      appendTable([...node.querySelectorAll('.qd-optional-table')], node.querySelector('h4'),
+        node.querySelector('.qd-optional-notice'), 'Complementos opcionales · continuación', 'qd-optionals-section');
+    } else if (node.classList.contains('qd-projection-summary')) {
+      appendProjection(node);
+    } else {
+      appendBlock(clone(node));
+    }
+  }
+  return pages.filter(p => p.childElementCount);
+}
