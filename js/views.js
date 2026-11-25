@@ -33,7 +33,7 @@ import { readOptionalQuoteData } from './quote-optionals.js';
 import { QUOTE_IMPLEMENTATION_STEPS } from './quote-implementation.js';
 import { quoteDiscountComparison, quoteDiscountPercent } from './quote-commercial-pricing.js';
 import { DEFENDER_DEFAULT, DEFENDER_HARDWARE, DEFENDER_TAGS, calculateDefender } from './defender-pricing.js';
-import { clientServiceName, clientServiceScope, clientServiceQuantity } from './quote-client-copy.js';
+import { clientServiceName, clientServiceScope, clientServiceQuantity, clientServiceModule } from './quote-client-copy.js';
 import { isAdmin, isReadOnly, isSuper, session } from './auth.js';
 import { availableTutorialsForRole, teamTutorialStatus } from './tutorials.js';
 import {
@@ -1564,6 +1564,8 @@ export function quoteDocHtml(doc) {
   const setup = quotedLines.filter((l) => l.periodicity === 'unico');
   const monthly = quotedLines.filter((l) => l.periodicity !== 'unico');
   const amount = (n) => fmtAmount(n, cur);
+  const scopeHtml = (item) => `<ul class="qd-line-scope">${clientServiceScope(item).split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => `<li>${e(line.replace(/^[-•]\s*/, ''))}</li>`).join('')}</ul>`;
+  const moduleTag = item => `<span class="qd-billing-tag qd-module-tag">${e(clientServiceModule(item))}</span>`;
   // Bloques cortos e indivisibles para html2pdf: una tabla HTML larga puede
   // partir un <tr> aunque tenga break-inside: avoid. Cada bloque lleva una
   // cabecera propia y puede comenzar en otra hoja sin dividir ningún pack.
@@ -1585,8 +1587,8 @@ export function quoteDocHtml(doc) {
       <tbody>${rows.map((l) => `<tr>
         <td data-label="Solución">
           <strong>${e(commercialName(l))}</strong>
-          <span class="qd-billing-tag ${l.periodicity === 'unico' ? 'qd-billing-once' : 'qd-billing-monthly'}">${l.periodicity === 'unico' ? 'Pago único' : 'Mensual'}</span>
-          ${l.description ? `<div class="qd-service-highlight">${e(l.description.split(/\r?\n/)[0])}</div>` : ''}
+          ${moduleTag(l)}
+          ${scopeHtml(l)}
         </td>
         <td class="num" data-label="Cantidad">${fmtNumber(l.quantity)}</td>
         <td class="num" data-label="Valor unitario ${cur}">${amount(l.unitPrice)}</td>
@@ -1661,17 +1663,6 @@ export function quoteDocHtml(doc) {
       </section>
       ${early ? `<section class="qd-commercial"><h3>Acceso Anticipado TaskFlow</h3><p>Piloto: ${e(early.days)} días. Precio piloto: ${amount(early.pilotPrice)}.</p><p>Alcance: ${e(early.scope)}</p><p>Condiciones: ${e(early.conditions)}</p><p>Beneficio posterior: ${e(early.benefit === '40x6' ? '40 % por seis meses' : early.benefit === 'preferential12' ? 'Tarifa preferencial por doce meses' : 'Sin descuento')}</p><p>Los precios siguientes corresponden a contratación posterior opcional.</p></section>` : ''}
       ${cleanNotes ? `<p class="qd-notes"><strong>Observaciones:</strong> ${e(cleanNotes)}</p>` : ''}
-      ${quotedLines.length ? `<section class="qd-included-capacities">
-        <h4>Qué incluye cada solución contratada</h4>
-        <p class="qd-scope-lead">Detalle de las plataformas, accesos, servicios y capacidades incluidos en esta propuesta.</p>
-        <div class="qd-plan-grid">${quotedLines.map((service) => `
-          <div class="qd-plan-card">
-            <strong>${e(commercialName(service))}</strong>
-            <div class="qd-scope-quantity">${e(clientServiceQuantity(service))}</div>
-            <ul>${service.description.split(/\r?\n/).filter(Boolean).map((feature) => `<li>${e(feature)}</li>`).join('')}</ul>
-          </div>`).join('')}</div>
-      </section>` : ''}
-
       ${commercialInfo.length ? `
         <section class="qd-commercial qd-included-benefits">
           <h4>Incluidos</h4>
@@ -1700,7 +1691,7 @@ export function quoteDocHtml(doc) {
           <table class="qd-table qd-optional-table">
             <thead><tr><th>Complemento</th><th class="num">Cant.</th><th class="num">Precio unit. ${cur}</th><th class="num">Valor referencial ${cur}</th></tr></thead>
             <tbody>${group.map((it) => `<tr>
-              <td data-label="Complemento"><strong>${e(it.name)}</strong>${it.description ? `<div class="qd-service-highlight">${e(it.description.split(/\r?\n/)[0])}</div>` : ''}</td>
+              <td data-label="Complemento"><strong>${e(it.name)}</strong> ${moduleTag(it)}${scopeHtml(it)}</td>
               <td class="num" data-label="Cantidad">${fmtNumber(it.quantity)}</td>
               <td class="num" data-label="Precio unitario ${cur}">${amount(it.unitPrice)}<div class="qd-muted">${it.includesIva ? 'IVA incluido' : 'neto + IVA'} · ${it.periodicity === 'unico' ? 'pago único' : 'mensual'}</div></td>
               <td class="num" data-label="Valor referencial ${cur}"><strong>${amount(it.total)}</strong><div class="qd-muted">IVA incluido</div></td>
@@ -1768,6 +1759,7 @@ export function quoteDocFromSaved(q) {
         row.id === item.priceListItemId && row.priceListId === q.priceListId);
       return {
         ...item,
+        category: item.category || currentCatalog?.category || '',
         description: item.description?.trim() || currentCatalog?.description || ''
       };
     }),
