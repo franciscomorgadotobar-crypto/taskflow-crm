@@ -88,7 +88,7 @@ import {
 } from './quotes.js';
 import { fetchQuoteRate, formatQuoteRate, parseQuoteRate } from './quote-rates.js';
 import { DEFENDER_DEFAULT, defenderConfig, defenderPriceListName, defenderPriceListItems, defenderQuoteLines, defenderNotes } from './defender-pricing.js';
-import { enhanceQuoteProductSelect } from './quote-rich-picker.js';
+import { mountQuoteCatalog } from './quote-rich-picker.js';
 import { readOptionalQuoteData, writeOptionalQuoteData } from './quote-optionals.js';
 import { ensureQuoteFormControls, ensurePriceItemDescription } from './quote-form-compat.js';
 import { addQuotePdfFooters, trimTrailingEmptyQuotePages } from './quote-pdf-cleanup.js';
@@ -613,6 +613,7 @@ function refreshDetailIfOpen() {
   const draft = previous && $('fichaResult') ? {
     signature: previous.dataset.taskSignature,
     result: $('fichaResult').value,
+    actualType: $('fichaActualType')?.value || '',
     nextAction: $('fichaNextAction')?.value || '',
     nextDate: $('fichaNextDate')?.value || '',
     nextType: taskTypeValue('ficha'),
@@ -625,11 +626,12 @@ function refreshDetailIfOpen() {
   const current = body.querySelector('[data-task-flow="ficha"]');
   if (draft && current?.dataset.taskSignature === draft.signature && $('fichaResult')) {
     $('fichaResult').value = draft.result;
+    if ($('fichaActualType')) $('fichaActualType').value = draft.actualType;
     $('fichaNextAction').value = draft.nextAction;
     $('fichaNextDate').value = draft.nextDate;
     setTaskType('ficha', draft.nextType);
     setFichaTaskStep(draft.step);
-    if (['fichaResult','fichaNextAction','fichaNextDate'].includes(draft.focus)) {
+    if (['fichaResult','fichaActualType','fichaNextAction','fichaNextDate'].includes(draft.focus)) {
       const field = $(draft.focus);
       field?.focus({ preventScroll: true });
       if (draft.selection && field?.tagName === 'TEXTAREA') field.setSelectionRange(...draft.selection);
@@ -1773,24 +1775,25 @@ function fillQuoteLeadFields(lead, withContact, client = {}) {
 function fillQuoteServiceOptions() {
   const b = ui.quoteBuilder;
   const list = getPriceList(b.priceListId);
-  const items = itemsOfPriceList(b.priceListId).filter((it) => it.active);
-  const groups = new Map();
-  items.forEach((it) => groups.set(it.category || 'Sin categoría', [...(groups.get(it.category || 'Sin categoría') || []), it]));
-  $('quoteAddService').innerHTML = items.length
-    ? [...groups]
-        .map(
-          ([cat, rows]) =>
-            `<optgroup label="${escapeHtml(cat)}">${rows
-              .map((it) => `<option value="${it.id}">${escapeHtml(it.name)} · ${fmtCurrency(it.price, list?.currency)} ${it.periodicity === 'unico' ? 'único' : 'mensual'}</option>`)
-              .join('')}</optgroup>`
-        )
-        .join('')
-    : '<option value="">La lista no tiene servicios activos</option>';
-  $('quoteOptionalService').innerHTML = $('quoteAddService').innerHTML;
-  // Selector enriquecido: permite ver cada plan y sus límites dentro del
-  // desplegable (no después de elegirlo ni fuera de la lista).
-  enhanceQuoteProductSelect($('quoteAddService'), items, list?.currency);
-  enhanceQuoteProductSelect($('quoteOptionalService'), items, list?.currency);
+  const items = itemsOfPriceList(b.priceListId).filter(it => it.active);
+  const lines = $('quoteLinesRoot');
+  let host = $('quoteCatalogRoot');
+  if (!host) {
+    const catalog = document.createElement('section');
+    catalog.className = 'quote-section quote-catalog-section';
+    catalog.innerHTML = '<h4>Catálogo de servicios</h4><p class="muted quote-hint">Agrega una unidad con +. Los opcionales se muestran en la propuesta, pero no se suman al contrato.</p><div id="quoteCatalogRoot"></div>';
+    lines.closest('section').insertAdjacentElement('beforebegin', catalog);
+    host = $('quoteCatalogRoot');
+  }
+  // Conservar los controles anteriores como compatibilidad, sin mostrarlos.
+  for (const id of ['quoteAddService','quoteOptionalService']) {
+    const select = $(id);
+    if (!select) continue;
+    select.innerHTML = items.map(it => `<option value="${escapeHtml(it.id)}">${escapeHtml(it.name)}</option>`).join('');
+    const row = select.closest('.quote-add-row');
+    if (row) { row.hidden = true; row.style.display = 'none'; }
+  }
+  mountQuoteCatalog(host, items, list?.currency || 'UF').update(b);
 }
 
 /** Mismo formato que quoteDocFromSaved, armado desde el borrador y su último cálculo. */
@@ -1844,6 +1847,7 @@ function renderQuoteSummary() {
   const b = ui.quoteBuilder;
   $('quoteLinesRoot').innerHTML = quoteLinesHtml(b);
   $('quoteOptionalLinesRoot').innerHTML = quoteOptionalLinesHtml(b);
+  $('quoteCatalogRoot')?._quoteCatalog?.update(b);
   if (b.calcError) {
     $('quoteSummaryRoot').innerHTML = `<p class="import-error">${escapeHtml(b.calcError)}</p>`;
     return;
@@ -2160,6 +2164,7 @@ function handleQuoteFormChange(ev) {
   const b = ui.quoteBuilder;
   const el = ev.target;
   if (!b || !el) return;
+  if (el.closest?.('#quoteCatalogRoot')) return;
   if (el.dataset.quoteOptionalQty !== undefined) {
     if (ev.type !== 'change') return;
     const index = Number(el.dataset.quoteOptionalQty);
@@ -2174,6 +2179,7 @@ function handleQuoteFormChange(ev) {
     if (!it) return;
     it.quantity = Math.max(1, Math.round(Number(el.value) || 1));
     el.value = it.quantity;
+    $('quoteCatalogRoot')?._quoteCatalog?.update(b);
     return scheduleQuotePreview();
   }
   switch (el.id) {
@@ -2259,11 +2265,10 @@ function handleQuoteFormChange(ev) {
   }
 }
 
-function addQuoteLine() {
+function addQuoteLine(itemId = $('quoteAddService').value, qty = Math.max(1, Math.round(Number($('quoteAddQty').value) || 1))) {
   const b = ui.quoteBuilder;
-  const itemId = $('quoteAddService').value;
-  const qty = Math.max(1, Math.round(Number($('quoteAddQty').value) || 1));
-  if (!itemId) return toast('Elige un servicio.', 'error');
+  const product = getPriceListItem(itemId);
+  if (!b || !product || !product.active || product.priceListId !== b.priceListId) return toast('Elige un servicio activo de la lista.', 'error');
   const existing = b.items.find((it) => it.priceListItemId === itemId);
   if (existing) existing.quantity += qty;
   else b.items.push({ ref: quoteRef(), priceListItemId: itemId, quantity: qty });
@@ -2273,15 +2278,13 @@ function addQuoteLine() {
   scheduleQuotePreview();
 }
 
-function addQuoteOptional() {
+function addQuoteOptional(id = $('quoteOptionalService').value, quantity = Math.max(1, Math.round(Number($('quoteOptionalQty').value) || 1))) {
   const b = ui.quoteBuilder;
   if (!b) return;
-  const id = $('quoteOptionalService').value;
   const product = getPriceListItem(id);
   if (!product || product.priceListId !== b.priceListId || !product.active) {
     return toast('Selecciona un complemento activo de la lista.', 'error');
   }
-  const quantity = Math.max(1, Math.round(Number($('quoteOptionalQty').value) || 1));
   const existing = b.optionalItems.find((it) => it.priceListItemId === id);
   if (existing) existing.quantity += quantity;
   else b.optionalItems.push({
@@ -3101,6 +3104,7 @@ async function finishFichaTask(id, { withoutNext = false } = {}) {
   }
 
   const result = $('fichaResult')?.value.trim() || 'Gestión marcada como realizada.';
+  const actualType = $('fichaActualType')?.value || task.type || 'Actividad';
   const nextType = withoutNext ? '' : taskTypeValue('ficha');
   const nextAction = withoutNext ? '' : ($('fichaNextAction')?.value.trim() || '');
   const nextDate = withoutNext ? '' : ($('fichaNextDate')?.value || '');
@@ -3109,13 +3113,13 @@ async function finishFichaTask(id, { withoutNext = false } = {}) {
   if (!withoutNext && !nextDate) return toast('Elige la fecha de la siguiente acción.', 'error');
 
   fichaTaskSaving.add(id);
-  const controls = [...flow.querySelectorAll('button, textarea, input')].filter(el => !el.disabled);
+  const controls = [...flow.querySelectorAll('button, textarea, input, select')].filter(el => !el.disabled);
   controls.forEach(el => { el.disabled = true; });
   flow.setAttribute('aria-busy', 'true');
   let closed;
   try {
     closed = await completeTaskAtomic(id, {
-      type: task.type || 'Actividad',
+      type: actualType,
       date: localDateTimeInput(),
       result,
       nextType,
@@ -3654,6 +3658,8 @@ const ACTIONS = {
   },
   'add-quote-line': () => addQuoteLine(),
   'add-quote-optional': () => addQuoteOptional(),
+  'quote-catalog-add': (id) => addQuoteLine(id, 1),
+  'quote-catalog-optional': (id) => addQuoteOptional(id, 1),
   'remove-quote-optional': (index) => {
     if (!ui.quoteBuilder) return;
     ui.quoteBuilder.optionalItems.splice(Number(index), 1);
