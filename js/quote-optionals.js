@@ -66,6 +66,7 @@ export function optionalItemSnapshot(item, quantity, config = {}) {
     code: item.code || '',
     name: item.name,
     description: item.description || '',
+    category: item.category || '',
     periodicity: item.periodicity || 'mensual',
     quantity: qty,
     currency,
