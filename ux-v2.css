@@ -8348,3 +8348,26 @@ html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
     width: 100% !important;
   }
 }
+
+
+/* Catálogo de cotización integrado, sin ventanas superpuestas. */
+.quote-catalog-toolbar { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,260px); gap:10px; margin:12px 0 6px; }
+.quote-catalog-toolbar input,.quote-catalog-toolbar select { width:100%; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:inherit; font:inherit; font-size:12px; }
+.quote-catalog-count { margin:6px 0 14px; font-size:11px; }
+.quote-catalog-group { margin-top:18px; }
+.quote-catalog-group h5 { font-size:14px; margin:0 0 10px; padding-bottom:7px; border-bottom:1px solid var(--border); }
+.quote-catalog-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.quote-catalog-card { display:flex; flex-direction:column; min-width:0; border:1px solid var(--border); border-radius:11px; padding:14px; background:var(--panel); gap:10px; }
+.quote-catalog-card.is-included { border-color:var(--blue); }
+.quote-catalog-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.quote-catalog-card-top > strong { font-size:13px; min-width:0; overflow-wrap:anywhere; }
+.quote-catalog-price { flex-shrink:0; text-align:right; display:grid; gap:3px; }
+.quote-catalog-price strong { color:var(--blue); font-size:15px; white-space:nowrap; }
+.quote-catalog-price small { font-size:10px; color:var(--muted); }
+.quote-catalog-description { padding-left:17px; margin:0; display:grid; gap:4px; color:var(--muted); font-size:11.5px; line-height:1.5; overflow-wrap:anywhere; }
+.quote-catalog-card-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:10px; border-top:1px solid var(--border); }
+.quote-catalog-quantity { font-size:11px; font-weight:600; color:var(--muted); }
+.quote-catalog-actions { display:flex; align-items:center; gap:6px; margin-left:auto; }
+.quote-catalog-plus { min-width:40px; min-height:36px; font-size:22px !important; line-height:1; padding:6px 12px !important; }
+.quote-catalog-selection { margin:12px 0 0; font-size:12px; font-weight:600; }
+@media(max-width:620px) { .quote-catalog-toolbar,.quote-catalog-grid { grid-template-columns:minmax(0,1fr); } .quote-catalog-card { padding:11px; } .quote-catalog-card-top > strong { font-size:12px; } }
