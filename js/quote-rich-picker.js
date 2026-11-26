@@ -271,10 +271,12 @@ export function enhanceQuoteProductSelect(select, products = [], currency = 'UF'
 /** Catálogo integrado: todas las capacidades y el precio visibles, sin popups. */
 export function quoteCatalogModule(item) {
   const code = String(item.code || '').toUpperCase();
-  if (/^GE_/.test(code)) return 'Gestión Externa';
-  if (/^GI_/.test(code)) return 'Gestión Interna';
-  if (/^(INV_|PACK_INV_|PACK_SER_)/.test(code)) return 'Inventario';
-  return String(item.category || 'Otros servicios').trim() || 'Otros servicios';
+  const label = normal([item.name, item.category].filter(Boolean).join(' '));
+  if (/^GE_/.test(code) || /gestion externa/.test(label)) return 'Gestión Externa';
+  if (/^GI_/.test(code) || /gestion interna/.test(label)) return 'Gestión Interna';
+  if (/^(INV_|PACK_INV_|PACK_SER_)/.test(code) || /inventario/.test(label)) return 'Inventario';
+  if (/^(LAB_|LABORATORIO)/.test(code) || /laboratorio/.test(label)) return 'Laboratorio';
+  return 'Otros servicios';
 }
 export function quoteCatalogGroups(products, byPrice = false) {
   const sorted = [...products].sort((a, b) => Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es'));
@@ -285,29 +287,61 @@ export function quoteCatalogGroups(products, byPrice = false) {
     if (!groups.has(group)) groups.set(group, []);
     groups.get(group).push(product);
   }
-  const priority = ['Gestión Externa', 'Gestión Interna', 'Inventario'];
+  const priority = ['Inventario', 'Gestión Interna', 'Gestión Externa', 'Laboratorio', 'Otros servicios'];
   const order = group => priority.includes(group) ? priority.indexOf(group) : priority.length;
   return [...groups].sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b, 'es'));
 }
 export function mountQuoteCatalog(host, products, currency) {
   host.replaceChildren();
-  const header = make('div', 'quote-catalog-toolbar');
+  const groups = quoteCatalogGroups(products);
+  const modules = make('div', 'quote-catalog-modules');
+  modules.setAttribute('role', 'group');
+  modules.setAttribute('aria-label', 'Seleccionar módulo del sistema');
+  const header = make('div', 'quote-catalog-toolbar quote-catalog-module-toolbar');
   const search = make('input', 'quote-catalog-search');
   search.type = 'search';
   search.placeholder = 'Buscar módulo, plan o capacidad…';
   search.setAttribute('aria-label', 'Buscar en el catálogo');
-  const sort = make('select', 'quote-catalog-sort');
-  sort.setAttribute('aria-label', 'Orden del catálogo');
-  for (const [value, label] of [['module', 'Por módulo · menor a mayor'], ['price', 'Todos · menor a mayor precio']]) {
-    const opt = make('option', '', label); opt.value = value; sort.append(opt);
+  const back = make('button', 'small-btn quote-catalog-back', '← Módulos');
+  back.type = 'button';
+  const moduleLabel = make('strong', 'quote-catalog-current');
+  const icons = {
+    'Inventario': '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10M7 5l9 4"/>',
+    'Gestión Interna': '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1M10 21v-3h4v3"/>',
+    'Gestión Externa': '<rect x="5" y="3" width="14" height="18" rx="3"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17c0-4 8-4 8 0M10 5h4"/>',
+    'Laboratorio': '<path d="M9 3h6M10 3v7l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3M8 15h8"/>',
+    'Otros servicios': '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'
+  };
+  const colors = {'Inventario':'inventory','Gestión Interna':'internal','Gestión Externa':'external','Laboratorio':'lab','Otros servicios':'other'};
+  const buttons = new Map();
+  let activeModule = '';
+  for (const [name, rows] of groups) {
+    const button = make('button', 'quote-catalog-module quote-module-' + colors[name]);
+    button.type = 'button';
+    button.setAttribute('aria-pressed', 'false');
+    const icon = make('span', 'quote-module-icon');
+    icon.setAttribute('aria-hidden','true');
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + icons[name] + '</svg>';
+    const title = make('strong', '', name);
+    const meta = make('span', 'quote-module-count', rows.length + ' servicios');
+    button.append(icon, title, meta);
+    button.addEventListener('click', () => selectModule(name));
+    modules.append(button);
+    buttons.set(name, {button, meta, rows});
   }
   const count = make('p', 'muted quote-catalog-count');
   const body = make('div', 'quote-catalog-body');
   const selection = make('p', 'quote-catalog-selection muted');
   selection.setAttribute('aria-live', 'polite');
-  header.append(search, sort);
-  host.append(header, count, body, selection);
+  header.append(back, moduleLabel, search);
+  host.append(modules, header, count, body, selection);
   let builder = null;
+  function selectModule(name) {
+    activeModule = groups.some(([group]) => group === name) ? name : '';
+    search.value = '';
+    paint();
+  }
+  back.addEventListener('click', () => selectModule(''));
 
   function update(next) {
     builder = next;
@@ -318,6 +352,10 @@ export function mountQuoteCatalog(host, products, currency) {
     };
     const included = quantities(next?.items);
     const optional = quantities(next?.optionalItems);
+    for (const {meta, rows} of buttons.values()) {
+      const selected = rows.reduce((n, row) => n + (included.get(row.id) || 0) + (optional.get(row.id) || 0), 0);
+      meta.textContent = rows.length + ' servicios' + (selected ? ' · ' + selected + ' agregados' : '');
+    }
     for (const row of body.querySelectorAll('[data-catalog-product]')) {
       const id = row.dataset.catalogProduct;
       const qty = included.get(id) || 0;
@@ -329,17 +367,30 @@ export function mountQuoteCatalog(host, products, currency) {
   }
 
   function paint() {
-    const query = normal(search.value);
-    const visible = products.filter(p => !query || normal([quoteCatalogModule(p), p.name, p.code, clientServiceScope(p)].join(' ')).includes(query));
-    count.textContent = visible.length + ' de ' + products.length + ' servicios · precios de lista en ' + currency + ' · periodicidad indicada por producto';
+    for (const [name, {button}] of buttons) {
+      button.classList.toggle('is-active', name === activeModule);
+      button.setAttribute('aria-pressed', String(name === activeModule));
+    }
+    modules.classList.toggle('has-active', Boolean(activeModule));
+    header.hidden = !activeModule;
+    count.hidden = !activeModule;
+    moduleLabel.textContent = activeModule;
     body.replaceChildren();
+    if (!activeModule) {
+      body.append(make('p', 'muted quote-catalog-choose', products.length ? 'Selecciona un módulo para ver sus planes y servicios.' : 'Esta lista no tiene servicios activos.'));
+      update(builder);
+      return;
+    }
+    const query = normal(search.value);
+    const moduleProducts = groups.find(([name]) => name === activeModule)?.[1] || [];
+    const visible = moduleProducts.filter(p => !query || normal([p.name, p.code, p.category, clientServiceScope(p)].join(' ')).includes(query));
+    count.textContent = visible.length + ' de ' + moduleProducts.length + ' servicios · ' + currency + ' · menor a mayor precio';
     if (!visible.length) body.append(make('p', 'muted', 'No hay servicios para mostrar.'));
-    for (const [group, rows] of quoteCatalogGroups(visible, sort.value === 'price')) {
+    for (const [group, rows] of [[activeModule, visible]]) {
       if (!rows.length) continue;
       const section = make('section', 'quote-catalog-group');
-      const heading = make('h5', '', group);
       const grid = make('div', 'quote-catalog-grid');
-      section.append(heading, grid);
+      section.append(grid);
       for (const product of rows) {
         const card = make('article', 'quote-catalog-card');
         card.dataset.catalogProduct = product.id;
@@ -368,8 +419,7 @@ export function mountQuoteCatalog(host, products, currency) {
   }
   search.addEventListener('input', paint);
   search.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
-  sort.addEventListener('change', paint);
-  host._quoteCatalog = { update };
+  host._quoteCatalog = { update, selectModule };
   paint();
   return host._quoteCatalog;
 }
