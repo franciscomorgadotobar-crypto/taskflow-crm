@@ -1667,3 +1667,36 @@ button[disabled] { opacity: .5; cursor: not-allowed; }
 .quote-doc.qd-for-print.qd-page .qd-page-table > h4 { margin:0 0 6px; }
 .quote-doc.qd-for-print.qd-page .qd-page-table > p { margin:0 0 7px; }
 .quote-doc.qd-for-print.qd-page .qd-page-block { display:flow-root; }
+
+
+/* Exportación A4: dimensiones estables también en Android. */
+.quote-doc.qd-for-print.qd-page {
+  box-sizing:border-box;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+.quote-doc.qd-for-print.qd-page .qd-head {
+  grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.1fr);
+}
+.quote-doc.qd-for-print.qd-page .qd-head > div {
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.quote-doc.qd-for-print.qd-page .qd-logo,
+.quote-doc.qd-for-print.qd-page .qd-issuer img { max-width:min(150px,100%); }
+.quote-doc.qd-for-print.qd-page .qd-table {
+  width:100% !important;
+  max-width:100% !important;
+  table-layout:fixed !important;
+}
+.quote-doc.qd-for-print.qd-page .qd-table th,
+.quote-doc.qd-for-print.qd-page .qd-table td {
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.quote-doc.qd-for-print.qd-page .qd-table td.num {
+  white-space:normal;
+}
