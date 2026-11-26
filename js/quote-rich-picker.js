@@ -278,8 +278,22 @@ export function quoteCatalogModule(item) {
   if (/^(LAB_|LABORATORIO)/.test(code) || /laboratorio/.test(label)) return 'Laboratorio';
   return 'Otros servicios';
 }
+// Jerarquía comercial: elegir primero el plan, luego los accesos y
+// finalmente ampliar capacidades. El precio solo desempata dentro de cada nivel.
+export function quoteCatalogTier(item) {
+  const code = String(item.code || '').trim().toUpperCase();
+  const name = normal(item.name);
+  if (/^(GE_BASE|GI_BASE|INV_(ENTRADA|BASICO|MEDIO|AVANZADO|FULL|BASE))$/.test(code)) return 0;
+  if (/^(GE_APP|GI_WEB|INV_APP|INV_USER_ADD)$/.test(code)) return 1;
+  // Los packs y ampliaciones no son planes base, aunque su nombre mencione uno.
+  if (/^PACK_/.test(code) || /\b(packs?|ampliacion|almacen adicional|almacenamiento adicional|depreciacion)\b/.test(name)) return 2;
+  if (/(^|_)(BASE|PLAN)(_|$)/.test(code) || /\bplan\b/.test(name)) return 0;
+  if (/\b(usuarios?|licencias?|accesos?|tecnicos?)\b/.test(name) || /(^|_)(APP|WEB|USER)(_|$)/.test(code)) return 1;
+  return 2;
+}
 export function quoteCatalogGroups(products, byPrice = false) {
-  const sorted = [...products].sort((a, b) => Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es'));
+  const priceOrder = (a, b) => Number(a.price) - Number(b.price) || String(a.name).localeCompare(String(b.name), 'es');
+  const sorted = [...products].sort(byPrice ? priceOrder : (a, b) => quoteCatalogTier(a) - quoteCatalogTier(b) || priceOrder(a, b));
   if (byPrice) return [['Todos los servicios · menor a mayor', sorted]];
   const groups = new Map();
   for (const product of sorted) {
@@ -384,13 +398,18 @@ export function mountQuoteCatalog(host, products, currency) {
     const query = normal(search.value);
     const moduleProducts = groups.find(([name]) => name === activeModule)?.[1] || [];
     const visible = moduleProducts.filter(p => !query || normal([p.name, p.code, p.category, clientServiceScope(p)].join(' ')).includes(query));
-    count.textContent = visible.length + ' de ' + moduleProducts.length + ' servicios · ' + currency + ' · menor a mayor precio';
+    count.textContent = visible.length + ' de ' + moduleProducts.length + ' servicios · ' + currency + ' · planes, usuarios y complementos';
     if (!visible.length) body.append(make('p', 'muted', 'No hay servicios para mostrar.'));
-    for (const [group, rows] of [[activeModule, visible]]) {
+    const sections = activeModule === 'Otros servicios' ? [['Servicios', visible]] : [
+      ['Planes y bases', visible.filter(p => quoteCatalogTier(p) === 0)],
+      ['Usuarios y accesos', visible.filter(p => quoteCatalogTier(p) === 1)],
+      ['Complementos y ampliaciones', visible.filter(p => quoteCatalogTier(p) === 2)]
+    ];
+    for (const [group, rows] of sections) {
       if (!rows.length) continue;
       const section = make('section', 'quote-catalog-group');
       const grid = make('div', 'quote-catalog-grid');
-      section.append(grid);
+      section.append(make('h5', '', group), grid);
       for (const product of rows) {
         const card = make('article', 'quote-catalog-card');
         card.dataset.catalogProduct = product.id;
