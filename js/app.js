@@ -2486,12 +2486,73 @@ async function downloadQuotePdf(doc) {
         margin: [12, 12, 12, 12],
         filename,
         image: { type: 'jpeg', quality: 0.97 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 1200, scrollX: 0, scrollY: 0 },
+        // Mantener el viewport real también en el clon de html2canvas.
+        // Cambiar a 1200 px en Android desplazaba el contenedor centrado.
+        html2canvas: {
+          scale: 2, useCORS: true, backgroundColor: '#ffffff',
+          windowWidth: window.innerWidth, windowHeight: window.innerHeight,
+          scrollX: 0, scrollY: 0
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: [] }
       }).from(page);
+      let overlay = null;
       try {
-        await worker.toCanvas();
+        // html2pdf crea un contenedor absoluto con left/right:0 y margin:auto.
+        // Anclarlo al origen, sin centrarlo respecto del viewport móvil.
+        await worker.toContainer();
+        overlay = await worker.get('overlay');
+        const capture = await worker.get('container');
+        if (!capture || !overlay) throw new Error('No se pudo preparar la hoja para captura.');
+        const paperWidth = 186 * 96 / 25.4;
+        Object.assign(overlay.style, {
+          position: 'fixed', left: '0', top: '0', right: 'auto', bottom: 'auto',
+          width: Math.ceil(paperWidth) + 'px', height: '100vh', margin: '0',
+          padding: '0', border: '0', overflow: 'visible', pointerEvents: 'none'
+        });
+        Object.assign(capture.style, {
+          position: 'absolute', left: '0', top: '0', right: 'auto', bottom: 'auto',
+          margin: '0', padding: '0', border: '0', width: paperWidth + 'px',
+          minWidth: paperWidth + 'px', maxWidth: paperWidth + 'px',
+          height: 'auto', boxSizing: 'border-box', overflow: 'visible', transform: 'none'
+        });
+        const paper = capture.querySelector('.qd-page');
+        if (!paper) throw new Error('No se encontró el contenido de la hoja.');
+        // Validar geometría en el documento real y en la copia del render.
+        // La comprobación evita guardar un PDF desplazado o con columnas ocultas.
+        const checkGeometry = (element) => {
+          const box = element.getBoundingClientRect();
+          const content = element.querySelector('.qd-page');
+          const bounds = content?.getBoundingClientRect();
+          if (!bounds || Math.abs(box.left) > 1 || Math.abs(bounds.left - box.left) > 1 ||
+              Math.abs(box.width - paperWidth) > 1 || Math.abs(bounds.width - box.width) > 1 ||
+              content.scrollWidth > Math.ceil(box.width) + 1) {
+            throw new Error('La hoja de cotización no está alineada al ancho A4.');
+          }
+          for (const cell of content.querySelectorAll('.qd-table th, .qd-table td, .qd-head > div')) {
+            const rect = cell.getBoundingClientRect();
+            if (rect.left < box.left - 1 || rect.right > box.right + 1 ||
+                cell.scrollWidth > cell.clientWidth + 2) {
+              throw new Error('El contenido de la cotización excede el ancho de la hoja.');
+            }
+          }
+          if (box.height > 273 * 96 / 25.4 - 2) throw new Error('Una hoja excede la altura imprimible.');
+          return box;
+        };
+        const bounds = checkGeometry(capture);
+        // Fijar dimensiones de captura y repetir la verificación en el clon.
+        const canvasOptions = {
+          scale: 2, useCORS: true, backgroundColor: '#ffffff',
+          windowWidth: window.innerWidth, windowHeight: window.innerHeight,
+          scrollX: 0, scrollY: 0, x: 0, y: 0,
+          width: Math.ceil(bounds.width), height: Math.ceil(bounds.height),
+          onclone: cloned => {
+            const clone = cloned.querySelector('.html2pdf__container');
+            if (!clone) throw new Error('No se encontró la hoja clonada.');
+            checkGeometry(clone);
+          }
+        };
+        await worker.set({html2canvas: canvasOptions}).toCanvas();
         const canvas = await worker.get('canvas');
         if (!canvas?.width || !canvas?.height) throw new Error('No se pudo capturar una hoja de la cotización.');
         const height = 186 * canvas.height / canvas.width;
@@ -2505,6 +2566,7 @@ async function downloadQuotePdf(doc) {
           pdf.addImage(canvas.toDataURL('image/jpeg', 0.97), 'JPEG', 12, 12, 186, height);
         }
       } finally {
+        overlay?.remove();
         page.remove();
       }
     }
