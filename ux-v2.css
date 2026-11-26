@@ -8371,3 +8371,34 @@ html[data-crm-view="quotes"] #viewRoot .quote-card-contract {
 .quote-catalog-plus { min-width:40px; min-height:36px; font-size:22px !important; line-height:1; padding:6px 12px !important; }
 .quote-catalog-selection { margin:12px 0 0; font-size:12px; font-weight:600; }
 @media(max-width:620px) { .quote-catalog-toolbar,.quote-catalog-grid { grid-template-columns:minmax(0,1fr); } .quote-catalog-card { padding:11px; } .quote-catalog-card-top > strong { font-size:12px; } }
+
+
+/* Selección de módulos con la identidad visual del sistema TaskFlow. */
+.quote-catalog-modules { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:14px 0 10px; }
+.quote-catalog-module { --module-color:#64748b; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; min-width:0; min-height:110px; padding:13px 8px; border:1px solid var(--module-color); border-radius:8px; background:color-mix(in srgb,var(--panel) 94%,var(--module-color)); color:var(--module-color); font:inherit; cursor:pointer; transition:background .15s,box-shadow .15s; }
+.quote-module-inventory { --module-color:#1268ee; }
+.quote-module-internal { --module-color:#dc293e; }
+.quote-module-external { --module-color:#138354; }
+.quote-module-lab { --module-color:#8055b7; }
+.quote-module-other { --module-color:#64748b; }
+.quote-catalog-module:hover,.quote-catalog-module.is-active { background:color-mix(in srgb,var(--panel) 86%,var(--module-color)); box-shadow:inset 0 0 0 1px var(--module-color); }
+.quote-catalog-module:focus-visible { outline:2px solid var(--module-color); outline-offset:3px; }
+.quote-catalog-module strong { font-size:12px; text-align:center; text-transform:uppercase; overflow-wrap:anywhere; }
+.quote-module-icon { width:30px; height:30px; display:block; flex-shrink:0; }
+.quote-module-icon svg { width:100%; height:100%; display:block; }
+.quote-module-count { font-size:10px; color:var(--muted); text-align:center; }
+.quote-catalog-modules.has-active { display:flex; flex-wrap:wrap; gap:7px; }
+.quote-catalog-modules.has-active .quote-catalog-module { flex:1 1 125px; flex-direction:row; flex-wrap:wrap; min-height:48px; gap:5px; padding:8px; }
+.quote-catalog-modules.has-active .quote-module-icon { width:19px; height:19px; }
+.quote-catalog-modules.has-active .quote-module-count { flex-basis:100%; }
+.quote-catalog-module-toolbar { grid-template-columns:auto minmax(0,1fr) minmax(160px,1fr); align-items:center; }
+.quote-catalog-module-toolbar[hidden],.quote-catalog-count[hidden] { display:none !important; }
+.quote-catalog-current { font-size:13px; }
+.quote-catalog-choose { text-align:center; padding:10px 0; }
+.quote-catalog-body .quote-catalog-group { margin-top:8px; }
+@media(max-width:620px) {
+  .quote-catalog-modules { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .quote-catalog-module { min-height:92px; }
+  .quote-catalog-module-toolbar { grid-template-columns:auto minmax(0,1fr); }
+  .quote-catalog-module-toolbar .quote-catalog-search { grid-column:1 / -1; }
+}
