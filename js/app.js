@@ -1682,7 +1682,6 @@ let quotePreviewTimer = null;
 let quotePreviewSeq = 0;
 
 const DEFAULT_QUOTE_COMMERCIAL_INFO = [
-  'Soporte 24/7',
   'Implementación guiada por 1 mes',
   'Marketing conjunto incluido (opcional)'
 ];
